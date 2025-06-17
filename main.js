@@ -205,8 +205,9 @@ ipcMain.handle('voice-speak', async (event, text, speaker) => {
   try {
     const result = await voiceService.speakText(text, speaker);
     if (result.success) {
-      // 音声データをレンダラープロセスに送信
-      mainWindow.webContents.send('play-audio', result.audioData);
+      // ArrayBufferをBufferに変換してからレンダラープロセスに送信
+      const buffer = Buffer.from(result.audioData);
+      mainWindow.webContents.send('play-audio', buffer);
       return { success: true };
     } else {
       return { success: false, error: 'Failed to synthesize' };

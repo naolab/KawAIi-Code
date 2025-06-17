@@ -387,8 +387,23 @@ class TerminalApp {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
 
+            // BufferをArrayBufferに変換
+            let arrayBuffer;
+            if (audioData instanceof ArrayBuffer) {
+                arrayBuffer = audioData;
+            } else if (audioData.buffer instanceof ArrayBuffer) {
+                arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength);
+            } else {
+                // Uint8ArrayまたはBufferの場合
+                arrayBuffer = new ArrayBuffer(audioData.length);
+                const view = new Uint8Array(arrayBuffer);
+                for (let i = 0; i < audioData.length; i++) {
+                    view[i] = audioData[i];
+                }
+            }
+
             // Decode audio data
-            const audioBuffer = await this.audioContext.decodeAudioData(audioData.slice());
+            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
             const source = this.audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(this.audioContext.destination);
