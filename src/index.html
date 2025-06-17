@@ -31,7 +31,11 @@
                     <select id="speaker-select" class="speaker-select">
                         <option value="0">話者を選択...</option>
                     </select>
-                    <button id="stop-voice" class="btn btn-voice">音声停止</button>
+                    <div class="voice-options">
+                        <label for="voice-cooldown">間隔（秒）:</label>
+                        <input type="number" id="voice-cooldown" min="1" max="10" value="2" class="cooldown-input">
+                        <button id="stop-voice" class="btn btn-voice">音声停止</button>
+                    </div>
                 </div>
             </div>
         </div>

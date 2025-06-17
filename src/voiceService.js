@@ -95,25 +95,34 @@ class VoiceService {
 
     // Parse terminal output to extract text for TTS
     parseTerminalOutput(data) {
-        // Remove ANSI escape codes
-        const cleanText = data.replace(/\x1b\[[0-9;]*m/g, '');
+        // Remove ANSI escape codes and control sequences
+        const cleanText = data
+            .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '') // ANSI escape sequences
+            .replace(/\x1b\[[0-9;]*[HfABCDEFGJKSTmhlp]/g, '') // More ANSI codes
+            .replace(/[\x00-\x1f\x7f-\x9f]/g, ' ') // Control characters
+            .replace(/\r?\n/g, ' ') // Newlines
+            .replace(/\s+/g, ' '); // Multiple spaces
         
-        // Remove control characters
-        const textOnly = cleanText.replace(/[\x00-\x1f\x7f-\x9f]/g, ' ');
-        
-        // Clean up whitespace
-        const trimmed = textOnly.trim();
+        const trimmed = cleanText.trim();
         
         // Skip empty or very short texts
-        if (trimmed.length < 3) {
+        if (trimmed.length < 10) {
             return null;
         }
 
-        // Skip common terminal prompts
+        // Skip common patterns that shouldn't be read
         const skipPatterns = [
             /^[\$#>]\s*$/,
             /^[\w@-]+:.*[\$#>]\s*$/,
-            /^\s*$/
+            /^\s*$/,
+            /^[\.\-=\+]{3,}$/, // Lines of symbols
+            /^loading|waiting|processing/i, // Status messages
+            /^\d+\s*ms$/, // Time measurements
+            /^[│├└╭╯╰┌┐]*\s*$/, // Box drawing characters
+            /^[⚒↓⭐✶✻✢·✳⏺]+\s*$/, // Special symbols only
+            /^(musing|thinking|cerebrating)/i, // AI status messages
+            /^\[[\d\w;]*m/, // Remaining ANSI codes
+            /tokens.*interrupt/i, // Token status
         ];
 
         for (const pattern of skipPatterns) {
@@ -122,7 +131,12 @@ class VoiceService {
             }
         }
 
-        return trimmed;
+        // Only return meaningful sentences
+        if (trimmed.includes('。') || trimmed.includes('！') || trimmed.includes('？') || trimmed.length > 30) {
+            return trimmed;
+        }
+
+        return null;
     }
 }
 

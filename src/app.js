@@ -15,6 +15,9 @@ class TerminalApp {
         this.currentAudio = null;
         this.isPlaying = false;
         this.audioQueue = [];
+        this.lastSpeechTime = 0;
+        this.speechCooldown = 2000; // 2秒のクールダウン
+        this.lastSpeechText = '';
         this.init();
     }
 
@@ -140,6 +143,7 @@ class TerminalApp {
         const speakerSelect = document.getElementById('speaker-select');
         const stopVoiceBtn = document.getElementById('stop-voice');
         const refreshConnectionBtn = document.getElementById('refresh-connection');
+        const cooldownInput = document.getElementById('voice-cooldown');
 
         if (voiceToggle) {
             voiceToggle.addEventListener('change', (e) => {
@@ -151,6 +155,12 @@ class TerminalApp {
         if (speakerSelect) {
             speakerSelect.addEventListener('change', (e) => {
                 this.selectedSpeaker = parseInt(e.target.value);
+            });
+        }
+
+        if (cooldownInput) {
+            cooldownInput.addEventListener('input', (e) => {
+                this.speechCooldown = parseInt(e.target.value) * 1000; // 秒→ミリ秒
             });
         }
 
@@ -250,6 +260,7 @@ class TerminalApp {
         const speakerSelect = document.getElementById('speaker-select');
         const stopVoiceBtn = document.getElementById('stop-voice');
         const voiceToggle = document.getElementById('voice-toggle');
+        const cooldownInput = document.getElementById('voice-cooldown');
 
         const canUseVoice = this.connectionStatus === 'connected';
 
@@ -258,6 +269,9 @@ class TerminalApp {
         }
         if (speakerSelect) {
             speakerSelect.disabled = !this.voiceEnabled || !canUseVoice;
+        }
+        if (cooldownInput) {
+            cooldownInput.disabled = !this.voiceEnabled || !canUseVoice;
         }
         if (stopVoiceBtn) {
             stopVoiceBtn.disabled = !this.voiceEnabled || !canUseVoice;
@@ -329,17 +343,44 @@ class TerminalApp {
     }
 
     async speakText(text) {
-        if (window.electronAPI && window.electronAPI.voice && this.voiceEnabled && this.connectionStatus === 'connected') {
-            try {
-                console.log('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
-                await window.electronAPI.voice.speak(text, this.selectedSpeaker);
-            } catch (error) {
-                console.error('Failed to speak text:', error);
-            }
+        if (!window.electronAPI || !window.electronAPI.voice || !this.voiceEnabled || this.connectionStatus !== 'connected') {
+            return;
+        }
+
+        const now = Date.now();
+        
+        // クールダウン期間中はスキップ
+        if (now - this.lastSpeechTime < this.speechCooldown) {
+            return;
+        }
+
+        // 同じテキストの重複を防ぐ
+        if (text === this.lastSpeechText) {
+            return;
+        }
+
+        // 音声再生中は新しい音声をキューに追加せずスキップ
+        if (this.isPlaying) {
+            return;
+        }
+
+        try {
+            console.log('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
+            this.lastSpeechTime = now;
+            this.lastSpeechText = text;
+            await window.electronAPI.voice.speak(text, this.selectedSpeaker);
+        } catch (error) {
+            console.error('Failed to speak text:', error);
         }
     }
 
     async playAudio(audioData) {
+        // 既に再生中の場合はスキップ（キューに溜めない）
+        if (this.isPlaying) {
+            console.log('Audio already playing, skipping...');
+            return;
+        }
+
         try {
             // Create audio context if not exists
             if (!this.audioContext) {
@@ -347,7 +388,7 @@ class TerminalApp {
             }
 
             // Decode audio data
-            const audioBuffer = await this.audioContext.decodeAudioData(audioData);
+            const audioBuffer = await this.audioContext.decodeAudioData(audioData.slice());
             const source = this.audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(this.audioContext.destination);
@@ -355,7 +396,6 @@ class TerminalApp {
             source.onended = () => {
                 this.currentAudio = null;
                 this.isPlaying = false;
-                this.processAudioQueue();
             };
 
             this.currentAudio = source;
@@ -364,15 +404,12 @@ class TerminalApp {
         } catch (error) {
             console.error('Failed to play audio:', error);
             this.isPlaying = false;
-            this.processAudioQueue();
         }
     }
 
     processAudioQueue() {
-        if (this.audioQueue.length > 0 && !this.isPlaying) {
-            const nextAudio = this.audioQueue.shift();
-            this.playAudio(nextAudio);
-        }
+        // キューシステムを削除（CPU負荷軽減のため）
+        // 音声は即座に再生するか、再生中の場合はスキップ
     }
 
     stopAudio() {
@@ -381,7 +418,9 @@ class TerminalApp {
             this.currentAudio = null;
             this.isPlaying = false;
         }
-        this.audioQueue = [];
+        // キューをクリア（削除）
+        this.lastSpeechTime = 0;
+        this.lastSpeechText = '';
     }
 
     async stopVoice() {

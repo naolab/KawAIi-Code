@@ -158,9 +158,35 @@ body {
 
 .voice-settings {
     display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.voice-options {
+    display: flex;
     gap: 10px;
     align-items: center;
     flex-wrap: wrap;
+}
+
+.voice-options label {
+    color: white;
+    font-size: 12px;
+}
+
+.cooldown-input {
+    width: 60px;
+    padding: 4px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 12px;
+}
+
+.cooldown-input:focus {
+    outline: none;
+    border-color: #4CAF50;
 }
 
 .connection-status {
