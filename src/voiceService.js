@@ -106,23 +106,27 @@ class VoiceService {
         const trimmed = cleanText.trim();
         
         // Skip empty or very short texts
-        if (trimmed.length < 10) {
+        if (trimmed.length < 5) {
             return null;
         }
 
-        // Skip common patterns that shouldn't be read
+        // Skip UI elements and decorative patterns
         const skipPatterns = [
             /^[\$#>]\s*$/,
             /^[\w@-]+:.*[\$#>]\s*$/,
             /^\s*$/,
-            /^[\.\-=\+]{3,}$/, // Lines of symbols
-            /^loading|waiting|processing/i, // Status messages
-            /^\d+\s*ms$/, // Time measurements
-            /^[│├└╭╯╰┌┐]*\s*$/, // Box drawing characters
+            /^[│├└╭╯╰┌┐┬┴┼─═║╔╗╚╝╠╣╦╩╬]*\s*$/, // Box drawing characters
             /^[⚒↓⭐✶✻✢·✳⏺]+\s*$/, // Special symbols only
-            /^(musing|thinking|cerebrating)/i, // AI status messages
+            /^(musing|thinking|cerebrating|welcome to claude code)/i, // AI status messages
             /^\[[\d\w;]*m/, // Remaining ANSI codes
             /tokens.*interrupt/i, // Token status
+            /^\/help.*setup/i, // Help messages
+            /^cwd:/i, // Current directory
+            /^\?\s*for shortcuts/i, // Shortcuts help
+            /^loading|waiting|processing/i, // Status messages
+            /^\d+\s*ms$/, // Time measurements
+            /^[\.\-=\+─]{3,}$/, // Lines of symbols
+            /^Try\s+".*"\s*$/, // Try suggestions
         ];
 
         for (const pattern of skipPatterns) {
@@ -131,8 +135,35 @@ class VoiceService {
             }
         }
 
-        // Only return meaningful sentences
-        if (trimmed.includes('。') || trimmed.includes('！') || trimmed.includes('？') || trimmed.length > 30) {
+        // Extract actual conversation content (starts with ⏺ or has meaningful Japanese text)
+        if (trimmed.includes('⏺')) {
+            // Extract text after ⏺ symbol
+            const conversationMatch = trimmed.match(/⏺\s*(.+)/);
+            if (conversationMatch && conversationMatch[1]) {
+                const conversation = conversationMatch[1].trim();
+                // Only return if it's actual conversation content (contains Japanese or is long enough)
+                if (conversation.length > 10 && (
+                    /[あ-んア-ヶ一-龯]/.test(conversation) || // Contains Japanese
+                    conversation.includes('。') ||
+                    conversation.includes('！') ||
+                    conversation.includes('？') ||
+                    conversation.includes('~') ||
+                    conversation.includes('✨')
+                )) {
+                    return conversation;
+                }
+            }
+            return null;
+        }
+
+        // Skip input prompts and UI elements
+        if (trimmed.includes('│') || trimmed.includes('╭') || trimmed.includes('╯') || 
+            trimmed.includes('Welcome to Claude Code') || trimmed.startsWith('>')) {
+            return null;
+        }
+
+        // Only return meaningful conversation content
+        if (/[あ-んア-ヶ一-龯]/.test(trimmed) && trimmed.length > 15) {
             return trimmed;
         }
 
