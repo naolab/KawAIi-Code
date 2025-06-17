@@ -140,15 +140,21 @@ class VoiceService {
             }
         }
 
-        // Extract actual conversation content (starts with ⏺ or has meaningful Japanese text)
+        // Extract actual conversation content (starts with ⏺ first, before UI check)
         if (trimmed.includes('⏺')) {
             console.log('Found ⏺ symbol');
-            // Extract text after ⏺ symbol
-            const conversationMatch = trimmed.match(/⏺\s*(.+)/);
+            // Extract everything after ⏺ until UI elements appear
+            const conversationMatch = trimmed.match(/⏺\s*([^╭╯│]+)/);
             if (conversationMatch && conversationMatch[1]) {
-                const conversation = conversationMatch[1].trim();
+                let conversation = conversationMatch[1]
+                    .replace(/\s*(✢|✳|✶|✻|✽|·)\s*Spinning.*$/, '') // Remove spinning indicators
+                    .replace(/\s*\(\d+s\s*·.*$/, '') // Remove time indicators
+                    .replace(/\s*tokens.*interrupt.*$/, '') // Remove token info
+                    .trim();
+                
                 console.log('Extracted conversation:', conversation);
-                // Only return if it's actual conversation content (contains Japanese or is long enough)
+                
+                // Only return if it's actual conversation content
                 if (conversation.length > 10 && (
                     /[あ-んア-ヶ一-龯]/.test(conversation) || // Contains Japanese
                     conversation.includes('。') ||
