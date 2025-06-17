@@ -27,8 +27,16 @@ window.electronAPI = {
     onTextAvailable: (callback) => {
       ipcRenderer.on('voice-text-available', (event, text) => callback(text));
     },
+    onPlayAudio: (callback) => {
+      ipcRenderer.on('play-audio', (event, audioData) => callback(audioData));
+    },
+    onStopAudio: (callback) => {
+      ipcRenderer.on('stop-audio', callback);
+    },
     removeAllListeners: () => {
       ipcRenderer.removeAllListeners('voice-text-available');
+      ipcRenderer.removeAllListeners('play-audio');
+      ipcRenderer.removeAllListeners('stop-audio');
     }
   }
 };

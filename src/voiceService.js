@@ -70,82 +70,27 @@ class VoiceService {
         }
     }
 
-    async playAudio(audioData) {
-        return new Promise((resolve, reject) => {
-            try {
-                // Create audio context if not exists
-                if (!this.audioContext) {
-                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-
-                // Decode audio data
-                this.audioContext.decodeAudioData(audioData)
-                    .then(audioBuffer => {
-                        const source = this.audioContext.createBufferSource();
-                        source.buffer = audioBuffer;
-                        source.connect(this.audioContext.destination);
-                        
-                        source.onended = () => {
-                            this.currentAudio = null;
-                            this.isPlaying = false;
-                            resolve();
-                        };
-
-                        this.currentAudio = source;
-                        this.isPlaying = true;
-                        source.start();
-                    })
-                    .catch(reject);
-            } catch (error) {
-                reject(error);
-            }
-        });
-    }
-
     async speakText(text, speaker = 0) {
         try {
             const audioData = await this.synthesizeText(text, speaker);
-            await this.playAudio(audioData);
+            // 音声データはメインプロセスからレンダラープロセスに送信
+            return { success: true, audioData };
         } catch (error) {
             console.error('Text-to-speech error:', error);
             throw error;
         }
     }
 
-    queueText(text, speaker = 0) {
-        this.audioQueue.push({ text, speaker });
-        if (!this.isPlaying) {
-            this.processQueue();
-        }
-    }
-
-    async processQueue() {
-        if (this.audioQueue.length === 0 || this.isPlaying) {
-            return;
-        }
-
-        const { text, speaker } = this.audioQueue.shift();
-        try {
-            await this.speakText(text, speaker);
-            // Process next item in queue
-            this.processQueue();
-        } catch (error) {
-            console.error('Queue processing error:', error);
-            // Continue with next item even if current fails
-            this.processQueue();
-        }
-    }
-
+    // キューシステムは削除（レンダラープロセスで管理）
+    
     stopAudio() {
-        if (this.currentAudio) {
-            this.currentAudio.stop();
-            this.currentAudio = null;
-            this.isPlaying = false;
-        }
+        // レンダラープロセスに停止信号を送信
+        return { success: true };
     }
 
     clearQueue() {
-        this.audioQueue = [];
+        // レンダラープロセスに停止信号を送信
+        return { success: true };
     }
 
     // Parse terminal output to extract text for TTS

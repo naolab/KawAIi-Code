@@ -203,8 +203,14 @@ ipcMain.handle('voice-speak', async (event, text, speaker) => {
   }
   
   try {
-    voiceService.queueText(text, speaker);
-    return { success: true };
+    const result = await voiceService.speakText(text, speaker);
+    if (result.success) {
+      // 音声データをレンダラープロセスに送信
+      mainWindow.webContents.send('play-audio', result.audioData);
+      return { success: true };
+    } else {
+      return { success: false, error: 'Failed to synthesize' };
+    }
   } catch (error) {
     console.error('Voice speak error:', error);
     return { success: false, error: error.message };
@@ -212,10 +218,9 @@ ipcMain.handle('voice-speak', async (event, text, speaker) => {
 });
 
 ipcMain.handle('voice-stop', () => {
-  if (voiceService) {
-    voiceService.stopAudio();
-    voiceService.clearQueue();
+  if (mainWindow) {
+    mainWindow.webContents.send('stop-audio');
     return { success: true };
   }
-  return { success: false, error: 'Voice service not initialized' };
+  return { success: false, error: 'Main window not available' };
 });

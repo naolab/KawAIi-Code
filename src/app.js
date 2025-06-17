@@ -11,6 +11,10 @@ class TerminalApp {
         this.selectedSpeaker = 0;
         this.connectionStatus = 'disconnected';
         this.speakers = [];
+        this.audioContext = null;
+        this.currentAudio = null;
+        this.isPlaying = false;
+        this.audioQueue = [];
         this.init();
     }
 
@@ -110,6 +114,16 @@ class TerminalApp {
                 if (this.voiceEnabled) {
                     this.speakText(text);
                 }
+            });
+
+            // Handle audio playback
+            window.electronAPI.voice.onPlayAudio((audioData) => {
+                this.playAudio(audioData);
+            });
+
+            // Handle audio stop
+            window.electronAPI.voice.onStopAudio(() => {
+                this.stopAudio();
             });
         }
     }
@@ -325,10 +339,56 @@ class TerminalApp {
         }
     }
 
+    async playAudio(audioData) {
+        try {
+            // Create audio context if not exists
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Decode audio data
+            const audioBuffer = await this.audioContext.decodeAudioData(audioData);
+            const source = this.audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(this.audioContext.destination);
+            
+            source.onended = () => {
+                this.currentAudio = null;
+                this.isPlaying = false;
+                this.processAudioQueue();
+            };
+
+            this.currentAudio = source;
+            this.isPlaying = true;
+            source.start();
+        } catch (error) {
+            console.error('Failed to play audio:', error);
+            this.isPlaying = false;
+            this.processAudioQueue();
+        }
+    }
+
+    processAudioQueue() {
+        if (this.audioQueue.length > 0 && !this.isPlaying) {
+            const nextAudio = this.audioQueue.shift();
+            this.playAudio(nextAudio);
+        }
+    }
+
+    stopAudio() {
+        if (this.currentAudio) {
+            this.currentAudio.stop();
+            this.currentAudio = null;
+            this.isPlaying = false;
+        }
+        this.audioQueue = [];
+    }
+
     async stopVoice() {
         if (window.electronAPI && window.electronAPI.voice) {
             try {
                 await window.electronAPI.voice.stop();
+                this.stopAudio();
             } catch (error) {
                 console.error('Failed to stop voice:', error);
             }
