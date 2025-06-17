@@ -21,8 +21,8 @@ window.electronAPI = {
   voice: {
     checkConnection: () => ipcRenderer.invoke('voice-check-connection'),
     getSpeakers: () => ipcRenderer.invoke('voice-get-speakers'),
-    synthesize: (text, speaker, style) => ipcRenderer.invoke('voice-synthesize', text, speaker, style),
-    speak: (text, speaker, style) => ipcRenderer.invoke('voice-speak', text, speaker, style),
+    synthesize: (text, speaker) => ipcRenderer.invoke('voice-synthesize', text, speaker),
+    speak: (text, speaker) => ipcRenderer.invoke('voice-speak', text, speaker),
     stop: () => ipcRenderer.invoke('voice-stop'),
     onTextAvailable: (callback) => {
       ipcRenderer.on('voice-text-available', (event, text) => callback(text));

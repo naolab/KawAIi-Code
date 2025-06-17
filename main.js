@@ -183,13 +183,13 @@ ipcMain.handle('voice-get-speakers', async () => {
   }
 });
 
-ipcMain.handle('voice-synthesize', async (event, text, speaker, style) => {
+ipcMain.handle('voice-synthesize', async (event, text, speaker) => {
   if (!voiceService) {
     return { success: false, error: 'Voice service not initialized' };
   }
   
   try {
-    const audioData = await voiceService.synthesizeText(text, speaker, style);
+    const audioData = await voiceService.synthesizeText(text, speaker);
     return { success: true, audioData };
   } catch (error) {
     console.error('Voice synthesis error:', error);
@@ -197,13 +197,13 @@ ipcMain.handle('voice-synthesize', async (event, text, speaker, style) => {
   }
 });
 
-ipcMain.handle('voice-speak', async (event, text, speaker, style) => {
+ipcMain.handle('voice-speak', async (event, text, speaker) => {
   if (!voiceService) {
     return { success: false, error: 'Voice service not initialized' };
   }
   
   try {
-    voiceService.queueText(text, speaker, style);
+    voiceService.queueText(text, speaker);
     return { success: true };
   } catch (error) {
     console.error('Voice speak error:', error);

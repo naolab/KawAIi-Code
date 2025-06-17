@@ -309,7 +309,7 @@ class TerminalApp {
     async speakText(text) {
         if (window.electronAPI && window.electronAPI.voice && this.voiceEnabled && this.connectionStatus === 'connected') {
             try {
-                await window.electronAPI.voice.speak(text, this.selectedSpeaker, 0);
+                await window.electronAPI.voice.speak(text, this.selectedSpeaker);
             } catch (error) {
                 console.error('Failed to speak text:', error);
             }

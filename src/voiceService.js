@@ -33,7 +33,7 @@ class VoiceService {
         }
     }
 
-    async synthesizeText(text, speaker = 0, style = 0) {
+    async synthesizeText(text, speaker = 0) {
         if (!this.isConnected) {
             throw new Error('AivisSpeech Engine not connected');
         }
@@ -42,10 +42,10 @@ class VoiceService {
             // Step 1: Get audio query
             const queryResponse = await axios.post(
                 `${this.baseUrl}/audio_query`,
-                { text },
+                null,
                 {
-                    params: { speaker, style },
-                    headers: { 'Content-Type': 'application/json' }
+                    params: { text, speaker },
+                    headers: { 'accept': 'application/json' }
                 }
             );
 
@@ -54,8 +54,11 @@ class VoiceService {
                 `${this.baseUrl}/synthesis`,
                 queryResponse.data,
                 {
-                    params: { speaker, style },
-                    headers: { 'Content-Type': 'application/json' },
+                    params: { speaker },
+                    headers: { 
+                        'accept': 'audio/wav',
+                        'Content-Type': 'application/json' 
+                    },
                     responseType: 'arraybuffer'
                 }
             );
@@ -99,9 +102,9 @@ class VoiceService {
         });
     }
 
-    async speakText(text, speaker = 0, style = 0) {
+    async speakText(text, speaker = 0) {
         try {
-            const audioData = await this.synthesizeText(text, speaker, style);
+            const audioData = await this.synthesizeText(text, speaker);
             await this.playAudio(audioData);
         } catch (error) {
             console.error('Text-to-speech error:', error);
@@ -109,8 +112,8 @@ class VoiceService {
         }
     }
 
-    queueText(text, speaker = 0, style = 0) {
-        this.audioQueue.push({ text, speaker, style });
+    queueText(text, speaker = 0) {
+        this.audioQueue.push({ text, speaker });
         if (!this.isPlaying) {
             this.processQueue();
         }
@@ -121,9 +124,9 @@ class VoiceService {
             return;
         }
 
-        const { text, speaker, style } = this.audioQueue.shift();
+        const { text, speaker } = this.audioQueue.shift();
         try {
-            await this.speakText(text, speaker, style);
+            await this.speakText(text, speaker);
             // Process next item in queue
             this.processQueue();
         } catch (error) {
