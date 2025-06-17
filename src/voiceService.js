@@ -95,6 +95,8 @@ class VoiceService {
 
     // Parse terminal output to extract text for TTS
     parseTerminalOutput(data) {
+        console.log('Raw terminal data:', JSON.stringify(data));
+        
         // Remove ANSI escape codes and control sequences
         const cleanText = data
             .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '') // ANSI escape sequences
@@ -104,9 +106,11 @@ class VoiceService {
             .replace(/\s+/g, ' '); // Multiple spaces
         
         const trimmed = cleanText.trim();
+        console.log('Cleaned text:', JSON.stringify(trimmed));
         
         // Skip empty or very short texts
         if (trimmed.length < 5) {
+            console.log('Skipped: too short');
             return null;
         }
 
@@ -131,16 +135,19 @@ class VoiceService {
 
         for (const pattern of skipPatterns) {
             if (pattern.test(trimmed)) {
+                console.log('Skipped by pattern:', pattern);
                 return null;
             }
         }
 
         // Extract actual conversation content (starts with ⏺ or has meaningful Japanese text)
         if (trimmed.includes('⏺')) {
+            console.log('Found ⏺ symbol');
             // Extract text after ⏺ symbol
             const conversationMatch = trimmed.match(/⏺\s*(.+)/);
             if (conversationMatch && conversationMatch[1]) {
                 const conversation = conversationMatch[1].trim();
+                console.log('Extracted conversation:', conversation);
                 // Only return if it's actual conversation content (contains Japanese or is long enough)
                 if (conversation.length > 10 && (
                     /[あ-んア-ヶ一-龯]/.test(conversation) || // Contains Japanese
@@ -150,23 +157,28 @@ class VoiceService {
                     conversation.includes('~') ||
                     conversation.includes('✨')
                 )) {
+                    console.log('Returning conversation:', conversation);
                     return conversation;
                 }
             }
+            console.log('⏺ found but conversation not extracted');
             return null;
         }
 
         // Skip input prompts and UI elements
         if (trimmed.includes('│') || trimmed.includes('╭') || trimmed.includes('╯') || 
             trimmed.includes('Welcome to Claude Code') || trimmed.startsWith('>')) {
+            console.log('Skipped: UI element');
             return null;
         }
 
         // Only return meaningful conversation content
         if (/[あ-んア-ヶ一-龯]/.test(trimmed) && trimmed.length > 15) {
+            console.log('Returning Japanese text:', trimmed);
             return trimmed;
         }
 
+        console.log('No match found, skipping');
         return null;
     }
 }
