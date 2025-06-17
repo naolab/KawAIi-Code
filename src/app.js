@@ -277,6 +277,7 @@ class TerminalApp {
                 const result = await window.electronAPI.voice.getSpeakers();
                 if (result.success) {
                     this.speakers = result.speakers;
+                    console.log('Loaded speakers:', this.speakers);
                     this.updateSpeakerSelect();
                 }
             } catch (error) {
@@ -289,12 +290,19 @@ class TerminalApp {
         const speakerSelect = document.getElementById('speaker-select');
         if (speakerSelect && this.speakers.length > 0) {
             speakerSelect.innerHTML = '';
-            this.speakers.forEach((speaker, index) => {
-                const option = document.createElement('option');
-                option.value = index;
-                option.textContent = speaker.name || `話者 ${index}`;
-                speakerSelect.appendChild(option);
+            this.speakers.forEach((speaker) => {
+                speaker.styles.forEach((style) => {
+                    const option = document.createElement('option');
+                    option.value = style.id;
+                    option.textContent = `${speaker.name} (${style.name})`;
+                    speakerSelect.appendChild(option);
+                });
             });
+            // 最初の話者を自動選択
+            if (this.speakers[0] && this.speakers[0].styles[0]) {
+                this.selectedSpeaker = this.speakers[0].styles[0].id;
+                speakerSelect.value = this.selectedSpeaker;
+            }
         }
     }
 
@@ -309,6 +317,7 @@ class TerminalApp {
     async speakText(text) {
         if (window.electronAPI && window.electronAPI.voice && this.voiceEnabled && this.connectionStatus === 'connected') {
             try {
+                console.log('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
                 await window.electronAPI.voice.speak(text, this.selectedSpeaker);
             } catch (error) {
                 console.error('Failed to speak text:', error);
