@@ -97,94 +97,137 @@ class VoiceService {
     parseTerminalOutput(data) {
         console.log('Raw terminal data:', JSON.stringify(data));
         
-        // Remove ANSI escape codes and control sequences
-        const cleanText = data
-            .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '') // ANSI escape sequences
-            .replace(/\x1b\[[0-9;]*[HfABCDEFGJKSTmhlp]/g, '') // More ANSI codes
-            .replace(/[\x00-\x1f\x7f-\x9f]/g, ' ') // Control characters
-            .replace(/\r?\n/g, ' ') // Newlines
-            .replace(/\s+/g, ' '); // Multiple spaces
-        
+        // より強力なANSI除去処理
+        let cleanText = data
+            .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '') // 基本的なANSIエスケープシーケンス
+            .replace(/\x1b\][0-2];[^\x07]*\x07/g, '') // OSC sequences
+            .replace(/\x1b\[[0-9;]*[HfABCDEFGJKmhlpsu]/g, '') // より多くのANSI制御文字
+            .replace(/\x1b\([AB01]/g, '') // 文字セット選択
+            .replace(/[\x00-\x08\x0B-\x1F\x7F-\x9F]/g, ' ') // 制御文字除去
+            .replace(/\r?\n/g, ' ') // 改行を空白に
+            .replace(/\s+/g, ' '); // 連続空白を単一空白に
+
         const trimmed = cleanText.trim();
         console.log('Cleaned text:', JSON.stringify(trimmed));
         
-        // Skip empty or very short texts
-        if (trimmed.length < 5) {
+        // 空文字やごく短いテキストをスキップ
+        if (trimmed.length < 3) {
             console.log('Skipped: too short');
             return null;
         }
 
-        // Skip UI elements and decorative patterns
-        const skipPatterns = [
-            /^[\$#>]\s*$/,
-            /^[\w@-]+:.*[\$#>]\s*$/,
-            /^\s*$/,
-            /^[│├└╭╯╰┌┐┬┴┼─═║╔╗╚╝╠╣╦╩╬]*\s*$/, // Box drawing characters
-            /^[⚒↓⭐✶✻✢·✳⏺]+\s*$/, // Special symbols only
-            /^(musing|thinking|cerebrating|welcome to claude code)/i, // AI status messages
-            /^\[[\d\w;]*m/, // Remaining ANSI codes
-            /tokens.*interrupt/i, // Token status
-            /^\/help.*setup/i, // Help messages
-            /^cwd:/i, // Current directory
-            /^\?\s*for shortcuts/i, // Shortcuts help
-            /^loading|waiting|processing/i, // Status messages
-            /^\d+\s*ms$/, // Time measurements
-            /^[\.\-=\+─]{3,}$/, // Lines of symbols
-            /^Try\s+".*"\s*$/, // Try suggestions
-        ];
-
-        for (const pattern of skipPatterns) {
-            if (pattern.test(trimmed)) {
-                console.log('Skipped by pattern:', pattern);
+        // ⏺記号がない場合でユーザー入力パターンを事前チェック
+        if (!trimmed.includes('⏺')) {
+            // ⏺記号がない場合はユーザー入力の可能性が高い
+            if (trimmed.includes('>') || (trimmed.includes('╭') && trimmed.includes('│'))) {
+                console.log('Skipped: likely user input without ⏺');
                 return null;
             }
         }
 
-        // Extract actual conversation content (starts with ⏺ first, before UI check)
+        // ⏺記号での会話抽出（最優先）  
         if (trimmed.includes('⏺')) {
-            console.log('Found ⏺ symbol');
-            // Extract everything after ⏺ until UI elements appear
-            const conversationMatch = trimmed.match(/⏺\s*([^╭╯│]+)/);
-            if (conversationMatch && conversationMatch[1]) {
-                let conversation = conversationMatch[1]
-                    .replace(/\s*(✢|✳|✶|✻|✽|·)\s*Spinning.*$/, '') // Remove spinning indicators
-                    .replace(/\s*\(\d+s\s*·.*$/, '') // Remove time indicators
-                    .replace(/\s*tokens.*interrupt.*$/, '') // Remove token info
+            console.log('Found ⏺ symbol in text:', JSON.stringify(trimmed.substring(0, 100)));
+            
+            // ⏺の直後から会話内容を抽出
+            const circleIndex = trimmed.indexOf('⏺');
+            if (circleIndex !== -1) {
+                let afterCircle = trimmed.substring(circleIndex + 1).trim();
+                
+                console.log('Text after ⏺:', JSON.stringify(afterCircle));
+                
+                // 状態インジケーターやUI要素を除去
+                afterCircle = afterCircle
+                    .replace(/^[⚒↓⭐✶✻✢·✳]+\s*/g, '') // 先頭の記号を除去
+                    .replace(/\s*[✢✳✶✻✽·⚒↓↑]\s*(Synthesizing|Conjuring|Spinning|Vibing|Computing|Mulling|Pondering|musing|thinking).*$/gi, '') // ステータス除去（優先）
+                    .replace(/\s*\([0-9]+s[^)]*\).*$/g, '') // 時間表示除去
+                    .replace(/\s*tokens.*$/gi, '') // トークン情報除去
+                    .replace(/\s*[│╭╯╰┌┐┬┴┼─═║╔╗╚╝╠╣╦╩╬]+.*$/g, '') // ボックス描画文字除去（ユーザー入力ボックス含む）
+                    .replace(/\s*>\s*[^│]*$/g, '') // ユーザー入力プロンプト除去
+                    .replace(/\s*\?\s*for\s+shortcuts.*$/gi, '') // ショートカット情報除去
+                    .replace(/\s*interrupt.*$/gi, '') // interrupt情報除去
+                    .replace(/\s*\[[0-9;]+m.*$/g, '') // ANSI残存除去
                     .trim();
                 
-                console.log('Extracted conversation:', conversation);
+                console.log('After cleanup:', JSON.stringify(afterCircle));
                 
-                // Only return if it's actual conversation content
-                if (conversation.length > 10 && (
-                    /[あ-んア-ヶ一-龯]/.test(conversation) || // Contains Japanese
-                    conversation.includes('。') ||
-                    conversation.includes('！') ||
-                    conversation.includes('？') ||
-                    conversation.includes('~') ||
-                    conversation.includes('✨')
-                )) {
-                    console.log('Returning conversation:', conversation);
-                    return conversation;
+                // 会話内容として有効かチェック
+                if (afterCircle.length > 5) {
+                    // 日本語文字、句読点、絵文字を含むかチェック
+                    const hasJapanese = /[あ-んア-ヶ一-龯]/.test(afterCircle);
+                    const hasPunctuation = /[。！？\.\!\?]/.test(afterCircle);
+                    const hasEmoji = /[✨🎀💕]/.test(afterCircle);
+                    const hasValidChars = /[a-zA-Z]/.test(afterCircle) && afterCircle.length > 10;
+                    
+                    console.log('Content validation:', {
+                        hasJapanese,
+                        hasPunctuation,
+                        hasEmoji,
+                        hasValidChars,
+                        length: afterCircle.length
+                    });
+                    
+                    if (hasJapanese || hasPunctuation || hasEmoji || hasValidChars) {
+                        // 長すぎる文章や箇条書きは短縮する
+                        let finalText = afterCircle;
+                        
+                        // 箇条書きやリストが多い場合は最初の部分のみ読み上げる
+                        if (finalText.includes('-') && finalText.length > 200) {
+                            const lines = finalText.split(/[\r\n]/);
+                            const firstMeaningfulLines = lines.slice(0, 3).join(' ');
+                            finalText = firstMeaningfulLines + '...など、詳しくはターミナルをご確認ください〜';
+                        }
+                        
+                        // あまりに長い場合は切り詰める
+                        if (finalText.length > 300) {
+                            finalText = finalText.substring(0, 250) + '...続きはターミナルで確認してね〜';
+                        }
+                        
+                        console.log('Returning extracted conversation:', finalText);
+                        return finalText;
+                    }
                 }
+                
+                console.log('⏺ found but content not valid for speech');
+                return null;
             }
-            console.log('⏺ found but conversation not extracted');
-            return null;
         }
 
-        // Skip input prompts and UI elements
-        if (trimmed.includes('│') || trimmed.includes('╭') || trimmed.includes('╯') || 
-            trimmed.includes('Welcome to Claude Code') || trimmed.startsWith('>')) {
-            console.log('Skipped: UI element');
-            return null;
+        // UIパターンのスキップ（ユーザー入力ボックスも含む）
+        const skipPatterns = [
+            /^[\$#>]\s*$/,
+            /^[\w@-]+:.*[\$#>]\s*$/,
+            /^[│├└╭╯╰┌┐┬┴┼─═║╔╗╚╝╠╣╦╩╬\s]*$/,
+            /^[⚒↓⭐✶✻✢·✳⏺\s]*$/,
+            /^>\s*.*$/,  // ユーザー入力プロンプト（単純版）
+            /^╭.*>\s*.*╰.*$/s, // ユーザー入力ボックス全体をスキップ
+            /│\s*>\s*.*│/s, // ユーザー入力行をスキップ
+            /⎿.*Running/i, // ツール実行インディケーター
+            /^(musing|thinking|cerebrating|welcome|loading|waiting|processing)/i,
+            /tokens.*interrupt/i,
+            /Synthesizing|Conjuring|Mulling|Pondering|Running|Bash\(/i, // ステータス・ツール実行文字列をスキップ
+            /^\/help/i,
+            /^cwd:/i,
+            /^\?\s*for\s+shortcuts/i,
+            /^\d+\s*ms$/,
+            /^[\.−=\+─]{2,}$/,
+            /^Try\s+['"]/i,
+        ];
+
+        for (const pattern of skipPatterns) {
+            if (pattern.test(trimmed)) {
+                console.log('Skipped by pattern:', pattern.toString());
+                return null;
+            }
         }
 
-        // Only return meaningful conversation content
-        if (/[あ-んア-ヶ一-龯]/.test(trimmed) && trimmed.length > 15) {
-            console.log('Returning Japanese text:', trimmed);
+        // 一般的な日本語テキストとして処理
+        if (/[あ-んア-ヶ一-龯]/.test(trimmed) && trimmed.length > 10) {
+            console.log('Returning general Japanese text:', trimmed);
             return trimmed;
         }
 
-        console.log('No match found, skipping');
+        console.log('No valid content found, skipping');
         return null;
     }
 }
