@@ -8,21 +8,49 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-    background: linear-gradient(135deg, #FF69B4 0%, #FFB6C1 50%, #FFC0CB 100%);
+    background: linear-gradient(135deg, #FFB6C1 0%, #FFE4E1 30%, #F0E68C 70%, #FFB6C1 100%);
     height: 100vh;
     overflow: hidden;
+    position: relative;
+}
+
+/* 背景キラキラエフェクト */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.6) 2px, transparent 2px),
+        radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+        radial-gradient(circle at 90% 30%, rgba(255, 255, 255, 0.3) 1px, transparent 1px),
+        radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.5) 2px, transparent 2px),
+        radial-gradient(circle at 10% 90%, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+    background-size: 200px 200px, 150px 150px, 100px 100px, 180px 180px, 120px 120px;
+    animation: sparkle 3s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes sparkle {
+    0% { opacity: 0.3; }
+    100% { opacity: 0.8; }
 }
 
 .app-container {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(15px);
-    border-radius: 15px;
-    margin: 8px;
-    box-shadow: 0 12px 40px rgba(255, 105, 180, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    margin: 5px;
+    box-shadow: 0 15px 50px rgba(255, 105, 180, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
 }
 
 .header {
@@ -52,8 +80,8 @@ body {
 .main-content {
     flex: 1;
     display: flex;
-    gap: 15px;
-    padding: 15px;
+    gap: 20px;
+    padding: 20px;
     overflow: hidden;
 }
 
@@ -62,32 +90,17 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 15px;
-    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.2);
-    overflow: hidden;
-}
-
-.chat-header {
-    padding: 15px 20px;
-    background: linear-gradient(135deg, #FF69B4, #FFB6C1);
-    color: white;
-    text-align: center;
-    font-weight: 600;
-    box-shadow: 0 2px 10px rgba(255, 105, 180, 0.3);
-}
-
-.chat-header h3 {
-    margin: 0;
-    font-size: 18px;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    gap: 15px;
 }
 
 .chat-messages {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
-    background: linear-gradient(135deg, #FFF8DC 0%, #FFFACD 100%);
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.15);
 }
 
 .chat-input-container {
@@ -131,41 +144,45 @@ body {
     box-shadow: 0 6px 20px rgba(255, 105, 180, 0.6);
 }
 
-/* 右側：キャラクターパネル */
-.character-panel {
-    width: 400px;
+/* 右側：キャラクターセクション */
+.character-section {
+    width: 450px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    align-items: center;
+    justify-content: center;
 }
 
-.character-avatar {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 15px;
-    padding: 20px;
+.character-main {
     text-align: center;
-    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.2);
+    position: relative;
 }
 
 #character-image {
-    width: 100%;
-    max-width: 300px;
-    height: auto;
-    border-radius: 15px;
-    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.3);
+    width: 400px;
+    height: 600px;
+    object-fit: cover;
+    border-radius: 20px;
+    box-shadow: 0 15px 40px rgba(147, 112, 219, 0.4);
     transition: transform 0.3s ease;
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.5));
 }
 
 #character-image:hover {
-    transform: scale(1.05);
+    transform: scale(1.02);
 }
 
 .character-status {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 15px;
-    padding: 15px;
-    text-align: center;
-    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.2);
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 25px;
+    padding: 15px 25px;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.5);
 }
 
 .character-name {
@@ -205,6 +222,69 @@ body {
     padding: 10px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 11px;
+    color: #00ff41;
+    overflow-y: auto;
+    background: transparent;
+}
+
+/* クイックアクションボタン */
+.quick-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.quick-btn {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid #FFB6C1;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #FF69B4;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.quick-btn:hover {
+    background: linear-gradient(135deg, #FF69B4, #FFB6C1);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 105, 180, 0.4);
+}
+
+/* ボトムパネル */
+.bottom-panel {
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.terminal-preview {
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    max-height: 150px;
+}
+
+.terminal-header {
+    padding: 8px 15px;
+    background: #2a2a2a;
+    color: #00ff41;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    border-bottom: 1px solid #444;
+}
+
+#terminal-mini {
+    height: 120px;
+    padding: 10px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 10px;
     color: #00ff41;
     overflow-y: auto;
     background: transparent;
@@ -250,13 +330,44 @@ body {
 }
 
 .message.assistant .message-bubble {
-    background: white;
-    border: 2px solid #FFB6C1;
+    background: linear-gradient(135deg, #FF69B4, #FFB6C1);
+    color: white;
+    position: relative;
+}
+
+.message.assistant .message-bubble::before {
+    content: 'CHARACTER';
+    position: absolute;
+    top: -20px;
+    left: 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: #FF69B4;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid #FFB6C1;
 }
 
 .message.user .message-bubble {
-    background: linear-gradient(135deg, #87CEEB, #ADD8E6);
-    color: white;
+    background: rgba(255, 250, 205, 0.9);
+    color: #333;
+    border: 2px solid #F0E68C;
+    position: relative;
+}
+
+.message.user .message-bubble::before {
+    content: 'YOU';
+    position: absolute;
+    top: -20px;
+    right: 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: #DAA520;
+    background: rgba(240, 230, 140, 0.9);
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid #F0E68C;
 }
 
 .message-text {

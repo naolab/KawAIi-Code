@@ -42,30 +42,35 @@
         
         <div class="main-content">
             <div class="chat-workspace">
-                <div class="chat-header">
-                    <h3>💬 ことねとの会話</h3>
-                </div>
                 <div class="chat-messages" id="chat-messages">
                     <!-- チャットメッセージがここに表示される -->
                 </div>
                 <div class="chat-input-container">
-                    <input type="text" id="chat-input" placeholder="メッセージを入力..." />
-                    <button id="send-button">送信</button>
+                    <input type="text" id="chat-input" placeholder="何か聞きたいことはある？" />
+                    <button id="send-button">💌</button>
+                </div>
+                <div class="quick-actions">
+                    <button class="quick-btn">君の名前は？</button>
+                    <button class="quick-btn">何ができるの？機能を教えて</button>
+                    <button class="quick-btn">AITuberKitって何？</button>
                 </div>
             </div>
             
-            <div class="character-panel">
-                <div class="character-avatar">
-                    <img id="character-image" src="https://via.placeholder.com/300x400/FFB6C1/FFFFFF?text=ことね" alt="ことね" />
+            <div class="character-section">
+                <div class="character-main">
+                    <img id="character-image" src="https://via.placeholder.com/400x600/9370DB/FFFFFF?text=AI%0Aことね" alt="ことね" />
+                    <div class="character-status">
+                        <div class="character-name">ことね</div>
+                        <div class="character-mood">元気いっぱい！✨</div>
+                    </div>
                 </div>
-                <div class="character-status">
-                    <div class="character-name">ことね</div>
-                    <div class="character-mood">元気いっぱい！✨</div>
-                </div>
-                <div class="terminal-preview">
-                    <div class="terminal-header">ターミナル出力</div>
-                    <div id="terminal-mini"></div>
-                </div>
+            </div>
+        </div>
+        
+        <div class="bottom-panel">
+            <div class="terminal-preview">
+                <div class="terminal-header">🖥️ 開発状況</div>
+                <div id="terminal-mini"></div>
             </div>
         </div>
         

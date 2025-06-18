@@ -205,6 +205,15 @@ class TerminalApp {
             });
         }
 
+        // クイックアクションボタンのイベントリスナー
+        const quickButtons = document.querySelectorAll('.quick-btn');
+        quickButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const message = button.textContent;
+                this.sendQuickMessage(message);
+            });
+        });
+
         // 初期メッセージを追加
         this.addChatMessage('assistant', 'ことね', 'こんにちは〜！✨ 何をお手伝いしましょうか？');
     }
@@ -268,6 +277,20 @@ class TerminalApp {
                 hasElectronAPI: !!window.electronAPI,
                 hasTerminalAPI: !!(window.electronAPI && window.electronAPI.terminal)
             });
+            this.addChatMessage('assistant', 'ことね', 'Claude Codeが起動してないよ〜！先にStartボタンを押してね！');
+        }
+    }
+
+    sendQuickMessage(message) {
+        // ユーザーメッセージを追加
+        this.addChatMessage('user', 'あなた', message);
+
+        // Claude Codeにメッセージを送信
+        if (this.isTerminalRunning && window.electronAPI && window.electronAPI.terminal) {
+            console.log('Sending quick message to terminal:', message);
+            window.electronAPI.terminal.write(message + '\r');
+            this.updateCharacterMood('考え中...');
+        } else {
             this.addChatMessage('assistant', 'ことね', 'Claude Codeが起動してないよ〜！先にStartボタンを押してね！');
         }
     }
