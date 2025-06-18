@@ -35,14 +35,14 @@ function createWindow() {
   });
 
   // DevTools for debugging (commented out for production)
-  // mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
 
   // Initialize voice service
   voiceService = new VoiceService();
 }
 
 // GPU process crash workaround - must be called before app is ready
-app.disableHardwareAcceleration();
+// app.disableHardwareAcceleration(); // VRM表示のため一時的に有効化
 
 app.whenReady().then(createWindow);
 

@@ -218,6 +218,14 @@ body {
     position: relative;
 }
 
+#vrm-character {
+    width: 400px;
+    height: 600px;
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
 #character-image {
     width: 400px;
     height: 600px;

@@ -26,6 +26,7 @@ class TerminalApp {
         this.chatParseQueue = [];
         this.chatParseTimer = null;
         this.isProcessingChat = false;
+        this.vrmCharacter = null;
         this.init();
     }
 
@@ -33,6 +34,7 @@ class TerminalApp {
         this.setupTerminal();
         this.setupEventListeners();
         this.setupChatInterface();
+        this.setupVRMCharacter();
         this.updateStatus('Ready');
         this.checkVoiceConnection();
     }
@@ -246,6 +248,17 @@ class TerminalApp {
 
         // 初期メッセージを追加（音声読み上げ用）
         this.addVoiceMessage('ことね', 'こんにちは〜！✨ 何をお手伝いしましょうか？');
+    }
+
+    setupVRMCharacter() {
+        // VRMViewer初期化
+        setTimeout(() => {
+            if (window.VRMViewer) {
+                this.vrmCharacter = new window.VRMViewer();
+            } else {
+                console.error('VRMViewer not found');
+            }
+        }, 500);
     }
 
     // バッチ処理でチャット解析を最適化

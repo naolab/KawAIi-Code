@@ -18,12 +18,14 @@
     "electron-builder": "^24.6.4"
   },
   "dependencies": {
+    "@pixiv/three-vrm": "^3.4.1",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/xterm": "^5.5.0",
     "axios": "^1.6.0",
     "form-data": "^4.0.0",
-    "node-pty": "^1.0.0"
+    "node-pty": "^1.0.0",
+    "three": "^0.177.0"
   },
   "build": {
     "appId": "com.ai-kawaii.terminal",

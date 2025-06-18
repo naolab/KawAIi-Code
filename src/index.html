@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline';">
     <title>AI Kawaii Terminal</title>
     <link rel="stylesheet" href="styles/main.css">
 </head>
@@ -30,11 +30,7 @@
             
             <div class="character-section">
                 <div class="character-main">
-                    <img id="character-image" src="https://via.placeholder.com/400x600/9370DB/FFFFFF?text=AI%0Aことね" alt="ことね" />
-                    <div class="character-status">
-                        <div class="character-name">ことね</div>
-                        <div class="character-mood">元気いっぱい！✨</div>
-                    </div>
+                    <div id="vrm-character"></div>
                 </div>
             </div>
         </div>
@@ -93,6 +89,10 @@
         
     </div>
 
+    <script src="libs/three.min.js"></script>
+    <script src="libs/GLTFLoader.js"></script>
+    <script src="libs/three-vrm.min.js"></script>
+    <script src="vrmViewer.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
