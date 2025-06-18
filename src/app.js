@@ -36,31 +36,31 @@ class TerminalApp {
         this.terminal = new Terminal({
             fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
             fontSize: 14,
-            lineHeight: 1.2,
+            lineHeight: 1.3,
             cursorBlink: true,
             cursorStyle: 'block',
             theme: {
                 background: 'transparent',
-                foreground: '#00ff41',
-                cursor: '#00ff41',
-                cursorAccent: '#000000',
-                selection: 'rgba(255, 255, 255, 0.3)',
-                black: '#000000',
-                red: '#ff6c6b',
-                green: '#98be65',
-                yellow: '#ecbe7b',
-                blue: '#51afef',
-                magenta: '#c678dd',
-                cyan: '#46d9ff',
-                white: '#ffffff',
-                brightBlack: '#686868',
-                brightRed: '#ff7474',
-                brightGreen: '#a4c76d',
-                brightYellow: '#f4c67a',
-                brightBlue: '#6bb2ff',
-                brightMagenta: '#d084e5',
-                brightCyan: '#5ee9ff',
-                brightWhite: '#ffffff'
+                foreground: '#FF69B4',
+                cursor: '#FF1493',
+                cursorAccent: '#FFFFFF',
+                selection: 'rgba(255, 105, 180, 0.3)',
+                black: '#8B4513',
+                red: '#FF69B4',
+                green: '#98FB98',
+                yellow: '#FFD700',
+                blue: '#87CEEB',
+                magenta: '#DDA0DD',
+                cyan: '#AFEEEE',
+                white: '#696969',
+                brightBlack: '#A0522D',
+                brightRed: '#FF1493',
+                brightGreen: '#90EE90',
+                brightYellow: '#FFFF99',
+                brightBlue: '#ADD8E6',
+                brightMagenta: '#EE82EE',
+                brightCyan: '#E0FFFF',
+                brightWhite: '#2F4F4F'
             },
             allowTransparency: true,
             convertEol: true,
@@ -205,14 +205,7 @@ class TerminalApp {
             });
         }
 
-        // クイックアクションボタンのイベントリスナー
-        const quickButtons = document.querySelectorAll('.quick-btn');
-        quickButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const message = button.textContent;
-                this.sendQuickMessage(message);
-            });
-        });
+        // クイックボタンは削除済み
 
         // 初期メッセージを追加（音声読み上げ用）
         this.addVoiceMessage('ことね', 'こんにちは〜！✨ 何をお手伝いしましょうか？');
@@ -279,16 +272,7 @@ class TerminalApp {
         }
     }
 
-    sendQuickMessage(message) {
-        // Claude Codeにメッセージを送信（チャットには表示しない）
-        if (this.isTerminalRunning && window.electronAPI && window.electronAPI.terminal) {
-            console.log('Sending quick message to terminal:', message);
-            window.electronAPI.terminal.write(message + '\r');
-            this.updateCharacterMood('考え中...');
-        } else {
-            this.addVoiceMessage('ことね', 'Claude Codeが起動してないよ〜！先にStartボタンを押してね！');
-        }
-    }
+    // sendQuickMessage は削除済み
 
     addChatMessage(type, sender, text) {
         const chatMessages = document.getElementById('chat-messages');
