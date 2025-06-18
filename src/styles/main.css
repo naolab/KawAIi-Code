@@ -115,11 +115,10 @@ body::before {
 }
 
 .chat-input-container {
-    padding: 15px 20px;
-    background: rgba(255, 255, 255, 0.8);
-    border-top: 1px solid rgba(255, 105, 180, 0.2);
+    flex: 1;
     display: flex;
     gap: 10px;
+    align-items: center;
 }
 
 #chat-input {
@@ -241,22 +240,22 @@ body::before {
 /* クイックアクションボタン */
 .quick-actions {
     display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .quick-btn {
-    padding: 8px 16px;
+    padding: 6px 12px;
     background: rgba(255, 255, 255, 0.9);
     border: 2px solid #FFB6C1;
-    border-radius: 20px;
+    border-radius: 15px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
     color: #FF69B4;
     font-weight: 600;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
+    white-space: nowrap;
 }
 
 .quick-btn:hover {
@@ -266,49 +265,16 @@ body::before {
     box-shadow: 0 6px 20px rgba(255, 105, 180, 0.4);
 }
 
-/* ボトムパネル */
-.bottom-panel {
-    padding: 15px 20px;
-    background: rgba(255, 255, 255, 0.1);
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+/* タスクバー風入力エリア */
+.taskbar {
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(15px);
+    border-top: 2px solid rgba(255, 255, 255, 0.2);
     display: flex;
-    gap: 20px;
-}
-
-/* チャットセクション（下部） */
-.chat-section {
-    flex: 1;
-    height: 150px;
-    display: flex;
-    flex-direction: column;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 15px;
-    overflow: hidden;
-    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.2);
-}
-
-.chat-header {
-    padding: 8px 15px;
-    background: linear-gradient(135deg, #FF69B4, #FFB6C1);
-    color: white;
-    font-size: 12px;
-    font-weight: 600;
-    text-align: center;
-}
-
-.chat-messages {
-    flex: 1;
-    padding: 10px;
-    overflow-y: auto;
-    background: rgba(255, 255, 255, 0.95);
-}
-
-.input-section {
-    width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    justify-content: center;
+    gap: 15px;
+    align-items: center;
+    box-shadow: 0 -5px 20px rgba(255, 105, 180, 0.1);
 }
 
 /* 音声メッセージスタイル（コンパクト） */

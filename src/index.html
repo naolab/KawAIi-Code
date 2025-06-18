@@ -57,26 +57,20 @@
             </div>
         </div>
         
-        <div class="bottom-panel">
-            <div class="chat-section">
-                <div class="chat-header">💬 音声読み上げ内容</div>
-                <div class="chat-messages" id="chat-messages">
-                    <!-- 音声読み上げ内容のみ表示 -->
-                </div>
+        <div class="taskbar">
+            <div class="chat-input-container">
+                <input type="text" id="chat-input" placeholder="何か聞きたいことはある？" />
+                <button id="send-button">💌</button>
             </div>
-            
-            <div class="input-section">
-                <div class="chat-input-container">
-                    <input type="text" id="chat-input" placeholder="何か聞きたいことはある？" />
-                    <button id="send-button">💌</button>
-                </div>
-                <div class="quick-actions">
-                    <button class="quick-btn">君の名前は？</button>
-                    <button class="quick-btn">何ができるの？機能を教えて</button>
-                    <button class="quick-btn">AITuberKitって何？</button>
-                </div>
+            <div class="quick-actions">
+                <button class="quick-btn">君の名前は？</button>
+                <button class="quick-btn">何ができるの？機能を教えて</button>
+                <button class="quick-btn">AITuberKitって何？</button>
             </div>
         </div>
+        
+        <!-- 音声読み上げ用隠しエリア -->
+        <div id="chat-messages" style="display: none;"></div>
         
         <div class="status-bar">
             <span id="status">Ready</span>
