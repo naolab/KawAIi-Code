@@ -38,5 +38,8 @@ window.electronAPI = {
       ipcRenderer.removeAllListeners('play-audio');
       ipcRenderer.removeAllListeners('stop-audio');
     }
+  },
+  vrm: {
+    loadFile: (filename) => ipcRenderer.invoke('load-vrm-file', filename)
   }
 };

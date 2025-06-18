@@ -1,6 +1,4 @@
-const { Terminal } = require('@xterm/xterm');
-const { FitAddon } = require('@xterm/addon-fit');
-const { WebLinksAddon } = require('@xterm/addon-web-links');
+// xtermライブラリはCDNから読み込み
 
 class TerminalApp {
     constructor() {
@@ -31,6 +29,13 @@ class TerminalApp {
     }
 
     init() {
+        // xtermライブラリが読み込まれるまで待機
+        if (typeof Terminal === 'undefined') {
+            console.log('xterm.jsを読み込み中...');
+            setTimeout(() => this.init(), 100);
+            return;
+        }
+        
         this.setupTerminal();
         this.setupEventListeners();
         this.setupChatInterface();
@@ -81,9 +86,9 @@ class TerminalApp {
             macOptionIsMeta: true
         });
 
-        this.fitAddon = new FitAddon();
+        this.fitAddon = new FitAddon.FitAddon();
         this.terminal.loadAddon(this.fitAddon);
-        this.terminal.loadAddon(new WebLinksAddon());
+        this.terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
 
         const terminalElement = document.getElementById('terminal');
         if (terminalElement) {

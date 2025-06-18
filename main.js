@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const pty = require('node-pty');
 const VoiceService = require('./src/voiceService');
 
@@ -229,4 +230,28 @@ ipcMain.handle('voice-stop', () => {
     return { success: true };
   }
   return { success: false, error: 'Main window not available' };
+});
+
+// VRM file loading handler
+ipcMain.handle('load-vrm-file', async (event, filename) => {
+  try {
+    const vrmPath = path.join(__dirname, filename);
+    console.log('Loading VRM file from:', vrmPath);
+    
+    if (!fs.existsSync(vrmPath)) {
+      throw new Error(`VRM file not found: ${vrmPath}`);
+    }
+    
+    const vrmData = fs.readFileSync(vrmPath);
+    console.log('VRM file loaded, size:', vrmData.length, 'bytes');
+    
+    return { 
+      success: true, 
+      data: Array.from(vrmData), // Convert Buffer to Array for IPC
+      filename: filename 
+    };
+  } catch (error) {
+    console.error('Error loading VRM file:', error);
+    return { success: false, error: error.message };
+  }
 });
