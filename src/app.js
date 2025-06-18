@@ -18,12 +18,14 @@ class TerminalApp {
         this.lastSpeechTime = 0;
         this.speechCooldown = 1000; // 1秒のクールダウン（短縮）
         this.lastSpeechText = '';
+        this.chatMessages = []; // チャットメッセージ履歴
         this.init();
     }
 
     init() {
         this.setupTerminal();
         this.setupEventListeners();
+        this.setupChatInterface();
         this.updateStatus('Ready');
         this.checkVoiceConnection();
     }
@@ -68,8 +70,10 @@ class TerminalApp {
         this.terminal.loadAddon(this.fitAddon);
         this.terminal.loadAddon(new WebLinksAddon());
 
-        const terminalElement = document.getElementById('terminal');
-        this.terminal.open(terminalElement);
+        const terminalElement = document.getElementById('terminal-mini');
+        if (terminalElement) {
+            this.terminal.open(terminalElement);
+        }
         
         this.fitAddon.fit();
 
@@ -97,6 +101,7 @@ class TerminalApp {
         if (window.electronAPI && window.electronAPI.terminal) {
             window.electronAPI.terminal.onData((data) => {
                 this.terminal.write(data);
+                this.parseTerminalDataForChat(data);
             });
 
             // Handle Claude Code exit
@@ -176,6 +181,113 @@ class TerminalApp {
         this.updateVoiceControls();
     }
 
+    setupChatInterface() {
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+
+        if (chatInput && sendButton) {
+            // チャット入力のイベントリスナー
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.sendChatMessage();
+                }
+            });
+
+            sendButton.addEventListener('click', () => {
+                this.sendChatMessage();
+            });
+        }
+
+        // 初期メッセージを追加
+        this.addChatMessage('assistant', 'ことね', 'こんにちは〜！✨ 何をお手伝いしましょうか？');
+    }
+
+    parseTerminalDataForChat(data) {
+        // ANSIエスケープシーケンスを除去してメッセージを抽出
+        const cleanData = data.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').trim();
+        
+        // ⏺記号でAIの応答を検出
+        if (cleanData.includes('⏺')) {
+            const circleIndex = cleanData.indexOf('⏺');
+            let afterCircle = cleanData.substring(circleIndex + 1).trim();
+            
+            // 不要な部分を除去
+            afterCircle = afterCircle
+                .replace(/^[⚒↓⭐✶✻✢·✳]+\s*/g, '')
+                .replace(/\s*[✢✳✶✻✽·⚒↓↑]\s*(Synthesizing|Conjuring|Spinning|Vibing|Computing|Mulling|Pondering|musing|thinking).*$/gi, '')
+                .replace(/\s*\([0-9]+s[^)]*\).*$/g, '')
+                .replace(/\s*tokens.*$/gi, '')
+                .trim();
+
+            if (afterCircle.length > 10) {
+                this.addChatMessage('assistant', 'ことね', afterCircle);
+                this.updateCharacterMood('おしゃべり中✨');
+            }
+        }
+    }
+
+    sendChatMessage() {
+        const chatInput = document.getElementById('chat-input');
+        if (!chatInput) return;
+
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // ユーザーメッセージを追加
+        this.addChatMessage('user', 'あなた', message);
+        chatInput.value = '';
+
+        // Claude Codeにメッセージを送信
+        if (this.isTerminalRunning && window.electronAPI) {
+            window.electronAPI.terminal.write(message + '\r');
+            this.updateCharacterMood('考え中...');
+        }
+    }
+
+    addChatMessage(type, sender, text) {
+        const chatMessages = document.getElementById('chat-messages');
+        if (!chatMessages) return;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.textContent = type === 'assistant' ? 'こ' : 'あ';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+
+        const messageText = document.createElement('p');
+        messageText.className = 'message-text';
+        messageText.textContent = text;
+
+        const timeSpan = document.createElement('div');
+        timeSpan.className = 'message-time';
+        timeSpan.textContent = new Date().toLocaleTimeString('ja-JP', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+
+        bubble.appendChild(messageText);
+        bubble.appendChild(timeSpan);
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(bubble);
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // メッセージ履歴に追加
+        this.chatMessages.push({ type, sender, text, timestamp: new Date() });
+    }
+
+    updateCharacterMood(mood) {
+        const moodElement = document.querySelector('.character-mood');
+        if (moodElement) {
+            moodElement.textContent = mood;
+        }
+    }
+
     async startTerminal() {
         try {
             if (!window.electronAPI || !window.electronAPI.terminal) {
@@ -194,6 +306,9 @@ class TerminalApp {
                 // Show app welcome message
                 this.terminal.writeln('\x1b[96m🎀 AI Kawaii Claude Code Integration Started! 🎀\x1b[0m');
                 this.terminal.writeln('\x1b[93mClaude Code is starting up...\x1b[0m');
+                
+                // チャットにも通知
+                this.addChatMessage('assistant', 'ことね', 'Claude Codeが起動したよ〜！✨');
                 
                 // Resize terminal to fit
                 setTimeout(() => {

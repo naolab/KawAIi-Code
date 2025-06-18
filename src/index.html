@@ -41,8 +41,31 @@
         </div>
         
         <div class="main-content">
-            <div class="terminal-container">
-                <div id="terminal"></div>
+            <div class="chat-workspace">
+                <div class="chat-header">
+                    <h3>💬 ことねとの会話</h3>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <!-- チャットメッセージがここに表示される -->
+                </div>
+                <div class="chat-input-container">
+                    <input type="text" id="chat-input" placeholder="メッセージを入力..." />
+                    <button id="send-button">送信</button>
+                </div>
+            </div>
+            
+            <div class="character-panel">
+                <div class="character-avatar">
+                    <img id="character-image" src="https://via.placeholder.com/300x400/FFB6C1/FFFFFF?text=ことね" alt="ことね" />
+                </div>
+                <div class="character-status">
+                    <div class="character-name">ことね</div>
+                    <div class="character-mood">元気いっぱい！✨</div>
+                </div>
+                <div class="terminal-preview">
+                    <div class="terminal-header">ターミナル出力</div>
+                    <div id="terminal-mini"></div>
+                </div>
             </div>
         </div>
         
