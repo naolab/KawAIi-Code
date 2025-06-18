@@ -34,8 +34,8 @@ function createWindow() {
     }
   });
 
-  // Always open DevTools for debugging
-  mainWindow.webContents.openDevTools();
+  // DevTools for debugging (commented out for production)
+  // mainWindow.webContents.openDevTools();
 
   // Initialize voice service
   voiceService = new VoiceService();
