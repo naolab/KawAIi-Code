@@ -19,6 +19,8 @@ class TerminalApp {
         this.speechCooldown = 1000; // 1秒のクールダウン（短縮）
         this.lastSpeechText = '';
         this.chatMessages = []; // チャットメッセージ履歴
+        this.lastChatMessage = ''; // 重複チャット防止
+        this.lastChatTime = 0; // 重複チャット防止
         this.init();
     }
 
@@ -100,8 +102,13 @@ class TerminalApp {
         // Handle terminal data from backend
         if (window.electronAPI && window.electronAPI.terminal) {
             window.electronAPI.terminal.onData((data) => {
-                this.terminal.write(data);
-                this.parseTerminalDataForChat(data);
+                if (this.terminal) {
+                    this.terminal.write(data);
+                }
+                // チャット用の解析は少し遅延させて重複を防ぐ
+                setTimeout(() => {
+                    this.parseTerminalDataForChat(data);
+                }, 100);
             });
 
             // Handle Claude Code exit
@@ -220,8 +227,21 @@ class TerminalApp {
                 .trim();
 
             if (afterCircle.length > 10) {
-                this.addChatMessage('assistant', 'ことね', afterCircle);
-                this.updateCharacterMood('おしゃべり中✨');
+                // 重複メッセージ防止
+                const now = Date.now();
+                const isSameMessage = afterCircle === this.lastChatMessage;
+                const isRecentMessage = now - this.lastChatTime < 2000; // 2秒以内
+                
+                if (!isSameMessage || !isRecentMessage) {
+                    console.log('Adding chat message:', afterCircle.substring(0, 50) + '...');
+                    this.addChatMessage('assistant', 'ことね', afterCircle);
+                    this.updateCharacterMood('おしゃべり中✨');
+                    
+                    this.lastChatMessage = afterCircle;
+                    this.lastChatTime = now;
+                } else {
+                    console.log('Skipped duplicate chat message');
+                }
             }
         }
     }
@@ -238,9 +258,17 @@ class TerminalApp {
         chatInput.value = '';
 
         // Claude Codeにメッセージを送信
-        if (this.isTerminalRunning && window.electronAPI) {
+        if (this.isTerminalRunning && window.electronAPI && window.electronAPI.terminal) {
+            console.log('Sending message to terminal:', message);
             window.electronAPI.terminal.write(message + '\r');
             this.updateCharacterMood('考え中...');
+        } else {
+            console.error('Cannot send message:', {
+                isTerminalRunning: this.isTerminalRunning,
+                hasElectronAPI: !!window.electronAPI,
+                hasTerminalAPI: !!(window.electronAPI && window.electronAPI.terminal)
+            });
+            this.addChatMessage('assistant', 'ことね', 'Claude Codeが起動してないよ〜！先にStartボタンを押してね！');
         }
     }
 
