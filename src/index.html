@@ -10,33 +10,10 @@
 <body>
     <div class="app-container">
         <div class="header">
-            <h1>AI Kawaii Claude Code</h1>
+            <button id="settings-button" class="settings-btn">⚙️</button>
             <div class="controls">
-                <button id="start-terminal" class="btn btn-primary">Start Claude Code</button>
-                <button id="stop-terminal" class="btn btn-secondary">Stop Claude Code</button>
-            </div>
-            
-            <div class="voice-controls">
-                <div class="voice-header">
-                    <div class="voice-toggle-container">
-                        <label for="voice-toggle">音声読み上げ:</label>
-                        <input type="checkbox" id="voice-toggle">
-                    </div>
-                    <div class="connection-status">
-                        <span id="connection-status">接続確認中...</span>
-                        <button id="refresh-connection" class="btn btn-refresh">再接続</button>
-                    </div>
-                </div>
-                <div class="voice-settings">
-                    <select id="speaker-select" class="speaker-select">
-                        <option value="0">話者を選択...</option>
-                    </select>
-                    <div class="voice-options">
-                        <label for="voice-cooldown">間隔（秒）:</label>
-                        <input type="number" id="voice-cooldown" min="0.5" max="10" step="0.5" value="1" class="cooldown-input">
-                        <button id="stop-voice" class="btn btn-voice">音声停止</button>
-                    </div>
-                </div>
+                <button id="start-terminal" class="simple-btn start-btn">▶️ 開始</button>
+                <button id="stop-terminal" class="simple-btn stop-btn">⏹️ 停止</button>
             </div>
         </div>
         
@@ -60,16 +37,48 @@
         <div class="taskbar">
             <div class="chat-input-container">
                 <input type="text" id="chat-input" placeholder="何か聞きたいことはある？" />
-                <button id="send-button">💌</button>
+                <button id="send-button">
+                    <img src="./送信ボタン.png" alt="送信" />
+                </button>
             </div>
         </div>
         
         <!-- 音声読み上げ用隠しエリア -->
         <div id="chat-messages" style="display: none;"></div>
         
-        <div class="status-bar">
-            <span id="status">Ready</span>
+        <!-- 設定画面 -->
+        <div id="settings-modal" class="settings-modal" style="display: none;">
+            <div class="settings-content">
+                <div class="settings-header">
+                    <h3>設定</h3>
+                    <button id="close-settings" class="close-btn">×</button>
+                </div>
+                <div class="settings-body">
+                    <div class="setting-group">
+                        <label for="voice-toggle-modal">音声読み上げ:</label>
+                        <input type="checkbox" id="voice-toggle-modal">
+                    </div>
+                    <div class="setting-group">
+                        <label for="speaker-select-modal">話者:</label>
+                        <select id="speaker-select-modal" class="speaker-select">
+                            <option value="0">話者を選択...</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label for="voice-cooldown-modal">間隔（秒）:</label>
+                        <input type="number" id="voice-cooldown-modal" min="0.5" max="10" step="0.5" value="1" class="cooldown-input">
+                    </div>
+                    <div class="setting-group">
+                        <span>接続状況: <span id="connection-status-modal">接続確認中...</span></span>
+                        <button id="refresh-connection-modal" class="simple-btn">再接続</button>
+                    </div>
+                    <div class="setting-group">
+                        <button id="stop-voice-modal" class="simple-btn">音声停止</button>
+                    </div>
+                </div>
+            </div>
         </div>
+        
     </div>
 
     <script src="app.js"></script>

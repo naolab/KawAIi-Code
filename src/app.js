@@ -40,32 +40,36 @@ class TerminalApp {
             cursorBlink: true,
             cursorStyle: 'block',
             theme: {
-                background: 'transparent',
-                foreground: '#FF69B4',
-                cursor: '#FF1493',
+                background: '#FFF8F0',
+                foreground: '#FF8C42',
+                cursor: '#FF6B35',
                 cursorAccent: '#FFFFFF',
-                selection: 'rgba(255, 105, 180, 0.3)',
+                selection: 'rgba(255, 140, 66, 0.3)',
                 black: '#8B4513',
-                red: '#FF69B4',
-                green: '#98FB98',
+                red: '#FF6B35',
+                green: '#32CD32',
                 yellow: '#FFD700',
                 blue: '#87CEEB',
-                magenta: '#DDA0DD',
-                cyan: '#AFEEEE',
+                magenta: '#FF8C42',
+                cyan: '#20B2AA',
                 white: '#696969',
                 brightBlack: '#A0522D',
-                brightRed: '#FF1493',
+                brightRed: '#FF8C42',
                 brightGreen: '#90EE90',
-                brightYellow: '#FFFF99',
+                brightYellow: '#FFCC80',
                 brightBlue: '#ADD8E6',
-                brightMagenta: '#EE82EE',
+                brightMagenta: '#FFB366',
                 brightCyan: '#E0FFFF',
                 brightWhite: '#2F4F4F'
             },
-            allowTransparency: true,
+            allowTransparency: false,
             convertEol: true,
-            scrollback: 1000,
-            tabStopWidth: 4
+            scrollback: 100,
+            tabStopWidth: 4,
+            fastScrollModifier: 'shift',
+            fastScrollSensitivity: 5,
+            rendererType: 'dom',
+            smoothScrollDuration: 0
         });
 
         this.fitAddon = new FitAddon();
@@ -105,10 +109,10 @@ class TerminalApp {
                 if (this.terminal) {
                     this.terminal.write(data);
                 }
-                // チャット用の解析は少し遅延させて重複を防ぐ
+                // チャット用の解析は遅延を減らして軽量化
                 setTimeout(() => {
                     this.parseTerminalDataForChat(data);
-                }, 100);
+                }, 300);
             });
 
             // Handle Claude Code exit
@@ -146,42 +150,62 @@ class TerminalApp {
     setupEventListeners() {
         const startBtn = document.getElementById('start-terminal');
         const stopBtn = document.getElementById('stop-terminal');
+        const settingsBtn = document.getElementById('settings-button');
+        const closeSettingsBtn = document.getElementById('close-settings');
+        const settingsModal = document.getElementById('settings-modal');
 
         startBtn.addEventListener('click', () => this.startTerminal());
         stopBtn.addEventListener('click', () => this.stopTerminal());
+        
+        // 設定モーダルのイベント
+        settingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'flex';
+            this.syncSettingsToModal();
+        });
+        
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
+        
+        // モーダル外クリックで閉じる
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                settingsModal.style.display = 'none';
+            }
+        });
 
-        // Voice control events
-        const voiceToggle = document.getElementById('voice-toggle');
-        const speakerSelect = document.getElementById('speaker-select');
-        const stopVoiceBtn = document.getElementById('stop-voice');
-        const refreshConnectionBtn = document.getElementById('refresh-connection');
-        const cooldownInput = document.getElementById('voice-cooldown');
+        // 設定モーダル内のコントロール
+        const voiceToggleModal = document.getElementById('voice-toggle-modal');
+        const speakerSelectModal = document.getElementById('speaker-select-modal');
+        const stopVoiceBtnModal = document.getElementById('stop-voice-modal');
+        const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
+        const cooldownInputModal = document.getElementById('voice-cooldown-modal');
 
-        if (voiceToggle) {
-            voiceToggle.addEventListener('change', (e) => {
+        if (voiceToggleModal) {
+            voiceToggleModal.addEventListener('change', (e) => {
                 this.voiceEnabled = e.target.checked;
                 this.updateVoiceControls();
             });
         }
 
-        if (speakerSelect) {
-            speakerSelect.addEventListener('change', (e) => {
+        if (speakerSelectModal) {
+            speakerSelectModal.addEventListener('change', (e) => {
                 this.selectedSpeaker = parseInt(e.target.value);
             });
         }
 
-        if (cooldownInput) {
-            cooldownInput.addEventListener('input', (e) => {
-                this.speechCooldown = parseFloat(e.target.value) * 1000; // 秒→ミリ秒（小数点対応）
+        if (cooldownInputModal) {
+            cooldownInputModal.addEventListener('input', (e) => {
+                this.speechCooldown = parseFloat(e.target.value) * 1000;
             });
         }
 
-        if (stopVoiceBtn) {
-            stopVoiceBtn.addEventListener('click', () => this.stopVoice());
+        if (stopVoiceBtnModal) {
+            stopVoiceBtnModal.addEventListener('click', () => this.stopVoice());
         }
 
-        if (refreshConnectionBtn) {
-            refreshConnectionBtn.addEventListener('click', () => this.checkVoiceConnection());
+        if (refreshConnectionBtnModal) {
+            refreshConnectionBtnModal.addEventListener('click', () => this.checkVoiceConnection());
         }
 
         this.updateButtons();
@@ -212,38 +236,39 @@ class TerminalApp {
     }
 
     parseTerminalDataForChat(data) {
+        // ⏺記号がない場合は早期リターン
+        if (!data.includes('⏺')) return;
+        
         // ANSIエスケープシーケンスを除去してメッセージを抽出
         const cleanData = data.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').trim();
         
-        // ⏺記号でAIの応答を検出
-        if (cleanData.includes('⏺')) {
-            const circleIndex = cleanData.indexOf('⏺');
-            let afterCircle = cleanData.substring(circleIndex + 1).trim();
-            
-            // 不要な部分を除去
-            afterCircle = afterCircle
+        const circleIndex = cleanData.indexOf('⏺');
+        if (circleIndex === -1) return;
+        
+        let afterCircle = cleanData.substring(circleIndex + 1).trim();
+        
+        // 不要な部分を除去（音声読み上げのため緩く）
+        afterCircle = afterCircle
                 .replace(/^[⚒↓⭐✶✻✢·✳]+\s*/g, '')
                 .replace(/\s*[✢✳✶✻✽·⚒↓↑]\s*(Synthesizing|Conjuring|Spinning|Vibing|Computing|Mulling|Pondering|musing|thinking).*$/gi, '')
                 .replace(/\s*\([0-9]+s[^)]*\).*$/g, '')
                 .replace(/\s*tokens.*$/gi, '')
                 .trim();
 
-            if (afterCircle.length > 10) {
-                // 重複メッセージ防止
-                const now = Date.now();
-                const isSameMessage = afterCircle === this.lastChatMessage;
-                const isRecentMessage = now - this.lastChatTime < 2000; // 2秒以内
+        // リスト形式や非常に長い文章は除外
+        const isListFormat = /^\s*[-•*\d+\.)].*/m.test(afterCircle) || afterCircle.includes('\n-') || afterCircle.includes('\n•');
+        const isTooLong = afterCircle.length > 500;
+        
+        if (afterCircle.length > 5 && !isListFormat && !isTooLong) {
+            // 重複メッセージ防止を簡略化
+            const now = Date.now();
+            
+            if (afterCircle !== this.lastChatMessage || now - this.lastChatTime > 3000) {
+                this.addVoiceMessage('ことね', afterCircle);
+                this.updateCharacterMood('おしゃべり中✨');
                 
-                if (!isSameMessage || !isRecentMessage) {
-                    console.log('Adding voice message:', afterCircle.substring(0, 50) + '...');
-                    this.addVoiceMessage('ことね', afterCircle);
-                    this.updateCharacterMood('おしゃべり中✨');
-                    
-                    this.lastChatMessage = afterCircle;
-                    this.lastChatTime = now;
-                } else {
-                    console.log('Skipped duplicate voice message');
-                }
+                this.lastChatMessage = afterCircle;
+                this.lastChatTime = now;
             }
         }
     }
@@ -436,24 +461,44 @@ class TerminalApp {
     }
 
     updateVoiceControls() {
-        const speakerSelect = document.getElementById('speaker-select');
-        const stopVoiceBtn = document.getElementById('stop-voice');
-        const voiceToggle = document.getElementById('voice-toggle');
-        const cooldownInput = document.getElementById('voice-cooldown');
+        const speakerSelectModal = document.getElementById('speaker-select-modal');
+        const stopVoiceBtnModal = document.getElementById('stop-voice-modal');
+        const voiceToggleModal = document.getElementById('voice-toggle-modal');
+        const cooldownInputModal = document.getElementById('voice-cooldown-modal');
+        const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
 
         const canUseVoice = this.connectionStatus === 'connected';
 
-        if (voiceToggle) {
-            voiceToggle.disabled = !canUseVoice;
+        if (voiceToggleModal) {
+            voiceToggleModal.disabled = !canUseVoice;
         }
-        if (speakerSelect) {
-            speakerSelect.disabled = !this.voiceEnabled || !canUseVoice;
+        if (speakerSelectModal) {
+            speakerSelectModal.disabled = !this.voiceEnabled || !canUseVoice;
         }
-        if (cooldownInput) {
-            cooldownInput.disabled = !this.voiceEnabled || !canUseVoice;
+        if (cooldownInputModal) {
+            cooldownInputModal.disabled = !this.voiceEnabled || !canUseVoice;
         }
-        if (stopVoiceBtn) {
-            stopVoiceBtn.disabled = !this.voiceEnabled || !canUseVoice;
+        if (stopVoiceBtnModal) {
+            stopVoiceBtnModal.disabled = !this.voiceEnabled || !canUseVoice;
+        }
+        if (refreshConnectionBtnModal) {
+            refreshConnectionBtnModal.disabled = false;
+        }
+    }
+    
+    syncSettingsToModal() {
+        const voiceToggleModal = document.getElementById('voice-toggle-modal');
+        const speakerSelectModal = document.getElementById('speaker-select-modal');
+        const cooldownInputModal = document.getElementById('voice-cooldown-modal');
+        
+        if (voiceToggleModal) {
+            voiceToggleModal.checked = this.voiceEnabled;
+        }
+        if (speakerSelectModal) {
+            speakerSelectModal.value = this.selectedSpeaker;
+        }
+        if (cooldownInputModal) {
+            cooldownInputModal.value = this.speechCooldown / 1000;
         }
     }
 
@@ -494,30 +539,30 @@ class TerminalApp {
     }
 
     updateSpeakerSelect() {
-        const speakerSelect = document.getElementById('speaker-select');
-        if (speakerSelect && this.speakers.length > 0) {
-            speakerSelect.innerHTML = '';
+        const speakerSelectModal = document.getElementById('speaker-select-modal');
+        if (speakerSelectModal && this.speakers.length > 0) {
+            speakerSelectModal.innerHTML = '';
             this.speakers.forEach((speaker) => {
                 speaker.styles.forEach((style) => {
                     const option = document.createElement('option');
                     option.value = style.id;
                     option.textContent = `${speaker.name} (${style.name})`;
-                    speakerSelect.appendChild(option);
+                    speakerSelectModal.appendChild(option);
                 });
             });
             // 最初の話者を自動選択
             if (this.speakers[0] && this.speakers[0].styles[0]) {
                 this.selectedSpeaker = this.speakers[0].styles[0].id;
-                speakerSelect.value = this.selectedSpeaker;
+                speakerSelectModal.value = this.selectedSpeaker;
             }
         }
     }
 
     updateConnectionStatus(text, status) {
-        const statusElement = document.getElementById('connection-status');
-        if (statusElement) {
-            statusElement.textContent = text;
-            statusElement.className = `status-${status}`;
+        const statusElementModal = document.getElementById('connection-status-modal');
+        if (statusElementModal) {
+            statusElementModal.textContent = text;
+            statusElementModal.className = `status-${status}`;
         }
     }
 
