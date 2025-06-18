@@ -16,7 +16,7 @@ class TerminalApp {
         this.isPlaying = false;
         this.audioQueue = [];
         this.lastSpeechTime = 0;
-        this.speechCooldown = 2000; // 2秒のクールダウン
+        this.speechCooldown = 1000; // 1秒のクールダウン（短縮）
         this.lastSpeechText = '';
         this.init();
     }
@@ -160,7 +160,7 @@ class TerminalApp {
 
         if (cooldownInput) {
             cooldownInput.addEventListener('input', (e) => {
-                this.speechCooldown = parseInt(e.target.value) * 1000; // 秒→ミリ秒
+                this.speechCooldown = parseFloat(e.target.value) * 1000; // 秒→ミリ秒（小数点対応）
             });
         }
 
@@ -349,19 +349,26 @@ class TerminalApp {
 
         const now = Date.now();
         
-        // クールダウン期間中はスキップ
-        if (now - this.lastSpeechTime < this.speechCooldown) {
+        // クールダウン期間中はスキップ（ただし、明らかに新しい内容の場合は例外）
+        const isSignificantlyDifferent = text.length > this.lastSpeechText.length + 20;
+        if (now - this.lastSpeechTime < this.speechCooldown && !isSignificantlyDifferent) {
             return;
         }
 
-        // 同じテキストの重複を防ぐ
-        if (text === this.lastSpeechText) {
+        // 同じテキストの重複を防ぐ（ただし、前回より長い場合は新しい内容として扱う）
+        if (text === this.lastSpeechText || (text.length <= this.lastSpeechText.length && this.lastSpeechText.includes(text))) {
             return;
         }
 
-        // 音声再生中は新しい音声をキューに追加せずスキップ
-        if (this.isPlaying) {
+        // 音声再生中は新しい音声をキューに追加せずスキップ（ただし、大幅に長い場合は割り込み）
+        if (this.isPlaying && !isSignificantlyDifferent) {
             return;
+        }
+
+        // 長い文章の場合は前の音声を停止して新しい音声を再生
+        if (this.isPlaying && isSignificantlyDifferent) {
+            this.stopAudio();
+            await new Promise(resolve => setTimeout(resolve, 100)); // 少し待つ
         }
 
         try {
@@ -385,6 +392,10 @@ class TerminalApp {
             // Create audio context if not exists
             if (!this.audioContext) {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                // Resume audio context if suspended
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
             }
 
             // BufferをArrayBufferに変換

@@ -14,7 +14,8 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      preload: path.join(__dirname, 'src', 'preload.js')
+      preload: path.join(__dirname, 'src', 'preload.js'),
+      webSecurity: false
     },
     titleBarStyle: 'hiddenInset',
     show: false
@@ -39,6 +40,9 @@ function createWindow() {
   // Initialize voice service
   voiceService = new VoiceService();
 }
+
+// GPU process crash workaround - must be called before app is ready
+app.disableHardwareAcceleration();
 
 app.whenReady().then(createWindow);
 

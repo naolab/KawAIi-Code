@@ -72,7 +72,13 @@ class VoiceService {
 
     async speakText(text, speaker = 0) {
         try {
-            const audioData = await this.synthesizeText(text, speaker);
+            // 音声合成を非同期で開始（Promise化でタイムアウト対応）
+            const synthesisPromise = this.synthesizeText(text, speaker);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Speech synthesis timeout')), 5000)
+            );
+            
+            const audioData = await Promise.race([synthesisPromise, timeoutPromise]);
             // 音声データはメインプロセスからレンダラープロセスに送信
             return { success: true, audioData };
         } catch (error) {
@@ -151,8 +157,8 @@ class VoiceService {
                 
                 console.log('After cleanup:', JSON.stringify(afterCircle));
                 
-                // 会話内容として有効かチェック
-                if (afterCircle.length > 5) {
+                // 早期読み上げ用: 短い文でも読み上げ開始
+                if (afterCircle.length > 15) {
                     // 日本語文字、句読点、絵文字を含むかチェック
                     const hasJapanese = /[あ-んア-ヶ一-龯]/.test(afterCircle);
                     const hasPunctuation = /[。！？\.\!\?]/.test(afterCircle);
@@ -168,22 +174,29 @@ class VoiceService {
                     });
                     
                     if (hasJapanese || hasPunctuation || hasEmoji || hasValidChars) {
-                        // 長すぎる文章や箇条書きは短縮する
+                        // 文章の長さに応じた最適化
                         let finalText = afterCircle;
                         
+                        // 100文字以上の場合は文末で区切って先に読み上げ
+                        if (finalText.length > 100) {
+                            // 句読点での区切りを優先
+                            const sentenceEnd = finalText.search(/[。！？]/);
+                            if (sentenceEnd !== -1 && sentenceEnd < 150) {
+                                finalText = finalText.substring(0, sentenceEnd + 1);
+                            } else {
+                                // 句読点がない場合は80文字程度で区切る
+                                finalText = finalText.substring(0, 80) + '...';
+                            }
+                        }
+                        
                         // 箇条書きやリストが多い場合は最初の部分のみ読み上げる
-                        if (finalText.includes('-') && finalText.length > 200) {
+                        if (finalText.includes('-') && finalText.length > 150) {
                             const lines = finalText.split(/[\r\n]/);
-                            const firstMeaningfulLines = lines.slice(0, 3).join(' ');
-                            finalText = firstMeaningfulLines + '...など、詳しくはターミナルをご確認ください〜';
+                            const firstMeaningfulLines = lines.slice(0, 2).join(' ');
+                            finalText = firstMeaningfulLines + '...など！';
                         }
                         
-                        // あまりに長い場合は切り詰める
-                        if (finalText.length > 300) {
-                            finalText = finalText.substring(0, 250) + '...続きはターミナルで確認してね〜';
-                        }
-                        
-                        console.log('Returning extracted conversation:', finalText);
+                        console.log('Returning extracted conversation (optimized):', finalText);
                         return finalText;
                     }
                 }
