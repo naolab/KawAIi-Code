@@ -259,7 +259,7 @@ class TerminalApp {
         // VRMViewer初期化
         setTimeout(() => {
             if (window.VRMViewer) {
-                this.vrmCharacter = new window.VRMViewer();
+                this.vrmCharacter = new window.VRMViewer('vrm-character');
             } else {
                 console.error('VRMViewer not found');
             }

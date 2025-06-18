@@ -1,91 +1,93 @@
-// VRMビューワー（グローバル版）
-// Three.jsはCDNから読み込み
+// VRMビューワー（UMD版、ChatVRMロジック使用）
 
 class VRMViewer {
-    constructor() {
+    constructor(containerId) {
+        this.containerId = containerId;
+        this.container = null;
         this.scene = null;
         this.camera = null;
         this.renderer = null;
-        this.character = null;
+        this.vrm = null;
         this.mixer = null;
-        this.clock = null;
-        this.container = null;
+        this.clock = new THREE.Clock();
         this.animationId = null;
-        
-        // アニメーション用
-        this.blinkTimer = 0;
-        this.blinkInterval = 1000; // 最初の瞬きを1秒後に設定
-        this.isBlinking = false;
-        
+        this.isInitialized = false;
         this.initAttempts = 0;
+        this.maxInitAttempts = 10;
+        
+        // アニメーション関連
+        this.blinkStartTime = Date.now() + 1000; // 1秒後に瞬き開始
+        this.nextBlinkTime = this.blinkStartTime + Math.random() * 4000 + 2000; // 2-6秒後
+        this.isBlinking = false;
         
         this.init();
     }
 
-    init() {
-        console.log('VRMViewer初期化開始');
-        
-        // Three.jsが読み込まれるまで待機（最大10回まで）
+    async init() {
+        // Three.jsの読み込み確認
         if (typeof THREE === 'undefined') {
-            if (!this.initAttempts) this.initAttempts = 0;
             this.initAttempts++;
-            
-            if (this.initAttempts > 10) {
-                console.error('Three.jsの読み込みに失敗しました');
-                this.showError('Three.jsライブラリが読み込めませんでした');
+            if (this.initAttempts <= this.maxInitAttempts) {
+                console.log(`Three.js読み込み待機中... (試行 ${this.initAttempts}/${this.maxInitAttempts})`);
+                setTimeout(() => this.init(), 200);
+                return;
+            } else {
+                console.error('Three.js読み込み失敗 - 最大試行回数に達しました');
                 return;
             }
-            
-            console.log(`Three.jsを読み込み中... (${this.initAttempts}/10)`);
-            setTimeout(() => this.init(), 200);
+        }
+
+        // Three-VRMの読み込み確認
+        if (typeof THREE.VRM === 'undefined') {
+            console.error('Three-VRM読み込み失敗');
             return;
         }
-        
-        console.log('Three.js読み込み完了、初期化を開始します');
-        console.log('Three.js version:', THREE.REVISION);
-        this.clock = new THREE.Clock();
-        
-        // コンテナを取得
-        this.container = document.getElementById('vrm-character');
+
+        console.log('VRMViewer初期化開始');
+        console.log('Three.js バージョン:', THREE.REVISION);
+        console.log('Three-VRM 読み込み成功');
+
+        this.container = document.getElementById(this.containerId);
         if (!this.container) {
-            console.error('VRMコンテナが見つかりません');
+            console.error('Container not found:', this.containerId);
             return;
         }
 
-        // シーンの設定
-        this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x87CEEB); // スカイブルー
+        this.setupScene();
+        this.setupCamera();
+        this.setupRenderer();
+        this.setupLights();
+        
+        // VRMファイルを読み込み
+        await this.loadVRM();
+        
+        this.animate();
+        this.isInitialized = true;
+        console.log('VRMViewer初期化完了');
+    }
 
-        // カメラの設定
+    setupScene() {
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x87CEEB); // 空色背景
+    }
+
+    setupCamera() {
         this.camera = new THREE.PerspectiveCamera(
-            50,
+            75,
             this.container.clientWidth / this.container.clientHeight,
             0.1,
             1000
         );
-        this.camera.position.set(0, 1, 3);
+        this.camera.position.set(0, 1.5, 3);
+        this.camera.lookAt(0, 1, 0);
+    }
 
-        // レンダラーの設定
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    setupRenderer() {
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
-
-        // ライトの設定
-        this.setupLights();
-
-        // キャラクターを作成
-        this.createSimpleCharacter();
-
-        // アニメーション開始
-        this.animate();
-
-        // リサイズイベント
-        window.addEventListener('resize', () => this.onWindowResize());
-
-        console.log('VRMViewer初期化完了');
     }
 
     setupLights() {
@@ -93,93 +95,120 @@ class VRMViewer {
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         this.scene.add(ambientLight);
 
-        // 指向性ライト
+        // 指向性光源
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(1, 1, 0.5);
+        directionalLight.position.set(1, 1, 1);
         directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 1024;
-        directionalLight.shadow.mapSize.height = 1024;
         this.scene.add(directionalLight);
     }
 
-    async loadVRM(filename) {
+    async loadVRM() {
         try {
-            console.log('キャラクター読み込み開始:', filename);
+            console.log('VRMファイル読み込み開始: kotone_claude1.vrm');
+            
+            // ChatVRMと同じ方法でGLTFLoaderを設定
+            const loader = new THREE.GLTFLoader();
+            
+            // VRMLoaderPluginを登録（Three-VRM v1.0.9）
+            loader.register((parser) => new THREE.VRMLoaderPlugin(parser));
 
-            // 既存のキャラクターを削除
-            if (this.character) {
-                this.scene.remove(this.character);
+            // VRMファイルを読み込み
+            const gltf = await new Promise((resolve, reject) => {
+                loader.load(
+                    './kotone_claude1.vrm',
+                    (gltf) => resolve(gltf),
+                    (progress) => {
+                        const percent = (progress.loaded / progress.total * 100).toFixed(2);
+                        console.log(`VRM読み込み進行: ${percent}%`);
+                    },
+                    (error) => reject(error)
+                );
+            });
+            
+            console.log('GLTF読み込み完了');
+
+            // ChatVRMと同じ方法でVRMを取得
+            const vrm = (this.vrm = gltf.userData.vrm);
+            
+            if (!vrm) {
+                throw new Error('VRMデータが見つかりません');
             }
+            
+            vrm.scene.name = "VRMRoot";
 
-            // 簡易的なキャラクターを表示
-            this.createSimpleCharacter();
+            console.log('VRM情報:', {
+                name: vrm.meta?.title || 'Unknown',
+                author: vrm.meta?.author || 'Unknown',
+                version: vrm.meta?.version || 'Unknown'
+            });
 
-            console.log('簡易キャラクター表示完了');
+            // ChatVRMと同じ初期化処理
+            THREE.VRMUtils.rotateVRM0(vrm);
+            this.mixer = new THREE.AnimationMixer(vrm.scene);
+
+            // VRMをシーンに追加
+            this.scene.add(vrm.scene);
+            
+            // VRMの位置調整
+            vrm.scene.position.y = 0;
+            
+            console.log('VRMファイル読み込み成功');
+
         } catch (error) {
-            console.error('キャラクター表示エラー:', error);
-            this.showError(error.message);
+            console.error('VRMファイル読み込み失敗:', error);
+            console.log('代替として簡易キャラクターを作成します');
+            this.createSimpleCharacter();
         }
     }
 
     createSimpleCharacter() {
-        // キャラクターグループを作成
-        this.character = new THREE.Group();
+        // 簡易キャラクター作成（VRM読み込み失敗時のフォールバック）
+        const group = new THREE.Group();
 
-        // 体（箱）
+        // 体（青い箱）
         const bodyGeometry = new THREE.BoxGeometry(0.6, 1.0, 0.3);
-        const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x4A90E2 });
+        const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x4169E1 });
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
         body.position.y = 0.5;
-        body.castShadow = true;
-        this.character.add(body);
+        group.add(body);
 
-        // 頭（スフィア）
-        const headGeometry = new THREE.SphereGeometry(0.25, 16, 16);
-        const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDBB5 });
+        // 頭（肌色の球体）
+        const headGeometry = new THREE.SphereGeometry(0.25, 32, 32);
+        const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDBB3 });
         const head = new THREE.Mesh(headGeometry, headMaterial);
         head.position.y = 1.25;
-        head.castShadow = true;
-        this.character.add(head);
+        group.add(head);
 
-        // 目（左）
-        const eyeGeometry = new THREE.SphereGeometry(0.06, 8, 8); // サイズを2倍に
-        const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF }); // 白い目
+        // 目（白い球体）
+        const eyeGeometry = new THREE.SphereGeometry(0.06, 16, 16);
+        const eyeMaterial = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+        
         const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        leftEye.position.set(-0.12, 1.32, 0.22); // より外側、上側、前側に
-        this.character.add(leftEye);
-
-        // 左の瞳
-        const pupilGeometry = new THREE.SphereGeometry(0.03, 8, 8);
-        const pupilMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-        const leftPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
-        leftPupil.position.set(-0.12, 1.32, 0.25); // 目より少し前に
-        this.character.add(leftPupil);
-
-        // 目（右）
+        leftEye.position.set(-0.08, 1.3, 0.2);
+        group.add(leftEye);
+        
         const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        rightEye.position.set(0.12, 1.32, 0.22); // より外側、上側、前側に
-        this.character.add(rightEye);
+        rightEye.position.set(0.08, 1.3, 0.2);
+        group.add(rightEye);
 
-        // 右の瞳
+        // 瞳（黒い球体）
+        const pupilGeometry = new THREE.SphereGeometry(0.03, 16, 16);
+        const pupilMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
+        
+        const leftPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+        leftPupil.position.set(-0.08, 1.3, 0.23);
+        group.add(leftPupil);
+        
         const rightPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
-        rightPupil.position.set(0.12, 1.32, 0.25); // 目より少し前に
-        this.character.add(rightPupil);
+        rightPupil.position.set(0.08, 1.3, 0.23);
+        group.add(rightPupil);
 
-        // 参照を保存（アニメーション用）
-        this.leftEye = leftEye;
-        this.rightEye = rightEye;
-        this.leftPupil = leftPupil;
-        this.rightPupil = rightPupil;
-        this.head = head;
-        this.body = body;
-
-        // 初期状態で目が見えることを確認
-        console.log('目の位置 - 左:', leftEye.position, '右:', rightEye.position);
-        console.log('目のスケール - 左:', leftEye.scale, '右:', rightEye.scale);
-
-        // シーンに追加
+        this.character = group;
+        this.character.eyes = [leftEye, rightEye];
+        this.character.pupils = [leftPupil, rightPupil];
+        
         this.scene.add(this.character);
-
+        
         console.log('簡易キャラクター作成完了');
     }
 
@@ -188,127 +217,125 @@ class VRMViewer {
 
         const deltaTime = this.clock.getDelta();
         const elapsedTime = this.clock.getElapsedTime();
+        const currentTime = Date.now();
 
+        // VRMアニメーション
+        if (this.vrm) {
+            // VRMの浮遊アニメーション
+            this.vrm.scene.position.y = Math.sin(elapsedTime * 2) * 0.1;
+            
+            // VRMの回転アニメーション
+            this.vrm.scene.rotation.y = Math.sin(elapsedTime * 0.5) * 0.1;
+
+            // VRMの瞬きアニメーション
+            if (this.vrm.expressionManager && currentTime > this.blinkStartTime) {
+                if (!this.isBlinking && currentTime > this.nextBlinkTime) {
+                    this.startBlink();
+                }
+            }
+
+            // VRMのアップデート（ChatVRMと同じ）
+            this.vrm.update(deltaTime);
+            if (this.mixer) {
+                this.mixer.update(deltaTime);
+            }
+        }
+
+        // 簡易キャラクターのアニメーション（フォールバック用）
         if (this.character) {
             // 浮遊アニメーション
-            const floatY = Math.sin(elapsedTime * 2) * 0.1;
-            this.character.position.y = floatY;
-
-            // 回転アニメーション
-            const rotationY = Math.sin(elapsedTime * 0.5) * 0.1;
-            this.character.rotation.y = rotationY;
+            this.character.position.y = Math.sin(elapsedTime * 2) * 0.1;
+            
+            // 回転アニメーション  
+            this.character.rotation.y = Math.sin(elapsedTime * 0.5) * 0.1;
 
             // 瞬きアニメーション
-            this.updateBlinking(deltaTime);
-            
-            // デバッグ用（最初の5秒間のみ）
-            if (elapsedTime < 5) {
-                if (Math.floor(elapsedTime * 10) % 10 === 0) { // 0.1秒ごとに表示
-                    console.log(`アニメーション動作中: floatY=${floatY.toFixed(3)}, rotationY=${rotationY.toFixed(3)}, deltaTime=${deltaTime.toFixed(3)}`);
-                }
-            } else if (elapsedTime === 5) {
-                console.log('アニメーションログを停止します');
+            if (currentTime > this.blinkStartTime && !this.isBlinking && currentTime > this.nextBlinkTime) {
+                this.startSimpleBlink();
             }
         }
 
         this.renderer.render(this.scene, this.camera);
     }
 
-    updateBlinking(deltaTime) {
-        this.blinkTimer += deltaTime * 1000;
-
-        if (!this.isBlinking && this.blinkTimer >= this.blinkInterval) {
-            // 瞬き開始
-            console.log('瞬き開始！');
-            this.isBlinking = true;
-            this.blinkTimer = 0;
-            this.blinkInterval = Math.random() * 4000 + 2000; // 次の瞬きまでの間隔をリセット
-
-            // 目と瞳を細くする
-            if (this.leftEye && this.rightEye && this.leftPupil && this.rightPupil) {
-                console.log('目を細くします');
-                this.leftEye.scale.y = 0.1;
-                this.rightEye.scale.y = 0.1;
-                this.leftPupil.scale.y = 0.1;
-                this.rightPupil.scale.y = 0.1;
-            }
-
-            // 300ms後に目を開く（少し長めに）
-            setTimeout(() => {
-                if (this.leftEye && this.rightEye && this.leftPupil && this.rightPupil) {
-                    console.log('目を開きます');
-                    this.leftEye.scale.y = 1;
-                    this.rightEye.scale.y = 1;
-                    this.leftPupil.scale.y = 1;
-                    this.rightPupil.scale.y = 1;
-                }
-                this.isBlinking = false;
-            }, 300);
-        }
-    }
-
-    // 表情変更（瞬き）
-    changeExpression(expression) {
-        console.log('表情変更:', expression);
+    startBlink() {
+        if (!this.vrm || !this.vrm.expressionManager) return;
         
-        if (expression === 'blink' && this.leftEye && this.rightEye && this.leftPupil && this.rightPupil) {
-            // 手動瞬き
-            this.leftEye.scale.y = 0.1;
-            this.rightEye.scale.y = 0.1;
-            this.leftPupil.scale.y = 0.1;
-            this.rightPupil.scale.y = 0.1;
-            
-            setTimeout(() => {
-                this.leftEye.scale.y = 1;
-                this.rightEye.scale.y = 1;
-                this.leftPupil.scale.y = 1;
-                this.rightPupil.scale.y = 1;
-            }, 300);
+        this.isBlinking = true;
+        console.log('VRM瞬き開始');
+        
+        // Three-VRM v1.0.9のAPIを使用
+        try {
+            this.vrm.expressionManager.setValue('blink', 1.0);
+        } catch (error) {
+            console.log('瞬きBlendShape設定失敗:', error);
         }
+        
+        setTimeout(() => {
+            try {
+                this.vrm.expressionManager.setValue('blink', 0.0);
+            } catch (error) {
+                console.log('瞬きBlendShape解除失敗:', error);
+            }
+            this.isBlinking = false;
+            this.nextBlinkTime = Date.now() + Math.random() * 4000 + 2000;
+            console.log('VRM瞬き終了');
+        }, 300);
     }
 
-    onWindowResize() {
-        if (!this.container || !this.camera || !this.renderer) return;
+    startSimpleBlink() {
+        if (!this.character || !this.character.eyes) return;
+        
+        this.isBlinking = true;
+        console.log('簡易瞬き開始');
+        
+        this.character.eyes.forEach(eye => {
+            eye.scale.y = 0.1;
+        });
+        this.character.pupils.forEach(pupil => {
+            pupil.scale.y = 0.1;
+        });
+        
+        setTimeout(() => {
+            this.character.eyes.forEach(eye => {
+                eye.scale.y = 1.0;
+            });
+            this.character.pupils.forEach(pupil => {
+                pupil.scale.y = 1.0;
+            });
+            this.isBlinking = false;
+            this.nextBlinkTime = Date.now() + Math.random() * 4000 + 2000;
+            console.log('簡易瞬き終了');
+        }, 300);
+    }
 
+    resize() {
+        if (!this.isInitialized) return;
+        
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
-
+        
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);
     }
 
-    showError(message) {
-        console.error('VRMViewer エラー:', message);
-        
-        // エラー表示用の簡単なテキスト
-        const errorDiv = document.createElement('div');
-        errorDiv.style.position = 'absolute';
-        errorDiv.style.top = '50%';
-        errorDiv.style.left = '50%';
-        errorDiv.style.transform = 'translate(-50%, -50%)';
-        errorDiv.style.color = 'red';
-        errorDiv.style.fontSize = '14px';
-        errorDiv.style.textAlign = 'center';
-        errorDiv.innerHTML = `キャラクター読み込みエラー:<br>${message}`;
-        
-        if (this.container) {
-            this.container.appendChild(errorDiv);
-        }
-    }
-
-    dispose() {
-        if (this.renderer) {
-            this.renderer.dispose();
-        }
-        if (this.character) {
-            this.scene.remove(this.character);
-        }
+    destroy() {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
+        }
+        
+        if (this.renderer && this.container) {
+            this.container.removeChild(this.renderer.domElement);
+        }
+        
+        // VRMリソースの解放（ChatVRMと同じ）
+        if (this.vrm) {
+            THREE.VRMUtils.deepDispose(this.vrm.scene);
+            this.vrm = null;
         }
     }
 }
 
-// グローバルに公開してapp.jsから使用できるようにする
+// グローバルに公開
 window.VRMViewer = VRMViewer;

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com https://cdn.skypack.dev https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com https://cdn.skypack.dev https://cdn.jsdelivr.net https://threejs.org; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net;">
     <title>AI Kawaii Terminal</title>
     <link rel="stylesheet" href="styles/main.css">
     <!-- xterm.js CSS -->
@@ -91,15 +91,24 @@
         
     </div>
 
-    <!-- Three.js (unpkg CDN) -->
-    <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+    <!-- Three.js (UMD形式) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+    
+    <!-- GLTFLoader (ローカル) -->
+    <script src="libs/GLTFLoader.js"></script>
+    
+    <!-- Three-VRM (UMD形式) -->
+    <script src="https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@1.0.9/lib/three-vrm.js"></script>
     
     <!-- xterm.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.js"></script>
     
+    <!-- VRMViewer -->
     <script src="vrmViewer.js"></script>
+    
+    <!-- App.js -->
     <script src="app.js"></script>
 </body>
 </html>
