@@ -41,18 +41,17 @@
         </div>
         
         <div class="main-content">
-            <div class="chat-workspace">
-                <div class="chat-messages" id="chat-messages">
-                    <!-- チャットメッセージがここに表示される -->
+            <div class="left-panel">
+                <div class="terminal-section">
+                    <div class="terminal-header">🖥️ ターミナル</div>
+                    <div id="terminal"></div>
                 </div>
-                <div class="chat-input-container">
-                    <input type="text" id="chat-input" placeholder="何か聞きたいことはある？" />
-                    <button id="send-button">💌</button>
-                </div>
-                <div class="quick-actions">
-                    <button class="quick-btn">君の名前は？</button>
-                    <button class="quick-btn">何ができるの？機能を教えて</button>
-                    <button class="quick-btn">AITuberKitって何？</button>
+                
+                <div class="chat-section">
+                    <div class="chat-header">💬 音声読み上げ内容</div>
+                    <div class="chat-messages" id="chat-messages">
+                        <!-- 音声読み上げ内容のみ表示 -->
+                    </div>
                 </div>
             </div>
             
@@ -68,9 +67,16 @@
         </div>
         
         <div class="bottom-panel">
-            <div class="terminal-preview">
-                <div class="terminal-header">🖥️ 開発状況</div>
-                <div id="terminal-mini"></div>
+            <div class="input-section">
+                <div class="chat-input-container">
+                    <input type="text" id="chat-input" placeholder="何か聞きたいことはある？" />
+                    <button id="send-button">💌</button>
+                </div>
+                <div class="quick-actions">
+                    <button class="quick-btn">君の名前は？</button>
+                    <button class="quick-btn">何ができるの？機能を教えて</button>
+                    <button class="quick-btn">AITuberKitって何？</button>
+                </div>
             </div>
         </div>
         

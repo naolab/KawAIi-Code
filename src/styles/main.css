@@ -85,22 +85,68 @@ body::before {
     overflow: hidden;
 }
 
-/* 左側：チャットワークスペース */
-.chat-workspace {
+/* 左側パネル：ターミナル+チャット */
+.left-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 15px;
 }
 
+/* ターミナルセクション */
+.terminal-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.9);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.terminal-header {
+    padding: 10px 15px;
+    background: #2a2a2a;
+    color: #00ff41;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    border-bottom: 1px solid #444;
+}
+
+#terminal {
+    flex: 1;
+    padding: 10px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    background: transparent;
+    overflow: hidden;
+}
+
+/* チャットセクション */
+.chat-section {
+    height: 250px;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.2);
+}
+
+.chat-header {
+    padding: 10px 15px;
+    background: linear-gradient(135deg, #FF69B4, #FFB6C1);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+}
+
 .chat-messages {
     flex: 1;
-    padding: 20px;
+    padding: 15px;
     overflow-y: auto;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 20px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.15);
+    background: rgba(255, 255, 255, 0.95);
 }
 
 .chat-input-container {
@@ -262,124 +308,46 @@ body::before {
     border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.terminal-preview {
-    background: rgba(0, 0, 0, 0.8);
-    border-radius: 15px;
-    overflow: hidden;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-    max-height: 150px;
-}
-
-.terminal-header {
-    padding: 8px 15px;
-    background: #2a2a2a;
-    color: #00ff41;
-    font-size: 12px;
-    font-weight: 600;
-    text-align: center;
-    border-bottom: 1px solid #444;
-}
-
-#terminal-mini {
-    height: 120px;
-    padding: 10px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 10px;
-    color: #00ff41;
-    overflow-y: auto;
-    background: transparent;
-}
-
-/* チャットメッセージスタイル */
-.message {
-    margin-bottom: 15px;
+.input-section {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
-}
-
-.message.user {
-    flex-direction: row-reverse;
-}
-
-.message-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #FF69B4, #FFB6C1);
-    display: flex;
+    flex-direction: column;
+    gap: 15px;
     align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 600;
-    font-size: 14px;
-    flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(255, 105, 180, 0.4);
 }
 
-.message.user .message-avatar {
-    background: linear-gradient(135deg, #87CEEB, #ADD8E6);
-}
-
-.message-bubble {
-    max-width: 70%;
+/* 音声メッセージスタイル */
+.voice-message {
+    margin-bottom: 15px;
     padding: 12px 16px;
-    border-radius: 20px;
-    position: relative;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, rgba(255, 105, 180, 0.1), rgba(255, 182, 193, 0.1));
+    border-left: 4px solid #FF69B4;
+    border-radius: 10px;
+    backdrop-filter: blur(5px);
+    animation: fadeInUp 0.3s ease;
 }
 
-.message.assistant .message-bubble {
-    background: linear-gradient(135deg, #FF69B4, #FFB6C1);
-    color: white;
-    position: relative;
-}
-
-.message.assistant .message-bubble::before {
-    content: 'CHARACTER';
-    position: absolute;
-    top: -20px;
-    left: 0;
-    font-size: 10px;
+.voice-speaker {
+    font-size: 12px;
     font-weight: 700;
     color: #FF69B4;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 2px 8px;
-    border-radius: 10px;
-    border: 1px solid #FFB6C1;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.message.user .message-bubble {
-    background: rgba(255, 250, 205, 0.9);
-    color: #333;
-    border: 2px solid #F0E68C;
-    position: relative;
-}
-
-.message.user .message-bubble::before {
-    content: 'YOU';
-    position: absolute;
-    top: -20px;
-    right: 0;
-    font-size: 10px;
-    font-weight: 700;
-    color: #DAA520;
-    background: rgba(240, 230, 140, 0.9);
-    padding: 2px 8px;
-    border-radius: 10px;
-    border: 1px solid #F0E68C;
-}
-
-.message-text {
+.voice-text {
     margin: 0;
-    line-height: 1.4;
+    line-height: 1.5;
     font-size: 14px;
+    color: #333;
+    margin-bottom: 8px;
 }
 
-.message-time {
-    font-size: 11px;
+.voice-time {
+    font-size: 10px;
+    color: #888;
+    text-align: right;
     opacity: 0.7;
-    margin-top: 5px;
 }
 
 /* 従来のコントロールボタン */
