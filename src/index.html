@@ -10,16 +10,21 @@
 <body>
     <div class="app-container">
         <div class="header">
-            <button id="settings-button" class="settings-btn">⚙️</button>
+            <button id="settings-btn" class="settings-btn" aria-label="設定を開く">
+                <span class="gear-horizontal"></span>
+                <span class="gear-diagonal"></span>
+                <span class="gear-diagonal"></span>
+                <span class="gear-diagonal"></span>
+                <span class="gear-diagonal"></span>
+            </button>
             <div class="controls">
-                <button id="start-terminal" class="simple-btn start-btn">▶️ 開始</button>
-                <button id="stop-terminal" class="simple-btn stop-btn">⏹️ 停止</button>
+                <button id="start-terminal" class="simple-btn start-btn" aria-label="Claude Codeを開始"></button>
+                <button id="stop-terminal" class="simple-btn stop-btn" aria-label="Claude Codeを停止"></button>
             </div>
         </div>
         
         <div class="main-content">
             <div class="terminal-section">
-                <div class="terminal-header">🖥️ ターミナル</div>
                 <div id="terminal"></div>
             </div>
             
@@ -37,8 +42,7 @@
         <div class="taskbar">
             <div class="chat-input-container">
                 <input type="text" id="chat-input" placeholder="何か聞きたいことはある？" />
-                <button id="send-button">
-                    <img src="./送信ボタン.png" alt="送信" />
+                <button id="send-button" class="send-btn" aria-label="メッセージを送信">
                 </button>
             </div>
         </div>
@@ -55,25 +59,33 @@
                 </div>
                 <div class="settings-body">
                     <div class="setting-group">
-                        <label for="voice-toggle-modal">音声読み上げ:</label>
+                        <label for="voice-toggle-modal">音声読み上げ</label>
                         <input type="checkbox" id="voice-toggle-modal">
                     </div>
+                    
                     <div class="setting-group">
-                        <label for="speaker-select-modal">話者:</label>
+                        <label for="speaker-select-modal">話者選択</label>
                         <select id="speaker-select-modal" class="speaker-select">
                             <option value="0">話者を選択...</option>
                         </select>
                     </div>
+                    
                     <div class="setting-group">
-                        <label for="voice-cooldown-modal">間隔（秒）:</label>
+                        <label for="voice-cooldown-modal">読み上げ間隔（秒）</label>
                         <input type="number" id="voice-cooldown-modal" min="0.5" max="10" step="0.5" value="1" class="cooldown-input">
                     </div>
-                    <div class="setting-group">
-                        <span>接続状況: <span id="connection-status-modal">接続確認中...</span></span>
-                        <button id="refresh-connection-modal" class="simple-btn">再接続</button>
+                    
+                    <div class="setting-group connection-status-group">
+                        <span>音声エンジン接続状況</span>
+                        <span id="connection-status-modal">接続確認中...</span>
                     </div>
+                    
                     <div class="setting-group">
-                        <button id="stop-voice-modal" class="simple-btn">音声停止</button>
+                        <label>音声制御</label>
+                        <div style="display: flex; gap: 12px;">
+                            <button id="refresh-connection-modal" class="simple-btn">再接続</button>
+                            <button id="stop-voice-modal" class="simple-btn">音声停止</button>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -7,7 +7,7 @@ class TerminalApp {
         this.terminal = null;
         this.fitAddon = null;
         this.isTerminalRunning = false;
-        this.voiceEnabled = false;
+        this.voiceEnabled = true; // デフォルトで有効に
         this.selectedSpeaker = 0;
         this.connectionStatus = 'disconnected';
         this.speakers = [];
@@ -16,11 +16,16 @@ class TerminalApp {
         this.isPlaying = false;
         this.audioQueue = [];
         this.lastSpeechTime = 0;
-        this.speechCooldown = 1000; // 1秒のクールダウン（短縮）
+        this.speechCooldown = 500; // 0.5秒に短縮
         this.lastSpeechText = '';
-        this.chatMessages = []; // チャットメッセージ履歴
-        this.lastChatMessage = ''; // 重複チャット防止
-        this.lastChatTime = 0; // 重複チャット防止
+        this.chatMessages = [];
+        this.lastChatMessage = '';
+        this.lastChatTime = 0;
+        
+        // パフォーマンス最適化用
+        this.chatParseQueue = [];
+        this.chatParseTimer = null;
+        this.isProcessingChat = false;
         this.init();
     }
 
@@ -48,28 +53,30 @@ class TerminalApp {
                 black: '#8B4513',
                 red: '#FF6B35',
                 green: '#32CD32',
-                yellow: '#FFD700',
-                blue: '#87CEEB',
+                yellow: '#B8860B',
+                blue: '#4682B4',
                 magenta: '#FF8C42',
                 cyan: '#20B2AA',
                 white: '#696969',
                 brightBlack: '#A0522D',
                 brightRed: '#FF8C42',
                 brightGreen: '#90EE90',
-                brightYellow: '#FFCC80',
-                brightBlue: '#ADD8E6',
+                brightYellow: '#CD853F',
+                brightBlue: '#5F9EA0',
                 brightMagenta: '#FFB366',
                 brightCyan: '#E0FFFF',
                 brightWhite: '#2F4F4F'
             },
             allowTransparency: false,
             convertEol: true,
-            scrollback: 100,
+            scrollback: 50,
             tabStopWidth: 4,
             fastScrollModifier: 'shift',
             fastScrollSensitivity: 5,
-            rendererType: 'dom',
-            smoothScrollDuration: 0
+            rendererType: 'canvas',
+            smoothScrollDuration: 0,
+            windowsMode: false,
+            macOptionIsMeta: true
         });
 
         this.fitAddon = new FitAddon();
@@ -109,10 +116,8 @@ class TerminalApp {
                 if (this.terminal) {
                     this.terminal.write(data);
                 }
-                // チャット用の解析は遅延を減らして軽量化
-                setTimeout(() => {
-                    this.parseTerminalDataForChat(data);
-                }, 300);
+                // チャット解析をバッチ処理で高速化
+                this.queueChatParsing(data);
             });
 
             // Handle Claude Code exit
@@ -150,7 +155,7 @@ class TerminalApp {
     setupEventListeners() {
         const startBtn = document.getElementById('start-terminal');
         const stopBtn = document.getElementById('stop-terminal');
-        const settingsBtn = document.getElementById('settings-button');
+        const settingsBtn = document.getElementById('settings-btn');
         const closeSettingsBtn = document.getElementById('close-settings');
         const settingsModal = document.getElementById('settings-modal');
 
@@ -220,7 +225,15 @@ class TerminalApp {
             // チャット入力のイベントリスナー
             chatInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
+                    e.preventDefault(); // デフォルト動作を防ぐ
                     this.sendChatMessage();
+                }
+            });
+            
+            // フォーカス時にターミナルへの入力を防ぐ
+            chatInput.addEventListener('focus', () => {
+                if (this.terminal) {
+                    this.terminal.blur();
                 }
             });
 
@@ -235,41 +248,94 @@ class TerminalApp {
         this.addVoiceMessage('ことね', 'こんにちは〜！✨ 何をお手伝いしましょうか？');
     }
 
-    parseTerminalDataForChat(data) {
-        // ⏺記号がない場合は早期リターン
+    // バッチ処理でチャット解析を最適化
+    queueChatParsing(data) {
         if (!data.includes('⏺')) return;
         
-        // ANSIエスケープシーケンスを除去してメッセージを抽出
-        const cleanData = data.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').trim();
+        this.chatParseQueue.push(data);
         
-        const circleIndex = cleanData.indexOf('⏺');
-        if (circleIndex === -1) return;
+        if (!this.chatParseTimer) {
+            this.chatParseTimer = setTimeout(() => {
+                this.processChatQueue();
+            }, 50); // 50msに短縮で高速化
+        }
+    }
+    
+    processChatQueue() {
+        if (this.isProcessingChat) return;
+        this.isProcessingChat = true;
         
-        let afterCircle = cleanData.substring(circleIndex + 1).trim();
+        const latestData = this.chatParseQueue[this.chatParseQueue.length - 1];
+        this.chatParseQueue = [];
+        this.chatParseTimer = null;
         
-        // 不要な部分を除去（音声読み上げのため緩く）
-        afterCircle = afterCircle
-                .replace(/^[⚒↓⭐✶✻✢·✳]+\s*/g, '')
-                .replace(/\s*[✢✳✶✻✽·⚒↓↑]\s*(Synthesizing|Conjuring|Spinning|Vibing|Computing|Mulling|Pondering|musing|thinking).*$/gi, '')
-                .replace(/\s*\([0-9]+s[^)]*\).*$/g, '')
-                .replace(/\s*tokens.*$/gi, '')
-                .trim();
+        this.parseTerminalDataForChat(latestData);
+        this.isProcessingChat = false;
+    }
 
-        // リスト形式や非常に長い文章は除外
-        const isListFormat = /^\s*[-•*\d+\.)].*/m.test(afterCircle) || afterCircle.includes('\n-') || afterCircle.includes('\n•');
-        const isTooLong = afterCircle.length > 500;
-        
-        if (afterCircle.length > 5 && !isListFormat && !isTooLong) {
-            // 重複メッセージ防止を簡略化
-            const now = Date.now();
+    parseTerminalDataForChat(data) {
+        try {
+            const cleanData = data.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').trim();
+            const circleIndex = cleanData.indexOf('⏺');
+            if (circleIndex === -1) return;
             
-            if (afterCircle !== this.lastChatMessage || now - this.lastChatTime > 3000) {
+            let afterCircle = cleanData.substring(circleIndex + 1).trim();
+            
+            // 文字列クリーニング（音声読み上げ用）
+            afterCircle = afterCircle
+                    .replace(/^[⚒↓⭐✶✻✢·✳]+\s*/g, '')
+                    .replace(/\s*[✢✳✶✻✽·⚒↓↑]\s*(Synthesizing|Conjuring|Spinning|Vibing|Computing|Mulling|Pondering|musing|thinking).*$/gi, '')
+                    .replace(/\s*\([0-9]+s[^)]*\).*$/g, '')
+                    .replace(/\s*tokens.*$/gi, '')
+                    .trim();
+            
+            // 🌟マークがある場合はその手前までを読み上げ
+            const endMarkerIndex = afterCircle.indexOf('🌟');
+            if (endMarkerIndex !== -1) {
+                afterCircle = afterCircle.substring(0, endMarkerIndex).trim();
+            } else {
+                // 🌟マークがない場合は英語部分を削除
+                afterCircle = afterCircle.replace(/\s+[A-Za-z].*$/, '').trim();
+            }
+
+            // 音声読み上げ用フィルタリング（コマンド系除外）
+            if (afterCircle.length < 5) return;
+            if (afterCircle.length > 500) return;
+            
+            // コマンド関連や余計な情報を除外
+            const skipPatterns = [
+                /^(Creating|Editing|Writing|Reading|Running|Executing)/i,
+                /^(I'll|Let me|I'm going to|I will)/i,
+                /ファイルを|コマンドを|コミット|エラーが/,
+                /(git |npm |node |yarn |pip |brew |read |cat |ls |mkdir )/,
+                /```|コードブロック/,
+                /^　*[-•*]　*[-•*]/m,
+                /次のコマンド|以下のコマンド/,
+                /ターミナルで|コマンドラインで/,
+                /ファイルを読み込み|ファイルを確認/
+            ];
+            
+            if (skipPatterns.some(pattern => pattern.test(afterCircle))) return;
+            
+            // 重複チェック最適化（高速化）
+            const now = Date.now();
+            if (afterCircle === this.lastChatMessage && now - this.lastChatTime < 2000) return;
+            
+            // DOM操作を最小化
+            requestAnimationFrame(() => {
                 this.addVoiceMessage('ことね', afterCircle);
                 this.updateCharacterMood('おしゃべり中✨');
                 
-                this.lastChatMessage = afterCircle;
-                this.lastChatTime = now;
-            }
+                // 音声読み上げ実行
+                if (this.voiceEnabled) {
+                    this.speakText(afterCircle);
+                }
+            });
+            
+            this.lastChatMessage = afterCircle;
+            this.lastChatTime = now;
+        } catch (error) {
+            console.warn('Chat parsing error:', error);
         }
     }
 
@@ -282,11 +348,19 @@ class TerminalApp {
 
         chatInput.value = '';
 
-        // Claude Codeにメッセージを送信（チャットには表示しない）
+        // Claude Codeにメッセージを送信して完全に送信まで実行
         if (this.isTerminalRunning && window.electronAPI && window.electronAPI.terminal) {
             console.log('Sending message to terminal:', message);
+            // 確実にコマンドを実行させる
             window.electronAPI.terminal.write(message + '\r');
             this.updateCharacterMood('考え中...');
+            
+            // 入力後にターミナルにフォーカスを戻す
+            setTimeout(() => {
+                if (this.terminal) {
+                    this.terminal.focus();
+                }
+            }, 100);
         } else {
             console.error('Cannot send message:', {
                 isTerminalRunning: this.isTerminalRunning,
@@ -340,39 +414,40 @@ class TerminalApp {
         const chatMessages = document.getElementById('chat-messages');
         if (!chatMessages) return;
 
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'voice-message';
-
-        const speakerSpan = document.createElement('div');
-        speakerSpan.className = 'voice-speaker';
-        speakerSpan.textContent = speaker;
-
-        const messageText = document.createElement('p');
-        messageText.className = 'voice-text';
-        messageText.textContent = text;
-
-        const timeSpan = document.createElement('div');
-        timeSpan.className = 'voice-time';
-        timeSpan.textContent = new Date().toLocaleTimeString('ja-JP', { 
+        // DOM操作を最小化（innerHTML使用）
+        const timeString = new Date().toLocaleTimeString('ja-JP', { 
             hour: '2-digit', 
             minute: '2-digit',
             second: '2-digit'
         });
 
-        messageDiv.appendChild(speakerSpan);
-        messageDiv.appendChild(messageText);
-        messageDiv.appendChild(timeSpan);
+        const messageHTML = `
+            <div class="voice-message">
+                <div class="voice-speaker">${speaker}</div>
+                <p class="voice-text">${text}</p>
+                <div class="voice-time">${timeString}</div>
+            </div>
+        `;
 
-        chatMessages.appendChild(messageDiv);
+        chatMessages.insertAdjacentHTML('beforeend', messageHTML);
+        
+        // スクロールを最小化
+        if (chatMessages.children.length > 20) {
+            chatMessages.removeChild(chatMessages.firstChild);
+        }
+        
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
-        // メッセージ履歴に追加
-        this.chatMessages.push({ type: 'voice', speaker, text, timestamp: new Date() });
+        // メモリ最適化：履歴を制限
+        this.chatMessages.push({ type: 'voice', speaker, text, timestamp: Date.now() });
+        if (this.chatMessages.length > 50) {
+            this.chatMessages.shift();
+        }
     }
 
     updateCharacterMood(mood) {
         const moodElement = document.querySelector('.character-mood');
-        if (moodElement) {
+        if (moodElement && moodElement.textContent !== mood) {
             moodElement.textContent = mood;
         }
     }

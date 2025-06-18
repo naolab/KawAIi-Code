@@ -75,7 +75,7 @@ class VoiceService {
             // 音声合成を非同期で開始（Promise化でタイムアウト対応）
             const synthesisPromise = this.synthesizeText(text, speaker);
             const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Speech synthesis timeout')), 5000)
+                setTimeout(() => reject(new Error('Speech synthesis timeout')), 8000)
             );
             
             const audioData = await Promise.race([synthesisPromise, timeoutPromise]);

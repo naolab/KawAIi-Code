@@ -90,26 +90,12 @@ ipcMain.handle('terminal-start', () => {
       if (mainWindow) {
         mainWindow.webContents.send('terminal-data', data);
         
-        // Process for voice synthesis if enabled
-        if (voiceService) {
-          // ユーザー入力やステータス表示を含むデータは音声合成から除外
-          const containsUserInput = (data.includes('>') && !data.includes('⏺')) || // ⏺記号なしで>を含む = ユーザー入力
-                                   (data.includes('╭') && data.includes('│') && data.includes('╰')) || // ユーザー入力ボックス
-                                   /^\s*>\s*[^⏺\n]*$/.test(data.trim()); // シンプルなユーザー入力行
-          const containsStatusIndicator = data.includes('Synthesizing') || data.includes('Conjuring') || data.includes('Spinning') || data.includes('Vibing') || data.includes('Computing') || data.includes('Mulling') || data.includes('Pondering');
-          const containsToolExecution = data.includes('Bash(') || data.includes('Running…') || data.includes('⎿');
-          
-          if (!containsUserInput && !containsStatusIndicator && !containsToolExecution) {
-            const textToSpeak = voiceService.parseTerminalOutput(data);
-            if (textToSpeak) {
-              console.log('Voice synthesis approved for:', JSON.stringify(textToSpeak.substring(0, 50) + '...'));
-              mainWindow.webContents.send('voice-text-available', textToSpeak);
-            }
-          } else {
-            const reason = containsUserInput ? 'user input' : 
-                          containsStatusIndicator ? 'status indicator' : 
-                          'tool execution';
-            console.log(`Skipped voice synthesis - contains ${reason}:`, JSON.stringify(data.substring(0, 100) + '...'));
+        // Process for voice synthesis if enabled - simplified
+        if (voiceService && data.includes('⏺')) {
+          const textToSpeak = voiceService.parseTerminalOutput(data);
+          if (textToSpeak && textToSpeak.length > 3) {
+            console.log('Voice synthesis approved for:', JSON.stringify(textToSpeak.substring(0, 50) + '...'));
+            mainWindow.webContents.send('voice-text-available', textToSpeak);
           }
         }
       }
