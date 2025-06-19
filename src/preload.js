@@ -41,5 +41,19 @@ window.electronAPI = {
   },
   vrm: {
     loadFile: (filename) => ipcRenderer.invoke('load-vrm-file', filename)
+  },
+  wallpaper: {
+    getWallpaperList: () => ipcRenderer.invoke('wallpaper-get-list'),
+    uploadWallpaper: async (file) => {
+      const arrayBuffer = await file.arrayBuffer();
+      const data = Array.from(new Uint8Array(arrayBuffer));
+      return ipcRenderer.invoke('wallpaper-upload', {
+        name: file.name,
+        data: data,
+        size: file.size,
+        type: file.type
+      });
+    },
+    deleteWallpaper: (filename) => ipcRenderer.invoke('wallpaper-delete', filename)
   }
 };

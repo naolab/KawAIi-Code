@@ -8,7 +8,10 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-    background: url('./背景.png') center/cover no-repeat fixed;
+    background: url('assets/wallpapers/default/default.png') center/cover fixed;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     height: 100vh;
     overflow: hidden;
     position: relative;
@@ -16,6 +19,7 @@ body {
     backface-visibility: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background 0.5s ease;
 }
 
 /* 背景画像をクリアに表示 */
@@ -73,6 +77,28 @@ body {
     border: 2px solid rgba(255, 183, 102, 0.2);
     -ms-overflow-style: none;
     scrollbar-width: none;
+}
+
+/* 壁紙設定用スタイル */
+.wallpaper-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wallpaper-select {
+    padding: 8px 12px;
+    border: 2px solid #FFB366;
+    border-radius: 10px;
+    background: white;
+    font-size: 14px;
+    color: #333;
+}
+
+.wallpaper-controls .simple-btn {
+    padding: 8px 16px;
+    margin: 0;
+    width: auto;
 }
 
 /* ターミナルセクション全体のスクロールバーも非表示 */

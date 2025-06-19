@@ -53,13 +53,15 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     camera.position.set(0, 1.3, 2.5) // もう少し後ろに下がって全体を表示
     cameraRef.current = camera
 
-    // レンダラーの初期化（ChatVRMと同じ設定）
+    // レンダラーの初期化（Three.js v0.177対応）
     const renderer = new THREE.WebGLRenderer({
       canvas: canvasRef.current,
       antialias: true,
       alpha: true
     })
     renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.useLegacyLights = false // 新しいライティングモデル
+    renderer.shadowMap.enabled = false
     
     // 初期サイズ設定
     renderer.setSize(initialWidth, initialHeight)
@@ -73,22 +75,13 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     cameraControls.update()
     cameraControlsRef.current = cameraControls
 
-    // ライティング（明るく調整）
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0)
+    // ライティング（バランスの良い暖色照明）
+    const directionalLight = new THREE.DirectionalLight(0xffede2, Math.PI * 0.625)
     directionalLight.position.set(1.0, 1.0, 1.0).normalize()
     scene.add(directionalLight)
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8)
+    const ambientLight = new THREE.AmbientLight(0xfff5f0, Math.PI * 0.425)
     scene.add(ambientLight)
-    
-    // 追加のライトで全体を明るく
-    const frontLight = new THREE.DirectionalLight(0xffffff, 0.5)
-    frontLight.position.set(0, 0, 1)
-    scene.add(frontLight)
-    
-    // HemisphereLightで空と地面からの光を追加
-    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6)
-    scene.add(hemisphereLight)
 
     // 床は透明なので追加しない
 

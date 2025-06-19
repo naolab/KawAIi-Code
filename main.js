@@ -61,7 +61,7 @@ async function startNextjsServer() {
     nextjsProcess = spawn('npm', ['run', 'dev'], {
       cwd: nextjsPath,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, PORT: '3001' }
+      env: { ...process.env, PORT: '3002' }
     });
 
     nextjsProcess.stdout.on('data', (data) => {
@@ -308,6 +308,81 @@ ipcMain.handle('load-vrm-file', async (event, filename) => {
     };
   } catch (error) {
     console.error('Error loading VRM file:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 壁紙システムのハンドラー
+ipcMain.handle('wallpaper-get-list', async () => {
+  try {
+    const wallpaperDir = path.join(__dirname, 'src', 'assets', 'wallpapers', 'user');
+    
+    // ディレクトリが存在しない場合は作成
+    if (!fs.existsSync(wallpaperDir)) {
+      fs.mkdirSync(wallpaperDir, { recursive: true });
+    }
+    
+    const files = fs.readdirSync(wallpaperDir);
+    const wallpapers = files
+      .filter(file => /\.(png|jpg|jpeg|gif|webp)$/i.test(file))
+      .map(file => ({
+        filename: file,
+        name: file.replace(/\.[^/.]+$/, ''), // 拡張子を除去
+        size: fs.statSync(path.join(wallpaperDir, file)).size
+      }));
+    
+    return { success: true, wallpapers };
+  } catch (error) {
+    console.error('壁紙リスト取得エラー:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('wallpaper-upload', async (event, fileData) => {
+  try {
+    const wallpaperDir = path.join(__dirname, 'src', 'assets', 'wallpapers', 'user');
+    
+    // ディレクトリが存在しない場合は作成
+    if (!fs.existsSync(wallpaperDir)) {
+      fs.mkdirSync(wallpaperDir, { recursive: true });
+    }
+    
+    // ファイル名を生成（タイムスタンプ付き）
+    const timestamp = Date.now();
+    const originalName = fileData.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const filename = `${timestamp}_${originalName}`;
+    const filePath = path.join(wallpaperDir, filename);
+    
+    // ファイルを保存
+    const buffer = Buffer.from(fileData.data);
+    fs.writeFileSync(filePath, buffer);
+    
+    console.log('壁紙アップロード完了:', filename);
+    
+    return { 
+      success: true, 
+      filename: filename,
+      name: originalName.replace(/\.[^/.]+$/, '')
+    };
+  } catch (error) {
+    console.error('壁紙アップロードエラー:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('wallpaper-delete', async (event, filename) => {
+  try {
+    const wallpaperPath = path.join(__dirname, 'src', 'assets', 'wallpapers', 'user', filename);
+    
+    if (fs.existsSync(wallpaperPath)) {
+      fs.unlinkSync(wallpaperPath);
+      console.log('壁紙削除完了:', filename);
+      return { success: true };
+    } else {
+      return { success: false, error: 'ファイルが見つかりません' };
+    }
+  } catch (error) {
+    console.error('壁紙削除エラー:', error);
     return { success: false, error: error.message };
   }
 });

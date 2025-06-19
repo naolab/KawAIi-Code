@@ -38,6 +38,7 @@ class TerminalApp {
         this.setupTerminal();
         this.setupEventListeners();
         this.setupChatInterface();
+        this.setupWallpaperSystem();
         this.updateStatus('Ready');
         this.checkVoiceConnection();
     }
@@ -762,6 +763,146 @@ class TerminalApp {
             } catch (error) {
                 console.error('Failed to stop voice:', error);
             }
+        }
+    }
+
+    // 壁紙システムの初期化
+    setupWallpaperSystem() {
+        this.loadWallpaperList();
+        this.setupWallpaperListeners();
+    }
+
+    // 壁紙リストを読み込み
+    async loadWallpaperList() {
+        try {
+            const response = await window.electronAPI.wallpaper.getWallpaperList();
+            if (response.success) {
+                const select = document.getElementById('wallpaper-select');
+                if (select) {
+                    // デフォルトオプションを残して他をクリア
+                    select.innerHTML = '<option value="default">デフォルト壁紙</option>';
+                    
+                    // ユーザー壁紙を追加
+                    response.wallpapers.forEach(wallpaper => {
+                        const option = document.createElement('option');
+                        option.value = wallpaper.filename;
+                        option.textContent = wallpaper.name;
+                        select.appendChild(option);
+                    });
+                    
+                    // 保存されている壁紙設定を復元
+                    const savedWallpaper = localStorage.getItem('selectedWallpaper');
+                    if (savedWallpaper) {
+                        select.value = savedWallpaper;
+                        this.applyWallpaper(savedWallpaper);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('壁紙リスト読み込みエラー:', error);
+        }
+    }
+
+    // 壁紙関連のイベントリスナーを設定
+    setupWallpaperListeners() {
+        const wallpaperSelect = document.getElementById('wallpaper-select');
+        const uploadBtn = document.getElementById('upload-wallpaper-btn');
+        const uploadInput = document.getElementById('wallpaper-upload');
+        const resetBtn = document.getElementById('reset-wallpaper-btn');
+
+        if (wallpaperSelect) {
+            wallpaperSelect.addEventListener('change', (e) => {
+                const selectedWallpaper = e.target.value;
+                this.applyWallpaper(selectedWallpaper);
+                localStorage.setItem('selectedWallpaper', selectedWallpaper);
+            });
+        }
+
+        if (uploadBtn && uploadInput) {
+            uploadBtn.addEventListener('click', () => {
+                uploadInput.click();
+            });
+
+            uploadInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    await this.uploadWallpaper(file);
+                }
+            });
+        }
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                this.resetWallpaper();
+            });
+        }
+    }
+
+    // 壁紙を適用
+    applyWallpaper(wallpaperName) {
+        const body = document.body;
+        
+        if (wallpaperName === 'default') {
+            // デフォルト壁紙（背景1.png）
+            const defaultWallpaperPath = 'assets/wallpapers/default/default.png';
+            body.style.background = `url('${defaultWallpaperPath}') center/cover fixed`;
+            body.style.backgroundAttachment = 'fixed';
+        } else {
+            // ユーザー壁紙
+            const wallpaperPath = `assets/wallpapers/user/${wallpaperName}`;
+            body.style.background = `url('${wallpaperPath}') center/cover fixed`;
+            body.style.backgroundAttachment = 'fixed';
+        }
+    }
+
+    // 壁紙をアップロード
+    async uploadWallpaper(file) {
+        try {
+            // ファイルサイズチェック（5MB制限）
+            if (file.size > 5 * 1024 * 1024) {
+                alert('ファイルサイズが大きすぎます（5MB以下にしてください）');
+                return;
+            }
+
+            // ファイル形式チェック
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('対応していないファイル形式です（PNG、JPEG、GIF、WebPのみ）');
+                return;
+            }
+
+            const response = await window.electronAPI.wallpaper.uploadWallpaper(file);
+            if (response.success) {
+                // 成功メッセージ
+                this.addVoiceMessage('ことね', '壁紙がアップロードできたよ〜！✨');
+                
+                // 壁紙リストを再読み込み
+                await this.loadWallpaperList();
+                
+                // アップロードした壁紙を自動選択
+                const select = document.getElementById('wallpaper-select');
+                if (select) {
+                    select.value = response.filename;
+                    this.applyWallpaper(response.filename);
+                    localStorage.setItem('selectedWallpaper', response.filename);
+                }
+            } else {
+                alert('壁紙のアップロードに失敗しました');
+            }
+        } catch (error) {
+            console.error('壁紙アップロードエラー:', error);
+            alert('壁紙のアップロードに失敗しました');
+        }
+    }
+
+    // 壁紙をリセット
+    resetWallpaper() {
+        const select = document.getElementById('wallpaper-select');
+        if (select) {
+            select.value = 'default';
+            this.applyWallpaper('default');
+            localStorage.removeItem('selectedWallpaper');
+            this.addVoiceMessage('ことね', 'デフォルト壁紙に戻したよ〜！✨');
         }
     }
 }
