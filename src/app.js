@@ -673,7 +673,15 @@ class TerminalApp {
     }
 
     async speakText(text) {
+        console.log('🔍 speakText conditions:', {
+            electronAPI: !!window.electronAPI,
+            voice: !!window.electronAPI?.voice,
+            voiceEnabled: this.voiceEnabled,
+            connectionStatus: this.connectionStatus
+        });
+        
         if (!window.electronAPI || !window.electronAPI.voice || !this.voiceEnabled || this.connectionStatus !== 'connected') {
+            console.log('❌ speakText blocked by conditions');
             return;
         }
 
@@ -712,6 +720,8 @@ class TerminalApp {
     }
 
     async playAudio(audioData) {
+        console.log('🎵 playAudio called with data size:', audioData?.length || audioData?.byteLength || 'unknown');
+        
         // 既に再生中の場合はスキップ（キューに溜めない）
         if (this.isPlaying) {
             console.log('Audio already playing, skipping...');
@@ -744,18 +754,23 @@ class TerminalApp {
             }
 
             // Decode audio data
+            console.log('🎵 Decoding audio data, size:', arrayBuffer.byteLength);
             const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            console.log('🎵 Audio decoded successfully, duration:', audioBuffer.duration, 'seconds');
+            
             const source = this.audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(this.audioContext.destination);
             
             source.onended = () => {
+                console.log('🎵 Audio playback ended');
                 this.currentAudio = null;
                 this.isPlaying = false;
             };
 
             this.currentAudio = source;
             this.isPlaying = true;
+            console.log('🎵 Starting audio playback...');
             source.start();
         } catch (error) {
             console.error('Failed to play audio:', error);
