@@ -726,9 +726,8 @@ class TerminalApp {
         try {
             const iframe = document.getElementById('vrm-iframe');
             if (iframe && iframe.contentWindow) {
-                // ArrayBufferをコピーしてからArrayに変換
-                const copiedBuffer = audioData.slice(0);
-                const audioArray = Array.from(new Uint8Array(copiedBuffer));
+                // ArrayBufferを直接Arrayに変換（すでにコピー済み）
+                const audioArray = Array.from(new Uint8Array(audioData));
                 iframe.contentWindow.postMessage({
                     type: 'lipSync',
                     audioData: audioArray
@@ -761,12 +760,14 @@ class TerminalApp {
                 }
             }
 
-            // BufferをArrayBufferに変換
-            let arrayBuffer;
+            // BufferをArrayBufferに変換（VRM用のコピーも作成）
+            let arrayBuffer, vrmArrayBuffer;
             if (audioData instanceof ArrayBuffer) {
                 arrayBuffer = audioData;
+                vrmArrayBuffer = audioData.slice(0); // VRM用にコピー
             } else if (audioData.buffer instanceof ArrayBuffer) {
                 arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength);
+                vrmArrayBuffer = arrayBuffer.slice(0); // VRM用にコピー
             } else {
                 // Uint8ArrayまたはBufferの場合
                 arrayBuffer = new ArrayBuffer(audioData.length);
@@ -774,6 +775,7 @@ class TerminalApp {
                 for (let i = 0; i < audioData.length; i++) {
                     view[i] = audioData[i];
                 }
+                vrmArrayBuffer = arrayBuffer.slice(0); // VRM用にコピー
             }
 
             // Decode audio data
@@ -791,12 +793,12 @@ class TerminalApp {
                 this.isPlaying = false;
             };
 
+            // VRMビューワーに音声データを送信（専用コピーを使用）
+            this.sendAudioToVRM(vrmArrayBuffer);
+            
             this.currentAudio = source;
             this.isPlaying = true;
             console.log('🎵 Starting audio playback...');
-            
-            // VRMビューワーに音声データを送信
-            this.sendAudioToVRM(arrayBuffer);
             
             source.start();
         } catch (error) {
