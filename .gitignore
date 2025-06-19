@@ -58,3 +58,6 @@ next-env.d.ts
 # Build cache files
 .cache/
 .temp/
+
+# External repositories (reference only)
+ChatVRM/
