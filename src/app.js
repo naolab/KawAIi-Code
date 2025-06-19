@@ -1,5 +1,11 @@
 // xtermライブラリはCDNから読み込み
 
+// デバッグログ制御（本番環境では無効化）
+const isDev = !window.location.protocol.startsWith('file:') || process.env.NODE_ENV === 'development';
+const debugLog = isDev ? console.log : () => {};
+const debugTrace = isDev ? console.trace : () => {};
+const debugError = console.error; // エラーは常に出力
+
 class TerminalApp {
     constructor() {
         this.terminal = null;
@@ -33,7 +39,7 @@ class TerminalApp {
     init() {
         // xtermライブラリが読み込まれるまで待機
         if (typeof Terminal === 'undefined') {
-            console.log('xterm.jsを読み込み中...');
+            debugLog('xterm.jsを読み込み中...');
             setTimeout(() => this.init(), 100);
             return;
         }
@@ -137,7 +143,7 @@ class TerminalApp {
                 this.updateButtons();
             });
         } else {
-            console.error('electronAPI not available');
+            debugError('electronAPI not available');
             this.updateStatus('ElectronAPI not available');
         }
 
@@ -301,17 +307,17 @@ class TerminalApp {
             
             // カッコ内のテキストを抽出（音声読み上げ用）
             const quotedTextMatches = afterCircle.match(/「([^」]+)」/g);
-            console.log('Original text:', afterCircle);
-            console.log('Quoted matches:', quotedTextMatches);
+            debugLog('Original text:', afterCircle);
+            debugLog('Quoted matches:', quotedTextMatches);
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
                 // カッコ内のテキストを一個ずつ処理
-                console.log('Found quoted text, processing only quoted content');
+                debugLog('Found quoted text, processing only quoted content');
                 this.processQuotedTexts(quotedTextMatches);
                 return; // カッコ処理の場合は通常の処理をスキップ
             } else {
                 // カッコがない場合は読み上げしない
-                console.log('No quoted text found, skipping voice synthesis');
+                debugLog('No quoted text found, skipping voice synthesis');
                 return;
             }
 
@@ -322,7 +328,7 @@ class TerminalApp {
 
     // カッコ内のテキストを一個ずつ順次処理
     async processQuotedTexts(quotedTextMatches) {
-        console.log('Processing quoted texts:', quotedTextMatches);
+        debugLog('Processing quoted texts:', quotedTextMatches);
         
         for (let i = 0; i < quotedTextMatches.length; i++) {
             let quotedText = quotedTextMatches[i].replace(/[「」]/g, '').trim();
@@ -330,16 +336,16 @@ class TerminalApp {
             // 改行と余分な空白を除去
             quotedText = quotedText.replace(/\r?\n\s*/g, '').replace(/\s+/g, ' ').trim();
             
-            console.log(`Original quoted text: "${quotedText}"`);
+            debugLog(`Original quoted text: "${quotedText}"`);
             
             
             // 空のテキストはスキップ
             if (quotedText.length === 0) {
-                console.log('Skipping empty text');
+                debugLog('Skipping empty text');
                 continue;
             }
             
-            console.log(`Processing quote ${i + 1}/${quotedTextMatches.length}: "${quotedText}"`);
+            debugLog(`Processing quote ${i + 1}/${quotedTextMatches.length}: "${quotedText}"`);
             
             // DOM操作を最小化
             requestAnimationFrame(() => {
@@ -366,8 +372,8 @@ class TerminalApp {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
         
-        console.log('🔊 Speaking sequentially:', text);
-        console.trace('Call stack for speech:');
+        debugLog('🔊 Speaking sequentially:', text);
+        debugTrace('Call stack for speech:');
         return this.speakText(text);
     }
 
@@ -382,7 +388,7 @@ class TerminalApp {
 
         // Claude Codeにメッセージを送信して完全に送信まで実行
         if (this.isTerminalRunning && window.electronAPI && window.electronAPI.terminal) {
-            console.log('Sending message to terminal:', message);
+            debugLog('Sending message to terminal:', message);
             // 確実にコマンドを実行させる
             window.electronAPI.terminal.write(message + '\r');
             this.updateCharacterMood('考え中...');
@@ -394,7 +400,7 @@ class TerminalApp {
                 }
             }, 100);
         } else {
-            console.error('Cannot send message:', {
+            debugError('Cannot send message:', {
                 isTerminalRunning: this.isTerminalRunning,
                 hasElectronAPI: !!window.electronAPI,
                 hasTerminalAPI: !!(window.electronAPI && window.electronAPI.terminal)
@@ -518,7 +524,7 @@ class TerminalApp {
                 this.updateStatus('Failed to start Claude Code');
             }
         } catch (error) {
-            console.error('Error starting Claude Code:', error);
+            debugError('Error starting Claude Code:', error);
             this.updateStatus('Error starting Claude Code');
         }
         
@@ -543,7 +549,7 @@ class TerminalApp {
                 this.updateStatus('Failed to stop Claude Code');
             }
         } catch (error) {
-            console.error('Error stopping Claude Code:', error);
+            debugError('Error stopping Claude Code:', error);
             this.updateStatus('Error stopping Claude Code');
         }
         
@@ -624,7 +630,7 @@ class TerminalApp {
             } catch (error) {
                 this.connectionStatus = 'error';
                 this.updateConnectionStatus('エラー', 'error');
-                console.error('Voice connection check failed:', error);
+                debugError('Voice connection check failed:', error);
             }
             this.updateVoiceControls();
         }
@@ -636,11 +642,11 @@ class TerminalApp {
                 const result = await window.electronAPI.voice.getSpeakers();
                 if (result.success) {
                     this.speakers = result.speakers;
-                    console.log('Loaded speakers:', this.speakers);
+                    debugLog('Loaded speakers:', this.speakers);
                     this.updateSpeakerSelect();
                 }
             } catch (error) {
-                console.error('Failed to load speakers:', error);
+                debugError('Failed to load speakers:', error);
             }
         }
     }
@@ -674,7 +680,7 @@ class TerminalApp {
     }
 
     async speakText(text) {
-        console.log('🔍 speakText conditions:', {
+        debugLog('🔍 speakText conditions:', {
             electronAPI: !!window.electronAPI,
             voice: !!window.electronAPI?.voice,
             voiceEnabled: this.voiceEnabled,
@@ -682,7 +688,7 @@ class TerminalApp {
         });
         
         if (!window.electronAPI || !window.electronAPI.voice || !this.voiceEnabled || this.connectionStatus !== 'connected') {
-            console.log('❌ speakText blocked by conditions');
+            debugLog('❌ speakText blocked by conditions');
             return;
         }
 
@@ -711,12 +717,12 @@ class TerminalApp {
         }
 
         try {
-            console.log('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
+            debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
             this.lastSpeechTime = now;
             this.lastSpeechText = text;
             await window.electronAPI.voice.speak(text, this.selectedSpeaker);
         } catch (error) {
-            console.error('Failed to speak text:', error);
+            debugError('Failed to speak text:', error);
         }
     }
 
@@ -732,21 +738,21 @@ class TerminalApp {
                     type: 'lipSync',
                     audioData: audioArray
                 }, 'http://localhost:3002');
-                console.log('🎭 iframeにpostMessage送信, サイズ:', audioArray.length);
+                debugLog('🎭 iframeにpostMessage送信, サイズ:', audioArray.length);
             } else {
-                console.log('🎭 VRM iframe未発見');
+                debugLog('🎭 VRM iframe未発見');
             }
         } catch (error) {
-            console.error('🎭 VRM音声データ送信エラー:', error);
+            debugError('🎭 VRM音声データ送信エラー:', error);
         }
     }
 
     async playAudio(audioData) {
-        console.log('🎵 playAudio called with data size:', audioData?.length || audioData?.byteLength || 'unknown');
+        debugLog('🎵 playAudio called with data size:', audioData?.length || audioData?.byteLength || 'unknown');
         
         // 既に再生中の場合はスキップ（キューに溜めない）
         if (this.isPlaying) {
-            console.log('Audio already playing, skipping...');
+            debugLog('Audio already playing, skipping...');
             return;
         }
 
@@ -779,16 +785,16 @@ class TerminalApp {
             }
 
             // Decode audio data
-            console.log('🎵 Decoding audio data, size:', arrayBuffer.byteLength);
+            debugLog('🎵 Decoding audio data, size:', arrayBuffer.byteLength);
             const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-            console.log('🎵 Audio decoded successfully, duration:', audioBuffer.duration, 'seconds');
+            debugLog('🎵 Audio decoded successfully, duration:', audioBuffer.duration, 'seconds');
             
             const source = this.audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(this.audioContext.destination);
             
             source.onended = () => {
-                console.log('🎵 Audio playback ended');
+                debugLog('🎵 Audio playback ended');
                 this.currentAudio = null;
                 this.isPlaying = false;
             };
@@ -798,11 +804,11 @@ class TerminalApp {
             
             this.currentAudio = source;
             this.isPlaying = true;
-            console.log('🎵 Starting audio playback...');
+            debugLog('🎵 Starting audio playback...');
             
             source.start();
         } catch (error) {
-            console.error('Failed to play audio:', error);
+            debugError('Failed to play audio:', error);
             this.isPlaying = false;
         }
     }
@@ -829,7 +835,7 @@ class TerminalApp {
                 await window.electronAPI.voice.stop();
                 this.stopAudio();
             } catch (error) {
-                console.error('Failed to stop voice:', error);
+                debugError('Failed to stop voice:', error);
             }
         }
     }
@@ -867,7 +873,7 @@ class TerminalApp {
                 }
             }
         } catch (error) {
-            console.error('壁紙リスト読み込みエラー:', error);
+            debugError('壁紙リスト読み込みエラー:', error);
         }
     }
 
@@ -958,7 +964,7 @@ class TerminalApp {
                 alert('壁紙のアップロードに失敗しました');
             }
         } catch (error) {
-            console.error('壁紙アップロードエラー:', error);
+            debugError('壁紙アップロードエラー:', error);
             alert('壁紙のアップロードに失敗しました');
         }
     }

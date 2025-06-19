@@ -58,19 +58,20 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     camera.position.set(0, 1.3, 2.5) // もう少し後ろに下がって全体を表示
     cameraRef.current = camera
 
-    // レンダラーの初期化（Three.js v0.177対応）
+    // レンダラーの初期化（パフォーマンス最適化）
     const renderer = new THREE.WebGLRenderer({
       canvas: canvasRef.current,
-      antialias: true,
-      alpha: true
+      antialias: false, // CPU負荷軽減のため無効化
+      alpha: true,
+      powerPreference: 'high-performance'
     })
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.useLegacyLights = false // 新しいライティングモデル
     renderer.shadowMap.enabled = false
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // 高DPI制限
     
     // 初期サイズ設定
     renderer.setSize(initialWidth, initialHeight)
-    renderer.setPixelRatio(window.devicePixelRatio)
     rendererRef.current = renderer
 
     // OrbitControls の初期化（ChatVRMと同じ設定）
@@ -104,9 +105,19 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       console.error('Failed to initialize LipSync:', error)
     }
 
-    // アニメーションループ
-    const animate = () => {
+    // アニメーションループ（30fps制限でCPU負荷軽減）
+    let lastFrameTime = 0
+    const targetFPS = 30
+    const frameInterval = 1000 / targetFPS
+    
+    const animate = (currentTime: number) => {
       animationIdRef.current = requestAnimationFrame(animate)
+      
+      // フレームレート制限（30fps）
+      if (currentTime - lastFrameTime < frameInterval) {
+        return
+      }
+      lastFrameTime = currentTime
       
       const deltaTime = clock.getDelta()
       
@@ -133,7 +144,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       
       renderer.render(scene, camera)
     }
-    animate()
+    animate(0)
 
     // リサイズ対応（画面全体サイズ）
     const handleResize = () => {
