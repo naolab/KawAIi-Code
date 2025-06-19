@@ -747,20 +747,21 @@ class TerminalApp {
 
     // VRMビューワーに音声データを送信
     sendAudioToVRM(audioData) {
-        if (this.vrmWebSocket && this.vrmWebSocket.readyState === WebSocket.OPEN) {
-            try {
+        try {
+            const iframe = document.getElementById('vrm-iframe');
+            if (iframe && iframe.contentWindow) {
                 // ArrayBufferをArrayに変換
                 const audioArray = Array.from(new Uint8Array(audioData));
-                this.vrmWebSocket.send(JSON.stringify({
-                    type: 'audio',
+                iframe.contentWindow.postMessage({
+                    type: 'lipSync',
                     audioData: audioArray
-                }));
-                console.log('🎭 VRMに音声データ送信, サイズ:', audioArray.length);
-            } catch (error) {
-                console.error('🎭 VRM音声データ送信エラー:', error);
+                }, 'http://localhost:3002');
+                console.log('🎭 iframeにpostMessage送信, サイズ:', audioArray.length);
+            } else {
+                console.log('🎭 VRM iframe未発見');
             }
-        } else {
-            console.log('🎭 VRMビューワーWebSocket未接続');
+        } catch (error) {
+            console.error('🎭 VRM音声データ送信エラー:', error);
         }
     }
 

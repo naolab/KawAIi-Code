@@ -171,14 +171,31 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     // 口パク用音声再生メソッドをグローバルに公開
     ;(window as any).playAudioWithLipSync = async (audioData: ArrayBuffer) => {
       if (lipSyncRef.current) {
+        console.log('🎭 LipSync再生開始, サイズ:', audioData.byteLength)
         await lipSyncRef.current.playFromArrayBuffer(audioData)
       }
     }
+
+    // postMessageでElectronから音声データを受信
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== 'file://') return // Electronからのメッセージのみ受信
+      
+      if (event.data.type === 'lipSync' && event.data.audioData) {
+        console.log('🎭 postMessageで音声データ受信, サイズ:', event.data.audioData.length)
+        const audioBuffer = new Uint8Array(event.data.audioData).buffer
+        if (lipSyncRef.current) {
+          lipSyncRef.current.playFromArrayBuffer(audioBuffer)
+        }
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
 
     return () => {
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('loadVRM', handleLoadVRM as EventListener)
       window.removeEventListener('loadDefaultVRM', handleLoadDefaultVRM)
+      window.removeEventListener('message', handleMessage)
       
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current)
