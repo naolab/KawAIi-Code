@@ -238,9 +238,10 @@ class TerminalApp {
 
         if (chatInput && sendButton) {
             // チャット入力のイベントリスナー
-            chatInput.addEventListener('keypress', (e) => {
+            chatInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault(); // デフォルト動作を防ぐ
+                    e.stopPropagation(); // イベントの伝播を停止
                     this.sendChatMessage();
                 }
             });
@@ -384,21 +385,27 @@ class TerminalApp {
         const message = chatInput.value.trim();
         if (!message) return;
 
-        chatInput.value = '';
-
         // Claude Codeにメッセージを送信して完全に送信まで実行
         if (this.isTerminalRunning && window.electronAPI && window.electronAPI.terminal) {
             debugLog('Sending message to terminal:', message);
-            // 確実にコマンドを実行させる
-            window.electronAPI.terminal.write(message + '\r');
+            // タイピング風に送信（Claude Codeのターミナル処理に合わせる）
+            setTimeout(() => {
+                window.electronAPI.terminal.write(message + '\r');
+            }, 100);
             this.updateCharacterMood('考え中...');
             
-            // 入力後にターミナルにフォーカスを戻す
+            // 送信完了後に入力エリアをクリア（非同期で確実に実行）
+            setTimeout(() => {
+                chatInput.value = '';
+                chatInput.blur(); // フォーカスを外す
+            }, 50);
+            
+            // 入力後にターミナルにフォーカスを戻す（遅延を長くして確実に処理完了を待つ）
             setTimeout(() => {
                 if (this.terminal) {
                     this.terminal.focus();
                 }
-            }, 100);
+            }, 300);
         } else {
             debugError('Cannot send message:', {
                 isTerminalRunning: this.isTerminalRunning,

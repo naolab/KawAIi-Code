@@ -55,7 +55,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       0.1,
       20.0
     )
-    camera.position.set(0, 1.3, 2.5) // もう少し後ろに下がって全体を表示
+    camera.position.set(0.1, 1.1, 0.8) // Z軸を0.8に設定
     cameraRef.current = camera
 
     // レンダラーの初期化（パフォーマンス最適化）
@@ -77,7 +77,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     // OrbitControls の初期化（ChatVRMと同じ設定）
     const cameraControls = new OrbitControls(camera, renderer.domElement)
     cameraControls.screenSpacePanning = true
-    cameraControls.target.set(0, 1.0, 0) // ターゲットを少し下げて全体を見やすく
+    cameraControls.target.set(0, 1.0, 0) // 元のターゲット位置に戻す
     cameraControls.update()
     cameraControlsRef.current = cameraControls
 
@@ -105,9 +105,9 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       console.error('Failed to initialize LipSync:', error)
     }
 
-    // アニメーションループ（30fps制限でCPU負荷軽減）
+    // アニメーションループ（45fps制限でCPU負荷軽減）
     let lastFrameTime = 0
-    const targetFPS = 30
+    const targetFPS = 45
     const frameInterval = 1000 / targetFPS
     
     const animate = (currentTime: number) => {
@@ -240,7 +240,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     if (headNode && cameraRef.current && cameraControlsRef.current) {
       const headWPos = headNode.getWorldPosition(new THREE.Vector3())
       // カメラ位置をキャラクター全体が見えるように調整
-      cameraRef.current.position.set(0, 1.2, 2.5)
+      cameraRef.current.position.set(0.1, 1.1, 0.8)
       // ターゲットをキャラクターの中央に設定
       cameraControlsRef.current.target.set(0, 1.0, 0)
       cameraControlsRef.current.update()
@@ -290,8 +290,10 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       // VRMを正しい向きに調整（ChatVRMと同じ）
       VRMUtils.rotateVRM0(vrm)
       
-      // VRMのスケールを小さくして全体が見えるように
-      vrm.scene.scale.setScalar(0.8)
+      // VRMのサイズと位置を調整
+      vrm.scene.scale.setScalar(0.8)  // 元のサイズに戻す
+      vrm.scene.position.set(0.12, 0, 0)  // 0.12に調整
+      vrm.scene.rotation.y = -0.2  // もう少し左向きに回転
       
       // VRMをシーンに追加
       sceneRef.current.add(vrm.scene)
@@ -374,8 +376,10 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       // VRMを正しい向きに調整（ChatVRMと同じ）
       VRMUtils.rotateVRM0(vrm)
       
-      // VRMのスケールを小さくして全体が見えるように
-      vrm.scene.scale.setScalar(0.8)
+      // VRMのサイズと位置を調整
+      vrm.scene.scale.setScalar(0.8)  // 元のサイズに戻す
+      vrm.scene.position.set(0.12, 0, 0)  // 0.12に調整
+      vrm.scene.rotation.y = -0.2  // もう少し左向きに回転
       
       // VRMをシーンに追加
       if (sceneRef.current) {

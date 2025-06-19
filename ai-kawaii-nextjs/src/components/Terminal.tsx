@@ -109,7 +109,7 @@ export default function Terminal({ className }: TerminalProps) {
     setHistoryIndex(-1)
 
     // 入力をターミナルに表示
-    setOutput(prev => [...prev, `$ ${currentInput}\r\n`])
+    setOutput(prev => [...prev, `$ ${currentInput}`])
 
     // WebSocketでコマンドを送信
     ws.send(JSON.stringify({
@@ -174,7 +174,7 @@ export default function Terminal({ className }: TerminalProps) {
       {/* ターミナル出力エリア */}
       <div 
         ref={terminalRef}
-        className="flex-1 p-4 bg-gray-900 text-green-400 font-mono text-sm overflow-y-auto"
+        className="flex-1 p-4 bg-gray-900 text-gray-300 font-mono text-sm overflow-y-auto"
         style={{ minHeight: '300px' }}
       >
         {renderOutput()}
@@ -188,7 +188,7 @@ export default function Terminal({ className }: TerminalProps) {
             value={currentInput}
             onChange={(e) => setCurrentInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 bg-transparent border-none outline-none text-green-400"
+            className="flex-1 bg-transparent border-none outline-none text-gray-300"
             placeholder={isConnected ? "コマンドを入力..." : "WebSocket接続を待機中..."}
             disabled={!isConnected}
           />
