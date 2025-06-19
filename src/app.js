@@ -324,34 +324,17 @@ class TerminalApp {
         for (let i = 0; i < quotedTextMatches.length; i++) {
             let quotedText = quotedTextMatches[i].replace(/[「」]/g, '').trim();
             
-            // 絵文字を除去
-            quotedText = quotedText.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+            console.log(`Original quoted text: "${quotedText}"`);
             
-            // 英語部分を除去（日本語以外の文字列を削除）
-            quotedText = quotedText.replace(/[a-zA-Z0-9\s\-_.,;:!?()]+/g, '');
-            
-            // 複数の空白を単一の空白に統一
-            quotedText = quotedText.replace(/\s+/g, ' ').trim();
-            
-            // コマンド系や技術用語をスキップ
-            const skipPatterns = [
-                /^(git|npm|node|yarn|pip|brew|cd|ls|mkdir|touch|rm|cp|mv|read|edit|write|bash|glob|grep)$/i,
-                /^\s*[-•*]\s*/,
-                /ファイル|コマンド|エラー|デバッグ|読み込み|編集|書き込み|実行/,
-                /\.(js|ts|tsx|css|html|json|md|txt|log)$/i,
-                /^(Creating|Editing|Writing|Reading|Running|Executing)/i,
-                /Called the|Result of calling|Tool|Function/i,
-                /^Read\s+/i,  // Readコマンドを明示的にスキップ
-                /file_path|offset|limit/i  // Read関連のパラメータもスキップ
-            ];
-            
-            if (skipPatterns.some(pattern => pattern.test(quotedText))) {
-                console.log(`Skipping technical text: "${quotedText}"`);
+            // 英語が含まれている場合は読み上げスキップ
+            if (/[a-zA-Z]/.test(quotedText)) {
+                console.log(`Skipping text with English: "${quotedText}"`);
                 continue;
             }
             
-            if (quotedText.length < 3) {
-                console.log(`Skipping short text: "${quotedText}"`);
+            // 空のテキストはスキップ
+            if (quotedText.length === 0) {
+                console.log('Skipping empty text');
                 continue;
             }
             
