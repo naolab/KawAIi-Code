@@ -47,4 +47,14 @@ pids/
 
 # Temporary files
 tmp/
-temp/ChatVRM/
+temp/
+
+# Next.js build output and cache
+.next/
+ai-kawaii-nextjs/.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Build cache files
+.cache/
+.temp/
