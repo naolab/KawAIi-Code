@@ -324,6 +324,9 @@ class TerminalApp {
         for (let i = 0; i < quotedTextMatches.length; i++) {
             let quotedText = quotedTextMatches[i].replace(/[「」]/g, '').trim();
             
+            // 改行と余分な空白を除去
+            quotedText = quotedText.replace(/\r?\n\s*/g, '').replace(/\s+/g, ' ').trim();
+            
             console.log(`Original quoted text: "${quotedText}"`);
             
             // 英語が含まれている場合は読み上げスキップ
