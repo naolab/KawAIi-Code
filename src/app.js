@@ -365,7 +365,8 @@ class TerminalApp {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
         
-        console.log('Speaking sequentially:', text);
+        console.log('🔊 Speaking sequentially:', text);
+        console.trace('Call stack for speech:');
         return this.speakText(text);
     }
 
