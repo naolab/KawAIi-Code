@@ -20,9 +20,8 @@ class TerminalApp {
         this.lastChatMessage = '';
         this.lastChatTime = 0;
         
-        // VRM口パク用WebSocket接続
+        // VRM口パク用通信（postMessage使用）
         this.vrmWebSocket = null;
-        this.connectToVRMWebSocket();
         
         // パフォーマンス最適化用
         this.chatParseQueue = [];
@@ -721,37 +720,15 @@ class TerminalApp {
         }
     }
 
-    // VRMビューワーへのWebSocket接続
-    connectToVRMWebSocket() {
-        try {
-            this.vrmWebSocket = new WebSocket('ws://localhost:8080');
-            
-            this.vrmWebSocket.onopen = () => {
-                console.log('🎭 VRMビューワーWebSocket接続成功');
-            };
-            
-            this.vrmWebSocket.onclose = () => {
-                console.log('🎭 VRMビューワーWebSocket接続終了');
-                this.vrmWebSocket = null;
-                // 5秒後に再接続を試行
-                setTimeout(() => this.connectToVRMWebSocket(), 5000);
-            };
-            
-            this.vrmWebSocket.onerror = (error) => {
-                console.error('🎭 VRMビューワーWebSocketエラー:', error);
-            };
-        } catch (error) {
-            console.error('🎭 VRMビューワーWebSocket接続失敗:', error);
-        }
-    }
 
     // VRMビューワーに音声データを送信
     sendAudioToVRM(audioData) {
         try {
             const iframe = document.getElementById('vrm-iframe');
             if (iframe && iframe.contentWindow) {
-                // ArrayBufferをArrayに変換
-                const audioArray = Array.from(new Uint8Array(audioData));
+                // ArrayBufferをコピーしてからArrayに変換
+                const copiedBuffer = audioData.slice(0);
+                const audioArray = Array.from(new Uint8Array(copiedBuffer));
                 iframe.contentWindow.postMessage({
                     type: 'lipSync',
                     audioData: audioArray
