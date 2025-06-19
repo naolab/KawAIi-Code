@@ -2,11 +2,13 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const pty = require('node-pty');
+const { spawn } = require('child_process');
 const VoiceService = require('./src/voiceService');
 
 let mainWindow;
 let terminalProcess;
 let voiceService;
+let nextjsProcess;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -33,6 +35,10 @@ function createWindow() {
     if (terminalProcess) {
       terminalProcess.kill();
     }
+    if (nextjsProcess) {
+      nextjsProcess.kill();
+      nextjsProcess = null;
+    }
   });
 
   // DevTools for debugging (commented out for production)
@@ -45,9 +51,59 @@ function createWindow() {
 // GPU process crash workaround - must be called before app is ready
 // app.disableHardwareAcceleration(); // VRM表示のため一時的に有効化
 
-app.whenReady().then(createWindow);
+// Start Next.js server before creating window
+async function startNextjsServer() {
+  return new Promise((resolve, reject) => {
+    console.log('Starting Next.js server...');
+    
+    const nextjsPath = path.join(__dirname, 'ai-kawaii-nextjs');
+    
+    nextjsProcess = spawn('npm', ['run', 'dev'], {
+      cwd: nextjsPath,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, PORT: '3001' }
+    });
+
+    nextjsProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      console.log('Next.js:', output);
+      
+      // Check if server is ready
+      if (output.includes('Ready in') || output.includes('ready started server')) {
+        console.log('Next.js server is ready!');
+        resolve();
+      }
+    });
+
+    nextjsProcess.stderr.on('data', (data) => {
+      console.log('Next.js stderr:', data.toString());
+    });
+
+    nextjsProcess.on('error', (error) => {
+      console.error('Next.js server error:', error);
+      reject(error);
+    });
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      console.log('Next.js server ready (timeout)');
+      resolve();
+    }, 30000);
+  });
+}
+
+app.whenReady().then(async () => {
+  await startNextjsServer();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
+  // Kill Next.js server when app closes
+  if (nextjsProcess) {
+    nextjsProcess.kill();
+    nextjsProcess = null;
+  }
+  
   if (process.platform !== 'darwin') {
     app.quit();
   }

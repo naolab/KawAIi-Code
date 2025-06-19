@@ -1,0 +1,360 @@
+/* Electron アプリと同じスタイル */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    background: linear-gradient(135deg, #ff7f50, #ff6347, #ffa500, #ff8c00);
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: transparent;
+    border-radius: 20px;
+    margin: 5px;
+    box-shadow: 0 15px 50px rgba(255, 140, 66, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    z-index: 1;
+    will-change: auto;
+    contain: layout;
+}
+
+.header {
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px 15px 0 0;
+}
+
+/* メインコンテンツを左右分割 */
+.main-content {
+    flex: 1;
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    overflow: hidden;
+}
+
+/* ターミナルセクション（可愛い白っぽいデザイン） */
+.terminal-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(255, 140, 66, 0.15);
+    border: 2px solid rgba(255, 183, 102, 0.2);
+}
+
+#terminal {
+    flex: 1;
+    padding: 20px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    background: #FFF8F0;
+    overflow: hidden;
+    color: #333;
+}
+
+.terminal-placeholder {
+    color: #ff6347;
+    line-height: 1.6;
+}
+
+.terminal-placeholder p {
+    margin-bottom: 8px;
+}
+
+/* キャラクターセクション */
+.character-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(255, 140, 66, 0.15);
+    border: 2px solid rgba(255, 183, 102, 0.2);
+}
+
+.character-main {
+    flex: 1;
+    position: relative;
+    background: transparent;
+    overflow: hidden;
+}
+
+/* タスクバー */
+.taskbar {
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0 0 15px 15px;
+}
+
+.chat-input-container {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.chat-input {
+    flex: 1;
+    padding: 12px 20px;
+    border: 2px solid rgba(255, 183, 102, 0.3);
+    border-radius: 25px;
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+    color: #333;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.chat-input:focus {
+    border-color: #ff8c00;
+    box-shadow: 0 0 20px rgba(255, 140, 66, 0.3);
+}
+
+.chat-input::placeholder {
+    color: #999;
+}
+
+.send-btn {
+    width: 50px;
+    height: 50px;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff8c00, #ff6347);
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(255, 140, 66, 0.3);
+}
+
+.send-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 140, 66, 0.4);
+}
+
+.send-btn::before {
+    content: "▶";
+    font-size: 18px;
+    margin-left: 2px;
+}
+
+/* 設定ボタン */
+.settings-btn {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.settings-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: rotate(45deg);
+}
+
+.settings-btn span {
+    position: absolute;
+    background: #fff;
+    border-radius: 1px;
+}
+
+.gear-horizontal {
+    width: 16px;
+    height: 2px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.gear-diagonal {
+    width: 12px;
+    height: 2px;
+    top: 50%;
+    left: 50%;
+}
+
+.gear-diagonal:nth-child(2) {
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.gear-diagonal:nth-child(3) {
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.gear-diagonal:nth-child(4) {
+    transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.gear-diagonal:nth-child(5) {
+    transform: translate(-50%, -50%) rotate(135deg);
+}
+
+/* コントロールボタン */
+.controls {
+    display: flex;
+    gap: 8px;
+}
+
+.simple-btn {
+    width: 32px;
+    height: 32px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.simple-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.start-btn::before {
+    content: "▶";
+    color: #4ade80;
+    font-size: 14px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-45%, -50%);
+}
+
+.stop-btn::before {
+    content: "⏹";
+    color: #f87171;
+    font-size: 12px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* 設定モーダル */
+.settings-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.settings-content {
+    background: white;
+    border-radius: 20px;
+    padding: 0;
+    min-width: 400px;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.settings-header {
+    padding: 20px;
+    background: linear-gradient(135deg, #ff8c00, #ff6347);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.settings-header h3 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s ease;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.settings-body {
+    padding: 20px;
+}
+
+.setting-group {
+    margin-bottom: 20px;
+}
+
+.setting-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+}
+
+.setting-group input[type="file"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 2px solid #e5e5e5;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.simple-btn {
+    background: linear-gradient(135deg, #ff8c00, #ff6347);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.simple-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
+}

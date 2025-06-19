@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'M PLUS 2', sans-serif;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #ff617f, #856292);
+  min-height: 100vh;
+}
+
+canvas {
+  display: block;
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}

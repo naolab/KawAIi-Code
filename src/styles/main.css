@@ -206,14 +206,17 @@ body {
 
 /* 右側：キャラクターセクション */
 .character-section {
-    width: 450px;
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    min-width: 0;
 }
 
 .character-main {
+    width: 100%;
+    height: 100%;
     text-align: center;
     position: relative;
 }
