@@ -34,7 +34,14 @@ export default function Terminal({ className }: TerminalProps) {
         websocket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data)
-            if (data.message) {
+            if (data.type === 'lipSync' && data.audioData) {
+              // 音声データを受信してVRMの口パクを実行
+              console.log('🎵 口パク用音声データ受信, サイズ:', data.audioData.length)
+              const audioBuffer = new Uint8Array(data.audioData).buffer
+              if ((window as any).playAudioWithLipSync) {
+                (window as any).playAudioWithLipSync(audioBuffer)
+              }
+            } else if (data.message) {
               setOutput(prev => [...prev, data.message])
             }
           } catch (error) {

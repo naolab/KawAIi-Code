@@ -7,6 +7,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { EmoteController } from '@/features/emoteController/emoteController'
 import { loadVRMAnimation } from '@/lib/loadVRMAnimation'
+import { LipSync } from '@/features/lipSync/lipSync'
 
 interface VRMViewerProps {
   className?: string
@@ -29,6 +30,10 @@ export default function VRMViewer({ className }: VRMViewerProps) {
   // アニメーション制御
   const emoteControllerRef = useRef<EmoteController>()
   const mixerRef = useRef<THREE.AnimationMixer>()
+  
+  // 口パク制御
+  const lipSyncRef = useRef<LipSync>()
+  const audioContextRef = useRef<AudioContext>()
   
   // カメラ制御
   const cameraControlsRef = useRef<OrbitControls>()
@@ -89,6 +94,16 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     const clock = new THREE.Clock()
     clockRef.current = clock
 
+    // 口パク初期化
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      audioContextRef.current = audioContext
+      lipSyncRef.current = new LipSync(audioContext)
+      console.log('LipSync initialized')
+    } catch (error) {
+      console.error('Failed to initialize LipSync:', error)
+    }
+
     // アニメーションループ
     const animate = () => {
       animationIdRef.current = requestAnimationFrame(animate)
@@ -103,6 +118,12 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       // VRMアップデート
       if (vrmRef.current) {
         vrmRef.current.update(deltaTime)
+      }
+      
+      // 口パクアップデート
+      if (lipSyncRef.current && emoteControllerRef.current) {
+        const { volume } = lipSyncRef.current.update()
+        emoteControllerRef.current.lipSync('aa', volume)
       }
       
       // アニメーション制御アップデート
@@ -146,6 +167,13 @@ export default function VRMViewer({ className }: VRMViewerProps) {
 
     window.addEventListener('loadVRM', handleLoadVRM as EventListener)
     window.addEventListener('loadDefaultVRM', handleLoadDefaultVRM)
+
+    // 口パク用音声再生メソッドをグローバルに公開
+    ;(window as any).playAudioWithLipSync = async (audioData: ArrayBuffer) => {
+      if (lipSyncRef.current) {
+        await lipSyncRef.current.playFromArrayBuffer(audioData)
+      }
+    }
 
     return () => {
       window.removeEventListener('resize', handleResize)

@@ -20,6 +20,10 @@ class TerminalApp {
         this.lastChatMessage = '';
         this.lastChatTime = 0;
         
+        // VRM口パク用WebSocket接続
+        this.vrmWebSocket = null;
+        this.connectToVRMWebSocket();
+        
         // パフォーマンス最適化用
         this.chatParseQueue = [];
         this.chatParseTimer = null;
@@ -717,6 +721,49 @@ class TerminalApp {
         }
     }
 
+    // VRMビューワーへのWebSocket接続
+    connectToVRMWebSocket() {
+        try {
+            this.vrmWebSocket = new WebSocket('ws://localhost:8080');
+            
+            this.vrmWebSocket.onopen = () => {
+                console.log('🎭 VRMビューワーWebSocket接続成功');
+            };
+            
+            this.vrmWebSocket.onclose = () => {
+                console.log('🎭 VRMビューワーWebSocket接続終了');
+                this.vrmWebSocket = null;
+                // 5秒後に再接続を試行
+                setTimeout(() => this.connectToVRMWebSocket(), 5000);
+            };
+            
+            this.vrmWebSocket.onerror = (error) => {
+                console.error('🎭 VRMビューワーWebSocketエラー:', error);
+            };
+        } catch (error) {
+            console.error('🎭 VRMビューワーWebSocket接続失敗:', error);
+        }
+    }
+
+    // VRMビューワーに音声データを送信
+    sendAudioToVRM(audioData) {
+        if (this.vrmWebSocket && this.vrmWebSocket.readyState === WebSocket.OPEN) {
+            try {
+                // ArrayBufferをArrayに変換
+                const audioArray = Array.from(new Uint8Array(audioData));
+                this.vrmWebSocket.send(JSON.stringify({
+                    type: 'audio',
+                    audioData: audioArray
+                }));
+                console.log('🎭 VRMに音声データ送信, サイズ:', audioArray.length);
+            } catch (error) {
+                console.error('🎭 VRM音声データ送信エラー:', error);
+            }
+        } else {
+            console.log('🎭 VRMビューワーWebSocket未接続');
+        }
+    }
+
     async playAudio(audioData) {
         console.log('🎵 playAudio called with data size:', audioData?.length || audioData?.byteLength || 'unknown');
         
@@ -769,6 +816,10 @@ class TerminalApp {
             this.currentAudio = source;
             this.isPlaying = true;
             console.log('🎵 Starting audio playback...');
+            
+            // VRMビューワーに音声データを送信
+            this.sendAudioToVRM(arrayBuffer);
+            
             source.start();
         } catch (error) {
             console.error('Failed to play audio:', error);

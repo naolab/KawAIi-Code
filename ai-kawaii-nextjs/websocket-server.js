@@ -24,7 +24,15 @@ wss.on('connection', (ws) => {
     try {
       const data = JSON.parse(message);
       
-      if (data.type === 'command') {
+      if (data.type === 'audio') {
+        console.log('🎵 音声データ受信, サイズ:', data.audioData.length);
+        // VRMビューワーに音声データを送信
+        ws.send(JSON.stringify({
+          type: 'lipSync',
+          audioData: data.audioData
+        }));
+        return;
+      } else if (data.type === 'command') {
         console.log('📝 コマンド受信:', data.command);
         
         // 既存のプロセスがあれば終了
