@@ -377,7 +377,8 @@ export default function VRMViewer({ className }: VRMViewerProps) {
         top: 0,
         left: 0,
         margin: 0,
-        padding: 0
+        padding: 0,
+        paddingBottom: 0
       }}
     >
       <canvas

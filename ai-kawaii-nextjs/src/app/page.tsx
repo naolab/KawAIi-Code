@@ -31,24 +31,33 @@ export default function Home() {
         onClick={() => setIsSettingsOpen(true)}
         style={{
           position: 'absolute',
-          top: '10px',
+          top: '60px',
           right: '10px',
           width: '30px',
           height: '30px',
           borderRadius: '50%',
           background: 'rgba(255, 255, 255, 0.9)',
-          border: '2px solid #ff6b35',
+          border: '1px solid rgba(255, 183, 102, 0.8)',
           cursor: 'pointer',
-          fontSize: '16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 9999,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          padding: '4px'
         }}
         aria-label="VRM設定を開く"
       >
-        ⚙️
+        <img 
+          src="/settings-icon.svg" 
+          alt="設定" 
+          style={{ 
+            width: '18px', 
+            height: '18px',
+            filter: 'brightness(0) saturate(100%) invert(47%) sepia(67%) saturate(1158%) hue-rotate(346deg) brightness(102%) contrast(95%)',
+            opacity: 0.87
+          }} 
+        />
       </button>
       
       {/* 設定モーダル */}
@@ -67,70 +76,147 @@ export default function Home() {
         }}>
           <div style={{
             background: 'white',
-            padding: '20px',
-            borderRadius: '10px',
-            minWidth: '300px',
-            maxWidth: '90%'
+            borderRadius: '20px',
+            minWidth: '400px',
+            maxWidth: '500px',
+            maxHeight: '80vh',
+            overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
           }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              marginBottom: '20px'
+            {/* ヘッダー */}
+            <div style={{
+              padding: '20px',
+              background: 'rgb(255, 140, 66)',
+              color: 'white',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
-              <h3>VRM設定</h3>
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>VRM設定</h3>
               <button 
                 onClick={() => setIsSettingsOpen(false)}
                 style={{
                   background: 'none',
                   border: 'none',
-                  fontSize: '20px',
-                  cursor: 'pointer'
+                  color: 'white',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.3s ease'
                 }}
+                onMouseEnter={(e) => (e.target as HTMLButtonElement).style.background = 'rgba(255, 255, 255, 0.2)'}
+                onMouseLeave={(e) => (e.target as HTMLButtonElement).style.background = 'none'}
               >
                 ×
               </button>
             </div>
             
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>VRMファイル読み込み</label>
-              <input
-                type="file"
-                accept=".vrm"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
-                    window.dispatchEvent(new CustomEvent('loadVRM', { detail: file }))
+            {/* ボディ */}
+            <div style={{ padding: '25px' }}>
+              <div style={{ marginBottom: '25px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '10px', 
+                  fontWeight: '500',
+                  color: '#333',
+                  fontSize: '14px'
+                }}>VRMファイル読み込み</label>
+                <div style={{
+                  position: 'relative',
+                  display: 'inline-block',
+                  width: '100%'
+                }}>
+                  <input
+                    type="file"
+                    accept=".vrm"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        window.dispatchEvent(new CustomEvent('loadVRM', { detail: file }))
+                        setIsSettingsOpen(false)
+                      }
+                    }}
+                    style={{ 
+                      position: 'absolute',
+                      opacity: 0,
+                      width: '100%',
+                      height: '100%',
+                      cursor: 'pointer'
+                    }}
+                  />
+                  <div style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: '2px dashed rgba(255, 183, 102, 0.5)',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(255, 183, 102, 0.05)',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    fontSize: '14px',
+                    color: '#666'
+                  }}
+                  onMouseEnter={(e) => {
+                    const target = e.target as HTMLDivElement
+                    target.style.borderColor = 'rgba(255, 183, 102, 0.8)'
+                    target.style.backgroundColor = 'rgba(255, 183, 102, 0.1)'
+                  }}
+                  onMouseLeave={(e) => {
+                    const target = e.target as HTMLDivElement
+                    target.style.borderColor = 'rgba(255, 183, 102, 0.5)'
+                    target.style.backgroundColor = 'rgba(255, 183, 102, 0.05)'
+                  }}
+                  >
+                    VRMファイルを選択
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '10px', 
+                  fontWeight: '500',
+                  color: '#333',
+                  fontSize: '14px'
+                }}>プリセットキャラクター</label>
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('loadDefaultVRM'))
                     setIsSettingsOpen(false)
-                  }
-                }}
-                style={{ width: '100%' }}
-              />
-            </div>
-            
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>プリセットキャラクター</label>
-              <button
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('loadDefaultVRM'))
-                  setIsSettingsOpen(false)
-                }}
-                style={{
-                  background: '#ff6b35',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                デフォルトキャラクター読み込み
-              </button>
-            </div>
-            
-            <div>
-              <span>自動アニメーション: </span>
-              <span style={{ color: 'green' }}>✓ 有効（瞬き・揺れ）</span>
+                  }}
+                  style={{
+                    background: 'rgb(255, 140, 66)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 20px',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.3s ease',
+                    width: '100%',
+                    boxShadow: '0 4px 12px rgba(255, 140, 66, 0.3)'
+                  }}
+                  onMouseEnter={(e) => {
+                    const target = e.target as HTMLButtonElement
+                    target.style.transform = 'translateY(-1px)'
+                    target.style.boxShadow = '0 6px 16px rgba(255, 140, 66, 0.4)'
+                  }}
+                  onMouseLeave={(e) => {
+                    const target = e.target as HTMLButtonElement
+                    target.style.transform = 'translateY(0)'
+                    target.style.boxShadow = '0 4px 12px rgba(255, 140, 66, 0.3)'
+                  }}
+                >
+                  デフォルトキャラクター読み込み
+                </button>
+              </div>
             </div>
           </div>
         </div>
