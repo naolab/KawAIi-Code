@@ -138,13 +138,13 @@ class TerminalApp {
             this.updateStatus('ElectronAPI not available');
         }
 
-        // Handle voice text available
+        // Handle voice text available - DISABLED for bracket-only mode
         if (window.electronAPI && window.electronAPI.voice) {
-            window.electronAPI.voice.onTextAvailable((text) => {
-                if (this.voiceEnabled) {
-                    this.speakText(text);
-                }
-            });
+            // window.electronAPI.voice.onTextAvailable((text) => {
+            //     if (this.voiceEnabled) {
+            //         this.speakText(text);
+            //     }
+            // });
 
             // Handle audio playback
             window.electronAPI.voice.onPlayAudio((audioData) => {
