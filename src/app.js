@@ -329,11 +329,6 @@ class TerminalApp {
             
             console.log(`Original quoted text: "${quotedText}"`);
             
-            // 英語が含まれている場合は読み上げスキップ
-            if (/[a-zA-Z]/.test(quotedText)) {
-                console.log(`Skipping text with English: "${quotedText}"`);
-                continue;
-            }
             
             // 空のテキストはスキップ
             if (quotedText.length === 0) {

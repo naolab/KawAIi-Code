@@ -39,27 +39,35 @@ class VoiceService {
         }
 
         try {
-            // Step 1: Get audio query
+            // Step 1: Get audio query with speed optimization
             const queryResponse = await axios.post(
                 `${this.baseUrl}/audio_query`,
                 null,
                 {
                     params: { text, speaker },
-                    headers: { 'accept': 'application/json' }
+                    headers: { 'accept': 'application/json' },
+                    timeout: 10000  // 10秒タイムアウト
                 }
             );
+            
+            // Step 1.5: Optimize query for faster synthesis
+            const queryData = queryResponse.data;
+            if (queryData.speedScale) {
+                queryData.speedScale = 1.2;  // 20%高速化
+            }
 
-            // Step 2: Synthesize audio
+            // Step 2: Synthesize audio with optimized query
             const audioResponse = await axios.post(
                 `${this.baseUrl}/synthesis`,
-                queryResponse.data,
+                queryData,
                 {
                     params: { speaker },
                     headers: { 
                         'accept': 'audio/wav',
                         'Content-Type': 'application/json' 
                     },
-                    responseType: 'arraybuffer'
+                    responseType: 'arraybuffer',
+                    timeout: 15000  // 15秒タイムアウト
                 }
             );
 
