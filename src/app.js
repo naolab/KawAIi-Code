@@ -340,7 +340,9 @@ class TerminalApp {
                 /ファイル|コマンド|エラー|デバッグ|読み込み|編集|書き込み|実行/,
                 /\.(js|ts|tsx|css|html|json|md|txt|log)$/i,
                 /^(Creating|Editing|Writing|Reading|Running|Executing)/i,
-                /Called the|Result of calling|Tool|Function/i
+                /Called the|Result of calling|Tool|Function/i,
+                /^Read\s+/i,  // Readコマンドを明示的にスキップ
+                /file_path|offset|limit/i  // Read関連のパラメータもスキップ
             ];
             
             if (skipPatterns.some(pattern => pattern.test(quotedText))) {
@@ -513,8 +515,8 @@ class TerminalApp {
                 this.terminal.focus();
                 
                 // Show app welcome message
-                this.terminal.writeln('\x1b[96m🎀 AI Kawaii Claude Code Integration Started! 🎀\x1b[0m');
-                this.terminal.writeln('\x1b[93mClaude Code is starting up...\x1b[0m');
+                this.terminal.writeln('\x1b[90m🎀 AI Kawaii Claude Code Integration Started! 🎀\x1b[0m');
+                this.terminal.writeln('\x1b[90mClaude Code is starting up...\x1b[0m');
                 
                 // 音声メッセージで通知
                 this.addVoiceMessage('ことね', 'Claude Codeが起動したよ〜！✨');
