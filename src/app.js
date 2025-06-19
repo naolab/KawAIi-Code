@@ -296,54 +296,92 @@ class TerminalApp {
                     .replace(/\s*tokens.*$/gi, '')
                     .trim();
             
-            // 🌟マークがある場合はその手前までを読み上げ
-            const endMarkerIndex = afterCircle.indexOf('🌟');
-            if (endMarkerIndex !== -1) {
-                afterCircle = afterCircle.substring(0, endMarkerIndex).trim();
+            // カッコ内のテキストを抽出（音声読み上げ用）
+            const quotedTextMatches = afterCircle.match(/「([^」]+)」/g);
+            console.log('Original text:', afterCircle);
+            console.log('Quoted matches:', quotedTextMatches);
+            
+            if (quotedTextMatches && quotedTextMatches.length > 0) {
+                // カッコ内のテキストを一個ずつ処理
+                console.log('Found quoted text, processing only quoted content');
+                this.processQuotedTexts(quotedTextMatches);
+                return; // カッコ処理の場合は通常の処理をスキップ
             } else {
-                // 🌟マークがない場合は英語部分を削除
-                afterCircle = afterCircle.replace(/\s+[A-Za-z].*$/, '').trim();
+                // カッコがない場合は読み上げしない
+                console.log('No quoted text found, skipping voice synthesis');
+                return;
             }
 
-            // 音声読み上げ用フィルタリング（コマンド系除外）
-            if (afterCircle.length < 5) return;
-            if (afterCircle.length > 500) return;
-            
-            // コマンド関連や余計な情報を除外
-            const skipPatterns = [
-                /^(Creating|Editing|Writing|Reading|Running|Executing)/i,
-                /^(I'll|Let me|I'm going to|I will)/i,
-                /ファイルを|コマンドを|コミット|エラーが/,
-                /(git |npm |node |yarn |pip |brew |read |cat |ls |mkdir )/,
-                /```|コードブロック/,
-                /^　*[-•*]　*[-•*]/m,
-                /次のコマンド|以下のコマンド/,
-                /ターミナルで|コマンドラインで/,
-                /ファイルを読み込み|ファイルを確認/
-            ];
-            
-            if (skipPatterns.some(pattern => pattern.test(afterCircle))) return;
-            
-            // 重複チェック最適化（高速化）
-            const now = Date.now();
-            if (afterCircle === this.lastChatMessage && now - this.lastChatTime < 2000) return;
-            
-            // DOM操作を最小化
-            requestAnimationFrame(() => {
-                this.addVoiceMessage('ことね', afterCircle);
-                this.updateCharacterMood('おしゃべり中✨');
-                
-                // 音声読み上げ実行
-                if (this.voiceEnabled) {
-                    this.speakText(afterCircle);
-                }
-            });
-            
-            this.lastChatMessage = afterCircle;
-            this.lastChatTime = now;
         } catch (error) {
             console.warn('Chat parsing error:', error);
         }
+    }
+
+    // カッコ内のテキストを一個ずつ順次処理
+    async processQuotedTexts(quotedTextMatches) {
+        console.log('Processing quoted texts:', quotedTextMatches);
+        
+        for (let i = 0; i < quotedTextMatches.length; i++) {
+            let quotedText = quotedTextMatches[i].replace(/[「」]/g, '').trim();
+            
+            // 絵文字を除去
+            quotedText = quotedText.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+            
+            // 英語部分を除去（日本語以外の文字列を削除）
+            quotedText = quotedText.replace(/[a-zA-Z0-9\s\-_.,;:!?()]+/g, '');
+            
+            // 複数の空白を単一の空白に統一
+            quotedText = quotedText.replace(/\s+/g, ' ').trim();
+            
+            // コマンド系や技術用語をスキップ
+            const skipPatterns = [
+                /^(git|npm|node|yarn|pip|brew|cd|ls|mkdir|touch|rm|cp|mv|read|edit|write|bash|glob|grep)$/i,
+                /^\s*[-•*]\s*/,
+                /ファイル|コマンド|エラー|デバッグ|読み込み|編集|書き込み|実行/,
+                /\.(js|ts|tsx|css|html|json|md|txt|log)$/i,
+                /^(Creating|Editing|Writing|Reading|Running|Executing)/i,
+                /Called the|Result of calling|Tool|Function/i
+            ];
+            
+            if (skipPatterns.some(pattern => pattern.test(quotedText))) {
+                console.log(`Skipping technical text: "${quotedText}"`);
+                continue;
+            }
+            
+            if (quotedText.length < 3) {
+                console.log(`Skipping short text: "${quotedText}"`);
+                continue;
+            }
+            
+            console.log(`Processing quote ${i + 1}/${quotedTextMatches.length}: "${quotedText}"`);
+            
+            // DOM操作を最小化
+            requestAnimationFrame(() => {
+                this.addVoiceMessage('ことね', quotedText);
+                this.updateCharacterMood('おしゃべり中✨');
+            });
+            
+            // 音声読み上げ実行（前の音声が終わるまで待機）
+            if (this.voiceEnabled) {
+                await this.speakTextSequential(quotedText);
+            }
+            
+            // 次のテキストまで少し間隔を開ける
+            if (i < quotedTextMatches.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
+    }
+
+    // 順次音声再生用メソッド
+    async speakTextSequential(text) {
+        // 前の音声が再生中の場合は終了まで待機
+        while (this.isPlaying) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        console.log('Speaking sequentially:', text);
+        return this.speakText(text);
     }
 
     sendChatMessage() {
