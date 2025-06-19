@@ -42,7 +42,7 @@ function createWindow() {
   });
 
   // DevTools for debugging (commented out for production)
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 
   // Initialize voice service
   voiceService = new VoiceService();
