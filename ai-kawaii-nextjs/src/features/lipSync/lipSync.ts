@@ -37,7 +37,8 @@ export class LipSync {
     const bufferSource = this.audio.createBufferSource();
     bufferSource.buffer = audioBuffer;
 
-    bufferSource.connect(this.audio.destination);
+    // 音声反響防止: スピーカー出力を削除し、口パク分析のみ実行
+    // bufferSource.connect(this.audio.destination); // 重複再生を防ぐため削除
     bufferSource.connect(this.analyser);
     bufferSource.start();
     if (onEnded) {
