@@ -79,14 +79,14 @@ body {
 
 /* ターミナルセクション（可愛い白っぽいデザイン） */
 .terminal-section {
-    flex: 1;
+    flex: 1.12;
     display: flex;
     flex-direction: column;
     background: rgba(255, 255, 255, 0.7);
     border-radius: 20px;
     overflow: hidden;
     box-shadow: 0 10px 30px rgba(255, 140, 66, 0.15);
-    border: 2px solid rgba(255, 183, 102, 0.2);
+    border: 3px solid rgba(255, 140, 66, 0.8);
     -ms-overflow-style: none;
     scrollbar-width: none;
     height: calc(100vh - 70px - 80px - 40px);
@@ -115,6 +115,13 @@ body {
     width: auto;
 }
 
+.claude-cwd-controls .simple-btn {
+    padding: 8px 16px;
+    margin: 0;
+    width: auto;
+    border-radius: 10px; /* 壁紙ボタンに合わせる */
+}
+
 /* ターミナルセクション全体のスクロールバーも非表示 */
 .terminal-section::-webkit-scrollbar {
     display: none;
@@ -124,7 +131,7 @@ body {
 
 #terminal {
     flex: 1;
-    padding: 20px;
+    padding: 20px 29px 20px 11px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     background: #FFF8F0;
     overflow: hidden;
@@ -244,7 +251,7 @@ body {
 
 /* 右側：キャラクターセクション */
 .character-section {
-    flex: 1;
+    flex: 0.88;
     display: flex;
     flex-direction: column;
     align-items: center;

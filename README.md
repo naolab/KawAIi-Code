@@ -1,8 +1,8 @@
-# 🎀 AI Kawaii Claude Code Terminal
+# 🎀 AI Kawaii Project
 
 Claude Codeとアニメキャラクターが対話するデスクトップアプリケーションです。美しいカワイイデザインで、Claude Codeを直感的に操作できます。
 
-![AI Kawaii Terminal](https://img.shields.io/badge/status-development-orange)
+![KawAIi Code](https://img.shields.io/badge/status-development-orange)
 ![Platform](https://img.shields.io/badge/platform-macOS-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -60,7 +60,7 @@ npm start
 
 1. **アプリ起動**: `npm start`でアプリケーションウィンドウが開きます
 2. **Claude Code開始**: 「Start Claude Code」ボタンをクリック
-3. **対話開始**: ターミナル画面に「🎀 AI Kawaii Claude Code へようこそ! 🎀」が表示されます
+3. **対話開始**: ターミナル画面に「🎀 KawAIi Code Integration Started! 🎀」が表示されます
 4. **メッセージ入力**: キーボードでメッセージを入力し、Enterキーで送信
 5. **Claude応答**: Claude Codeがリアルタイムで応答します
 6. **終了**: 「Stop Claude Code」ボタンで終了

@@ -163,7 +163,7 @@ export default function Terminal({ className }: TerminalProps) {
           <div className="w-3 h-3 bg-red-500 rounded-full"></div>
           <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
           <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          <span className="ml-2 font-semibold">AI Kawaii Terminal</span>
+          <span className="ml-2 font-semibold">KawAIi Code</span>
         </div>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>

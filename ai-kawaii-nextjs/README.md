@@ -1,4 +1,6 @@
-# AI Kawaii Terminal - Next.js版
+# KawAIi Code - Next.js版
+
+AI Kawaii TerminalのNext.js版アプリケーションです。VRMキャラクターとの対話を通じて、Claude Codeをより身近に感じることができます。
 
 ElectronアプリをNext.jsで再構築したWebベースのClaude Code統合ターミナルです✨
 

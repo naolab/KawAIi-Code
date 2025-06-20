@@ -1,5 +1,5 @@
 {
-  "name": "ai-kawaii-terminal",
+  "name": "kawaii-code",
   "version": "1.0.0",
   "description": "AI Character Chat Terminal App",
   "main": "main.js",
@@ -28,7 +28,7 @@
   },
   "build": {
     "appId": "com.ai-kawaii.terminal",
-    "productName": "AI Kawaii Terminal",
+    "productName": "KawAIi Code",
     "directories": {
       "output": "dist"
     },
