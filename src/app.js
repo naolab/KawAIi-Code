@@ -57,6 +57,16 @@ class TerminalApp {
         this.setupWallpaperSystem();
         this.updateStatus('Ready');
         this.checkVoiceConnection();
+
+        // CLAUDE.mdのパスを受け取る
+        if (window.electronAPI && window.electronAPI.onClaudeMdPath) {
+            window.electronAPI.onClaudeMdPath((path) => {
+                this.claudeMdPath = path;
+                debugLog('Received CLAUDE.md path:', this.claudeMdPath);
+                // ここでCLAUDE.mdを読み込む関数を呼び出す（後で実装）
+                this.loadClaudeMdContent();
+            });
+        }
     }
 
     setupTerminal() {
@@ -1172,6 +1182,27 @@ class TerminalApp {
                 micButton.classList.remove('listening'); // 認識中のスタイルを解除
                 micButton.setAttribute('aria-label', '音声入力');
             }
+        }
+    }
+
+    async loadClaudeMdContent() {
+        if (!this.claudeMdPath) {
+            debugError('CLAUDE.md path is not set.');
+            return;
+        }
+        try {
+            // Electronのfsモジュールを使用してファイルを読み込む
+            const fs = window.electronAPI.fs; // preload.jsでfsを公開していると仮定
+            if (!fs) {
+                debugError('fs module not available via electronAPI.');
+                return;
+            }
+            const content = await fs.promises.readFile(this.claudeMdPath, 'utf8');
+            this.claudeMdContent = content;
+            debugLog('CLAUDE.md content loaded successfully:', content.substring(0, 200) + '...'); // 最初の200文字を表示
+            // ここで読み込んだ内容をアプリケーションのロジックに組み込む
+        } catch (error) {
+            debugError('Failed to load CLAUDE.md content:', error);
         }
     }
 }

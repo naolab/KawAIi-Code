@@ -2,6 +2,9 @@ const WebSocket = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
 
+const CLAUDE_MD_CONTENT = process.env.CLAUDE_MD_CONTENT || ''; // CLAUDE.mdの内容を環境変数から取得
+console.log('WebSocket Server: CLAUDE_MD_CONTENT loaded:', CLAUDE_MD_CONTENT ? CLAUDE_MD_CONTENT.substring(0, 100) + '...' : 'empty/undefined');
+
 // WebSocketサーバーを作成
 const wss = new WebSocket.Server({ port: 8080 });
 
@@ -104,8 +107,16 @@ wss.on('connection', (ws) => {
     }
     
     const claudePath = '/opt/homebrew/bin/claude';
-    const args = command.split(' ').slice(1); // 'claude' を除く引数
+    let args = command.split(' ').slice(1); // 'claude' を除く引数
     
+    // CLAUDE.mdの内容をプロンプトの先頭に追加
+    if (CLAUDE_MD_CONTENT) {
+        args = ['--prompt', CLAUDE_MD_CONTENT + '\n' + args.join(' ')];
+    } else {
+        args = ['--prompt', args.join(' ')];
+    }
+    console.log('WebSocket Server: startClaudeSession args:', args.join(' ').substring(0, 200) + '...');
+
     claudeSession = spawn(claudePath, args, {
       cwd: process.cwd(),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -185,7 +196,13 @@ wss.on('connection', (ws) => {
     console.log('🤖 Claude -p 実行:', prompt);
     
     const claudePath = '/opt/homebrew/bin/claude';
-    const args = ['-p', prompt];
+    
+    // CLAUDE.mdの内容をプロンプトの先頭に追加
+    const fullPrompt = CLAUDE_MD_CONTENT ? CLAUDE_MD_CONTENT + '\n' + prompt : prompt;
+    console.log('WebSocket Server: fullPrompt for Claude (raw):', fullPrompt);
+    console.log('WebSocket Server: fullPrompt for Claude (truncated):', fullPrompt.substring(0, 500) + '...');
+    const args = ['-p', fullPrompt];
+    console.log('WebSocket Server: args for Claude spawn:', args);
     
     const claudeProcess = spawn(claudePath, args, {
       cwd: process.cwd(),

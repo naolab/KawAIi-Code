@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "websocket": "node websocket-server.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run websocket\""
+    "lint": "next lint"
   },
   "dependencies": {
     "@pixiv/three-vrm": "^3.4.1",

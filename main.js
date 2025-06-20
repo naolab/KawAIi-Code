@@ -11,9 +11,14 @@ let mainWindow;
 let terminalProcess;
 let voiceService;
 let nextjsProcess;
+let websocketProcess; // WebSocketサーバープロセスを追加
+let claudeMdContent = ''; // この変数はもはや必要ありませんが、削除すると依存関係エラーになる可能性があるので、一旦空で残しておきます
 
 // Add a global variable to store the current working directory for Claude Code
 let claudeWorkingDir = appConfig.get('claudeWorkingDir', os.homedir()); // デフォルトはホームディレクトリ
+
+// CLAUDE.mdの絶対パスを定義
+const CLAUDE_MD_PATH = path.join(app.getAppPath(), 'CLAUDE.md');
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -33,6 +38,8 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    // レンダラープロセスにCLAUDE.mdのパスを送信
+    mainWindow.webContents.send('claude-md-path', CLAUDE_MD_PATH);
   });
 
   mainWindow.on('closed', () => {
@@ -58,15 +65,53 @@ function createWindow() {
 
 // Start Next.js server before creating window
 async function startNextjsServer() {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     console.log('Starting Next.js server...');
+
+    // CLAUDE.mdの内容を読み込む処理は、Claude Codeが直接ファイルを読み込むため不要になります
+    // ここでclaudeMdContentを読み込む必要はありません。
     
     const nextjsPath = path.join(__dirname, 'ai-kawaii-nextjs');
-    
+    const websocketPath = path.join(nextjsPath, 'websocket-server.js');
+
+    // WebSocketサーバーを起動
+    websocketProcess = spawn('node', [websocketPath], {
+      cwd: nextjsPath, // websocket-server.jsのあるディレクトリで実行
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { 
+        ...process.env,
+        CLAUDE_MD_CONTENT: claudeMdContent // CLAUDE.mdの内容を渡す
+      }
+    });
+
+    websocketProcess.stdout.on('data', (data) => {
+      console.log('WebSocket:', data.toString().trim());
+    });
+
+    websocketProcess.stderr.on('data', (data) => {
+      console.error('WebSocket stderr:', data.toString().trim());
+    });
+
+    websocketProcess.on('error', (error) => {
+      console.error('WebSocket server error:', error);
+    });
+
+    websocketProcess.on('close', (code) => {
+      console.log(`WebSocket server exited with code ${code}`);
+      websocketProcess = null;
+    });
+
+    const envForNextjs = {
+      ...process.env,
+      PORT: '3002',
+      CLAUDE_MD_CONTENT: claudeMdContent 
+    };
+    console.log('Starting Next.js with env:', envForNextjs.CLAUDE_MD_CONTENT ? 'CLAUDE_MD_CONTENT loaded' : 'CLAUDE_MD_CONTENT empty/undefined');
+
     nextjsProcess = spawn('npm', ['run', 'dev'], {
       cwd: nextjsPath,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, PORT: '3002' }
+      env: envForNextjs
     });
 
     nextjsProcess.stdout.on('data', (data) => {
@@ -109,6 +154,12 @@ app.on('window-all-closed', () => {
     nextjsProcess = null;
   }
   
+  // WebSocketサーバーも終了
+  if (websocketProcess) {
+    websocketProcess.kill();
+    websocketProcess = null;
+  }
+  
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -142,6 +193,18 @@ ipcMain.handle('terminal-start', async () => {
     // Start Claude Code with proper PTY for full terminal support
     console.log('Starting Claude Code with PTY...');
     console.log('Claude Code CWD:', claudeWorkingDir);
+
+    const sourceClaudeMdPath = path.join(app.getAppPath(), 'CLAUDE.md');
+    const destClaudeMdPath = path.join(claudeWorkingDir, 'CLAUDE.md');
+
+    try {
+      // CLAUDE.mdをClaude Codeの作業ディレクトリにコピー
+      await fs.promises.copyFile(sourceClaudeMdPath, destClaudeMdPath);
+      console.log(`main.js: CLAUDE.md copied from ${sourceClaudeMdPath} to ${destClaudeMdPath}`);
+    } catch (copyError) {
+      console.error('main.js: Failed to copy CLAUDE.md:', copyError);
+      // コピーに失敗しても続行できるようにします
+    }
     
     terminalProcess = pty.spawn(claudePath, [], {
       name: 'xterm-color',

@@ -69,4 +69,6 @@ window.electronAPI = {
   onSpeechRecognitionResult: (callback) => ipcRenderer.on("speech-recognition-result", callback),
   onSpeechRecognitionError: (callback) => ipcRenderer.on("speech-recognition-error", callback),
   onSpeechRecognitionEnd: (callback) => ipcRenderer.on("speech-recognition-end", callback),
+  onClaudeMdPath: (callback) => ipcRenderer.on('claude-md-path', (event, path) => callback(path)),
+  fs: require('fs') // fsモジュールを公開
 };
