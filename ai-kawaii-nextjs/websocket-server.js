@@ -17,7 +17,7 @@ wss.on('connection', (ws) => {
   // クライアントに接続成功メッセージを送信
   ws.send(JSON.stringify({
     type: 'init',
-    message: '🌟 KawAIi Code - Claude Code 🌟\r\nこんにちは！ことねだよ〜✨\r\nClaude Codeと接続されました！\r\n\r\n'
+    message: '🌟 KawAIi Code - Claude Code 🌟\r\nこんにちは！クロードだよ〜✨\r\nClaude Codeと接続されました！\r\n\r\n'
   }));
 
   ws.on('message', (message) => {

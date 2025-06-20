@@ -1,4 +1,4 @@
-const { ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 // contextIsolation: false なので、直接windowオブジェクトに設定
 window.electronAPI = {
@@ -44,16 +44,29 @@ window.electronAPI = {
   },
   wallpaper: {
     getWallpaperList: () => ipcRenderer.invoke('wallpaper-get-list'),
-    uploadWallpaper: async (file) => {
-      const arrayBuffer = await file.arrayBuffer();
-      const data = Array.from(new Uint8Array(arrayBuffer));
-      return ipcRenderer.invoke('wallpaper-upload', {
-        name: file.name,
-        data: data,
-        size: file.size,
-        type: file.type
-      });
-    },
+    getWallpapers: () => ipcRenderer.invoke('wallpaper-get-all'),
+    uploadWallpaper: (filePath) => ipcRenderer.invoke('wallpaper-upload', filePath),
     deleteWallpaper: (filename) => ipcRenderer.invoke('wallpaper-delete', filename)
-  }
+  },
+  minimizeWindow: () => ipcRenderer.send("minimize-window"),
+  maximizeWindow: () => ipcRenderer.send("maximize-window"),
+  closeWindow: () => ipcRenderer.send("close-window"),
+  setAppConfig: (config) => ipcRenderer.invoke("set-app-config", config),
+  getAppConfig: () => ipcRenderer.invoke("get-app-config"),
+  sendTerminalInput: (data) => ipcRenderer.send("terminal-input", data),
+  sendChatMessage: (message) => ipcRenderer.send("chat-message", message),
+  onTerminalOutput: (callback) => ipcRenderer.on("terminal-output", callback),
+  onVoiceMessage: (callback) => ipcRenderer.on("voice-message", callback),
+  onClaudeStatus: (callback) => ipcRenderer.on("claude-status", callback),
+  updateConnectionStatus: (callback) =>
+    ipcRenderer.on("update-connection-status", callback),
+  openDirectoryDialog: () => ipcRenderer.invoke("open-directory-dialog"),
+  getClaudeCwd: () => ipcRenderer.invoke("get-claude-cwd"),
+
+  // Speech Recognition APIs
+  startSpeechRecognition: () => ipcRenderer.send("start-speech-recognition"),
+  stopSpeechRecognition: () => ipcRenderer.send("stop-speech-recognition"),
+  onSpeechRecognitionResult: (callback) => ipcRenderer.on("speech-recognition-result", callback),
+  onSpeechRecognitionError: (callback) => ipcRenderer.on("speech-recognition-error", callback),
+  onSpeechRecognitionEnd: (callback) => ipcRenderer.on("speech-recognition-end", callback),
 };

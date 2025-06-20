@@ -1,14 +1,19 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const pty = require('node-pty');
 const { spawn } = require('child_process');
 const VoiceService = require('./src/voiceService');
+const appConfig = require('./src/appConfig');
 
 let mainWindow;
 let terminalProcess;
 let voiceService;
 let nextjsProcess;
+
+// Add a global variable to store the current working directory for Claude Code
+let claudeWorkingDir = appConfig.get('claudeWorkingDir', os.homedir()); // デフォルトはホームディレクトリ
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -116,9 +121,18 @@ app.on('activate', () => {
 });
 
 // Claude Code process management
-ipcMain.handle('terminal-start', () => {
+ipcMain.handle('terminal-start', async () => {
   console.log('Starting Claude Code process...');
   
+  // Claude Codeのパスを取得
+  const claudePath = process.env.CLAUDE_PATH || 'claude'; // 環境変数CLAUDE_PATHがあればそれを使用、なければ'claude'を使用
+
+  if (!claudePath) {
+    const errorMsg = 'Claude Codeのパスが設定されていません。CLAUDE_PATH環境変数を設定するか、パスの通った場所にClaude Codeをインストールしてください。';
+    console.error(errorMsg);
+    return { success: false, error: errorMsg };
+  }
+
   if (terminalProcess) {
     console.log('Killing existing process...');
     terminalProcess.kill();
@@ -127,12 +141,13 @@ ipcMain.handle('terminal-start', () => {
   try {
     // Start Claude Code with proper PTY for full terminal support
     console.log('Starting Claude Code with PTY...');
+    console.log('Claude Code CWD:', claudeWorkingDir);
     
-    terminalProcess = pty.spawn('claude', [], {
+    terminalProcess = pty.spawn(claudePath, [], {
       name: 'xterm-color',
       cols: 80,
       rows: 24,
-      cwd: process.cwd(),
+      cwd: claudeWorkingDir, // ★ ユーザーが設定した作業ディレクトリを使用
       env: {
         ...process.env,
         TERM: 'xterm-256color',
@@ -214,6 +229,42 @@ ipcMain.handle('terminal-stop', () => {
     }
   }
   return { success: false, error: 'Claude Code not running' };
+});
+
+// ★ 新しいIPCハンドラ: 作業ディレクトリ選択ダイアログを開く
+ipcMain.handle('open-directory-dialog', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+      title: 'Claude Codeの作業ディレクトリを選択',
+      defaultPath: appConfig.get('claudeWorkingDir', os.homedir()), // 現在の設定をデフォルトパスにする
+    });
+
+    if (canceled) {
+      console.log('ディレクトリ選択がキャンセルされました。');
+      return { success: true, path: null }; // キャンセルされたことを通知
+    } else {
+      const newCwd = filePaths[0];
+      claudeWorkingDir = newCwd; // グローバル変数を更新
+      await appConfig.set('claudeWorkingDir', newCwd);
+      console.log('Claude Code 作業ディレクトリが設定されました:', newCwd);
+      return { success: true, path: newCwd };
+    }
+  } catch (error) {
+    console.error('ディレクトリ選択ダイアログの表示または設定に失敗しました:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ★ 新しいIPCハンドラ: 現在の作業ディレクトリの取得
+ipcMain.handle('get-claude-cwd', async () => {
+  try {
+    const currentCwd = appConfig.get('claudeWorkingDir', os.homedir()); // デフォルトはホームディレクトリ
+    return { success: true, cwd: currentCwd };
+  } catch (error) {
+    console.error('Claude Code 作業ディレクトリの取得に失敗しました:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // Voice synthesis handlers

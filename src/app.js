@@ -33,6 +33,13 @@ class TerminalApp {
         this.chatParseQueue = [];
         this.chatParseTimer = null;
         this.isProcessingChat = false;
+        this.claudeWorkingDir = ''; // Claude Code作業ディレクトリの初期値
+
+        // 音声認識関連のプロパティ
+        this.speechRecognition = null;
+        this.isListening = false;
+        this.recognitionTimeout = null; // 認識自動停止用のタイマー
+
         this.init();
     }
 
@@ -61,26 +68,26 @@ class TerminalApp {
             cursorStyle: 'block',
             theme: {
                 background: '#FFF8F0',
-                foreground: '#FF8C42',
+                foreground: '#6F4F3F',
                 cursor: '#FF6B35',
                 cursorAccent: '#FFFFFF',
-                selection: 'rgba(255, 140, 66, 0.3)',
-                black: '#8B4513',
-                red: '#FF6B35',
-                green: '#32CD32',
-                yellow: '#B8860B',
-                blue: '#4682B4',
-                magenta: '#FF8C42',
-                cyan: '#20B2AA',
-                white: '#696969',
-                brightBlack: '#A0522D',
-                brightRed: '#FF8C42',
-                brightGreen: '#90EE90',
-                brightYellow: '#CD853F',
-                brightBlue: '#5F9EA0',
-                brightMagenta: '#FFB366',
-                brightCyan: '#E0FFFF',
-                brightWhite: '#2F4F4F'
+                selection: 'rgba(255, 140, 66, 0.7)',
+                black: '#3A2718',
+                red: '#D9481E',
+                green: '#5D8B4F',
+                yellow: '#E0A800',
+                blue: '#4C6C8B',
+                magenta: '#B35D7A',
+                cyan: '#5F9E9D',
+                white: '#8A6B5B',
+                brightBlack: '#5C4430',
+                brightRed: '#FF6B35',
+                brightGreen: '#8ED37E',
+                brightYellow: '#FFC800',
+                brightBlue: '#7AA0C2',
+                brightMagenta: '#E68BAA',
+                brightCyan: '#82D1CE',
+                brightWhite: '#B8A090'
             },
             allowTransparency: false,
             convertEol: true,
@@ -228,6 +235,18 @@ class TerminalApp {
             refreshConnectionBtnModal.addEventListener('click', () => this.checkVoiceConnection());
         }
 
+        // Claude Code 作業ディレクトリ設定のイベントリスナー
+        const selectClaudeCwdBtn = document.getElementById('select-claude-cwd-btn');
+        if (selectClaudeCwdBtn) {
+            selectClaudeCwdBtn.addEventListener('click', () => this.handleSelectClaudeCwd());
+        }
+
+        // マイクボタンのイベントリスナー
+        const micButton = document.getElementById('mic-button');
+        if (micButton) {
+            micButton.addEventListener('click', () => this.toggleSpeechRecognition());
+        }
+
         this.updateButtons();
         this.updateVoiceControls();
     }
@@ -261,7 +280,7 @@ class TerminalApp {
         // クイックボタンは削除済み
 
         // 初期メッセージを追加（音声読み上げ用）
-        this.addVoiceMessage('ことね', 'こんにちは〜！✨ 何をお手伝いしましょうか？');
+        this.addVoiceMessage('クロード', 'こんにちは〜！✨ 何をお手伝いしましょうか？');
     }
 
 
@@ -350,7 +369,7 @@ class TerminalApp {
             
             // DOM操作を最小化
             requestAnimationFrame(() => {
-                this.addVoiceMessage('ことね', quotedText);
+                this.addVoiceMessage('クロード', quotedText);
                 this.updateCharacterMood('おしゃべり中✨');
             });
             
@@ -412,7 +431,7 @@ class TerminalApp {
                 hasElectronAPI: !!window.electronAPI,
                 hasTerminalAPI: !!(window.electronAPI && window.electronAPI.terminal)
             });
-            this.addVoiceMessage('ことね', 'Claude Codeが起動してないよ〜！先にStartボタンを押してね！');
+            this.addVoiceMessage('クロード', 'Claude Codeが起動してないよ〜！先にStartボタンを押してね！');
         }
     }
 
@@ -513,11 +532,11 @@ class TerminalApp {
                 this.terminal.focus();
                 
                 // Show app welcome message
-                this.terminal.writeln('\x1b[90m🎀 AI Kawaii Claude Code Integration Started! 🎀\x1b[0m');
+                this.terminal.writeln('\x1b[90m🎀 KawAIi Code Integration Started! 🎀\x1b[0m');
                 this.terminal.writeln('\x1b[90mClaude Code is starting up...\x1b[0m');
                 
                 // 音声メッセージで通知
-                this.addVoiceMessage('ことね', 'Claude Codeが起動したよ〜！✨');
+                this.addVoiceMessage('クロード', 'Claude Codeが起動したよ〜！✨');
                 
                 // Resize terminal to fit
                 setTimeout(() => {
@@ -606,19 +625,83 @@ class TerminalApp {
         }
     }
     
-    syncSettingsToModal() {
+    async syncSettingsToModal() {
+        // 音声読み上げ設定の同期
         const voiceToggleModal = document.getElementById('voice-toggle-modal');
         const speakerSelectModal = document.getElementById('speaker-select-modal');
         const cooldownInputModal = document.getElementById('voice-cooldown-modal');
-        
-        if (voiceToggleModal) {
-            voiceToggleModal.checked = this.voiceEnabled;
+        const connectionStatusModal = document.getElementById('connection-status-modal');
+
+        if (voiceToggleModal) voiceToggleModal.checked = this.voiceEnabled;
+        if (cooldownInputModal) cooldownInputModal.value = (this.speechCooldown / 1000).toString();
+        this.updateSpeakerSelect();
+        this.updateConnectionStatus(this.connectionStatus === 'connected' ? '接続済み' : '未接続', this.connectionStatus);
+
+        // 壁紙設定の同期 - ロード時に選択肢を更新する
+        await this.loadWallpaperList();
+
+        // Claude Code 作業ディレクトリ設定の同期
+        const claudeCwdDisplay = document.getElementById('claude-cwd-display');
+        const claudeCwdMessage = document.getElementById('claude-cwd-message');
+
+        try {
+            const result = await window.electronAPI.getClaudeCwd();
+            if (result.success) {
+                this.claudeWorkingDir = result.cwd; // クラス変数に保存
+                if (claudeCwdDisplay) claudeCwdDisplay.textContent = this.claudeWorkingDir;
+            } else {
+                console.error('現在の作業ディレクトリの取得に失敗しました:', result.error);
+                if (claudeCwdDisplay) claudeCwdDisplay.textContent = '取得失敗';
+                if (claudeCwdMessage) {
+                    claudeCwdMessage.textContent = `エラー: ${result.error}`;
+                    claudeCwdMessage.style.color = 'red';
+                }
+            }
+        } catch (error) {
+            console.error('Electron APIの呼び出し中にエラーが発生しました:', error);
+            if (claudeCwdDisplay) claudeCwdDisplay.textContent = 'エラー';
+            if (claudeCwdMessage) {
+                claudeCwdMessage.textContent = '作業ディレクトリの取得中にエラーが発生しました。';
+                claudeCwdMessage.style.color = 'red';
+            }
         }
-        if (speakerSelectModal) {
-            speakerSelectModal.value = this.selectedSpeaker;
+    }
+
+    async handleSelectClaudeCwd() {
+        const claudeCwdDisplay = document.getElementById('claude-cwd-display');
+        const claudeCwdMessage = document.getElementById('claude-cwd-message');
+
+        if (claudeCwdMessage) {
+            claudeCwdMessage.textContent = ''; // 古いメッセージをクリア
+            claudeCwdMessage.style.color = '';
         }
-        if (cooldownInputModal) {
-            cooldownInputModal.value = this.speechCooldown / 1000;
+
+        try {
+            const result = await window.electronAPI.openDirectoryDialog();
+            if (result.success && result.path) {
+                this.claudeWorkingDir = result.path; // クラス変数を更新
+                if (claudeCwdDisplay) claudeCwdDisplay.textContent = this.claudeWorkingDir;
+                if (claudeCwdMessage) {
+                    claudeCwdMessage.textContent = `作業ディレクトリを\'${result.path}\'に設定しました。`;
+                    claudeCwdMessage.style.color = 'green';
+                }
+            } else if (result.success && !result.path) {
+                if (claudeCwdMessage) {
+                    claudeCwdMessage.textContent = '作業ディレクトリの選択がキャンセルされました。';
+                    claudeCwdMessage.style.color = 'orange';
+                }
+            } else {
+                if (claudeCwdMessage) {
+                    claudeCwdMessage.textContent = `エラー: ${result.error}`;
+                    claudeCwdMessage.style.color = 'red';
+                }
+            }
+        } catch (error) {
+            console.error('Electron APIの呼び出し中にエラーが発生しました:', error);
+            if (claudeCwdMessage) {
+                claudeCwdMessage.textContent = '作業ディレクトリの設定中にエラーが発生しました。';
+                claudeCwdMessage.style.color = 'red';
+            }
         }
     }
 
@@ -955,7 +1038,7 @@ class TerminalApp {
             const response = await window.electronAPI.wallpaper.uploadWallpaper(file);
             if (response.success) {
                 // 成功メッセージ
-                this.addVoiceMessage('ことね', '壁紙がアップロードできたよ〜！✨');
+                this.addVoiceMessage('クロード', '壁紙がアップロードできたよ〜！✨');
                 
                 // 壁紙リストを再読み込み
                 await this.loadWallpaperList();
@@ -983,7 +1066,112 @@ class TerminalApp {
             select.value = 'default';
             this.applyWallpaper('default');
             localStorage.removeItem('selectedWallpaper');
-            this.addVoiceMessage('ことね', 'デフォルト壁紙に戻したよ〜！✨');
+            this.addVoiceMessage('クロード', 'デフォルト壁紙に戻したよ〜！✨');
+        }
+    }
+
+    // 新しいメソッド: 音声認識の開始/停止
+    toggleSpeechRecognition() {
+        if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+            alert('お使いのブラウザは音声認識をサポートしていません。Chromeをご利用ください。');
+            return;
+        }
+
+        if (this.isListening) {
+            this.stopSpeechRecognition();
+        } else {
+            this.startSpeechRecognition();
+        }
+    }
+
+    // 新しいメソッド: 音声認識の開始
+    startSpeechRecognition() {
+        // 既存の認識インスタンスがあれば停止
+        if (this.speechRecognition) {
+            this.speechRecognition.stop();
+            this.speechRecognition = null;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        this.speechRecognition = new SpeechRecognition();
+        this.speechRecognition.lang = 'ja-JP'; // 日本語に設定
+        this.speechRecognition.interimResults = true; // 中間結果も取得
+        this.speechRecognition.continuous = true; // 連続認識
+
+        // 認識結果イベント
+        this.speechRecognition.onresult = (event) => {
+            let interimTranscript = ''; // 中間結果
+            let finalTranscript = ''; // 最終結果
+
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+
+            // 最終結果が確定したらターミナルに送信
+            if (finalTranscript) {
+                console.log('Final:', finalTranscript);
+                this.terminal.write('\x1b[92m[You]: ' + finalTranscript + '\r\n\x1b[0m'); // 色付きで表示
+                window.electronAPI.sendChatMessage(finalTranscript); // Claude Codeに送信
+            }
+            // タイムアウトをリセット
+            clearTimeout(this.recognitionTimeout);
+            this.recognitionTimeout = setTimeout(() => {
+                this.stopSpeechRecognition();
+            }, 5000); // 5秒間音声がない場合停止
+        };
+
+        // エラーイベント
+        this.speechRecognition.onerror = (event) => {
+            console.error('Speech recognition error', event.error);
+            this.terminal.write(`\r\n\x1b[91m音声認識エラー: ${event.error}\x1b[0m\r\n`);
+            this.stopSpeechRecognition();
+        };
+
+        // 認識終了イベント
+        this.speechRecognition.onend = () => {
+            console.log('音声認識が終了しました。');
+            this.isListening = false;
+            this.updateMicButtonUI();
+            clearTimeout(this.recognitionTimeout);
+        };
+
+        this.speechRecognition.start();
+        this.isListening = true;
+        this.updateMicButtonUI();
+
+        // 初回起動時のタイムアウト設定
+        this.recognitionTimeout = setTimeout(() => {
+            this.stopSpeechRecognition();
+        }, 5000); // 5秒間音声がない場合停止
+    }
+
+    // 新しいメソッド: 音声認識の停止
+    stopSpeechRecognition() {
+        if (this.speechRecognition) {
+            this.speechRecognition.stop();
+            this.speechRecognition = null; // インスタンスをクリア
+        }
+        this.isListening = false;
+        this.updateMicButtonUI();
+        clearTimeout(this.recognitionTimeout);
+    }
+
+    // 新しいメソッド: マイクボタンのUI更新
+    updateMicButtonUI() {
+        const micButton = document.getElementById('mic-button');
+        if (micButton) {
+            if (this.isListening) {
+                micButton.classList.add('listening'); // 認識中のスタイルを適用
+                micButton.setAttribute('aria-label', '音声入力中');
+            } else {
+                micButton.classList.remove('listening'); // 認識中のスタイルを解除
+                micButton.setAttribute('aria-label', '音声入力');
+            }
         }
     }
 }
