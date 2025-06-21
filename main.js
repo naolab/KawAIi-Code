@@ -225,14 +225,15 @@ ipcMain.handle('terminal-start', async () => {
       if (mainWindow) {
         mainWindow.webContents.send('terminal-data', data);
         
+        // 音声処理はレンダラープロセス側に一元化するため、この処理をコメントアウト
         // Process for voice synthesis if enabled - 条件を緩和
-        if (voiceService) {
-          const textToSpeak = voiceService.parseTerminalOutput(data);
-          if (textToSpeak) {
-            console.log('Voice synthesis approved for:', JSON.stringify(textToSpeak.substring(0, 50) + '...'));
-            mainWindow.webContents.send('voice-text-available', textToSpeak);
-          }
-        }
+        // if (voiceService) {
+        //   const textToSpeak = voiceService.parseTerminalOutput(data);
+        //   if (textToSpeak) {
+        //     console.log('Voice synthesis approved for:', JSON.stringify(textToSpeak.substring(0, 50) + '...'));
+        //     mainWindow.webContents.send('voice-text-available', textToSpeak);
+        //   }
+        // }
       }
     });
 

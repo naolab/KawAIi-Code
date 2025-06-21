@@ -89,12 +89,6 @@ export default function Terminal({ className }: TerminalProps) {
     }
   }, [])
 
-  // 自動スクロール
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight
-    }
-  }, [output])
 
   // コマンド実行
   const executeCommand = () => {
@@ -146,11 +140,20 @@ export default function Terminal({ className }: TerminalProps) {
     }
   }
 
+  // ANSIエスケープシーケンスを除去する関数
+  const stripAnsiCodes = (text: string): string => {
+    // より包括的なANSIエスケープシーケンス除去
+    return text.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')
+               .replace(/\x1b\][\d;]*[^\x07]*\x07/g, '') // OSC sequences
+               .replace(/\x1b[=>]/g, '') // Other escape sequences
+               .replace(/\x1b\([AB]/g, '') // Character set sequences
+  }
+
   // ターミナル出力をレンダリング
   const renderOutput = () => {
     return output.map((line, index) => (
       <div key={index} className="whitespace-pre-wrap">
-        {line}
+        {stripAnsiCodes(line)}
       </div>
     ))
   }
@@ -174,8 +177,13 @@ export default function Terminal({ className }: TerminalProps) {
       {/* ターミナル出力エリア */}
       <div 
         ref={terminalRef}
-        className="flex-1 p-4 bg-gray-900 text-gray-300 font-mono text-sm overflow-y-auto"
-        style={{ minHeight: '300px' }}
+        className="flex-1 p-4 bg-gray-900 text-gray-300 font-mono text-sm overflow-y-scroll [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar]:block [&::-webkit-scrollbar-track]:bg-gray-700 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-orange-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-orange-400 [&::-webkit-scrollbar-thumb:active]:bg-orange-600 [&::selection]:!bg-orange-400 [&::selection]:!text-gray-900 [&_*::selection]:!bg-orange-400 [&_*::selection]:!text-gray-900"
+        style={{ 
+          minHeight: '300px',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#f97316 #374151',
+          scrollbarGutter: 'stable'
+        }}
       >
         {renderOutput()}
         

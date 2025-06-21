@@ -798,27 +798,16 @@ class TerminalApp {
 
         const now = Date.now();
         
-        // クールダウン期間中はスキップ（ただし、明らかに新しい内容の場合は例外）
-        const isSignificantlyDifferent = text.length > this.lastSpeechText.length + 20;
-        if (now - this.lastSpeechTime < this.speechCooldown && !isSignificantlyDifferent) {
+        // 完全一致のテキストのみ重複として判定
+        if (text === this.lastSpeechText) {
+            debugLog('⏭️ 完全一致のため重複スキップ:', text);
             return;
         }
 
-        // 同じテキストの重複を防ぐ（ただし、前回より長い場合は新しい内容として扱う）
-        if (text === this.lastSpeechText || (text.length <= this.lastSpeechText.length && this.lastSpeechText.includes(text))) {
-            return;
-        }
-
-        // 音声再生中は新しい音声をキューに追加せずスキップ（ただし、大幅に長い場合は割り込み）
-        if (this.isPlaying && !isSignificantlyDifferent) {
-            return;
-        }
-
-        // 長い文章の場合は前の音声を停止して新しい音声を再生
-        if (this.isPlaying && isSignificantlyDifferent) {
-            this.stopAudio();
-            await new Promise(resolve => setTimeout(resolve, 100)); // 少し待つ
-        }
+        // 音声再生中でもキューに追加して順次再生する
+        // if (this.isPlaying) {
+        //     return;
+        // }
 
         try {
             debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);

@@ -20,6 +20,14 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* テキスト選択スタイル - xtermのCSSを上書き */
+div *::selection,
+.xterm *::selection,
+.xterm .xterm-accessibility-tree *::selection {
+    background-color: #fb923c !important;
+    color: #1f2937 !important;
+}
+
 /* Next.js開発モードインジケーターのみ非表示（設定ボタンは保護） */
 div[id^="__next-build-watcher"] {
     display: none !important;
