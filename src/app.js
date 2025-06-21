@@ -36,9 +36,10 @@ class TerminalApp {
         this.isProcessingChat = false;
         this.claudeWorkingDir = ''; // Claude Code作業ディレクトリの初期値
 
-        // 音声認識関連のプロパティ
-        this.speechRecognition = null;
+        // 音声認識関連のプロパティ (Google Cloud Speech用)
         this.isListening = false;
+        this.audioStream = null; // マイクからの音声ストリーム
+        this.mediaRecorder = null; // 音声録音用
         this.recognitionTimeout = null; // 認識自動停止用のタイマー
 
         this.init();
@@ -1107,11 +1108,6 @@ class TerminalApp {
 
     // 新しいメソッド: 音声認識の開始/停止
     toggleSpeechRecognition() {
-        if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-            alert('お使いのブラウザは音声認識をサポートしていません。Chromeをご利用ください。');
-            return;
-        }
-
         if (this.isListening) {
             this.stopSpeechRecognition();
         } else {
@@ -1120,101 +1116,112 @@ class TerminalApp {
     }
 
     // 新しいメソッド: 音声認識の開始
-    startSpeechRecognition() {
-        // 既存の認識インスタンスがあれば停止
-        if (this.speechRecognition) {
-            this.speechRecognition.stop();
-            this.speechRecognition = null;
+    async startSpeechRecognition() {
+        if (this.isListening) {
+            debugLog('Already listening.');
+            return;
         }
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        this.speechRecognition = new SpeechRecognition();
-        this.speechRecognition.lang = 'ja-JP'; // 日本語に設定
-        this.speechRecognition.interimResults = true; // 中間結果も取得
-        this.speechRecognition.continuous = true; // 連続認識
+        try {
+            // ユーザーにマイクへのアクセスを要求
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.audioStream = stream; // ストリームを保持
 
-        // 認識結果イベント
-        this.speechRecognition.onresult = (event) => {
-            let interimTranscript = ''; // 中間結果
-            let finalTranscript = ''; // 最終結果
+            // MediaRecorderの準備
+            this.mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm; codecs=opus' // WebM形式のOpusコーデック (Google Speech APIで推奨)
+            });
 
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                const transcript = event.results[i][0].transcript;
-                if (event.results[i].isFinal) {
-                    finalTranscript += transcript;
-                } else {
-                    interimTranscript += transcript;
+            // 音声データが利用可能になったときのイベント
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    // 音声チャンクをArrayBufferに変換してメインプロセスに送信
+                    event.data.arrayBuffer().then(buffer => {
+                        window.electronAPI.sendAudioChunk(Array.from(new Uint8Array(buffer)));
+                    });
                 }
-            }
+            };
 
-            // 最終結果が確定したらターミナルに送信
-            if (finalTranscript) {
-                console.log('Final:', finalTranscript);
-                this.terminal.write('\x1b[92m[You]: ' + finalTranscript + '\r\n\x1b[0m'); // 色付きで表示
-                window.electronAPI.sendChatMessage(finalTranscript); // Claude Codeに送信
-            }
-            // タイムアウトをリセット（10秒に延長）
-            clearTimeout(this.recognitionTimeout);
+            // 録音停止イベント
+            this.mediaRecorder.onstop = () => {
+                debugLog('MediaRecorder stopped.');
+                this.isListening = false;
+                this.updateMicButtonUI();
+                if (this.audioStream) {
+                    this.audioStream.getTracks().forEach(track => track.stop()); // マイクを停止
+                    this.audioStream = null;
+                }
+                window.electronAPI.stopSpeechRecognitionStream(); // メインプロセスにストリーム終了を通知
+            };
+
+            // メインプロセスに音声認識ストリームの開始を要求
+            await window.electronAPI.startSpeechRecognitionStream();
+
+            // 録音開始（短く区切って送信）
+            this.mediaRecorder.start(100); // 100msごとにデータを取得して送信
+
+            this.isListening = true;
+            this.updateMicButtonUI();
+            debugLog('Speech recognition started via MediaRecorder.');
+            this.terminal.write('\r\n\x1b[96m🎤 Google Cloud音声認識を開始しました（10秒間で自動停止）\x1b[0m\r\n');
+
+            // IPC通信で認識結果とエラーを受け取るリスナーを設定
+            window.electronAPI.onSpeechRecognitionResult((resultData) => {
+                if (resultData.isFinal) {
+                    this.terminal.write(`\r\n\x1b[92m[You]: ${resultData.result}\x1b[0m\r\n`);
+                    window.electronAPI.sendChatMessage(resultData.result); // Claude Codeに送信
+                } else {
+                    // 中間結果は表示しない、または一時的に表示して上書きするなど
+                    // 今回は最終結果のみ表示する
+                }
+                // タイムアウトをリセット (音声入力があったら延長)
+                clearTimeout(this.recognitionTimeout);
+                this.recognitionTimeout = setTimeout(() => {
+                    this.stopSpeechRecognition();
+                    this.terminal.write('\r\n\x1b[93m音声認識を自動停止しました（10秒間無音のため）\x1b[0m\r\n');
+                }, 10000); // 10秒間音声がない場合停止
+            });
+
+            window.electronAPI.onSpeechRecognitionError((errorMessage) => {
+                console.error('Google Speech recognition error:', errorMessage);
+                this.terminal.write(`\r\n\x1b[91mGoogle音声認識エラー: ${errorMessage}\x1b[0m\r\n`);
+                this.stopSpeechRecognition();
+            });
+
+            window.electronAPI.onSpeechRecognitionEnd(() => {
+                console.log('Google Speech recognition stream ended by main process.');
+                this.stopSpeechRecognition(); // レンダラー側の処理を停止
+            });
+
+            // 初回起動時のタイムアウト設定 (音声が全くない場合)
             this.recognitionTimeout = setTimeout(() => {
                 this.stopSpeechRecognition();
                 this.terminal.write('\r\n\x1b[93m音声認識を自動停止しました（10秒間無音のため）\x1b[0m\r\n');
             }, 10000); // 10秒間音声がない場合停止
-        };
 
-        // エラーイベント
-        this.speechRecognition.onerror = (event) => {
-            console.error('Speech recognition error', event.error);
-            let errorMessage = '';
-            switch (event.error) {
-                case 'no-speech':
-                    errorMessage = '音声が検出されませんでした';
-                    break;
-                case 'audio-capture':
-                    errorMessage = 'マイクにアクセスできません';
-                    break;
-                case 'not-allowed':
-                    errorMessage = 'マイクの使用が許可されていません';
-                    break;
-                case 'network':
-                    errorMessage = 'ネットワークエラーが発生しました';
-                    break;
-                default:
-                    errorMessage = `音声認識エラー: ${event.error}`;
-            }
-            this.terminal.write(`\r\n\x1b[91m${errorMessage}\x1b[0m\r\n`);
-            this.stopSpeechRecognition();
-        };
-
-        // 認識終了イベント
-        this.speechRecognition.onend = () => {
-            console.log('音声認識が終了しました。');
+        } catch (error) {
+            console.error('Error starting speech recognition:', error);
+            this.terminal.write(`\r\n\x1b[91mマイクアクセスエラー: ${error.message}\x1b[0m\r\n`);
             this.isListening = false;
             this.updateMicButtonUI();
-            clearTimeout(this.recognitionTimeout);
-        };
-
-        this.speechRecognition.start();
-        this.isListening = true;
-        this.updateMicButtonUI();
-        this.terminal.write('\r\n\x1b[96m🎤 音声認識を開始しました（10秒間で自動停止）\x1b[0m\r\n');
-
-        // 初回起動時のタイムアウト設定（10秒に延長）
-        this.recognitionTimeout = setTimeout(() => {
-            this.stopSpeechRecognition();
-            this.terminal.write('\r\n\x1b[93m音声認識を自動停止しました（10秒間無音のため）\x1b[0m\r\n');
-        }, 10000); // 10秒間音声がない場合停止
+        }
     }
 
     // 新しいメソッド: 音声認識の停止
     stopSpeechRecognition() {
-        if (this.speechRecognition) {
-            this.speechRecognition.stop();
-            this.speechRecognition = null; // インスタンスをクリア
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+            this.mediaRecorder.stop(); // MediaRecorderを停止
+        }
+        if (this.audioStream) {
+            this.audioStream.getTracks().forEach(track => track.stop()); // マイクのトラックを停止
+            this.audioStream = null;
         }
         this.isListening = false;
         this.updateMicButtonUI();
         clearTimeout(this.recognitionTimeout);
-        this.terminal.write('\r\n\x1b[96m🛑 音声認識を停止しました\x1b[0m\r\n');
+        this.terminal.write('\r\n\x1b[96m🛑 Google Cloud音声認識を停止しました\x1b[0m\r\n');
+        // メインプロセスにストリームの終了を明示的に通知（onstopで既に通知しているが念のため）
+        window.electronAPI.stopSpeechRecognitionStream();
     }
 
     // 新しいメソッド: マイクボタンのUI更新
