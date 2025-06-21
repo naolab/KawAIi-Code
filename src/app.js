@@ -40,6 +40,12 @@ class TerminalApp {
         this.audioStream = null; // マイクからの音声ストリーム
         this.mediaRecorder = null; // 音声録音用
         this.recognitionTimeout = null; // 認識自動停止用のタイマー
+        
+        // ストリーミング読み上げ関連のプロパティ
+        this.streamingBuffer = ''; // 『』内のテキストを蓄積するバッファ
+        this.isInsideQuotes = false; // 『』内にいるかどうかのフラグ
+        this.lastProcessedLength = 0; // 最後に処理した文字位置
+        this.speechSequence = 0; // 音声の順序を保つためのシーケンス番号
 
         this.init();
     }
@@ -150,8 +156,11 @@ class TerminalApp {
                 if (this.terminal) {
                     this.terminal.write(data);
                 }
-                // チャット解析をバッチ処理で高速化
+                // チャット解析をバッチ処理で高速化（従来の「」内処理）
                 this.queueChatParsing(data);
+                
+                // ストリーミング読み上げ処理（新機能：『』内をリアルタイム処理）
+                this.processStreamingText(data);
             });
 
             // Handle Claude Code exit
@@ -287,6 +296,13 @@ class TerminalApp {
             sendButton.addEventListener('click', () => {
                 this.sendChatMessage();
             });
+        }
+
+        // マイクボタンは一時的に無効化
+        const micButton = document.getElementById('mic-button');
+        if (micButton) {
+            // イベントリスナーを追加せず、無効状態を維持
+            debugLog('Mic button temporarily disabled');
         }
 
         // クイックボタンは削除済み
@@ -1226,6 +1242,92 @@ class TerminalApp {
                 micButton.classList.remove('listening'); // 認識中のスタイルを解除
                 micButton.setAttribute('aria-label', '音声入力');
             }
+        }
+    }
+
+    // ストリーミング読み上げメソッド
+    processStreamingText(terminalData) {
+        // ANSI文字を除去してクリーンなテキストにする
+        let cleanText = terminalData
+            .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')
+            .replace(/\x1b\][0-2];[^\x07]*\x07/g, '')
+            .replace(/\x1b\[[0-9;]*[HfABCDEFGJKmhlpsu]/g, '')
+            .replace(/\x1b\([AB01]/g, '')
+            .replace(/[\x00-\x08\x0B-\x1F\x7F-\x9F]/g, ' ')
+            .replace(/\r?\n/g, ' ')
+            .replace(/\s+/g, ' ');
+
+        // ⏺記号がない場合はスキップ
+        if (!cleanText.includes('⏺')) {
+            return;
+        }
+
+        // ⏺記号の後の部分を取得
+        const circleIndex = cleanText.indexOf('⏺');
+        if (circleIndex === -1) return;
+        
+        const afterCircle = cleanText.substring(circleIndex + 1);
+
+        // 『』の検出と処理
+        for (let i = 0; i < afterCircle.length; i++) {
+            const char = afterCircle[i];
+            
+            if (char === '『' && !this.isInsideQuotes) {
+                // 『の開始を検出
+                this.isInsideQuotes = true;
+                this.streamingBuffer = '';
+                this.lastProcessedLength = 0;
+                debugLog('🎯 ストリーミング読み上げ開始');
+                
+            } else if (char === '』' && this.isInsideQuotes) {
+                // 』の終了を検出 - 残りのテキストを読み上げ
+                const remainingText = this.streamingBuffer.substring(this.lastProcessedLength);
+                if (remainingText.trim().length > 0) {
+                    this.speakStreamingChunk(remainingText.trim());
+                }
+                
+                // バッファをリセット
+                this.isInsideQuotes = false;
+                this.streamingBuffer = '';
+                this.lastProcessedLength = 0;
+                debugLog('🎯 ストリーミング読み上げ完了');
+                
+            } else if (this.isInsideQuotes) {
+                // 『』内のテキストを蓄積
+                this.streamingBuffer += char;
+                
+                // 句読点や改行での区切りチェック
+                if (char === '。' || char === '！' || char === '？' || char === '\n') {
+                    const chunkText = this.streamingBuffer.substring(this.lastProcessedLength);
+                    if (chunkText.trim().length > 3) { // 3文字以上の場合のみ読み上げ
+                        this.speakStreamingChunk(chunkText.trim());
+                        this.lastProcessedLength = this.streamingBuffer.length;
+                    }
+                }
+                
+                // 一定文字数での強制区切り（長文対応）
+                const currentChunk = this.streamingBuffer.substring(this.lastProcessedLength);
+                if (currentChunk.length > 50) { // 50文字を超えたら強制的に区切り
+                    this.speakStreamingChunk(currentChunk.trim());
+                    this.lastProcessedLength = this.streamingBuffer.length;
+                }
+            }
+        }
+    }
+
+    // ストリーミングチャンクの読み上げ
+    async speakStreamingChunk(text) {
+        if (!text || text.length < 2) return;
+        
+        // シーケンス番号を付けて順序を保証
+        const sequence = this.speechSequence++;
+        
+        debugLog(`🎵 ストリーミング読み上げ [${sequence}]:`, text.substring(0, 30) + '...');
+        
+        try {
+            await window.electronAPI.voice.speak(text, this.selectedSpeaker);
+        } catch (error) {
+            debugError('ストリーミング読み上げエラー:', error);
         }
     }
 
