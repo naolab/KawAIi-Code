@@ -141,7 +141,7 @@ class TerminalApp {
         this.speechSequence = 0; // 音声の順序を保つためのシーケンス番号
         
         // 読み上げ履歴管理
-        this.speechHistory = new SpeechHistoryManager(10);
+        this.speechHistory = new SpeechHistoryManager(50);
 
         this.init();
     }
