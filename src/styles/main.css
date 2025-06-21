@@ -847,6 +847,32 @@ input[type="checkbox"]:checked::before {
     cursor: pointer;
 }
 
+/* 読み上げ履歴管理専用ボタンスタイル */
+.speech-history-controls .simple-btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 140px; /* 横幅を140pxに拡大 */
+    background: linear-gradient(135deg, #FF8C42, #FFB366);
+    color: white;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 8px rgba(255, 140, 66, 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.speech-history-controls .simple-btn:hover {
+    background: linear-gradient(135deg, #FFB366, #FFCC99);
+    box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
+    transform: translateY(-1px);
+}
+
+.speech-history-controls .simple-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(255, 140, 66, 0.2);
+}
+
 /* スクロールバーカスタマイズ */
 .chat-messages::-webkit-scrollbar,
 #terminal-mini::-webkit-scrollbar {
