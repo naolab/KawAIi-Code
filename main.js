@@ -225,10 +225,10 @@ ipcMain.handle('terminal-start', async () => {
       if (mainWindow) {
         mainWindow.webContents.send('terminal-data', data);
         
-        // Process for voice synthesis if enabled - simplified
-        if (voiceService && data.includes('⏺')) {
+        // Process for voice synthesis if enabled - 条件を緩和
+        if (voiceService) {
           const textToSpeak = voiceService.parseTerminalOutput(data);
-          if (textToSpeak && textToSpeak.length > 3) {
+          if (textToSpeak) {
             console.log('Voice synthesis approved for:', JSON.stringify(textToSpeak.substring(0, 50) + '...'));
             mainWindow.webContents.send('voice-text-available', textToSpeak);
           }

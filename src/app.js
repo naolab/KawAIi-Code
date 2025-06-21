@@ -18,7 +18,8 @@ class TerminalApp {
         this.audioContext = null;
         this.currentAudio = null;
         this.isPlaying = false;
-        this.audioQueue = [];
+        this.audioQueue = []; // { audioData, timestamp } の配列
+        this.maxAudioAge = 30000; // 30秒で古い音声とみなす
         this.lastSpeechTime = 0;
         this.speechCooldown = 500; // 0.5秒に短縮
         this.lastSpeechText = '';
@@ -346,8 +347,11 @@ class TerminalApp {
                 this.processQuotedTexts(quotedTextMatches);
                 return; // カッコ処理の場合は通常の処理をスキップ
             } else {
-                // カッコがない場合は読み上げしない
-                debugLog('No quoted text found, skipping voice synthesis');
+                // カッコがない場合でも読み上げを試行 - 条件を緩和
+                debugLog('No quoted text found, but trying to read text anyway');
+                if (afterCircle.length > 3) {
+                    this.requestVoiceSynthesis(afterCircle);
+                }
                 return;
             }
 
@@ -850,9 +854,16 @@ class TerminalApp {
     async playAudio(audioData) {
         debugLog('🎵 playAudio called with data size:', audioData?.length || audioData?.byteLength || 'unknown');
         
-        // 既に再生中の場合はスキップ（キューに溜めない）
+        // 古い音声をクリーンアップ
+        this.cleanOldAudio();
+        
+        // 既に再生中の場合はキューに追加（タイムスタンプ付き）
         if (this.isPlaying) {
-            debugLog('Audio already playing, skipping...');
+            this.audioQueue.push({
+                audioData: audioData,
+                timestamp: Date.now()
+            });
+            debugLog('🎵 Audio queued, queue length:', this.audioQueue.length);
             return;
         }
 
@@ -897,6 +908,8 @@ class TerminalApp {
                 debugLog('🎵 Audio playback ended');
                 this.currentAudio = null;
                 this.isPlaying = false;
+                // 次のキューを処理
+                this.processAudioQueue();
             };
 
             // VRMビューワーに音声データを送信（専用コピーを使用）
@@ -913,9 +926,28 @@ class TerminalApp {
         }
     }
 
+    // 古い音声をクリーンアップ
+    cleanOldAudio() {
+        const now = Date.now();
+        const oldLength = this.audioQueue.length;
+        this.audioQueue = this.audioQueue.filter(item => 
+            (now - item.timestamp) < this.maxAudioAge
+        );
+        const newLength = this.audioQueue.length;
+        if (oldLength !== newLength) {
+            debugLog('🧹 Cleaned old audio:', oldLength - newLength, 'items removed');
+        }
+    }
+
     processAudioQueue() {
-        // キューシステムを削除（CPU負荷軽減のため）
-        // 音声は即座に再生するか、再生中の場合はスキップ
+        // 処理前にもクリーンアップ
+        this.cleanOldAudio();
+        
+        if (this.audioQueue.length > 0 && !this.isPlaying) {
+            debugLog('🎵 Processing queue, items:', this.audioQueue.length);
+            const nextItem = this.audioQueue.shift();
+            this.playAudio(nextItem.audioData);
+        }
     }
 
     stopAudio() {
@@ -923,6 +955,9 @@ class TerminalApp {
             this.currentAudio.stop();
             this.currentAudio = null;
             this.isPlaying = false;
+            // キューもクリア
+            this.audioQueue = [];
+            debugLog('🛑 Audio stopped and queue cleared');
         }
         // キューをクリア（削除）
         this.lastSpeechTime = 0;

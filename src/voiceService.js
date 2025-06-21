@@ -214,33 +214,7 @@ class VoiceService {
             }
         }
 
-        // UIパターンのスキップ（ユーザー入力ボックスも含む）
-        const skipPatterns = [
-            /^[\$#>]\s*$/,
-            /^[\w@-]+:.*[\$#>]\s*$/,
-            /^[│├└╭╯╰┌┐┬┴┼─═║╔╗╚╝╠╣╦╩╬\s]*$/,
-            /^[⚒↓⭐✶✻✢·✳⏺\s]*$/,
-            /^>\s*.*$/,  // ユーザー入力プロンプト（単純版）
-            /^╭.*>\s*.*╰.*$/s, // ユーザー入力ボックス全体をスキップ
-            /│\s*>\s*.*│/s, // ユーザー入力行をスキップ
-            /⎿.*Running/i, // ツール実行インディケーター
-            /^(musing|thinking|cerebrating|welcome|loading|waiting|processing)/i,
-            /tokens.*interrupt/i,
-            /Synthesizing|Conjuring|Mulling|Pondering|Running|Bash\(/i, // ステータス・ツール実行文字列をスキップ
-            /^\/help/i,
-            /^cwd:/i,
-            /^\?\s*for\s+shortcuts/i,
-            /^\d+\s*ms$/,
-            /^[\.−=\+─]{2,}$/,
-            /^Try\s+['"]/i,
-        ];
-
-        for (const pattern of skipPatterns) {
-            if (pattern.test(trimmed)) {
-                console.log('Skipped by pattern:', pattern.toString());
-                return null;
-            }
-        }
+        // skipPatternsを削除 - カッコ制限以外のスキップ処理を除去
 
         // 一般的な日本語テキストとして処理
         if (/[あ-んア-ヶ一-龯]/.test(trimmed) && trimmed.length > 10) {
