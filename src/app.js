@@ -6,6 +6,99 @@ const debugLog = isDev ? console.log : () => {};
 const debugTrace = isDev ? console.trace : () => {};
 const debugError = console.error; // エラーは常に出力
 
+// 読み上げ履歴管理クラス
+class SpeechHistoryManager {
+    constructor(maxHistorySize = 10) {
+        this.maxHistorySize = maxHistorySize;
+        this.historyKey = 'speech_history';
+        this.history = this.loadHistory();
+    }
+
+    // LocalStorageから履歴を読み込み
+    loadHistory() {
+        try {
+            const stored = localStorage.getItem(this.historyKey);
+            return stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            debugError('履歴読み込みエラー:', error);
+            return [];
+        }
+    }
+
+    // LocalStorageに履歴を保存
+    saveHistory() {
+        try {
+            localStorage.setItem(this.historyKey, JSON.stringify(this.history));
+        } catch (error) {
+            debugError('履歴保存エラー:', error);
+        }
+    }
+
+    // テキストのハッシュ値を生成（簡易版）
+    generateHash(text) {
+        // 正規化：空白、改行、記号を統一して比較精度を上げる
+        const normalized = text
+            .replace(/\s+/g, ' ')  // 連続空白を単一空白に
+            .replace(/[。！？、，]/g, '') // 句読点を除去
+            .trim()
+            .toLowerCase();
+        
+        // 簡易ハッシュ生成
+        let hash = 0;
+        for (let i = 0; i < normalized.length; i++) {
+            const char = normalized.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // 32bit整数に変換
+        }
+        return hash.toString();
+    }
+
+    // 重複チェック
+    isDuplicate(text) {
+        if (!text || text.length < 5) return false; // 短すぎるテキストはスキップ
+        
+        const hash = this.generateHash(text);
+        return this.history.includes(hash);
+    }
+
+    // 履歴に追加
+    addToHistory(text) {
+        if (!text || text.length < 5) return;
+        
+        const hash = this.generateHash(text);
+        
+        // 既存の同じハッシュを削除（重複除去）
+        this.history = this.history.filter(h => h !== hash);
+        
+        // 新しいハッシュを先頭に追加
+        this.history.unshift(hash);
+        
+        // 最大件数を超えた場合は古いものを削除
+        if (this.history.length > this.maxHistorySize) {
+            this.history = this.history.slice(0, this.maxHistorySize);
+        }
+        
+        this.saveHistory();
+        debugLog('読み上げ履歴追加:', { text: text.substring(0, 30) + '...', hash, historyCount: this.history.length });
+    }
+
+    // 履歴をクリア
+    clearHistory() {
+        this.history = [];
+        this.saveHistory();
+        debugLog('読み上げ履歴をクリアしました');
+    }
+
+    // 履歴の状態を取得
+    getHistoryStatus() {
+        return {
+            count: this.history.length,
+            maxSize: this.maxHistorySize,
+            recent: this.history.slice(0, 3) // 最新3件のハッシュ
+        };
+    }
+}
+
 class TerminalApp {
     constructor() {
         this.terminal = null;
@@ -46,6 +139,9 @@ class TerminalApp {
         this.isInsideQuotes = false; // 『』内にいるかどうかのフラグ
         this.lastProcessedLength = 0; // 最後に処理した文字位置
         this.speechSequence = 0; // 音声の順序を保つためのシーケンス番号
+        
+        // 読み上げ履歴管理
+        this.speechHistory = new SpeechHistoryManager(10);
 
         this.init();
     }
@@ -256,6 +352,18 @@ class TerminalApp {
             refreshConnectionBtnModal.addEventListener('click', () => this.checkVoiceConnection());
         }
 
+        // 読み上げ履歴管理のイベントリスナー
+        const clearHistoryBtn = document.getElementById('clear-speech-history-btn');
+        const testDuplicateBtn = document.getElementById('test-duplicate-btn');
+        
+        if (clearHistoryBtn) {
+            clearHistoryBtn.addEventListener('click', () => this.clearSpeechHistory());
+        }
+        
+        if (testDuplicateBtn) {
+            testDuplicateBtn.addEventListener('click', () => this.testDuplicateFunction());
+        }
+        
         // Claude Code 作業ディレクトリ設定のイベントリスナー
         const selectClaudeCwdBtn = document.getElementById('select-claude-cwd-btn');
         if (selectClaudeCwdBtn) {
@@ -270,6 +378,7 @@ class TerminalApp {
 
         this.updateButtons();
         this.updateVoiceControls();
+        this.updateSpeechHistoryStatus();
     }
 
     setupChatInterface() {
@@ -418,6 +527,12 @@ class TerminalApp {
 
     // 順次音声再生用メソッド
     async speakTextSequential(text) {
+        // 重複チェックを実行
+        if (this.speechHistory.isDuplicate(text)) {
+            debugLog('🔄 順次音声再生で重複テキストをスキップ:', text.substring(0, 30) + '...');
+            return;
+        }
+        
         // 前の音声が再生中の場合は終了まで待機
         while (this.isPlaying) {
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -671,6 +786,9 @@ class TerminalApp {
         // 壁紙設定の同期 - ロード時に選択肢を更新する
         await this.loadWallpaperList();
 
+        // 読み上げ履歴状況を更新
+        this.updateSpeechHistoryStatus();
+        
         // Claude Code 作業ディレクトリ設定の同期
         const claudeCwdDisplay = document.getElementById('claude-cwd-display');
         const claudeCwdMessage = document.getElementById('claude-cwd-message');
@@ -813,6 +931,12 @@ class TerminalApp {
             return;
         }
 
+        // 重複チェックを実行
+        if (this.speechHistory.isDuplicate(text)) {
+            debugLog('🔄 重複テキストをスキップ:', text.substring(0, 30) + '...');
+            return;
+        }
+
         const now = Date.now();
 
         // 音声再生中でもキューに追加して順次再生する
@@ -823,6 +947,10 @@ class TerminalApp {
         try {
             debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
             this.lastSpeechTime = now;
+            
+            // 読み上げ履歴に追加
+            this.speechHistory.addToHistory(text);
+            
             await window.electronAPI.voice.speak(text, this.selectedSpeaker);
         } catch (error) {
             debugError('Failed to speak text:', error);
@@ -1319,12 +1447,21 @@ class TerminalApp {
     async speakStreamingChunk(text) {
         if (!text || text.length < 2) return;
         
+        // 重複チェックを実行
+        if (this.speechHistory.isDuplicate(text)) {
+            debugLog('🔄 ストリーミング重複テキストをスキップ:', text.substring(0, 30) + '...');
+            return;
+        }
+        
         // シーケンス番号を付けて順序を保証
         const sequence = this.speechSequence++;
         
         debugLog(`🎵 ストリーミング読み上げ [${sequence}]:`, text.substring(0, 30) + '...');
         
         try {
+            // 読み上げ履歴に追加
+            this.speechHistory.addToHistory(text);
+            
             await window.electronAPI.voice.speak(text, this.selectedSpeaker);
         } catch (error) {
             debugError('ストリーミング読み上げエラー:', error);
@@ -1350,6 +1487,44 @@ class TerminalApp {
         } catch (error) {
             debugError('Failed to load CLAUDE.md content:', error);
         }
+    }
+
+    // 読み上げ履歴管理関連メソッド
+    updateSpeechHistoryStatus() {
+        const statusElement = document.getElementById('speech-history-status');
+        if (!statusElement || !this.speechHistory) return;
+        
+        const status = this.speechHistory.getHistoryStatus();
+        statusElement.textContent = `履歴: ${status.count}/${status.maxSize}件、最新ハッシュ: ${status.recent.length > 0 ? status.recent[0].substring(0, 8) + '...' : 'なし'}`;
+    }
+    
+    clearSpeechHistory() {
+        if (this.speechHistory) {
+            this.speechHistory.clearHistory();
+            this.updateSpeechHistoryStatus();
+            this.addVoiceMessage('クロード', '読み上げ履歴をクリアしたよ！');
+        }
+    }
+    
+    testDuplicateFunction() {
+        const testText = 'これは重複テスト用のメッセージです。';
+        
+        // 最初の読み上げ
+        this.addVoiceMessage('クロード', '最初のテスト読み上げだよ！');
+        if (this.voiceEnabled) {
+            this.speakText(testText);
+        }
+        
+        // 2回目の読み上げ（重複でスキップされるはず）
+        setTimeout(() => {
+            this.addVoiceMessage('クロード', '2回目のテストだよ！重複でスキップされるはずだよ！');
+            if (this.voiceEnabled) {
+                this.speakText(testText);
+            }
+            
+            // 状況更新
+            this.updateSpeechHistoryStatus();
+        }, 1000);
     }
 }
 
