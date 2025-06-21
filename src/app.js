@@ -82,7 +82,8 @@ class TerminalApp {
                 foreground: '#6F4F3F',
                 cursor: '#FF6B35',
                 cursorAccent: '#FFFFFF',
-                selection: 'rgba(255, 140, 66, 0.7)',
+                selectionBackground: 'rgba(255, 165, 0, 0.7)',
+                selectionForeground: '#FFFFFF',
                 black: '#3A2718',
                 red: '#D9481E',
                 green: '#5D8B4F',
@@ -1152,17 +1153,35 @@ class TerminalApp {
                 this.terminal.write('\x1b[92m[You]: ' + finalTranscript + '\r\n\x1b[0m'); // 色付きで表示
                 window.electronAPI.sendChatMessage(finalTranscript); // Claude Codeに送信
             }
-            // タイムアウトをリセット
+            // タイムアウトをリセット（10秒に延長）
             clearTimeout(this.recognitionTimeout);
             this.recognitionTimeout = setTimeout(() => {
                 this.stopSpeechRecognition();
-            }, 5000); // 5秒間音声がない場合停止
+                this.terminal.write('\r\n\x1b[93m音声認識を自動停止しました（10秒間無音のため）\x1b[0m\r\n');
+            }, 10000); // 10秒間音声がない場合停止
         };
 
         // エラーイベント
         this.speechRecognition.onerror = (event) => {
             console.error('Speech recognition error', event.error);
-            this.terminal.write(`\r\n\x1b[91m音声認識エラー: ${event.error}\x1b[0m\r\n`);
+            let errorMessage = '';
+            switch (event.error) {
+                case 'no-speech':
+                    errorMessage = '音声が検出されませんでした';
+                    break;
+                case 'audio-capture':
+                    errorMessage = 'マイクにアクセスできません';
+                    break;
+                case 'not-allowed':
+                    errorMessage = 'マイクの使用が許可されていません';
+                    break;
+                case 'network':
+                    errorMessage = 'ネットワークエラーが発生しました';
+                    break;
+                default:
+                    errorMessage = `音声認識エラー: ${event.error}`;
+            }
+            this.terminal.write(`\r\n\x1b[91m${errorMessage}\x1b[0m\r\n`);
             this.stopSpeechRecognition();
         };
 
@@ -1177,11 +1196,13 @@ class TerminalApp {
         this.speechRecognition.start();
         this.isListening = true;
         this.updateMicButtonUI();
+        this.terminal.write('\r\n\x1b[96m🎤 音声認識を開始しました（10秒間で自動停止）\x1b[0m\r\n');
 
-        // 初回起動時のタイムアウト設定
+        // 初回起動時のタイムアウト設定（10秒に延長）
         this.recognitionTimeout = setTimeout(() => {
             this.stopSpeechRecognition();
-        }, 5000); // 5秒間音声がない場合停止
+            this.terminal.write('\r\n\x1b[93m音声認識を自動停止しました（10秒間無音のため）\x1b[0m\r\n');
+        }, 10000); // 10秒間音声がない場合停止
     }
 
     // 新しいメソッド: 音声認識の停止
@@ -1193,6 +1214,7 @@ class TerminalApp {
         this.isListening = false;
         this.updateMicButtonUI();
         clearTimeout(this.recognitionTimeout);
+        this.terminal.write('\r\n\x1b[96m🛑 音声認識を停止しました\x1b[0m\r\n');
     }
 
     // 新しいメソッド: マイクボタンのUI更新
