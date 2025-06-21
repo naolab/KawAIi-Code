@@ -19,10 +19,9 @@ class TerminalApp {
         this.currentAudio = null;
         this.isPlaying = false;
         this.audioQueue = []; // { audioData, timestamp } の配列
-        this.maxAudioAge = 30000; // 30秒で古い音声とみなす
+        this.maxAudioAge = 120000; // 120秒（2分）で古い音声とみなす
         this.lastSpeechTime = 0;
         this.speechCooldown = 500; // 0.5秒に短縮
-        this.lastSpeechText = '';
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
@@ -799,12 +798,6 @@ class TerminalApp {
         }
 
         const now = Date.now();
-        
-        // 完全一致のテキストのみ重複として判定
-        if (text === this.lastSpeechText) {
-            debugLog('⏭️ 完全一致のため重複スキップ:', text);
-            return;
-        }
 
         // 音声再生中でもキューに追加して順次再生する
         // if (this.isPlaying) {
@@ -814,7 +807,6 @@ class TerminalApp {
         try {
             debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
             this.lastSpeechTime = now;
-            this.lastSpeechText = text;
             await window.electronAPI.voice.speak(text, this.selectedSpeaker);
         } catch (error) {
             debugError('Failed to speak text:', error);
@@ -952,7 +944,6 @@ class TerminalApp {
         }
         // キューをクリア（削除）
         this.lastSpeechTime = 0;
-        this.lastSpeechText = '';
     }
 
     async stopVoice() {
@@ -1163,7 +1154,7 @@ class TerminalApp {
             this.isListening = true;
             this.updateMicButtonUI();
             debugLog('Speech recognition started via MediaRecorder.');
-            this.terminal.write('\r\n\x1b[96m🎤 Google Cloud音声認識を開始しました（10秒間で自動停止）\x1b[0m\r\n');
+            this.terminal.write('\r\n\x1b[96m🎤 Google Cloud音声認識を開始しました（30秒間で自動停止）\x1b[0m\r\n');
 
             // IPC通信で認識結果とエラーを受け取るリスナーを設定
             window.electronAPI.onSpeechRecognitionResult((resultData) => {
@@ -1178,8 +1169,8 @@ class TerminalApp {
                 clearTimeout(this.recognitionTimeout);
                 this.recognitionTimeout = setTimeout(() => {
                     this.stopSpeechRecognition();
-                    this.terminal.write('\r\n\x1b[93m音声認識を自動停止しました（10秒間無音のため）\x1b[0m\r\n');
-                }, 10000); // 10秒間音声がない場合停止
+                    this.terminal.write('\r\n\x1b[93m音声認識を自動停止しました（30秒間無音のため）\x1b[0m\r\n');
+                }, 30000); // 30秒間音声がない場合停止
             });
 
             window.electronAPI.onSpeechRecognitionError((errorMessage) => {
@@ -1196,8 +1187,8 @@ class TerminalApp {
             // 初回起動時のタイムアウト設定 (音声が全くない場合)
             this.recognitionTimeout = setTimeout(() => {
                 this.stopSpeechRecognition();
-                this.terminal.write('\r\n\x1b[93m音声認識を自動停止しました（10秒間無音のため）\x1b[0m\r\n');
-            }, 10000); // 10秒間音声がない場合停止
+                this.terminal.write('\r\n\x1b[93m音声認識を自動停止しました（30秒間無音のため）\x1b[0m\r\n');
+            }, 30000); // 30秒間音声がない場合停止
 
         } catch (error) {
             console.error('Error starting speech recognition:', error);

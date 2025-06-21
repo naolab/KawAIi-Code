@@ -13,7 +13,7 @@ class VoiceService {
 
     async checkConnection() {
         try {
-            const response = await axios.get(`${this.baseUrl}/version`, { timeout: 3000 });
+            const response = await axios.get(`${this.baseUrl}/version`, { timeout: 10000 });
             this.isConnected = true;
             return { success: true, version: response.data.version };
         } catch (error) {
@@ -46,7 +46,7 @@ class VoiceService {
                 {
                     params: { text, speaker },
                     headers: { 'accept': 'application/json' },
-                    timeout: 10000  // 10秒タイムアウト
+                    timeout: 30000  // 30秒タイムアウト
                 }
             );
             
@@ -67,7 +67,7 @@ class VoiceService {
                         'Content-Type': 'application/json' 
                     },
                     responseType: 'arraybuffer',
-                    timeout: 15000  // 15秒タイムアウト
+                    timeout: 45000  // 45秒タイムアウト
                 }
             );
 
@@ -83,7 +83,7 @@ class VoiceService {
             // 音声合成を非同期で開始（Promise化でタイムアウト対応）
             const synthesisPromise = this.synthesizeText(text, speaker);
             const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Speech synthesis timeout')), 15000)
+                setTimeout(() => reject(new Error('Speech synthesis timeout')), 60000)
             );
             
             const audioData = await Promise.race([synthesisPromise, timeoutPromise]);
