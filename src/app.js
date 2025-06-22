@@ -498,9 +498,9 @@ class TerminalApp {
                 this.updateCharacterMood('おしゃべり中✨');
             });
             
-            // 音声読み上げ実行（前の音声が終わるまで待機）
+            // 音声読み上げ実行
             if (this.voiceEnabled) {
-                await this.speakTextSequential(quotedText);
+                await this.speakText(quotedText);
             }
             
             // 次のテキストまで少し間隔を開ける
@@ -508,13 +508,6 @@ class TerminalApp {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
-    }
-
-    // 順次音声再生用メソッド
-    async speakTextSequential(text) {
-        debugLog('🔊 Speaking sequentially:', text);
-        debugTrace('Call stack for speech:');
-        return this.speakText(text);
     }
 
     sendChatMessage() {
