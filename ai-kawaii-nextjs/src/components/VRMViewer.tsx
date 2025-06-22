@@ -2,11 +2,11 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import * as THREE from 'three'
-import { VRM, VRMLoaderPlugin, VRMUtils, VRMHumanBoneName } from '@pixiv/three-vrm'
+import { VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { EmoteController } from '@/features/emoteController/emoteController'
-// import { loadVRMAnimation } from '@/lib/loadVRMAnimation'
+import { loadVRMAnimation } from '@/lib/loadVRMAnimation'
 import { LipSync } from '@/features/lipSync/lipSync'
 
 interface VRMViewerProps {
@@ -38,71 +38,147 @@ export default function VRMViewer({ className }: VRMViewerProps) {
   // カメラ制御
   const cameraControlsRef = useRef<InstanceType<typeof OrbitControls> | null>(null)
 
-  // アイドルアニメーションを読み込む関数（簡易版）
+  // アイドルアニメーションを読み込む関数（mainブランチ互換 + T字ポーズ修正）
   const loadIdleAnimation = useCallback(async (vrm: VRM) => {
     try {
-      console.log('🎭 Creating simple idle animation...')
+      console.log('🎭 Loading idle animation...')
       
+      // まずT字ポーズを修正
       if (mixerRef.current && vrm.humanoid) {
-        // まず利用可能なボーンを確認
-        console.log('🎭 Available humanoid bones:')
-        Object.keys(vrm.humanoid.humanBones || {}).forEach(boneName => {
-          const node = vrm.humanoid.getNormalizedBoneNode(boneName as VRMHumanBoneName)
-          console.log(`  ${boneName}: ${node ? node.name : 'not found'}`)
-        })
-
-        // 腕の動きでT字ポーズを解除
         const leftUpperArmNode = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
         const rightUpperArmNode = vrm.humanoid.getNormalizedBoneNode('rightUpperArm')
         
-        const tracks: THREE.KeyframeTrack[] = []
+        const poseFixTracks: THREE.KeyframeTrack[] = []
         
         if (leftUpperArmNode) {
-          // 左腕をもっと大きく下ろす
           const leftArmRotation = new THREE.QuaternionKeyframeTrack(
             leftUpperArmNode.name + '.quaternion',
-            [0, 2, 4],
-            [
-              0, 0, -0.6, 0.8,  // 大きく下向きに回転
-              0, 0, -0.65, 0.76, // さらに下向き
-              0, 0, -0.6, 0.8   // 元に戻る
-            ]
+            [0],
+            [0, 0, -0.6, 0.8]  // 腕を下ろした位置に固定
           )
-          tracks.push(leftArmRotation)
-          console.log('🎭 Left arm animation added (much lower)')
+          poseFixTracks.push(leftArmRotation)
         }
         
         if (rightUpperArmNode) {
-          // 右腕をもっと大きく下ろす
           const rightArmRotation = new THREE.QuaternionKeyframeTrack(
             rightUpperArmNode.name + '.quaternion',
-            [0, 2, 4],
-            [
-              0, 0, 0.6, 0.8,   // 大きく下向きに回転
-              0, 0, 0.65, 0.76,
-              0, 0, 0.6, 0.8
-            ]
+            [0],
+            [0, 0, 0.6, 0.8]   // 腕を下ろした位置に固定
           )
-          tracks.push(rightArmRotation)
-          console.log('🎭 Right arm animation added (much lower)')
+          poseFixTracks.push(rightArmRotation)
         }
         
-        if (tracks.length > 0) {
-          const clip = new THREE.AnimationClip('idle', 4, tracks)
+        if (poseFixTracks.length > 0) {
+          const poseClip = new THREE.AnimationClip('posefix', 0.1, poseFixTracks)
+          const poseAction = mixerRef.current.clipAction(poseClip)
+          poseAction.setLoop(THREE.LoopOnce, 1)
+          poseAction.clampWhenFinished = true
+          poseAction.play()
+          console.log('🎭 T-pose fix applied')
+        }
+      }
+      
+      // 次に全身の揺れアニメーション（VRMAファイル）を読み込み
+      try {
+        const vrma = await loadVRMAnimation('/idle_loop.vrma')
+        if (vrma && mixerRef.current) {
+          const clip = vrma.createAnimationClip(vrm)
           const action = mixerRef.current.clipAction(clip)
-          
           action.setLoop(THREE.LoopRepeat, Infinity)
-          action.weight = 1.0  // フル重み
-          action.enabled = true
+          action.weight = 1.0  // アニメーションの重みを1.0に増加
           action.play()
+          console.log('🎭 Idle animation loaded and playing')
+        }
+      } catch {
+        console.log('🎭 VRMAnimation failed, using simple body sway animation')
+        
+        // VRMAが読み込めない場合：全身の軽い揺れアニメーション
+        if (mixerRef.current && vrm.humanoid) {
+          // 利用可能なボーンを詳細確認
+          console.log('🎭 Checking body bones:')
+          const spineNode = vrm.humanoid.getNormalizedBoneNode('spine')
+          const hipsNode = vrm.humanoid.getNormalizedBoneNode('hips')
+          const chestNode = vrm.humanoid.getNormalizedBoneNode('chest')
+          const upperChestNode = vrm.humanoid.getNormalizedBoneNode('upperChest')
           
-          console.log('🎭 Arm animation created and playing with', tracks.length, 'tracks')
-        } else {
-          console.log('🎭 No arm bones found for animation')
+          console.log('  spine:', spineNode ? spineNode.name : 'NOT FOUND')
+          console.log('  hips:', hipsNode ? hipsNode.name : 'NOT FOUND')
+          console.log('  chest:', chestNode ? chestNode.name : 'NOT FOUND')
+          console.log('  upperChest:', upperChestNode ? upperChestNode.name : 'NOT FOUND')
+          
+          const bodySwayTracks: THREE.KeyframeTrack[] = []
+          
+          // 見つかったボーンで動きを作成
+          if (spineNode) {
+            const spineSwayRotation = new THREE.QuaternionKeyframeTrack(
+              spineNode.name + '.quaternion',
+              [0, 3, 6, 9],
+              [
+                0, 0, 0, 1,           // 基本姿勢
+                0, 0.90, 0, 0.9,   // 軽く左に回転 (値を1.5倍に増加、W成分を再計算)
+                0, -0.90, 0, 0.9,  // 軽く右に回転 (値を1.5倍に増加、W成分を再計算)
+                0, 0, 0, 1            // 基本姿勢に戻る
+              ]
+            )
+            bodySwayTracks.push(spineSwayRotation)
+            console.log('  🎭 Added spine rotation track')
+          }
+          
+          if (hipsNode) {
+            const hipsSwayRotation = new THREE.QuaternionKeyframeTrack(
+              hipsNode.name + '.quaternion',
+              [0, 3, 6, 9],
+              [
+                0, 0, 0, 1,         // 基本姿勢
+                0, 0.45, 0, 0.8930,  // 左に回転 (値を1.5倍に増加、W成分を再計算)
+                0, -0.45, 0, 0.8930, // 右に回転 (値を1.5倍に増加、W成分を再計算)
+                0, 0, 0, 1          // 基本姿勢に戻る
+              ]
+            )
+            bodySwayTracks.push(hipsSwayRotation)
+            console.log('  🎭 Added hips rotation track')
+          }
+          
+          if (chestNode) {
+            const chestSwayRotation = new THREE.QuaternionKeyframeTrack(
+              chestNode.name + '.quaternion',
+              [0, 1.5, 3],
+              [
+                0, 0, 0, 1,         // 基本姿勢
+                0, 0, 0.05, 0.999,  // 軽く左に回転
+                0, 0, 0, 1          // 基本姿勢に戻る
+              ]
+            )
+            bodySwayTracks.push(chestSwayRotation)
+            console.log('  🎭 Added chest rotation track')
+          }
+          
+          if (upperChestNode) {
+            const upperChestSwayRotation = new THREE.QuaternionKeyframeTrack(
+              upperChestNode.name + '.quaternion',
+              [0, 2.5, 5],
+              [
+                0, 0, 0, 1,          // 基本姿勢
+                0.05, 0, 0, 0.999,   // 軽く前に傾く
+                0, 0, 0, 1           // 基本姿勢に戻る
+              ]
+            )
+            bodySwayTracks.push(upperChestSwayRotation)
+            console.log('  🎭 Added upperChest rotation track')
+          }
+          
+          if (bodySwayTracks.length > 0) {
+            const bodySwayClip = new THREE.AnimationClip('bodysway', 9, bodySwayTracks)
+            const bodySwayAction = mixerRef.current.clipAction(bodySwayClip)
+            bodySwayAction.setLoop(THREE.LoopRepeat, Infinity)
+            bodySwayAction.weight = 1.0  // フル重み
+            bodySwayAction.play()
+            console.log('🎭 Strong body sway animation applied')
+          }
         }
       }
     } catch (error) {
-      console.error('🎭 Failed to create simple idle animation:', error)
+      console.error('🎭 Failed to load idle animation:', error)
     }
   }, [mixerRef])
 
@@ -153,11 +229,11 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       resetCamera(vrm)
 
       // VRAM情報を設定
-      setVrmInfo(`
-        VRMモデル: ${(vrm.meta as Record<string, unknown>)?.title || (vrm.meta as Record<string, unknown>)?.name || '不明なモデル'}
-        バージョン: ${vrm.meta.version || '不明'}
-        作者: ${(vrm.meta as Record<string, unknown>)?.author || '不明'}
-      `)
+      // setVrmInfo(`
+      //   VRMモデル: ${(vrm.meta as Record<string, unknown>)?.title || (vrm.meta as Record<string, unknown>)?.name || '不明なモデル'}
+      //   バージョン: ${vrm.meta.version || '不明'}
+      //   作者: ${(vrm.meta as Record<string, unknown>)?.author || '不明'}
+      // `)
       
       console.log('VRM loaded successfully:', vrm)
     } catch (err) {

@@ -24,10 +24,12 @@ type VRMAnimationLoaderPluginWorldMatrixMap = Map<
 >;
 
 export class VRMAnimationLoaderPlugin {
-  public readonly parser: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public readonly parser: any;
 
   public constructor(
-    parser: unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    parser: any,
   ) {
     this.parser = parser;
   }
@@ -37,9 +39,11 @@ export class VRMAnimationLoaderPlugin {
   }
 
   public async afterRoot(
-    gltf: Record<string, unknown>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    gltf: any
   ): Promise<void> {
-    const defGltf = (gltf.parser as Record<string, unknown>).json as Record<string, unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const defGltf = gltf.parser.json as any;
     const defExtensionsUsed = defGltf.extensionsUsed as string[] | undefined;
 
     if (
@@ -49,7 +53,7 @@ export class VRMAnimationLoaderPlugin {
       return;
     }
 
-    const defExtension = (defGltf.extensions as Record<string, unknown>)?.[this.name] as
+    const defExtension = defGltf.extensions?.[this.name] as
       | VRMCVRMAnimation
       | undefined;
 
@@ -58,34 +62,17 @@ export class VRMAnimationLoaderPlugin {
     }
 
     const nodeMap = this._createNodeMap(defExtension);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const worldMatrixMap = await this._createBoneWorldMatrixMap(
       gltf,
       defExtension
     );
 
     const hipsNode = defExtension.humanoid.humanBones["hips"]!.node;
-    // gltf.parser.getDependencyが利用できない場合の回避策
-    const parser = gltf.parser as Record<string, unknown>;
-    let hips: THREE.Object3D;
-    
-    if (parser.getDependency && typeof parser.getDependency === 'function') {
-      const getDependency = parser.getDependency as (type: string, index: number) => Promise<THREE.Object3D>;
-      hips = await getDependency("node", hipsNode);
-    } else {
-      // getDependencyが利用できない場合はシーン内から直接検索
-      let foundHips: THREE.Object3D | null = null;
-      (gltf.scene as THREE.Scene).traverse((obj) => {
-        if (obj.userData?.nodeIndex === hipsNode) {
-          foundHips = obj;
-        }
-      });
-      
-      if (!foundHips) {
-        // hipsが見つからない場合はシーンのルートを使用
-        foundHips = (gltf.scene as THREE.Scene);
-      }
-      hips = foundHips;
-    }
+    const hips = (await gltf.parser.getDependency(
+      "node",
+      hipsNode
+    )) as THREE.Object3D;
     const restHipsPosition = hips.getWorldPosition(new THREE.Vector3());
 
     const clips = gltf.animations as THREE.AnimationClip[];
@@ -149,26 +136,15 @@ export class VRMAnimationLoaderPlugin {
   }
 
   private async _createBoneWorldMatrixMap(
-    gltf: Record<string, unknown>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    gltf: any,
     defExtension: VRMCVRMAnimation
   ): Promise<VRMAnimationLoaderPluginWorldMatrixMap> {
     // update the entire hierarchy first
     (gltf.scene as THREE.Scene).updateWorldMatrix(false, true);
 
-    // gltf.parser.getDependenciesが利用できない場合の回避策
-    const parser = gltf.parser as Record<string, unknown>;
-    let threeNodes: THREE.Object3D[];
-    
-    if (parser.getDependencies && typeof parser.getDependencies === 'function') {
-      const getDependencies = parser.getDependencies as (type: string) => Promise<THREE.Object3D[]>;
-      threeNodes = await getDependencies("node");
-    } else {
-      // getDependenciesが利用できない場合はシーン内のオブジェクトを直接取得
-      threeNodes = [];
-      (gltf.scene as THREE.Scene).traverse((obj) => {
-        threeNodes.push(obj);
-      });
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const threeNodes = await (gltf.parser as any).getDependencies("node") as THREE.Object3D[];
 
     const worldMatrixMap: VRMAnimationLoaderPluginWorldMatrixMap = new Map();
 
