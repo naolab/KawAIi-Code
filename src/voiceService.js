@@ -114,6 +114,7 @@ class VoiceService {
         // より強力なANSI除去処理
         let cleanText = data
             .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '') // 基本的なANSIエスケープシーケンス
+            .replace(/Claude PTY data:\s*/g, '') // Claude PTY data: を除去
             .replace(/\x1b\][0-2];[^\x07]*\x07/g, '') // OSC sequences
             .replace(/\x1b\[[0-9;]*[HfABCDEFGJKmhlpsu]/g, '') // より多くのANSI制御文字
             .replace(/\x1b\([AB01]/g, '') // 文字セット選択

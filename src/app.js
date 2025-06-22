@@ -36,10 +36,10 @@ class SpeechHistoryManager {
 
     // テキストのハッシュ値を生成（簡易版）
     generateHash(text) {
-        // 正規化：空白、改行、記号を統一して比較精度を上げる
+        // 正規化：空白、改行を統一するが、句読点は保持してより厳密な重複判定を行う
         const normalized = text
             .replace(/\s+/g, ' ')  // 連続空白を単一空白に
-            .replace(/[。！？、，]/g, '') // 句読点を除去
+            .replace(/[、，]/g, '、') // 読点を統一
             .trim()
             .toLowerCase();
         
@@ -113,8 +113,6 @@ class TerminalApp {
         this.isPlaying = false;
         this.audioQueue = []; // { audioData, timestamp } の配列
         this.maxAudioAge = 120000; // 120秒（2分）で古い音声とみなす
-        this.lastSpeechTime = 0;
-        this.speechCooldown = 500; // 0.5秒に短縮
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
@@ -134,15 +132,10 @@ class TerminalApp {
         this.mediaRecorder = null; // 音声録音用
         this.recognitionTimeout = null; // 認識自動停止用のタイマー
         
-        // ストリーミング読み上げ関連のプロパティ
-        this.streamingBuffer = ''; // 『』内のテキストを蓄積するバッファ
-        this.isInsideQuotes = false; // 『』内にいるかどうかのフラグ
-        this.lastProcessedLength = 0; // 最後に処理した文字位置
-        this.speechSequence = 0; // 音声の順序を保つためのシーケンス番号
         
         // 読み上げ履歴管理
         this.speechHistory = new SpeechHistoryManager(50);
-
+        
         this.init();
     }
 
@@ -158,6 +151,7 @@ class TerminalApp {
         this.setupEventListeners();
         this.setupChatInterface();
         this.setupWallpaperSystem();
+        this.loadUserConfig(); // 設定を読み込み
         this.updateStatus('Ready');
         this.checkVoiceConnection();
 
@@ -205,7 +199,7 @@ class TerminalApp {
             },
             allowTransparency: false,
             convertEol: true,
-            scrollback: 1000,
+            scrollback: 50,
             tabStopWidth: 4,
             fastScrollModifier: 'shift',
             fastScrollSensitivity: 5,
@@ -252,11 +246,8 @@ class TerminalApp {
                 if (this.terminal) {
                     this.terminal.write(data);
                 }
-                // チャット解析をバッチ処理で高速化（従来の「」内処理）
+                // チャット解析をバッチ処理で高速化（「」内処理）
                 this.queueChatParsing(data);
-                
-                // ストリーミング読み上げ処理（新機能：『』内をリアルタイム処理）
-                this.processStreamingText(data);
             });
 
             // Handle Claude Code exit
@@ -323,7 +314,6 @@ class TerminalApp {
         const speakerSelectModal = document.getElementById('speaker-select-modal');
         const stopVoiceBtnModal = document.getElementById('stop-voice-modal');
         const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
-        const cooldownInputModal = document.getElementById('voice-cooldown-modal');
 
         if (voiceToggleModal) {
             voiceToggleModal.addEventListener('change', (e) => {
@@ -333,14 +323,14 @@ class TerminalApp {
         }
 
         if (speakerSelectModal) {
-            speakerSelectModal.addEventListener('change', (e) => {
+            speakerSelectModal.addEventListener('change', async (e) => {
                 this.selectedSpeaker = parseInt(e.target.value);
-            });
-        }
-
-        if (cooldownInputModal) {
-            cooldownInputModal.addEventListener('input', (e) => {
-                this.speechCooldown = parseFloat(e.target.value) * 1000;
+                
+                // 設定を永続化
+                if (window.electronAPI && window.electronAPI.config) {
+                    await window.electronAPI.config.set('defaultSpeakerId', this.selectedSpeaker);
+                }
+                debugLog('話者設定を更新:', this.selectedSpeaker);
             });
         }
 
@@ -468,17 +458,14 @@ class TerminalApp {
             debugLog('Quoted matches:', quotedTextMatches);
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
-                // カッコ内のテキストを一個ずつ処理
+                // カギカッコ内のテキストを一個ずつ処理
                 debugLog('Found quoted text, processing only quoted content');
                 this.processQuotedTexts(quotedTextMatches);
-                return; // カッコ処理の場合は通常の処理をスキップ
+                return; // カギカッコ処理の場合は通常の処理をスキップ
             } else {
-                // カッコがない場合でも読み上げを試行 - 条件を緩和
-                debugLog('No quoted text found, but trying to read text anyway');
-                if (afterCircle.length > 3) {
-                    this.requestVoiceSynthesis(afterCircle);
-                }
-                return;
+                // カギカッコがない場合は読み上げをスキップ
+                debugLog('No quoted text found, skipping speech synthesis.');
+                return; // 読み上げをスキップ
             }
 
         } catch (error) {
@@ -505,80 +492,21 @@ class TerminalApp {
                 continue;
             }
             
-            debugLog(`Processing quote ${i + 1}/${quotedTextMatches.length}: "${quotedText}"`);
-            
             // DOM操作を最小化
             requestAnimationFrame(() => {
                 this.addVoiceMessage('クロード', quotedText);
                 this.updateCharacterMood('おしゃべり中✨');
             });
             
-            // 音声読み上げを順次キューに追加（音声合成完了を待ってからキューイング）
+            // 音声読み上げ実行
             if (this.voiceEnabled) {
-                await this.addToSpeechQueue(quotedText);
+                await this.speakText(quotedText);
             }
             
             // 次のテキストまで少し間隔を開ける
             if (i < quotedTextMatches.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise(resolve => setTimeout(resolve, 3000));
             }
-        }
-    }
-
-    // 音声合成キューシステム - 順番を保証する
-    async addToSpeechQueue(text) {
-        // 重複チェックを実行
-        if (this.speechHistory.isDuplicate(text)) {
-            debugLog('🔄 重複テキストをスキップ:', text.substring(0, 30) + '...');
-            return;
-        }
-        
-        try {
-            debugLog('🎯 音声合成開始:', text.substring(0, 30) + '...');
-            
-            // 音声合成を実行してオーディオデータを取得
-            const audioData = await this.synthesizeAndGetAudio(text);
-            
-            if (audioData) {
-                // 音声合成が完了したらキューに追加（順番保証）
-                this.audioQueue.push({
-                    audioData: audioData,
-                    timestamp: Date.now()
-                });
-                
-                debugLog('🎵 音声をキューに追加, キュー長:', this.audioQueue.length);
-                
-                // 再生中でなければ即座に再生開始
-                if (!this.isPlaying) {
-                    this.processAudioQueue();
-                }
-            }
-        } catch (error) {
-            debugError('音声合成キューエラー:', error);
-        }
-    }
-    
-    // 音声合成してオーディオデータを取得する新メソッド
-    async synthesizeAndGetAudio(text) {
-        if (!window.electronAPI || !window.electronAPI.voice || !this.voiceEnabled || this.connectionStatus !== 'connected') {
-            debugLog('❌ 音声合成がブロックされました');
-            return null;
-        }
-
-        try {
-            // 読み上げ履歴に追加
-            this.speechHistory.addToHistory(text);
-            
-            // メインプロセスから音声データを直接取得
-            const result = await window.electronAPI.voice.synthesize(text, this.selectedSpeaker);
-            if (result && result.audioData) {
-                debugLog('🎯 音声合成完了:', text.substring(0, 30) + '...');
-                return result.audioData;
-            }
-            return null;
-        } catch (error) {
-            debugError('音声合成エラー:', error);
-            return null;
         }
     }
 
@@ -799,9 +727,6 @@ class TerminalApp {
         if (speakerSelectModal) {
             speakerSelectModal.disabled = !this.voiceEnabled || !canUseVoice;
         }
-        if (cooldownInputModal) {
-            cooldownInputModal.disabled = !this.voiceEnabled || !canUseVoice;
-        }
         if (stopVoiceBtnModal) {
             stopVoiceBtnModal.disabled = !this.voiceEnabled || !canUseVoice;
         }
@@ -818,8 +743,9 @@ class TerminalApp {
         const connectionStatusModal = document.getElementById('connection-status-modal');
 
         if (voiceToggleModal) voiceToggleModal.checked = this.voiceEnabled;
-        if (cooldownInputModal) cooldownInputModal.value = (this.speechCooldown / 1000).toString();
-        this.updateSpeakerSelect();
+        
+        
+        await this.updateSpeakerSelect();
         this.updateConnectionStatus(this.connectionStatus === 'connected' ? '接続済み' : '未接続', this.connectionStatus);
 
         // 壁紙設定の同期 - ロード時に選択肢を更新する
@@ -921,7 +847,7 @@ class TerminalApp {
                 if (result.success) {
                     this.speakers = result.speakers;
                     debugLog('Loaded speakers:', this.speakers);
-                    this.updateSpeakerSelect();
+                    await this.updateSpeakerSelect();
                 }
             } catch (error) {
                 debugError('Failed to load speakers:', error);
@@ -929,7 +855,7 @@ class TerminalApp {
         }
     }
 
-    updateSpeakerSelect() {
+    async updateSpeakerSelect() {
         const speakerSelectModal = document.getElementById('speaker-select-modal');
         if (speakerSelectModal && this.speakers.length > 0) {
             speakerSelectModal.innerHTML = '';
@@ -941,10 +867,42 @@ class TerminalApp {
                     speakerSelectModal.appendChild(option);
                 });
             });
-            // 最初の話者を自動選択
-            if (this.speakers[0] && this.speakers[0].styles[0]) {
+            
+            // 現在選択中の話者IDを優先的に使用
+            let targetSpeakerId = this.selectedSpeaker;
+            
+            // 現在の選択が無効または未設定の場合、設定ファイルから読み込み
+            if (!targetSpeakerId || targetSpeakerId === 0) {
+                if (window.electronAPI && window.electronAPI.config) {
+                    try {
+                        targetSpeakerId = await window.electronAPI.config.get('defaultSpeakerId');
+                    } catch (error) {
+                        debugError('保存済み話者ID取得エラー:', error);
+                    }
+                }
+            }
+            
+            // 対象の話者IDが有効な場合はそれを選択、そうでなければ最初の話者を選択
+            if (targetSpeakerId !== null && targetSpeakerId !== undefined && targetSpeakerId !== 0) {
+                // 対象IDが話者リストに存在するかチェック
+                const validOption = Array.from(speakerSelectModal.options).find(option => 
+                    parseInt(option.value) === targetSpeakerId
+                );
+                if (validOption) {
+                    this.selectedSpeaker = targetSpeakerId;
+                    speakerSelectModal.value = targetSpeakerId;
+                    debugLog('話者IDを復元:', targetSpeakerId);
+                } else {
+                    // 対象IDが無効な場合は最初の話者を選択
+                    this.selectedSpeaker = this.speakers[0].styles[0].id;
+                    speakerSelectModal.value = this.selectedSpeaker;
+                    debugLog('話者IDが無効、デフォルトに設定:', this.selectedSpeaker);
+                }
+            } else {
+                // 対象IDがない場合は最初の話者を選択
                 this.selectedSpeaker = this.speakers[0].styles[0].id;
                 speakerSelectModal.value = this.selectedSpeaker;
+                debugLog('話者IDが未設定、デフォルトに設定:', this.selectedSpeaker);
             }
         }
     }
@@ -958,16 +916,7 @@ class TerminalApp {
     }
 
     async speakText(text) {
-        debugLog('🔍 speakText conditions:', {
-            electronAPI: !!window.electronAPI,
-            voice: !!window.electronAPI?.voice,
-            voiceEnabled: this.voiceEnabled,
-            connectionStatus: this.connectionStatus
-        });
-        
-        // 通常の単発読み上げ用（後方互換性のため）
         if (!window.electronAPI || !window.electronAPI.voice || !this.voiceEnabled || this.connectionStatus !== 'connected') {
-            debugLog('❌ speakText blocked by conditions');
             return;
         }
 
@@ -977,16 +926,12 @@ class TerminalApp {
             return;
         }
 
-        const now = Date.now();
-
         try {
             debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
-            this.lastSpeechTime = now;
             
             // 読み上げ履歴に追加
             this.speechHistory.addToHistory(text);
             
-            // 単発読み上げの場合はそのまま実行（従来の動作）
             await window.electronAPI.voice.speak(text, this.selectedSpeaker);
         } catch (error) {
             debugError('Failed to speak text:', error);
@@ -1071,6 +1016,11 @@ class TerminalApp {
                 debugLog('🎵 Audio playback ended');
                 this.currentAudio = null;
                 this.isPlaying = false;
+                
+                // 音声再生完了時に間隔制御の基準時間を更新
+                this.lastSpeechTime = Date.now();
+                debugLog('🔇 Updated lastSpeechTime for cooldown control');
+                
                 // 次のキューを処理
                 this.processAudioQueue();
             };
@@ -1122,8 +1072,7 @@ class TerminalApp {
             this.audioQueue = [];
             debugLog('🛑 Audio stopped and queue cleared');
         }
-        // キューをクリア（削除）
-        this.lastSpeechTime = 0;
+        // lastSpeechTimeはリセットしない（間隔制御を維持）
     }
 
     async stopVoice() {
@@ -1409,94 +1358,6 @@ class TerminalApp {
         }
     }
 
-    // ストリーミング読み上げメソッド
-    processStreamingText(terminalData) {
-        // ANSI文字を除去してクリーンなテキストにする
-        let cleanText = terminalData
-            .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')
-            .replace(/\x1b\][0-2];[^\x07]*\x07/g, '')
-            .replace(/\x1b\[[0-9;]*[HfABCDEFGJKmhlpsu]/g, '')
-            .replace(/\x1b\([AB01]/g, '')
-            .replace(/[\x00-\x08\x0B-\x1F\x7F-\x9F]/g, ' ')
-            .replace(/\r?\n/g, ' ')
-            .replace(/\s+/g, ' ');
-
-        // ⏺記号がない場合はスキップ
-        if (!cleanText.includes('⏺')) {
-            return;
-        }
-
-        // ⏺記号の後の部分を取得
-        const circleIndex = cleanText.indexOf('⏺');
-        if (circleIndex === -1) return;
-        
-        const afterCircle = cleanText.substring(circleIndex + 1);
-
-        // 『』の検出と処理
-        for (let i = 0; i < afterCircle.length; i++) {
-            const char = afterCircle[i];
-            
-            if (char === '『' && !this.isInsideQuotes) {
-                // 『の開始を検出
-                this.isInsideQuotes = true;
-                this.streamingBuffer = '';
-                this.lastProcessedLength = 0;
-                debugLog('🎯 ストリーミング読み上げ開始');
-                
-            } else if (char === '』' && this.isInsideQuotes) {
-                // 』の終了を検出 - 残りのテキストを読み上げ
-                const remainingText = this.streamingBuffer.substring(this.lastProcessedLength);
-                if (remainingText.trim().length > 0) {
-                    this.speakStreamingChunk(remainingText.trim());
-                }
-                
-                // バッファをリセット
-                this.isInsideQuotes = false;
-                this.streamingBuffer = '';
-                this.lastProcessedLength = 0;
-                debugLog('🎯 ストリーミング読み上げ完了');
-                
-            } else if (this.isInsideQuotes) {
-                // 『』内のテキストを蓄積
-                this.streamingBuffer += char;
-                
-                // 句読点や改行での区切りチェック
-                if (char === '。' || char === '！' || char === '？' || char === '\n') {
-                    const chunkText = this.streamingBuffer.substring(this.lastProcessedLength);
-                    if (chunkText.trim().length > 3) { // 3文字以上の場合のみ読み上げ
-                        this.speakStreamingChunk(chunkText.trim());
-                        this.lastProcessedLength = this.streamingBuffer.length;
-                    }
-                }
-                
-                // 一定文字数での強制区切り（長文対応）
-                const currentChunk = this.streamingBuffer.substring(this.lastProcessedLength);
-                if (currentChunk.length > 50) { // 50文字を超えたら強制的に区切り
-                    this.speakStreamingChunk(currentChunk.trim());
-                    this.lastProcessedLength = this.streamingBuffer.length;
-                }
-            }
-        }
-    }
-
-    // ストリーミングチャンクの読み上げ
-    async speakStreamingChunk(text) {
-        if (!text || text.length < 2) return;
-        
-        // 重複チェックを実行
-        if (this.speechHistory.isDuplicate(text)) {
-            debugLog('🔄 ストリーミング重複テキストをスキップ:', text.substring(0, 30) + '...');
-            return;
-        }
-        
-        // シーケンス番号を付けて順序を保証
-        const sequence = this.speechSequence++;
-        
-        debugLog(`🎵 ストリーミング読み上げ [${sequence}]:`, text.substring(0, 30) + '...');
-        
-        // ストリーミング読み上げもキューシステムを使用
-        await this.addToSpeechQueue(text);
-    }
 
     async loadClaudeMdContent() {
         if (!this.claudeMdPath) {
@@ -1555,6 +1416,26 @@ class TerminalApp {
             // 状況更新
             this.updateSpeechHistoryStatus();
         }, 1000);
+    }
+
+    // 設定を読み込む
+    async loadUserConfig() {
+        try {
+            if (window.electronAPI && window.electronAPI.config) {
+                const cooldownSeconds = await window.electronAPI.config.get('voiceCooldownSeconds', 1);
+                this.speechCooldown = cooldownSeconds * 1000;
+                
+                // UI設定項目にも反映
+                const cooldownInputModal = document.getElementById('voice-cooldown-modal');
+                if (cooldownInputModal) {
+                    cooldownInputModal.value = cooldownSeconds;
+                }
+                
+                debugLog('設定を読み込み:', { voiceCooldownSeconds: cooldownSeconds });
+            }
+        } catch (error) {
+            debugError('設定の読み込みに失敗:', error);
+        }
     }
 }
 
