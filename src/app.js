@@ -36,10 +36,10 @@ class SpeechHistoryManager {
 
     // テキストのハッシュ値を生成（簡易版）
     generateHash(text) {
-        // 正規化：空白、改行、記号を統一して比較精度を上げる
+        // 正規化：空白、改行を統一するが、句読点は保持してより厳密な重複判定を行う
         const normalized = text
             .replace(/\s+/g, ' ')  // 連続空白を単一空白に
-            .replace(/[。！？、，]/g, '') // 句読点を除去
+            .replace(/[、，]/g, '、') // 読点を統一
             .trim()
             .toLowerCase();
         
@@ -142,6 +142,10 @@ class TerminalApp {
         
         // 読み上げ履歴管理
         this.speechHistory = new SpeechHistoryManager(50);
+        
+        // 連続読み上げ制御用
+        this.isSequentialSpeech = false; // 連続読み上げ中かどうか
+        this.sequentialTexts = []; // 現在の連続読み上げセッションのテキスト
 
         this.init();
     }
@@ -504,6 +508,10 @@ class TerminalApp {
     async processQuotedTexts(quotedTextMatches) {
         debugLog('Processing quoted texts:', quotedTextMatches);
         
+        // 連続読み上げモードを開始
+        this.isSequentialSpeech = true;
+        this.sequentialTexts = [];
+        
         for (let i = 0; i < quotedTextMatches.length; i++) {
             let quotedText = quotedTextMatches[i].replace(/[「」]/g, '').trim();
             
@@ -518,6 +526,9 @@ class TerminalApp {
                 debugLog('Skipping empty text');
                 continue;
             }
+            
+            // 現在のセッションのテキストに追加
+            this.sequentialTexts.push(quotedText);
             
             debugLog(`Processing quote ${i + 1}/${quotedTextMatches.length}: "${quotedText}"`);
             
@@ -537,14 +548,30 @@ class TerminalApp {
                 await new Promise(resolve => setTimeout(resolve, 300));
             }
         }
+        
+        // 連続読み上げモードを終了
+        this.isSequentialSpeech = false;
+        this.sequentialTexts = [];
     }
 
     // 順次音声再生用メソッド
     async speakTextSequential(text) {
-        // 重複チェックを実行
-        if (this.speechHistory.isDuplicate(text)) {
-            debugLog('🔄 順次音声再生で重複テキストをスキップ:', text.substring(0, 30) + '...');
-            return;
+        // 連続読み上げ中は現在のセッション内での重複のみをチェック
+        if (this.isSequentialSpeech) {
+            // 現在のセッション内で同じテキストが既に処理されているかチェック
+            const currentIndex = this.sequentialTexts.indexOf(text);
+            const duplicateInSession = this.sequentialTexts.slice(0, currentIndex).includes(text);
+            
+            if (duplicateInSession) {
+                debugLog('🔄 連続読み上げセッション内で重複テキストをスキップ:', text.substring(0, 30) + '...');
+                return;
+            }
+        } else {
+            // 通常の重複チェックを実行
+            if (this.speechHistory.isDuplicate(text)) {
+                debugLog('🔄 順次音声再生で重複テキストをスキップ:', text.substring(0, 30) + '...');
+                return;
+            }
         }
         
         // 前の音声が再生中の場合は終了まで待機
