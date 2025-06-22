@@ -305,12 +305,8 @@ export default function VRMViewer({ className }: VRMViewerProps) {
           resetCamera(vrm)
         })
 
-        // VRM情報を表示
-        setVrmInfo(`
-          名前: デフォルトキャラクター
-          作者: AI Kawaii Project
-          バージョン: 1.0
-        `)
+        // VRM情報を表示（空にして非表示）
+        setVrmInfo('')
       }
 
       console.log('Default VRM loaded successfully:', vrm)

@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "export", // 静的エクスポートを有効化
+  trailingSlash: true, // Electronでの読み込み互換性
   // 開発用インジケーターを完全無効化 (非推奨のため削除)
   // devIndicators: {
   //   buildActivity: false,

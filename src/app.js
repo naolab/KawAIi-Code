@@ -949,7 +949,7 @@ class TerminalApp {
                 iframe.contentWindow.postMessage({
                     type: 'lipSync',
                     audioData: audioArray
-                }, 'http://localhost:3002');
+                }, '*');
                 debugLog('🎭 iframeにpostMessage送信, サイズ:', audioArray.length);
             } else {
                 debugLog('🎭 VRM iframe未発見');
