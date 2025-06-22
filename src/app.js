@@ -793,7 +793,22 @@ class TerminalApp {
         const connectionStatusModal = document.getElementById('connection-status-modal');
 
         if (voiceToggleModal) voiceToggleModal.checked = this.voiceEnabled;
-        if (cooldownInputModal) cooldownInputModal.value = (this.speechCooldown / 1000).toString();
+        
+        // 設定ファイルから読み上げ間隔を同期
+        if (window.electronAPI && window.electronAPI.config) {
+            try {
+                const cooldownSeconds = await window.electronAPI.config.get('voiceCooldownSeconds', 1);
+                this.speechCooldown = cooldownSeconds * 1000;
+                if (cooldownInputModal) cooldownInputModal.value = cooldownSeconds.toString();
+                debugLog('設定から読み上げ間隔を同期:', cooldownSeconds + '秒');
+            } catch (error) {
+                debugError('読み上げ間隔設定の同期エラー:', error);
+                if (cooldownInputModal) cooldownInputModal.value = (this.speechCooldown / 1000).toString();
+            }
+        } else {
+            if (cooldownInputModal) cooldownInputModal.value = (this.speechCooldown / 1000).toString();
+        }
+        
         await this.updateSpeakerSelect();
         this.updateConnectionStatus(this.connectionStatus === 'connected' ? '接続済み' : '未接続', this.connectionStatus);
 
@@ -917,37 +932,41 @@ class TerminalApp {
                 });
             });
             
-            // 設定ファイルから保存済みの話者IDを読み込み
-            let savedSpeakerId = null;
-            if (window.electronAPI && window.electronAPI.config) {
-                try {
-                    savedSpeakerId = await window.electronAPI.config.get('defaultSpeakerId');
-                } catch (error) {
-                    debugError('保存済み話者ID取得エラー:', error);
+            // 現在選択中の話者IDを優先的に使用
+            let targetSpeakerId = this.selectedSpeaker;
+            
+            // 現在の選択が無効または未設定の場合、設定ファイルから読み込み
+            if (!targetSpeakerId || targetSpeakerId === 0) {
+                if (window.electronAPI && window.electronAPI.config) {
+                    try {
+                        targetSpeakerId = await window.electronAPI.config.get('defaultSpeakerId');
+                    } catch (error) {
+                        debugError('保存済み話者ID取得エラー:', error);
+                    }
                 }
             }
             
-            // 保存済みの話者IDが有効な場合はそれを選択、そうでなければ最初の話者を選択
-            if (savedSpeakerId !== null && savedSpeakerId !== undefined) {
-                // 保存済みIDが話者リストに存在するかチェック
+            // 対象の話者IDが有効な場合はそれを選択、そうでなければ最初の話者を選択
+            if (targetSpeakerId !== null && targetSpeakerId !== undefined && targetSpeakerId !== 0) {
+                // 対象IDが話者リストに存在するかチェック
                 const validOption = Array.from(speakerSelectModal.options).find(option => 
-                    parseInt(option.value) === savedSpeakerId
+                    parseInt(option.value) === targetSpeakerId
                 );
                 if (validOption) {
-                    this.selectedSpeaker = savedSpeakerId;
-                    speakerSelectModal.value = savedSpeakerId;
-                    debugLog('保存済み話者IDを復元:', savedSpeakerId);
+                    this.selectedSpeaker = targetSpeakerId;
+                    speakerSelectModal.value = targetSpeakerId;
+                    debugLog('話者IDを復元:', targetSpeakerId);
                 } else {
-                    // 保存済みIDが無効な場合は最初の話者を選択
+                    // 対象IDが無効な場合は最初の話者を選択
                     this.selectedSpeaker = this.speakers[0].styles[0].id;
                     speakerSelectModal.value = this.selectedSpeaker;
-                    debugLog('保存済み話者IDが無効、デフォルトに設定:', this.selectedSpeaker);
+                    debugLog('話者IDが無効、デフォルトに設定:', this.selectedSpeaker);
                 }
             } else {
-                // 保存済みIDがない場合は最初の話者を選択
+                // 対象IDがない場合は最初の話者を選択
                 this.selectedSpeaker = this.speakers[0].styles[0].id;
                 speakerSelectModal.value = this.selectedSpeaker;
-                debugLog('話者IDが未保存、デフォルトに設定:', this.selectedSpeaker);
+                debugLog('話者IDが未設定、デフォルトに設定:', this.selectedSpeaker);
             }
         }
     }
@@ -989,7 +1008,7 @@ class TerminalApp {
 
         try {
             debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
-            this.lastSpeechTime = now;
+            // lastSpeechTimeは音声再生完了時に更新するため、ここでは更新しない
             
             // 読み上げ履歴に追加
             this.speechHistory.addToHistory(text);
@@ -1078,6 +1097,11 @@ class TerminalApp {
                 debugLog('🎵 Audio playback ended');
                 this.currentAudio = null;
                 this.isPlaying = false;
+                
+                // 音声再生完了時に間隔制御の基準時間を更新
+                this.lastSpeechTime = Date.now();
+                debugLog('🔇 Updated lastSpeechTime for cooldown control');
+                
                 // 次のキューを処理
                 this.processAudioQueue();
             };
@@ -1129,8 +1153,7 @@ class TerminalApp {
             this.audioQueue = [];
             debugLog('🛑 Audio stopped and queue cleared');
         }
-        // キューをクリア（削除）
-        this.lastSpeechTime = 0;
+        // lastSpeechTimeはリセットしない（間隔制御を維持）
     }
 
     async stopVoice() {
