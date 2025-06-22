@@ -458,17 +458,14 @@ class TerminalApp {
             debugLog('Quoted matches:', quotedTextMatches);
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
-                // カッコ内のテキストを一個ずつ処理
+                // カギカッコ内のテキストを一個ずつ処理
                 debugLog('Found quoted text, processing only quoted content');
                 this.processQuotedTexts(quotedTextMatches);
-                return; // カッコ処理の場合は通常の処理をスキップ
+                return; // カギカッコ処理の場合は通常の処理をスキップ
             } else {
-                // カッコがない場合でも読み上げを試行 - 条件を緩和
-                debugLog('No quoted text found, but trying to read text anyway');
-                if (afterCircle.length > 3) {
-                    this.requestVoiceSynthesis(afterCircle);
-                }
-                return;
+                // カギカッコがない場合は読み上げをスキップ
+                debugLog('No quoted text found, skipping speech synthesis.');
+                return; // 読み上げをスキップ
             }
 
         } catch (error) {
