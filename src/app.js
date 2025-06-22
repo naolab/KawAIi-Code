@@ -505,7 +505,7 @@ class TerminalApp {
             
             // 次のテキストまで少し間隔を開ける
             if (i < quotedTextMatches.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 3000));
             }
         }
     }
