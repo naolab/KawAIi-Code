@@ -114,7 +114,7 @@ class TerminalApp {
         this.audioQueue = []; // { audioData, timestamp } の配列
         this.maxAudioAge = 120000; // 120秒（2分）で古い音声とみなす
         this.lastSpeechTime = 0;
-        this.speechCooldown = 500; // 0.5秒に短縮
+        this.speechCooldown = 1000; // 1秒（デフォルト設定と一致）
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
@@ -158,6 +158,7 @@ class TerminalApp {
         this.setupEventListeners();
         this.setupChatInterface();
         this.setupWallpaperSystem();
+        this.loadUserConfig(); // 設定を読み込み
         this.updateStatus('Ready');
         this.checkVoiceConnection();
 
@@ -333,14 +334,27 @@ class TerminalApp {
         }
 
         if (speakerSelectModal) {
-            speakerSelectModal.addEventListener('change', (e) => {
+            speakerSelectModal.addEventListener('change', async (e) => {
                 this.selectedSpeaker = parseInt(e.target.value);
+                
+                // 設定を永続化
+                if (window.electronAPI && window.electronAPI.config) {
+                    await window.electronAPI.config.set('defaultSpeakerId', this.selectedSpeaker);
+                }
+                debugLog('話者設定を更新:', this.selectedSpeaker);
             });
         }
 
         if (cooldownInputModal) {
-            cooldownInputModal.addEventListener('input', (e) => {
-                this.speechCooldown = parseFloat(e.target.value) * 1000;
+            cooldownInputModal.addEventListener('input', async (e) => {
+                const cooldownSeconds = parseFloat(e.target.value);
+                this.speechCooldown = cooldownSeconds * 1000;
+                
+                // 設定を永続化
+                if (window.electronAPI && window.electronAPI.config) {
+                    await window.electronAPI.config.set('voiceCooldownSeconds', cooldownSeconds);
+                }
+                debugLog('読み上げ間隔を更新:', cooldownSeconds + '秒');
             });
         }
 
@@ -780,7 +794,7 @@ class TerminalApp {
 
         if (voiceToggleModal) voiceToggleModal.checked = this.voiceEnabled;
         if (cooldownInputModal) cooldownInputModal.value = (this.speechCooldown / 1000).toString();
-        this.updateSpeakerSelect();
+        await this.updateSpeakerSelect();
         this.updateConnectionStatus(this.connectionStatus === 'connected' ? '接続済み' : '未接続', this.connectionStatus);
 
         // 壁紙設定の同期 - ロード時に選択肢を更新する
@@ -882,7 +896,7 @@ class TerminalApp {
                 if (result.success) {
                     this.speakers = result.speakers;
                     debugLog('Loaded speakers:', this.speakers);
-                    this.updateSpeakerSelect();
+                    await this.updateSpeakerSelect();
                 }
             } catch (error) {
                 debugError('Failed to load speakers:', error);
@@ -890,7 +904,7 @@ class TerminalApp {
         }
     }
 
-    updateSpeakerSelect() {
+    async updateSpeakerSelect() {
         const speakerSelectModal = document.getElementById('speaker-select-modal');
         if (speakerSelectModal && this.speakers.length > 0) {
             speakerSelectModal.innerHTML = '';
@@ -902,10 +916,38 @@ class TerminalApp {
                     speakerSelectModal.appendChild(option);
                 });
             });
-            // 最初の話者を自動選択
-            if (this.speakers[0] && this.speakers[0].styles[0]) {
+            
+            // 設定ファイルから保存済みの話者IDを読み込み
+            let savedSpeakerId = null;
+            if (window.electronAPI && window.electronAPI.config) {
+                try {
+                    savedSpeakerId = await window.electronAPI.config.get('defaultSpeakerId');
+                } catch (error) {
+                    debugError('保存済み話者ID取得エラー:', error);
+                }
+            }
+            
+            // 保存済みの話者IDが有効な場合はそれを選択、そうでなければ最初の話者を選択
+            if (savedSpeakerId !== null && savedSpeakerId !== undefined) {
+                // 保存済みIDが話者リストに存在するかチェック
+                const validOption = Array.from(speakerSelectModal.options).find(option => 
+                    parseInt(option.value) === savedSpeakerId
+                );
+                if (validOption) {
+                    this.selectedSpeaker = savedSpeakerId;
+                    speakerSelectModal.value = savedSpeakerId;
+                    debugLog('保存済み話者IDを復元:', savedSpeakerId);
+                } else {
+                    // 保存済みIDが無効な場合は最初の話者を選択
+                    this.selectedSpeaker = this.speakers[0].styles[0].id;
+                    speakerSelectModal.value = this.selectedSpeaker;
+                    debugLog('保存済み話者IDが無効、デフォルトに設定:', this.selectedSpeaker);
+                }
+            } else {
+                // 保存済みIDがない場合は最初の話者を選択
                 this.selectedSpeaker = this.speakers[0].styles[0].id;
                 speakerSelectModal.value = this.selectedSpeaker;
+                debugLog('話者IDが未保存、デフォルトに設定:', this.selectedSpeaker);
             }
         }
     }
@@ -939,10 +981,11 @@ class TerminalApp {
 
         const now = Date.now();
 
-        // 音声再生中でもキューに追加して順次再生する
-        // if (this.isPlaying) {
-        //     return;
-        // }
+        // 読み上げ間隔制御
+        if (now - this.lastSpeechTime < this.speechCooldown) {
+            debugLog('🔇 間隔制御により読み上げをスキップ:', (now - this.lastSpeechTime) + 'ms < ' + this.speechCooldown + 'ms');
+            return;
+        }
 
         try {
             debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
@@ -1525,6 +1568,26 @@ class TerminalApp {
             // 状況更新
             this.updateSpeechHistoryStatus();
         }, 1000);
+    }
+
+    // 設定を読み込む
+    async loadUserConfig() {
+        try {
+            if (window.electronAPI && window.electronAPI.config) {
+                const cooldownSeconds = await window.electronAPI.config.get('voiceCooldownSeconds', 1);
+                this.speechCooldown = cooldownSeconds * 1000;
+                
+                // UI設定項目にも反映
+                const cooldownInputModal = document.getElementById('voice-cooldown-modal');
+                if (cooldownInputModal) {
+                    cooldownInputModal.value = cooldownSeconds;
+                }
+                
+                debugLog('設定を読み込み:', { voiceCooldownSeconds: cooldownSeconds });
+            }
+        } catch (error) {
+            debugError('設定の読み込みに失敗:', error);
+        }
     }
 }
 
