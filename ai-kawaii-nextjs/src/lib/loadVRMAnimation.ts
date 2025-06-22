@@ -7,10 +7,27 @@ const loader = new GLTFLoader();
 loader.register((parser: any) => new VRMAnimationLoaderPlugin(parser));
 
 export async function loadVRMAnimation(url: string): Promise<VRMAnimation | null> {
-  const gltf = await loader.loadAsync(url);
+  console.log('🎭 Loading VRMAnimation from:', url);
+  
+  try {
+    const gltf = await loader.loadAsync(url);
+    console.log('🎭 GLTF loaded:', gltf);
+    console.log('🎭 GLTF userData:', gltf.userData);
 
-  const vrmAnimations: VRMAnimation[] = gltf.userData.vrmAnimations;
-  const vrmAnimation: VRMAnimation | undefined = vrmAnimations[0];
+    const vrmAnimations: VRMAnimation[] = gltf.userData.vrmAnimations;
+    console.log('🎭 VRM animations found:', vrmAnimations?.length || 0);
+    
+    const vrmAnimation: VRMAnimation | undefined = vrmAnimations?.[0];
+    console.log('🎭 Selected VRM animation:', vrmAnimation);
+    
+    if (vrmAnimation) {
+      console.log('🎭 Animation duration:', vrmAnimation.duration);
+      console.log('🎭 Animation humanoid tracks:', vrmAnimation.humanoidTracks);
+    }
 
-  return vrmAnimation ?? null;
+    return vrmAnimation ?? null;
+  } catch (error) {
+    console.error('🎭 Error loading VRM animation:', error);
+    return null;
+  }
 }

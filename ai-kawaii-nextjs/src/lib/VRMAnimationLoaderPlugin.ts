@@ -64,11 +64,28 @@ export class VRMAnimationLoaderPlugin {
     );
 
     const hipsNode = defExtension.humanoid.humanBones["hips"]!.node;
-    const getDependency = (gltf.parser as Record<string, unknown>).getDependency as (type: string, index: number) => Promise<THREE.Object3D>;
-    const hips = (await getDependency(
-      "node",
-      hipsNode
-    )) as THREE.Object3D;
+    // gltf.parser.getDependencyが利用できない場合の回避策
+    const parser = gltf.parser as Record<string, unknown>;
+    let hips: THREE.Object3D;
+    
+    if (parser.getDependency && typeof parser.getDependency === 'function') {
+      const getDependency = parser.getDependency as (type: string, index: number) => Promise<THREE.Object3D>;
+      hips = await getDependency("node", hipsNode);
+    } else {
+      // getDependencyが利用できない場合はシーン内から直接検索
+      let foundHips: THREE.Object3D | null = null;
+      (gltf.scene as THREE.Scene).traverse((obj) => {
+        if (obj.userData?.nodeIndex === hipsNode) {
+          foundHips = obj;
+        }
+      });
+      
+      if (!foundHips) {
+        // hipsが見つからない場合はシーンのルートを使用
+        foundHips = (gltf.scene as THREE.Scene);
+      }
+      hips = foundHips;
+    }
     const restHipsPosition = hips.getWorldPosition(new THREE.Vector3());
 
     const clips = gltf.animations as THREE.AnimationClip[];
@@ -138,12 +155,20 @@ export class VRMAnimationLoaderPlugin {
     // update the entire hierarchy first
     (gltf.scene as THREE.Scene).updateWorldMatrix(false, true);
 
-    const getDependencies = (gltf.parser as Record<string, unknown>).getDependencies as (type: string) => Promise<THREE.Object3D[]>;
-    const threeNodes = (
-      await getDependencies(
-        "node"
-      )
-    ) as THREE.Object3D[];
+    // gltf.parser.getDependenciesが利用できない場合の回避策
+    const parser = gltf.parser as Record<string, unknown>;
+    let threeNodes: THREE.Object3D[];
+    
+    if (parser.getDependencies && typeof parser.getDependencies === 'function') {
+      const getDependencies = parser.getDependencies as (type: string) => Promise<THREE.Object3D[]>;
+      threeNodes = await getDependencies("node");
+    } else {
+      // getDependenciesが利用できない場合はシーン内のオブジェクトを直接取得
+      threeNodes = [];
+      (gltf.scene as THREE.Scene).traverse((obj) => {
+        threeNodes.push(obj);
+      });
+    }
 
     const worldMatrixMap: VRMAnimationLoaderPluginWorldMatrixMap = new Map();
 

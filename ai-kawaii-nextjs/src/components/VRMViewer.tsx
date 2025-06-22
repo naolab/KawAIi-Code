@@ -2,11 +2,11 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import * as THREE from 'three'
-import { VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
+import { VRM, VRMLoaderPlugin, VRMUtils, VRMHumanBoneName } from '@pixiv/three-vrm'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { EmoteController } from '@/features/emoteController/emoteController'
-import { loadVRMAnimation } from '@/lib/loadVRMAnimation'
+// import { loadVRMAnimation } from '@/lib/loadVRMAnimation'
 import { LipSync } from '@/features/lipSync/lipSync'
 
 interface VRMViewerProps {
@@ -38,19 +38,71 @@ export default function VRMViewer({ className }: VRMViewerProps) {
   // カメラ制御
   const cameraControlsRef = useRef<InstanceType<typeof OrbitControls> | null>(null)
 
-  // アイドルアニメーションを読み込む関数
+  // アイドルアニメーションを読み込む関数（簡易版）
   const loadIdleAnimation = useCallback(async (vrm: VRM) => {
     try {
-      console.log('Loading idle animation...')
-      const vrma = await loadVRMAnimation('/idle_loop.vrma')
-      if (vrma && mixerRef.current) {
-        const clip = vrma.createAnimationClip(vrm)
-        const action = mixerRef.current.clipAction(clip)
-        action.play()
-        console.log('Idle animation loaded and playing')
+      console.log('🎭 Creating simple idle animation...')
+      
+      if (mixerRef.current && vrm.humanoid) {
+        // まず利用可能なボーンを確認
+        console.log('🎭 Available humanoid bones:')
+        Object.keys(vrm.humanoid.humanBones || {}).forEach(boneName => {
+          const node = vrm.humanoid.getNormalizedBoneNode(boneName as VRMHumanBoneName)
+          console.log(`  ${boneName}: ${node ? node.name : 'not found'}`)
+        })
+
+        // 腕の動きでT字ポーズを解除
+        const leftUpperArmNode = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
+        const rightUpperArmNode = vrm.humanoid.getNormalizedBoneNode('rightUpperArm')
+        
+        const tracks: THREE.KeyframeTrack[] = []
+        
+        if (leftUpperArmNode) {
+          // 左腕をもっと大きく下ろす
+          const leftArmRotation = new THREE.QuaternionKeyframeTrack(
+            leftUpperArmNode.name + '.quaternion',
+            [0, 2, 4],
+            [
+              0, 0, -0.6, 0.8,  // 大きく下向きに回転
+              0, 0, -0.65, 0.76, // さらに下向き
+              0, 0, -0.6, 0.8   // 元に戻る
+            ]
+          )
+          tracks.push(leftArmRotation)
+          console.log('🎭 Left arm animation added (much lower)')
+        }
+        
+        if (rightUpperArmNode) {
+          // 右腕をもっと大きく下ろす
+          const rightArmRotation = new THREE.QuaternionKeyframeTrack(
+            rightUpperArmNode.name + '.quaternion',
+            [0, 2, 4],
+            [
+              0, 0, 0.6, 0.8,   // 大きく下向きに回転
+              0, 0, 0.65, 0.76,
+              0, 0, 0.6, 0.8
+            ]
+          )
+          tracks.push(rightArmRotation)
+          console.log('🎭 Right arm animation added (much lower)')
+        }
+        
+        if (tracks.length > 0) {
+          const clip = new THREE.AnimationClip('idle', 4, tracks)
+          const action = mixerRef.current.clipAction(clip)
+          
+          action.setLoop(THREE.LoopRepeat, Infinity)
+          action.weight = 1.0  // フル重み
+          action.enabled = true
+          action.play()
+          
+          console.log('🎭 Arm animation created and playing with', tracks.length, 'tracks')
+        } else {
+          console.log('🎭 No arm bones found for animation')
+        }
       }
     } catch (error) {
-      console.error('Failed to load idle animation:', error)
+      console.error('🎭 Failed to create simple idle animation:', error)
     }
   }, [mixerRef])
 
