@@ -113,8 +113,6 @@ class TerminalApp {
         this.isPlaying = false;
         this.audioQueue = []; // { audioData, timestamp } の配列
         this.maxAudioAge = 120000; // 120秒（2分）で古い音声とみなす
-        this.lastSpeechTime = 0;
-        this.speechCooldown = 1000; // 1秒（デフォルト設定と一致）
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
@@ -138,10 +136,6 @@ class TerminalApp {
         // 読み上げ履歴管理
         this.speechHistory = new SpeechHistoryManager(50);
         
-        // 連続読み上げ制御用
-        this.isSequentialSpeech = false; // 連続読み上げ中かどうか
-        this.sequentialTexts = []; // 現在の連続読み上げセッションのテキスト
-
         this.init();
     }
 
@@ -320,7 +314,6 @@ class TerminalApp {
         const speakerSelectModal = document.getElementById('speaker-select-modal');
         const stopVoiceBtnModal = document.getElementById('stop-voice-modal');
         const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
-        const cooldownInputModal = document.getElementById('voice-cooldown-modal');
 
         if (voiceToggleModal) {
             voiceToggleModal.addEventListener('change', (e) => {
@@ -338,19 +331,6 @@ class TerminalApp {
                     await window.electronAPI.config.set('defaultSpeakerId', this.selectedSpeaker);
                 }
                 debugLog('話者設定を更新:', this.selectedSpeaker);
-            });
-        }
-
-        if (cooldownInputModal) {
-            cooldownInputModal.addEventListener('input', async (e) => {
-                const cooldownSeconds = parseFloat(e.target.value);
-                this.speechCooldown = cooldownSeconds * 1000;
-                
-                // 設定を永続化
-                if (window.electronAPI && window.electronAPI.config) {
-                    await window.electronAPI.config.set('voiceCooldownSeconds', cooldownSeconds);
-                }
-                debugLog('読み上げ間隔を更新:', cooldownSeconds + '秒');
             });
         }
 
@@ -500,10 +480,6 @@ class TerminalApp {
     async processQuotedTexts(quotedTextMatches) {
         debugLog('Processing quoted texts:', quotedTextMatches);
         
-        // 連続読み上げモードを開始
-        this.isSequentialSpeech = true;
-        this.sequentialTexts = [];
-        
         for (let i = 0; i < quotedTextMatches.length; i++) {
             let quotedText = quotedTextMatches[i].replace(/[「」]/g, '').trim();
             
@@ -519,11 +495,6 @@ class TerminalApp {
                 continue;
             }
             
-            // 現在のセッションのテキストに追加
-            this.sequentialTexts.push(quotedText);
-            
-            debugLog(`Processing quote ${i + 1}/${quotedTextMatches.length}: "${quotedText}"`);
-            
             // DOM操作を最小化
             requestAnimationFrame(() => {
                 this.addVoiceMessage('クロード', quotedText);
@@ -537,40 +508,13 @@ class TerminalApp {
             
             // 次のテキストまで少し間隔を開ける
             if (i < quotedTextMatches.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
-        
-        // 連続読み上げモードを終了
-        this.isSequentialSpeech = false;
-        this.sequentialTexts = [];
     }
 
     // 順次音声再生用メソッド
     async speakTextSequential(text) {
-        // 連続読み上げ中は現在のセッション内での重複のみをチェック
-        if (this.isSequentialSpeech) {
-            // 現在のセッション内で同じテキストが既に処理されているかチェック
-            const currentIndex = this.sequentialTexts.indexOf(text);
-            const duplicateInSession = this.sequentialTexts.slice(0, currentIndex).includes(text);
-            
-            if (duplicateInSession) {
-                debugLog('🔄 連続読み上げセッション内で重複テキストをスキップ:', text.substring(0, 30) + '...');
-                return;
-            }
-        } else {
-            // 通常の重複チェックを実行
-            if (this.speechHistory.isDuplicate(text)) {
-                debugLog('🔄 順次音声再生で重複テキストをスキップ:', text.substring(0, 30) + '...');
-                return;
-            }
-        }
-        
-        // 前の音声が再生中の場合は終了まで待機
-        while (this.isPlaying) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        
         debugLog('🔊 Speaking sequentially:', text);
         debugTrace('Call stack for speech:');
         return this.speakText(text);
@@ -793,9 +737,6 @@ class TerminalApp {
         if (speakerSelectModal) {
             speakerSelectModal.disabled = !this.voiceEnabled || !canUseVoice;
         }
-        if (cooldownInputModal) {
-            cooldownInputModal.disabled = !this.voiceEnabled || !canUseVoice;
-        }
         if (stopVoiceBtnModal) {
             stopVoiceBtnModal.disabled = !this.voiceEnabled || !canUseVoice;
         }
@@ -813,20 +754,6 @@ class TerminalApp {
 
         if (voiceToggleModal) voiceToggleModal.checked = this.voiceEnabled;
         
-        // 設定ファイルから読み上げ間隔を同期
-        if (window.electronAPI && window.electronAPI.config) {
-            try {
-                const cooldownSeconds = await window.electronAPI.config.get('voiceCooldownSeconds', 1);
-                this.speechCooldown = cooldownSeconds * 1000;
-                if (cooldownInputModal) cooldownInputModal.value = cooldownSeconds.toString();
-                debugLog('設定から読み上げ間隔を同期:', cooldownSeconds + '秒');
-            } catch (error) {
-                debugError('読み上げ間隔設定の同期エラー:', error);
-                if (cooldownInputModal) cooldownInputModal.value = (this.speechCooldown / 1000).toString();
-            }
-        } else {
-            if (cooldownInputModal) cooldownInputModal.value = (this.speechCooldown / 1000).toString();
-        }
         
         await this.updateSpeakerSelect();
         this.updateConnectionStatus(this.connectionStatus === 'connected' ? '接続済み' : '未接続', this.connectionStatus);
@@ -999,15 +926,7 @@ class TerminalApp {
     }
 
     async speakText(text) {
-        debugLog('🔍 speakText conditions:', {
-            electronAPI: !!window.electronAPI,
-            voice: !!window.electronAPI?.voice,
-            voiceEnabled: this.voiceEnabled,
-            connectionStatus: this.connectionStatus
-        });
-        
         if (!window.electronAPI || !window.electronAPI.voice || !this.voiceEnabled || this.connectionStatus !== 'connected') {
-            debugLog('❌ speakText blocked by conditions');
             return;
         }
 
@@ -1017,17 +936,8 @@ class TerminalApp {
             return;
         }
 
-        const now = Date.now();
-
-        // 読み上げ間隔制御
-        if (now - this.lastSpeechTime < this.speechCooldown) {
-            debugLog('🔇 間隔制御により読み上げをスキップ:', (now - this.lastSpeechTime) + 'ms < ' + this.speechCooldown + 'ms');
-            return;
-        }
-
         try {
             debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
-            // lastSpeechTimeは音声再生完了時に更新するため、ここでは更新しない
             
             // 読み上げ履歴に追加
             this.speechHistory.addToHistory(text);
