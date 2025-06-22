@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import React, { useState } from 'react'
+import Image from 'next/image'
 
 // VRMViewerをクライアントサイドのみで読み込み
 const VRMViewer = dynamic(() => import('@/components/VRMViewer'), {
@@ -48,12 +49,12 @@ export default function Home() {
         }}
         aria-label="VRM設定を開く"
       >
-        <img 
+        <Image 
           src="/settings-icon.svg" 
           alt="設定" 
+          width={18}
+          height={18}
           style={{ 
-            width: '18px', 
-            height: '18px',
             filter: 'brightness(0) saturate(100%) invert(47%) sepia(67%) saturate(1158%) hue-rotate(346deg) brightness(102%) contrast(95%)',
             opacity: 0.87
           }} 

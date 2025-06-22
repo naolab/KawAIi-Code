@@ -3,7 +3,8 @@ import { VRMAnimation } from './VRMAnimation';
 import { VRMAnimationLoaderPlugin } from './VRMAnimationLoaderPlugin';
 
 const loader = new GLTFLoader();
-loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+loader.register((parser: any) => new VRMAnimationLoaderPlugin(parser));
 
 export async function loadVRMAnimation(url: string): Promise<VRMAnimation | null> {
   const gltf = await loader.loadAsync(url);

@@ -1,11 +1,6 @@
 import * as THREE from "three";
-import {
-  GLTF,
-  GLTFLoaderPlugin,
-  GLTFParser,
-} from "three/examples/jsm/loaders/GLTFLoader";
-import { VRMAnimationLoaderPluginOptions } from "./VRMAnimationLoaderPluginOptions";
-import { GLTF as GLTFSchema } from "@gltf-transform/core";
+// import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"; // 未使用のため削除
+// import { VRMAnimationLoaderPluginOptions } from "./VRMAnimationLoaderPluginOptions"; // 未使用のため削除
 import { VRMCVRMAnimation } from "./VRMCVRMAnimation";
 import { VRMHumanBoneName, VRMHumanBoneParentMap } from "@pixiv/three-vrm";
 import { VRMAnimation } from "./VRMAnimation";
@@ -13,7 +8,6 @@ import { arrayChunk } from "./utils/arrayChunk";
 
 const MAT4_IDENTITY = new THREE.Matrix4();
 
-const _v3A = new THREE.Vector3();
 const _quatA = new THREE.Quaternion();
 const _quatB = new THREE.Quaternion();
 const _quatC = new THREE.Quaternion();
@@ -29,12 +23,11 @@ type VRMAnimationLoaderPluginWorldMatrixMap = Map<
   THREE.Matrix4
 >;
 
-export class VRMAnimationLoaderPlugin implements GLTFLoaderPlugin {
-  public readonly parser: GLTFParser;
+export class VRMAnimationLoaderPlugin {
+  public readonly parser: unknown;
 
   public constructor(
-    parser: GLTFParser,
-    options?: VRMAnimationLoaderPluginOptions
+    parser: unknown,
   ) {
     this.parser = parser;
   }
@@ -43,9 +36,11 @@ export class VRMAnimationLoaderPlugin implements GLTFLoaderPlugin {
     return "VRMC_vrm_animation";
   }
 
-  public async afterRoot(gltf: GLTF): Promise<void> {
-    const defGltf = gltf.parser.json as GLTFSchema.IGLTF;
-    const defExtensionsUsed = defGltf.extensionsUsed;
+  public async afterRoot(
+    gltf: Record<string, unknown>
+  ): Promise<void> {
+    const defGltf = (gltf.parser as Record<string, unknown>).json as Record<string, unknown>;
+    const defExtensionsUsed = defGltf.extensionsUsed as string[] | undefined;
 
     if (
       defExtensionsUsed == null ||
@@ -54,7 +49,7 @@ export class VRMAnimationLoaderPlugin implements GLTFLoaderPlugin {
       return;
     }
 
-    const defExtension = defGltf.extensions?.[this.name] as
+    const defExtension = (defGltf.extensions as Record<string, unknown>)?.[this.name] as
       | VRMCVRMAnimation
       | undefined;
 
@@ -69,15 +64,19 @@ export class VRMAnimationLoaderPlugin implements GLTFLoaderPlugin {
     );
 
     const hipsNode = defExtension.humanoid.humanBones["hips"]!.node;
-    const hips = (await gltf.parser.getDependency(
+    const getDependency = (gltf.parser as Record<string, unknown>).getDependency as (type: string, index: number) => Promise<THREE.Object3D>;
+    const hips = (await getDependency(
       "node",
       hipsNode
     )) as THREE.Object3D;
     const restHipsPosition = hips.getWorldPosition(new THREE.Vector3());
 
-    const clips = gltf.animations;
-    const animations: VRMAnimation[] = clips.map((clip, iAnimation) => {
-      const defAnimation = defGltf.animations![iAnimation];
+    const clips = gltf.animations as THREE.AnimationClip[];
+    const animations: VRMAnimation[] = clips.map((
+      clip: THREE.AnimationClip,
+      iAnimation: number
+    ) => {
+      const defAnimation = (defGltf.animations as Record<string, unknown>[])[iAnimation];
 
       const animation = this._parseAnimation(
         clip,
@@ -90,7 +89,7 @@ export class VRMAnimationLoaderPlugin implements GLTFLoaderPlugin {
       return animation;
     });
 
-    gltf.userData.vrmAnimations = animations;
+    (gltf.userData as Record<string, unknown>).vrmAnimations = animations;
   }
 
   private _createNodeMap(
@@ -98,7 +97,7 @@ export class VRMAnimationLoaderPlugin implements GLTFLoaderPlugin {
   ): VRMAnimationLoaderPluginNodeMap {
     const humanoidIndexToName: Map<number, VRMHumanBoneName> = new Map();
     const expressionsIndexToName: Map<number, string> = new Map();
-    let lookAtIndex: number | null;
+    const lookAtIndex: number | null = defExtension.lookAt?.node ?? null;
 
     // humanoid
     const humanBones = defExtension.humanoid?.humanBones;
@@ -129,22 +128,22 @@ export class VRMAnimationLoaderPlugin implements GLTFLoaderPlugin {
       });
     }
 
-    // lookAt
-    lookAtIndex = defExtension.lookAt?.node ?? null;
-
     return { humanoidIndexToName, expressionsIndexToName, lookAtIndex };
   }
 
   private async _createBoneWorldMatrixMap(
-    gltf: GLTF,
+    gltf: Record<string, unknown>,
     defExtension: VRMCVRMAnimation
   ): Promise<VRMAnimationLoaderPluginWorldMatrixMap> {
     // update the entire hierarchy first
-    gltf.scene.updateWorldMatrix(false, true);
+    (gltf.scene as THREE.Scene).updateWorldMatrix(false, true);
 
-    const threeNodes = (await gltf.parser.getDependencies(
-      "node"
-    )) as THREE.Object3D[];
+    const getDependencies = (gltf.parser as Record<string, unknown>).getDependencies as (type: string) => Promise<THREE.Object3D[]>;
+    const threeNodes = (
+      await getDependencies(
+        "node"
+      )
+    ) as THREE.Object3D[];
 
     const worldMatrixMap: VRMAnimationLoaderPluginWorldMatrixMap = new Map();
 
@@ -167,19 +166,23 @@ export class VRMAnimationLoaderPlugin implements GLTFLoaderPlugin {
 
   private _parseAnimation(
     animationClip: THREE.AnimationClip,
-    defAnimation: GLTFSchema.IAnimation,
+    defAnimation: Record<string, unknown>,
     nodeMap: VRMAnimationLoaderPluginNodeMap,
     worldMatrixMap: VRMAnimationLoaderPluginWorldMatrixMap
   ): VRMAnimation {
     const tracks = animationClip.tracks;
-    const defChannels = defAnimation.channels;
+    const defChannels = (defAnimation.channels as Record<string, unknown>[]);
 
     const result = new VRMAnimation();
 
     result.duration = animationClip.duration;
 
-    defChannels.forEach((channel, iChannel) => {
-      const { node, path } = channel.target;
+    defChannels.forEach((
+      channel: Record<string, unknown>,
+      iChannel: number
+    ) => {
+      const target = (channel as Record<string, unknown>).target as Record<string, number>;
+      const node = target.node;
       const origTrack = tracks[iChannel];
 
       if (node == null) {
@@ -199,71 +202,55 @@ export class VRMAnimationLoaderPlugin implements GLTFLoaderPlugin {
         }
         parentBoneName ??= "hipsParent";
 
-        if (path === "translation") {
-          const hipsParentWorldMatrix = worldMatrixMap.get("hipsParent")!;
+        const track = origTrack.clone();
+        track.name = `${boneName}.quaternion`;
 
-          const trackValues = arrayChunk(origTrack.values, 3).flatMap((v) =>
-            _v3A.fromArray(v).applyMatrix4(hipsParentWorldMatrix).toArray()
-          );
+        const convertedKeyframes = arrayChunk(track.values, 4).map(
+          (c: number[], i: number) => {
+            const time = track.times[i];
+            const origQuat = _quatA.fromArray(c, 0);
 
-          const track = origTrack.clone();
-          track.values = new Float32Array(trackValues);
+            // calc world matrix of source node when rest pose
+            const sourceMat = worldMatrixMap.get(boneName)!;
+            const parentSourceMat = worldMatrixMap.get(parentBoneName)!;
 
-          result.humanoidTracks.translation.set(boneName, track);
-        } else if (path === "rotation") {
-          // a  = p^-1 * a' * p * c
-          // a' = p * p^-1 * a' * p * c * c^-1 * p^-1
-          //    = p * a * c^-1 * p^-1
+            // calc world matrix of target node when rest pose
+            // this is basically the inverse of parentSourceMat * sourceMat
+            const targetMat = _quatC
+              .setFromRotationMatrix(parentSourceMat)
+              .invert()
+              .multiply(
+                _quatB.setFromRotationMatrix(sourceMat).multiply(origQuat)
+              )
+              .normalize();
 
-          const worldMatrix = worldMatrixMap.get(boneName)!;
-          const parentWorldMatrix = worldMatrixMap.get(parentBoneName)!;
+            return [time, targetMat.x, targetMat.y, targetMat.z, targetMat.w];
+          }
+        );
 
-          _quatA.setFromRotationMatrix(worldMatrix).normalize().invert();
-          _quatB.setFromRotationMatrix(parentWorldMatrix).normalize();
-
-          const trackValues = arrayChunk(origTrack.values, 4).flatMap((q) =>
-            _quatC.fromArray(q).premultiply(_quatB).multiply(_quatA).toArray()
-          );
-
-          const track = origTrack.clone();
-          track.values = new Float32Array(trackValues);
-
-          result.humanoidTracks.rotation.set(boneName, track);
-        } else {
-          throw new Error(`Invalid path "${path}"`);
-        }
-        return;
+        result.humanoidTracks.rotation.set(boneName, new THREE.QuaternionKeyframeTrack(
+          track.name,
+          convertedKeyframes.flatMap((f) => f[0] as number),
+          convertedKeyframes.flatMap((f) => f.slice(1) as number[]),
+        ));
       }
 
       // expressions
       const expressionName = nodeMap.expressionsIndexToName.get(node);
       if (expressionName != null) {
-        if (path === "translation") {
-          const times = origTrack.times;
-          const values = new Float32Array(origTrack.values.length / 3);
-          for (let i = 0; i < values.length; i++) {
-            values[i] = origTrack.values[3 * i];
-          }
+        const track = origTrack.clone();
+        track.name = `expressions.${expressionName}`;
 
-          const newTrack = new THREE.NumberKeyframeTrack(
-            `${expressionName}.weight`,
-            times as any,
-            values as any
-          );
-          result.expressionTracks.set(expressionName, newTrack);
-        } else {
-          throw new Error(`Invalid path "${path}"`);
-        }
-        return;
+        result.expressionTracks.set(expressionName, track as THREE.NumberKeyframeTrack);
       }
 
       // lookAt
       if (node === nodeMap.lookAtIndex) {
-        if (path === "rotation") {
-          result.lookAtTrack = origTrack;
-        } else {
-          throw new Error(`Invalid path "${path}"`);
-        }
+        // this is just an identity transform for the sake of VRM spec
+        const track = origTrack.clone();
+        track.name = `lookAt.rotation`;
+
+        result.lookAtTrack = track as THREE.QuaternionKeyframeTrack;
       }
     });
 

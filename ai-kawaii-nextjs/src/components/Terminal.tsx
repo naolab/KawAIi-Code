@@ -15,7 +15,6 @@ export default function Terminal({ className }: TerminalProps) {
   const [ws, setWs] = useState<WebSocket | null>(null)
   const [commandHistory, setCommandHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
-  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     // WebSocket接続を確立
@@ -27,7 +26,6 @@ export default function Terminal({ className }: TerminalProps) {
           console.log('✨ WebSocket接続成功')
           setIsConnected(true)
           setWs(websocket)
-          setRetryCount(0)
           setOutput(prev => [...prev, '✨ WebSocketサーバーに接続しました\r\n'])
         }
 
@@ -38,7 +36,9 @@ export default function Terminal({ className }: TerminalProps) {
               // 音声データを受信してVRMの口パクを実行
               console.log('🎵 口パク用音声データ受信, サイズ:', data.audioData.length)
               const audioBuffer = new Uint8Array(data.audioData).buffer
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               if ((window as any).playAudioWithLipSync) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (window as any).playAudioWithLipSync(audioBuffer)
               }
             } else if (data.message) {
@@ -74,7 +74,7 @@ export default function Terminal({ className }: TerminalProps) {
       } catch (error) {
         console.error('WebSocket接続に失敗:', error)
         setOutput(prev => [...prev, '❌ WebSocketサーバーに接続できません\r\n'])
-        setOutput(prev => [...prev, `エラー詳細: ${error.message || error}\r\n`])
+        setOutput(prev => [...prev, `エラー詳細: ${String(error)}\r\n`])
         setOutput(prev => [...prev, 'WebSocketサーバーを起動してください: npm run websocket\r\n'])
         return null
       }

@@ -3,7 +3,7 @@ import {
   VRMLookAt,
   VRMLookAtLoaderPlugin,
 } from "@pixiv/three-vrm";
-import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
+// import { GLTF } from "three/examples/jsm/loaders/GLTFLoader"; // 未使用のため削除
 import { VRMLookAtSmoother } from "./VRMLookAtSmoother";
 
 export class VRMLookAtSmootherLoaderPlugin extends VRMLookAtLoaderPlugin {
@@ -11,7 +11,8 @@ export class VRMLookAtSmootherLoaderPlugin extends VRMLookAtLoaderPlugin {
     return "VRMLookAtSmootherLoaderPlugin";
   }
 
-  public async afterRoot(gltf: GLTF): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public async afterRoot(gltf: any): Promise<void> {
     await super.afterRoot(gltf);
 
     const humanoid = gltf.userData.vrmHumanoid as VRMHumanoid | null;

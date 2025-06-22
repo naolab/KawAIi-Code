@@ -1,13 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 開発用インジケーターを完全無効化
-  devIndicators: {
-    buildActivity: false,
-  },
-  experimental: {
-    esmExternals: false,
-  },
+  output: "export", // 静的エクスポートを有効化
+  // 開発用インジケーターを完全無効化 (非推奨のため削除)
+  // devIndicators: {
+  //   buildActivity: false,
+  // },
+  // experimental.esmExternals はモジュール解決を妨げる可能性があるので削除
+  // experimental: {
+  //   esmExternals: false,
+  // },
   webpack: (config, { isServer }) => {
     // Three.jsとVRM関連の設定
     config.module.rules.push({

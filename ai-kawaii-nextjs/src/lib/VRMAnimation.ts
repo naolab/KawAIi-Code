@@ -7,7 +7,7 @@ export class VRMAnimation {
 
   public humanoidTracks: {
     translation: Map<VRMHumanBoneName, THREE.VectorKeyframeTrack>;
-    rotation: Map<VRMHumanBoneName, THREE.VectorKeyframeTrack>;
+    rotation: Map<VRMHumanBoneName, THREE.QuaternionKeyframeTrack>;
   };
   public expressionTracks: Map<string, THREE.NumberKeyframeTrack>;
   public lookAtTrack: THREE.QuaternionKeyframeTrack | null;
@@ -54,7 +54,7 @@ export class VRMAnimation {
       const nodeName = humanoid.getNormalizedBoneNode(name)?.name;
 
       if (nodeName != null) {
-        const track = new THREE.VectorKeyframeTrack(
+        const track = new THREE.QuaternionKeyframeTrack(
           `${nodeName}.quaternion`,
           origTrack.times,
           origTrack.values.map((v, i) =>
