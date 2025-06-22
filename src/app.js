@@ -205,7 +205,7 @@ class TerminalApp {
             },
             allowTransparency: false,
             convertEol: true,
-            scrollback: 50,
+            scrollback: 1000,
             tabStopWidth: 4,
             fastScrollModifier: 'shift',
             fastScrollSensitivity: 5,
@@ -513,9 +513,9 @@ class TerminalApp {
                 this.updateCharacterMood('おしゃべり中✨');
             });
             
-            // 音声読み上げ実行（前の音声が終わるまで待機）
+            // 音声読み上げを順次キューに追加（音声合成完了を待ってからキューイング）
             if (this.voiceEnabled) {
-                await this.speakTextSequential(quotedText);
+                await this.addToSpeechQueue(quotedText);
             }
             
             // 次のテキストまで少し間隔を開ける
@@ -525,22 +525,61 @@ class TerminalApp {
         }
     }
 
-    // 順次音声再生用メソッド
-    async speakTextSequential(text) {
+    // 音声合成キューシステム - 順番を保証する
+    async addToSpeechQueue(text) {
         // 重複チェックを実行
         if (this.speechHistory.isDuplicate(text)) {
-            debugLog('🔄 順次音声再生で重複テキストをスキップ:', text.substring(0, 30) + '...');
+            debugLog('🔄 重複テキストをスキップ:', text.substring(0, 30) + '...');
             return;
         }
         
-        // 前の音声が再生中の場合は終了まで待機
-        while (this.isPlaying) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+        try {
+            debugLog('🎯 音声合成開始:', text.substring(0, 30) + '...');
+            
+            // 音声合成を実行してオーディオデータを取得
+            const audioData = await this.synthesizeAndGetAudio(text);
+            
+            if (audioData) {
+                // 音声合成が完了したらキューに追加（順番保証）
+                this.audioQueue.push({
+                    audioData: audioData,
+                    timestamp: Date.now()
+                });
+                
+                debugLog('🎵 音声をキューに追加, キュー長:', this.audioQueue.length);
+                
+                // 再生中でなければ即座に再生開始
+                if (!this.isPlaying) {
+                    this.processAudioQueue();
+                }
+            }
+        } catch (error) {
+            debugError('音声合成キューエラー:', error);
         }
-        
-        debugLog('🔊 Speaking sequentially:', text);
-        debugTrace('Call stack for speech:');
-        return this.speakText(text);
+    }
+    
+    // 音声合成してオーディオデータを取得する新メソッド
+    async synthesizeAndGetAudio(text) {
+        if (!window.electronAPI || !window.electronAPI.voice || !this.voiceEnabled || this.connectionStatus !== 'connected') {
+            debugLog('❌ 音声合成がブロックされました');
+            return null;
+        }
+
+        try {
+            // 読み上げ履歴に追加
+            this.speechHistory.addToHistory(text);
+            
+            // メインプロセスから音声データを直接取得
+            const result = await window.electronAPI.voice.synthesize(text, this.selectedSpeaker);
+            if (result && result.audioData) {
+                debugLog('🎯 音声合成完了:', text.substring(0, 30) + '...');
+                return result.audioData;
+            }
+            return null;
+        } catch (error) {
+            debugError('音声合成エラー:', error);
+            return null;
+        }
     }
 
     sendChatMessage() {
@@ -926,6 +965,7 @@ class TerminalApp {
             connectionStatus: this.connectionStatus
         });
         
+        // 通常の単発読み上げ用（後方互換性のため）
         if (!window.electronAPI || !window.electronAPI.voice || !this.voiceEnabled || this.connectionStatus !== 'connected') {
             debugLog('❌ speakText blocked by conditions');
             return;
@@ -939,11 +979,6 @@ class TerminalApp {
 
         const now = Date.now();
 
-        // 音声再生中でもキューに追加して順次再生する
-        // if (this.isPlaying) {
-        //     return;
-        // }
-
         try {
             debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
             this.lastSpeechTime = now;
@@ -951,6 +986,7 @@ class TerminalApp {
             // 読み上げ履歴に追加
             this.speechHistory.addToHistory(text);
             
+            // 単発読み上げの場合はそのまま実行（従来の動作）
             await window.electronAPI.voice.speak(text, this.selectedSpeaker);
         } catch (error) {
             debugError('Failed to speak text:', error);
@@ -1458,14 +1494,8 @@ class TerminalApp {
         
         debugLog(`🎵 ストリーミング読み上げ [${sequence}]:`, text.substring(0, 30) + '...');
         
-        try {
-            // 読み上げ履歴に追加
-            this.speechHistory.addToHistory(text);
-            
-            await window.electronAPI.voice.speak(text, this.selectedSpeaker);
-        } catch (error) {
-            debugError('ストリーミング読み上げエラー:', error);
-        }
+        // ストリーミング読み上げもキューシステムを使用
+        await this.addToSpeechQueue(text);
     }
 
     async loadClaudeMdContent() {
