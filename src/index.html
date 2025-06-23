@@ -13,13 +13,20 @@
 <body>
     <div class="app-container">
         <div class="header">
-            <button id="settings-btn" class="settings-btn" aria-label="設定を開く">
-                <span class="gear-horizontal"></span>
-                <span class="gear-diagonal"></span>
-                <span class="gear-diagonal"></span>
-                <span class="gear-diagonal"></span>
-                <span class="gear-diagonal"></span>
-            </button>
+            <div class="header-left">
+                <button id="settings-btn" class="settings-btn" aria-label="設定を開く">
+                    <span class="gear-horizontal"></span>
+                    <span class="gear-diagonal"></span>
+                    <span class="gear-diagonal"></span>
+                    <span class="gear-diagonal"></span>
+                    <span class="gear-diagonal"></span>
+                </button>
+                <button id="help-btn" class="settings-btn help-btn" aria-label="使い方を見る">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                    </svg>
+                </button>
+            </div>
             <div class="controls">
                 <button id="start-terminal" class="simple-btn start-btn" aria-label="Claude Codeを開始"></button>
                 <button id="stop-terminal" class="simple-btn stop-btn" aria-label="Claude Codeを停止"></button>
@@ -125,6 +132,89 @@
                             <span id="claude-cwd-display" style="font-size: 13px; color: #555; word-break: break-all; min-height: 20px;">読み込み中...</span>
                             <button id="select-claude-cwd-btn" class="simple-btn">作業ディレクトリを選択</button>
                             <div id="claude-cwd-message" style="font-size: 12px; margin-top: 5px; min-height: 15px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ヘルプ・使い方ガイド -->
+        <div id="help-modal" class="help-modal" style="display: none;">
+            <div class="help-content">
+                <div class="help-header">
+                    <h3>使い方ガイド</h3>
+                    <button id="close-help" class="close-btn">×</button>
+                </div>
+                <div class="help-body">
+                    <div class="help-section">
+                        <h4>基本操作</h4>
+                        <div class="help-item">
+                            <span class="help-icon">▶</span>
+                            <strong>開始ボタン（緑）:</strong> Claude Codeを起動してAIアシスタントとのチャットを開始します
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">⏹</span>
+                            <strong>停止ボタン（赤）:</strong> Claude Codeを停止します
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">⚙</span>
+                            <strong>設定ボタン（歯車）:</strong> 音声読み上げ、壁紙、作業ディレクトリなどの設定を変更できます
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">?</span>
+                            <strong>ヘルプボタン（?）:</strong> この使い方ガイドを表示します
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>チャット機能</h4>
+                        <div class="help-item">
+                            <span class="help-icon">💬</span>
+                            <strong>メッセージ入力:</strong> 下部の入力欄にメッセージを入力してEnterキーまたは送信ボタンで送信
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">🎭</span>
+                            <strong>キャラクター表示:</strong> 右側に3Dキャラクターが表示され、会話に応じてアニメーションします
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>音声機能</h4>
+                        <div class="help-item">
+                            <span class="help-icon">🔊</span>
+                            <strong>音声読み上げ:</strong> 設定で有効にするとAIの応答が音声で読み上げられます
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">👤</span>
+                            <strong>話者選択:</strong> 設定から好みの音声を選択できます
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">🎤</span>
+                            <strong>音声入力:</strong> マイクボタン（現在開発中）で音声入力が可能になります
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>カスタマイズ</h4>
+                        <div class="help-item">
+                            <span class="help-icon">🖼</span>
+                            <strong>壁紙変更:</strong> 設定から背景壁紙をアップロード・変更できます
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">📁</span>
+                            <strong>作業ディレクトリ:</strong> Claude Codeが動作するフォルダを設定できます
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>ヒント</h4>
+                        <div class="help-item">
+                            <span class="help-icon">⚡</span>
+                            <strong>初回起動:</strong> 初めて使用する場合は、まず開始ボタンを押してClaude Codeを起動してください
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">🔄</span>
+                            <strong>再接続:</strong> 音声エンジンに接続できない場合は、設定の『再接続』ボタンをお試しください
                         </div>
                     </div>
                 </div>

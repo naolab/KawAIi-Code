@@ -288,6 +288,9 @@ class TerminalApp {
         const settingsBtn = document.getElementById('settings-btn');
         const closeSettingsBtn = document.getElementById('close-settings');
         const settingsModal = document.getElementById('settings-modal');
+        const helpBtn = document.getElementById('help-btn');
+        const closeHelpBtn = document.getElementById('close-help');
+        const helpModal = document.getElementById('help-modal');
 
         startBtn.addEventListener('click', () => this.startTerminal());
         stopBtn.addEventListener('click', () => this.stopTerminal());
@@ -306,6 +309,21 @@ class TerminalApp {
         settingsModal.addEventListener('click', (e) => {
             if (e.target === settingsModal) {
                 settingsModal.style.display = 'none';
+            }
+        });
+        
+        // ヘルプモーダルのイベント
+        helpBtn.addEventListener('click', () => {
+            helpModal.style.display = 'flex';
+        });
+        
+        closeHelpBtn.addEventListener('click', () => {
+            helpModal.style.display = 'none';
+        });
+        
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                helpModal.style.display = 'none';
             }
         });
 
