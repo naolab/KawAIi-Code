@@ -80,7 +80,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       
       // 次に全身の揺れアニメーション（VRMAファイル）を読み込み
       try {
-        const vrma = await loadVRMAnimation('/idle_loop.vrma')
+        const vrma = await loadVRMAnimation('./idle_loop.vrma')
         if (vrma && mixerRef.current) {
           const clip = vrma.createAnimationClip(vrm)
           const action = mixerRef.current.clipAction(clip)
@@ -221,6 +221,21 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       vrmRef.current = vrm
       sceneRef.current.add(vrm.scene)
       VRMUtils.rotateVRM0(vrm)
+
+      // frustum cullingを無効化
+      vrm.scene.traverse((obj: THREE.Object3D) => {
+        obj.frustumCulled = false
+      })
+
+      // アニメーションミキサーを初期化（loadIdleAnimationより前に必要）
+      mixerRef.current = new THREE.AnimationMixer(vrm.scene)
+
+      // アニメーション制御を初期化（loadIdleAnimationより前に必要）
+      if (cameraRef.current) {
+        console.log('Initializing EmoteController for loaded VRM...')
+        emoteControllerRef.current = new EmoteController(vrm, cameraRef.current)
+        console.log('EmoteController initialized for loaded VRM:', emoteControllerRef.current)
+      }
 
       // アイドルアニメーションを読み込む
       await loadIdleAnimation(vrm)
