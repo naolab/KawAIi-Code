@@ -50,8 +50,8 @@ export default function Home() {
         aria-label="VRM設定を開く"
       >
         <Image 
-          src="/settings-icon.svg" 
-          alt="設定" 
+          src="/file.svg" 
+          alt="VRMファイル設定" 
           width={18}
           height={18}
           style={{ 
