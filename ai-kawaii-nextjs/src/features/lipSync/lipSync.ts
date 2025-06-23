@@ -1,6 +1,6 @@
 import { LipSyncAnalyzeResult } from "./lipSyncAnalyzeResult";
 
-const TIME_DOMAIN_DATA_LENGTH = 2048;
+const TIME_DOMAIN_DATA_LENGTH = 1024; // CPU負荷軽減のため半分に削減
 
 export class LipSync {
   public readonly audio: AudioContext;
