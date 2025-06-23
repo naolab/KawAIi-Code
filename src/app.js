@@ -161,7 +161,7 @@ class TerminalApp {
                 this.claudeMdPath = path;
                 debugLog('Received CLAUDE.md path:', this.claudeMdPath);
                 // ここでCLAUDE.mdを読み込む関数を呼び出す（後で実装）
-                this.loadClaudeMdContent();
+                this.loadCharacterSettings();
             });
         }
     }
@@ -1359,24 +1359,34 @@ class TerminalApp {
     }
 
 
-    async loadClaudeMdContent() {
+    async loadCharacterSettings() {
         if (!this.claudeMdPath) {
             debugError('CLAUDE.md path is not set.');
             return;
         }
         try {
-            // Electronのfsモジュールを使用してファイルを読み込む
-            const fs = window.electronAPI.fs; // preload.jsでfsを公開していると仮定
-            if (!fs) {
-                debugError('fs module not available via electronAPI.');
+            const { fs, path } = window.electronAPI;
+            if (!fs || !path) {
+                debugError('fs or path module not available via electronAPI.');
                 return;
             }
-            const content = await fs.promises.readFile(this.claudeMdPath, 'utf8');
-            this.claudeMdContent = content;
-            debugLog('CLAUDE.md content loaded successfully:', content.substring(0, 200) + '...'); // 最初の200文字を表示
-            // ここで読み込んだ内容をアプリケーションのロジックに組み込む
+            
+            // 基本設定を読み込み
+            const baseSettingsPath = path.join(path.dirname(this.claudeMdPath), 'character_settings', 'base_settings.md');
+            const baseSettings = await fs.promises.readFile(baseSettingsPath, 'utf8');
+            
+            // デフォルトキャラクター（照れ屋）を読み込み
+            const characterPath = path.join(path.dirname(this.claudeMdPath), 'character_settings', 'shy.md');
+            const characterSettings = await fs.promises.readFile(characterPath, 'utf8');
+            
+            // 設定を統合
+            this.claudeMdContent = baseSettings + '\n\n---\n\n' + characterSettings;
+            
+            debugLog('Character settings loaded successfully (shy character)');
         } catch (error) {
-            debugError('Failed to load CLAUDE.md content:', error);
+            debugError('Failed to load character settings:', error);
+            // フォールバック: 簡単なデフォルト設定
+            this.claudeMdContent = `# AIアシスタント設定\n\n必ず日本語で回答してください。\n\n## デフォルトキャラクター\n照れ屋キャラクターとして応答してください。`;
         }
     }
 
