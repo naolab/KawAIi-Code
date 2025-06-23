@@ -27,15 +27,15 @@ export default function Home() {
         <VRMViewer />
       </div>
       
-      {/* 設定ボタン（右上に小さく配置） */}
+      {/* 書類アイコンボタン（右上に配置） */}
       <button 
         onClick={() => setIsSettingsOpen(true)}
         style={{
-          position: 'absolute',
+          position: 'fixed',
           top: '60px',
-          right: '80px',
-          width: '30px',
-          height: '30px',
+          right: '30px',
+          width: '35px',
+          height: '35px',
           borderRadius: '50%',
           background: 'rgba(255, 255, 255, 0.9)',
           border: '1px solid rgba(255, 183, 102, 0.8)',
@@ -43,17 +43,18 @@ export default function Home() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 9999,
+          zIndex: 99999,
           boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          padding: '4px'
+          padding: '4px',
+          pointerEvents: 'auto'
         }}
-        aria-label="VRM設定を開く"
+        aria-label="ファイル設定"
       >
         <Image 
           src="/file.svg" 
-          alt="VRMファイル設定" 
-          width={18}
-          height={18}
+          alt="ファイル設定" 
+          width={20}
+          height={20}
           style={{ 
             filter: 'brightness(0) saturate(100%) invert(47%) sepia(67%) saturate(1158%) hue-rotate(346deg) brightness(102%) contrast(95%)',
             opacity: 0.87
