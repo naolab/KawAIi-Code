@@ -32,6 +32,11 @@ const nextConfig: NextConfig = {
       };
     }
 
+    // 静的エクスポート時のpublicPathを相対パスに設定
+    if (!isServer) {
+      config.output.publicPath = './_next/';
+    }
+
     return config;
   },
   transpilePackages: ['three', '@pixiv/three-vrm']
