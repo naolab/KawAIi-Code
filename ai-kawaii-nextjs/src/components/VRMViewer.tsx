@@ -400,15 +400,15 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       console.error('Failed to initialize LipSync:', error)
     }
 
-    // アニメーションループ（45fps制限でCPU負荷軽減）
+    // アニメーションループ（35fps制限でCPU負荷軽減）
     let lastFrameTime = 0
-    const targetFPS = 45
+    const targetFPS = 35
     const frameInterval = 1000 / targetFPS
     
     const animate = (currentTime: number) => {
       animationIdRef.current = requestAnimationFrame(animate)
       
-      // フレームレート制限（30fps）
+      // フレームレート制限（35fps）
       if (currentTime - lastFrameTime < frameInterval) {
         return
       }
