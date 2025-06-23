@@ -29,7 +29,7 @@
   },
   "build": {
     "appId": "com.ai-kawaii.terminal",
-    "productName": "AI Kawaii Terminal",
+    "productName": "KawAIi Code",
     "directories": {
       "output": "dist"
     },
@@ -40,7 +40,11 @@
       "node_modules/**/*"
     ],
     "mac": {
+      "icon": "icon.icns",
       "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "icon": "app-icon-1024.png"
     }
   }
 }

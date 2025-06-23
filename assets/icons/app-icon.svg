@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景円 -->
+  <circle cx="256" cy="256" r="240" fill="#FF8C42" stroke="#FF6B1A" stroke-width="8"/>
+  
+  <!-- "KawAIi Code" テキスト -->
+  <g font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">
+    <!-- "Kaw" -->
+    <text x="256" y="200" font-size="48" fill="white">Kaw</text>
+    
+    <!-- "AI" (青色) -->
+    <text x="256" y="255" font-size="60" fill="#4A90E2">AI</text>
+    
+    <!-- "i Code" -->
+    <text x="256" y="310" font-size="36" fill="white">i Code</text>
+  </g>
+  
+  <!-- 装飾的な小さなドット -->
+  <circle cx="180" cy="150" r="6" fill="white" opacity="0.7"/>
+  <circle cx="332" cy="360" r="8" fill="white" opacity="0.5"/>
+  <circle cx="150" cy="320" r="4" fill="#4A90E2" opacity="0.8"/>
+  <circle cx="360" cy="180" r="5" fill="#4A90E2" opacity="0.6"/>
+</svg>
