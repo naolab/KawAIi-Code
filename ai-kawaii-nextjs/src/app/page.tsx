@@ -33,7 +33,7 @@ export default function Home() {
         style={{
           position: 'absolute',
           top: '60px',
-          right: '15px',
+          right: '80px',
           width: '30px',
           height: '30px',
           borderRadius: '50%',
