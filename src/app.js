@@ -353,17 +353,6 @@ class TerminalApp {
             refreshConnectionBtnModal.addEventListener('click', () => this.checkVoiceConnection());
         }
 
-        // 読み上げ履歴管理のイベントリスナー
-        const clearHistoryBtn = document.getElementById('clear-speech-history-btn');
-        const testDuplicateBtn = document.getElementById('test-duplicate-btn');
-        
-        if (clearHistoryBtn) {
-            clearHistoryBtn.addEventListener('click', () => this.clearSpeechHistory());
-        }
-        
-        if (testDuplicateBtn) {
-            testDuplicateBtn.addEventListener('click', () => this.testDuplicateFunction());
-        }
         
         // Claude Code 作業ディレクトリ設定のイベントリスナー
         const selectClaudeCwdBtn = document.getElementById('select-claude-cwd-btn');
@@ -1403,43 +1392,6 @@ class TerminalApp {
         }
     }
 
-    // 読み上げ履歴管理関連メソッド
-    updateSpeechHistoryStatus() {
-        const statusElement = document.getElementById('speech-history-status');
-        if (!statusElement || !this.speechHistory) return;
-        
-        const status = this.speechHistory.getHistoryStatus();
-        statusElement.textContent = `履歴: ${status.count}/${status.maxSize}件、最新ハッシュ: ${status.recent.length > 0 ? status.recent[0].substring(0, 8) + '...' : 'なし'}`;
-    }
-    
-    clearSpeechHistory() {
-        if (this.speechHistory) {
-            this.speechHistory.clearHistory();
-            this.updateSpeechHistoryStatus();
-            this.addVoiceMessage('クロード', '読み上げ履歴をクリアしたよ！');
-        }
-    }
-    
-    testDuplicateFunction() {
-        const testText = 'これは重複テスト用のメッセージです。';
-        
-        // 最初の読み上げ
-        this.addVoiceMessage('クロード', '最初のテスト読み上げだよ！');
-        if (this.voiceEnabled) {
-            this.speakText(testText);
-        }
-        
-        // 2回目の読み上げ（重複でスキップされるはず）
-        setTimeout(() => {
-            this.addVoiceMessage('クロード', '2回目のテストだよ！重複でスキップされるはずだよ！');
-            if (this.voiceEnabled) {
-                this.speakText(testText);
-            }
-            
-            // 状況更新
-            this.updateSpeechHistoryStatus();
-        }, 1000);
-    }
 
     // 設定を読み込む
     async loadUserConfig() {
