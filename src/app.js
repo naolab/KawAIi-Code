@@ -155,15 +155,8 @@ class TerminalApp {
         this.updateStatus('Ready');
         this.checkVoiceConnection();
 
-        // CLAUDE.mdのパスを受け取る
-        if (window.electronAPI && window.electronAPI.onClaudeMdPath) {
-            window.electronAPI.onClaudeMdPath((path) => {
-                this.claudeMdPath = path;
-                debugLog('Received CLAUDE.md path:', this.claudeMdPath);
-                // ここでCLAUDE.mdを読み込む関数を呼び出す（後で実装）
-                this.loadCharacterSettings();
-            });
-        }
+        // キャラクター設定を読み込む
+        this.loadCharacterSettings();
     }
 
     setupTerminal() {
@@ -1378,10 +1371,6 @@ class TerminalApp {
 
 
     async loadCharacterSettings() {
-        if (!this.claudeMdPath) {
-            debugError('CLAUDE.md path is not set.');
-            return;
-        }
         try {
             const { fs, path } = window.electronAPI;
             if (!fs || !path) {
@@ -1389,12 +1378,18 @@ class TerminalApp {
                 return;
             }
             
+            // アプリのsrcディレクトリへの直接パスを構築（パッケージ化対応）
+            const appPath = window.process && window.process.resourcesPath 
+                ? path.join(window.process.resourcesPath, 'app.asar')
+                : path.join(__dirname, '..');
+            const srcPath = path.join(appPath, 'src');
+            
             // 基本設定を読み込み
-            const baseSettingsPath = path.join(path.dirname(this.claudeMdPath), 'character_settings', 'base_settings.md');
+            const baseSettingsPath = path.join(srcPath, 'character_settings', 'base_settings.md');
             const baseSettings = await fs.promises.readFile(baseSettingsPath, 'utf8');
             
             // デフォルトキャラクター（照れ屋）を読み込み
-            const characterPath = path.join(path.dirname(this.claudeMdPath), 'character_settings', 'shy.md');
+            const characterPath = path.join(srcPath, 'character_settings', 'shy.md');
             const characterSettings = await fs.promises.readFile(characterPath, 'utf8');
             
             // 設定を統合

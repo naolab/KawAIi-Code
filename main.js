@@ -13,13 +13,8 @@ let terminalProcess;
 let voiceService;
 let nextjsProcess;
 let websocketProcess; // WebSocketサーバープロセスを追加
-let claudeMdContent = ''; // この変数はもはや必要ありませんが、削除すると依存関係エラーになる可能性があるので、一旦空で残しておきます
-
 // Add a global variable to store the current working directory for Claude Code
 let claudeWorkingDir = appConfig.get('claudeWorkingDir', os.homedir()); // デフォルトはホームディレクトリ
-
-// CLAUDE.mdの絶対パスを定義
-const CLAUDE_MD_PATH = path.join(app.getAppPath(), 'CLAUDE.md');
 
 // Google Cloud Speechクライアントの初期化
 // 認証情報ファイルを設定するか、GCPの環境変数に設定してください。
@@ -48,8 +43,6 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    // レンダラープロセスにCLAUDE.mdのパスを送信
-    mainWindow.webContents.send('claude-md-path', CLAUDE_MD_PATH);
   });
 
   mainWindow.on('closed', () => {
@@ -78,8 +71,7 @@ async function startNextjsServer() {
   return new Promise(async (resolve, reject) => {
     console.log('Starting Next.js server...');
 
-    // CLAUDE.mdの内容を読み込む処理は、Claude Codeが直接ファイルを読み込むため不要になります
-    // ここでclaudeMdContentを読み込む必要はありません。
+    // CLAUDE.mdは各プロセスが直接読み込むため、ここでの読み込みは不要
     
     const nextjsPath = path.join(__dirname, 'ai-kawaii-nextjs');
     const websocketPath = path.join(nextjsPath, 'websocket-server.js');
@@ -89,8 +81,7 @@ async function startNextjsServer() {
       cwd: nextjsPath, // websocket-server.jsのあるディレクトリで実行
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { 
-        ...process.env,
-        CLAUDE_MD_CONTENT: claudeMdContent // CLAUDE.mdの内容を渡す
+        ...process.env
       }
     });
 
@@ -113,10 +104,9 @@ async function startNextjsServer() {
 
     const envForNextjs = {
       ...process.env,
-      PORT: '3002',
-      CLAUDE_MD_CONTENT: claudeMdContent 
+      PORT: '3002'
     };
-    console.log('Starting Next.js with env:', envForNextjs.CLAUDE_MD_CONTENT ? 'CLAUDE_MD_CONTENT loaded' : 'CLAUDE_MD_CONTENT empty/undefined');
+    console.log('Starting Next.js server on port 3002');
 
     nextjsProcess = spawn('npm', ['run', 'dev'], {
       cwd: nextjsPath,
@@ -202,19 +192,8 @@ ipcMain.handle('terminal-start', async () => {
   try {
     // Start Claude Code with proper PTY for full terminal support
     console.log('Starting Claude Code with PTY...');
+    console.log('Claude Code Path:', claudePath);
     console.log('Claude Code CWD:', claudeWorkingDir);
-
-    const sourceClaudeMdPath = path.join(app.getAppPath(), 'CLAUDE.md');
-    const destClaudeMdPath = path.join(claudeWorkingDir, 'CLAUDE.md');
-
-    try {
-      // CLAUDE.mdをClaude Codeの作業ディレクトリにコピー
-      await fs.promises.copyFile(sourceClaudeMdPath, destClaudeMdPath);
-      console.log(`main.js: CLAUDE.md copied from ${sourceClaudeMdPath} to ${destClaudeMdPath}`);
-    } catch (copyError) {
-      console.error('main.js: Failed to copy CLAUDE.md:', copyError);
-      // コピーに失敗しても続行できるようにします
-    }
     
     terminalProcess = pty.spawn(claudePath, [], {
       name: 'xterm-color',
