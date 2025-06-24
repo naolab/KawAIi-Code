@@ -368,7 +368,7 @@ class TerminalApp {
 
         this.updateButtons();
         this.updateVoiceControls();
-        this.updateSpeechHistoryStatus();
+        // this.updateSpeechHistoryStatus(); // メソッドが存在しないためコメントアウト
     }
 
     setupChatInterface() {
@@ -752,7 +752,7 @@ class TerminalApp {
         await this.loadWallpaperList();
 
         // 読み上げ履歴状況を更新
-        this.updateSpeechHistoryStatus();
+        // this.updateSpeechHistoryStatus(); // メソッドが存在しないためコメントアウト
         
         // Claude Code 作業ディレクトリ設定の同期
         const claudeCwdDisplay = document.getElementById('claude-cwd-display');
