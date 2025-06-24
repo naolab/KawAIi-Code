@@ -360,6 +360,12 @@ class TerminalApp {
             selectClaudeCwdBtn.addEventListener('click', () => this.handleSelectClaudeCwd());
         }
 
+        // キャラクター選択のイベントリスナー
+        const characterSelect = document.getElementById('character-select');
+        if (characterSelect) {
+            characterSelect.addEventListener('change', (e) => this.handleCharacterChange(e.target.value));
+        }
+
         // マイクボタンのイベントリスナー
         const micButton = document.getElementById('mic-button');
         if (micButton) {
@@ -779,6 +785,9 @@ class TerminalApp {
                 claudeCwdMessage.style.color = 'red';
             }
         }
+
+        // キャラクター選択の同期
+        await this.syncCharacterSelection();
     }
 
     async handleSelectClaudeCwd() {
@@ -799,6 +808,9 @@ class TerminalApp {
                     claudeCwdMessage.textContent = `作業ディレクトリを\'${result.path}\'に設定しました。`;
                     claudeCwdMessage.style.color = 'green';
                 }
+                
+                // プロジェクト固有設定を読み込み
+                await this.loadProjectSpecificSettings(result.path);
             } else if (result.success && !result.path) {
                 if (claudeCwdMessage) {
                     claudeCwdMessage.textContent = '作業ディレクトリの選択がキャンセルされました。';
@@ -1377,12 +1389,22 @@ class TerminalApp {
             const baseSettingsPath = path.join(srcPath, 'character_settings', 'base_settings.md');
             const baseSettings = await fs.promises.readFile(baseSettingsPath, 'utf8');
             
-            // デフォルトキャラクター（照れ屋）を読み込み
-            const characterPath = path.join(srcPath, 'character_settings', 'shy.md');
+            // 選択されたキャラクターを読み込み
+            let selectedCharacter = 'shy'; // デフォルト
+            if (window.electronAPI && window.electronAPI.config) {
+                try {
+                    selectedCharacter = await window.electronAPI.config.get('selectedCharacter', 'shy');
+                } catch (configError) {
+                    debugError('Failed to get character config, using default:', configError);
+                }
+            }
+            
+            const characterPath = path.join(srcPath, 'character_settings', `${selectedCharacter}.md`);
             const characterSettings = await fs.promises.readFile(characterPath, 'utf8');
             
             // 設定を統合
             this.claudeMdContent = baseSettings + '\n\n---\n\n' + characterSettings;
+            
             
             // ホームディレクトリにCLAUDE.mdファイルを作成または更新
             try {
@@ -1402,6 +1424,145 @@ class TerminalApp {
         }
     }
 
+    // キャラクター変更を処理
+    async handleCharacterChange(characterType) {
+        try {
+            // 設定を保存
+            if (window.electronAPI && window.electronAPI.config) {
+                await window.electronAPI.config.set('selectedCharacter', characterType);
+                debugLog('Character setting saved:', characterType);
+            }
+
+            // キャラクター設定を再読み込み
+            await this.loadCharacterSettings();
+
+            // UI更新
+            const characterMessage = document.getElementById('character-message');
+            if (characterMessage) {
+                const characterNames = {
+                    'shy': '照れ屋',
+                    'genki': '元気娘',
+                    'kuudere': 'クーデレ',
+                    'tsundere': 'ツンデレ'
+                };
+                characterMessage.textContent = `現在のキャラクター: ${characterNames[characterType] || characterType}`;
+                characterMessage.style.color = 'green';
+                
+                // メッセージを3秒後にリセット
+                setTimeout(() => {
+                    if (characterMessage) {
+                        characterMessage.textContent = `現在のキャラクター: ${characterNames[characterType] || characterType}`;
+                        characterMessage.style.color = '#555';
+                    }
+                }, 3000);
+            }
+
+            debugLog('Character changed successfully to:', characterType);
+        } catch (error) {
+            debugError('Failed to change character:', error);
+            
+            const characterMessage = document.getElementById('character-message');
+            if (characterMessage) {
+                characterMessage.textContent = 'キャラクター変更に失敗しました';
+                characterMessage.style.color = 'red';
+            }
+        }
+    }
+
+    // キャラクター選択の同期
+    async syncCharacterSelection() {
+        try {
+            const characterSelect = document.getElementById('character-select');
+            const characterMessage = document.getElementById('character-message');
+            
+            if (!characterSelect) return;
+
+            // 保存された設定を読み込み
+            let selectedCharacter = 'shy'; // デフォルト
+            if (window.electronAPI && window.electronAPI.config) {
+                try {
+                    selectedCharacter = await window.electronAPI.config.get('selectedCharacter', 'shy');
+                } catch (configError) {
+                    debugError('Failed to get character config:', configError);
+                }
+            }
+
+            // UIに反映
+            characterSelect.value = selectedCharacter;
+            
+            if (characterMessage) {
+                const characterNames = {
+                    'shy': '照れ屋',
+                    'genki': '元気娘',
+                    'kuudere': 'クーデレ',
+                    'tsundere': 'ツンデレ'
+                };
+                characterMessage.textContent = `現在のキャラクター: ${characterNames[selectedCharacter] || selectedCharacter}`;
+            }
+
+            debugLog('Character selection synced:', selectedCharacter);
+        } catch (error) {
+            debugError('Failed to sync character selection:', error);
+        }
+    }
+
+    // プロジェクト固有設定を読み込んでCLAUDE.mdを更新
+    async loadProjectSpecificSettings(projectDir = null) {
+        try {
+            const { fs, path, os } = window.electronAPI;
+            if (!fs || !path || !os) {
+                debugError('fs, path, or os module not available via electronAPI.');
+                return;
+            }
+
+            // プロジェクトディレクトリが指定されていない場合は、現在設定されている作業ディレクトリを使用
+            const targetDir = projectDir || this.claudeWorkingDir;
+            if (!targetDir) {
+                debugLog('No project directory specified for loading project settings');
+                return;
+            }
+
+            // 基本的なキャラクター設定が読み込まれていない場合は先に読み込む
+            if (!this.claudeMdContent) {
+                await this.loadCharacterSettings();
+                return; // loadCharacterSettingsが完了した後にこのメソッドを呼び直す必要はない
+            }
+
+            // 現在の基本設定を保持（プロジェクト設定を除く）
+            let baseContent = this.claudeMdContent;
+            const projectSectionIndex = baseContent.indexOf('\n\n---\n\n# プロジェクト固有設定\n\n');
+            if (projectSectionIndex !== -1) {
+                baseContent = baseContent.substring(0, projectSectionIndex);
+            }
+
+            // プロジェクトディレクトリのCLAUDE.mdをチェック
+            const projectClaudeMdPath = path.join(targetDir, 'CLAUDE.md');
+            
+            try {
+                await fs.promises.access(projectClaudeMdPath);
+                const projectSettings = await fs.promises.readFile(projectClaudeMdPath, 'utf8');
+                this.claudeMdContent = baseContent + '\n\n---\n\n# プロジェクト固有設定\n\n' + projectSettings;
+                debugLog('Project-specific CLAUDE.md found and merged:', projectClaudeMdPath);
+            } catch (accessError) {
+                // ファイルが存在しない場合は基本設定のみ
+                this.claudeMdContent = baseContent;
+                debugLog('No project-specific CLAUDE.md found at:', projectClaudeMdPath);
+            }
+
+            // ホームディレクトリのCLAUDE.mdを更新
+            try {
+                const homeDir = os.homedir();
+                const claudeMdPath = path.join(homeDir, 'CLAUDE.md');
+                await fs.promises.writeFile(claudeMdPath, this.claudeMdContent, 'utf8');
+                debugLog('CLAUDE.md file updated with project settings at:', claudeMdPath);
+            } catch (writeError) {
+                debugError('Failed to write CLAUDE.md to home directory:', writeError);
+            }
+
+        } catch (error) {
+            debugError('Failed to load project-specific settings:', error);
+        }
+    }
 
     // 設定を読み込む
     async loadUserConfig() {
