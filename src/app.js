@@ -1361,9 +1361,9 @@ class TerminalApp {
 
     async loadCharacterSettings() {
         try {
-            const { fs, path } = window.electronAPI;
-            if (!fs || !path) {
-                debugError('fs or path module not available via electronAPI.');
+            const { fs, path, os } = window.electronAPI;
+            if (!fs || !path || !os) {
+                debugError('fs, path, or os module not available via electronAPI.');
                 return;
             }
             
@@ -1383,6 +1383,16 @@ class TerminalApp {
             
             // 設定を統合
             this.claudeMdContent = baseSettings + '\n\n---\n\n' + characterSettings;
+            
+            // ホームディレクトリにCLAUDE.mdファイルを作成または更新
+            try {
+                const homeDir = os.homedir();
+                const claudeMdPath = path.join(homeDir, 'CLAUDE.md');
+                await fs.promises.writeFile(claudeMdPath, this.claudeMdContent, 'utf8');
+                debugLog('CLAUDE.md file created/updated at:', claudeMdPath);
+            } catch (writeError) {
+                debugError('Failed to write CLAUDE.md to home directory:', writeError);
+            }
             
             debugLog('Character settings loaded successfully (shy character)');
         } catch (error) {
