@@ -37,6 +37,7 @@
       "main.js",
       "src/**/*",
       "assets/**/*",
+      "ai-kawaii-nextjs/**/*",
       "node_modules/**/*"
     ],
     "mac": {
