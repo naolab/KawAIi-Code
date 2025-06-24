@@ -175,11 +175,31 @@ app.on('activate', () => {
 ipcMain.handle('terminal-start', async () => {
   console.log('Starting Claude Code process...');
   
-  // Claude Codeのパスを取得
-  const claudePath = process.env.CLAUDE_PATH || 'claude'; // 環境変数CLAUDE_PATHがあればそれを使用、なければ'claude'を使用
+  // Claude Codeのパスを取得（複数の可能なパスをチェック）
+  let claudePath = process.env.CLAUDE_PATH;
+  
+  if (!claudePath) {
+    const possiblePaths = [
+      '/opt/homebrew/bin/claude',
+      '/usr/local/bin/claude',
+      '/usr/bin/claude',
+      'claude'
+    ];
+    
+    for (const testPath of possiblePaths) {
+      try {
+        require('fs').accessSync(testPath, require('fs').constants.F_OK);
+        claudePath = testPath;
+        console.log('Found Claude Code at:', claudePath);
+        break;
+      } catch (error) {
+        // このパスは存在しない、次を試す
+      }
+    }
+  }
 
   if (!claudePath) {
-    const errorMsg = 'Claude Codeのパスが設定されていません。CLAUDE_PATH環境変数を設定するか、パスの通った場所にClaude Codeをインストールしてください。';
+    const errorMsg = 'Claude Codeが見つかりません。CLAUDE_PATH環境変数を設定するか、Claude Codeをインストールしてください。';
     console.error(errorMsg);
     return { success: false, error: errorMsg };
   }
@@ -203,7 +223,8 @@ ipcMain.handle('terminal-start', async () => {
       env: {
         ...process.env,
         TERM: 'xterm-256color',
-        COLORTERM: 'truecolor'
+        COLORTERM: 'truecolor',
+        PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin'
       }
     });
 
