@@ -131,6 +131,7 @@ class TerminalApp {
         
         // 読み上げ履歴管理
         this.speechHistory = new SpeechHistoryManager(50);
+        this.wallpaperAnimationEnabled = false; // デフォルト壁紙アニメーションの有効/無効
         
         this.init();
     }
@@ -362,6 +363,35 @@ class TerminalApp {
         this.updateButtons();
         this.updateVoiceControls();
         // this.updateSpeechHistoryStatus(); // メソッドが存在しないためコメントアウト
+
+        // 壁紙設定ラジオボタンのリスナー
+        const wallpaperDefaultRadio = document.getElementById('wallpaper-default-radio');
+        const wallpaperUploadedRadio = document.getElementById('wallpaper-uploaded-radio');
+
+        if (wallpaperDefaultRadio) {
+            wallpaperDefaultRadio.addEventListener('change', () => {
+                this.currentWallpaperOption = 'default';
+                localStorage.setItem('wallpaperOption', 'default');
+                this.applyWallpaper();
+            });
+        }
+
+        if (wallpaperUploadedRadio) {
+            wallpaperUploadedRadio.addEventListener('change', () => {
+                this.currentWallpaperOption = 'uploaded';
+                localStorage.setItem('wallpaperOption', 'uploaded');
+                this.applyWallpaper();
+            });
+        }
+
+        const wallpaperAnimationToggle = document.getElementById('wallpaper-animation-toggle');
+        if (wallpaperAnimationToggle) {
+            wallpaperAnimationToggle.addEventListener('change', () => {
+                this.wallpaperAnimationEnabled = wallpaperAnimationToggle.checked;
+                localStorage.setItem('wallpaperAnimationEnabled', JSON.stringify(this.wallpaperAnimationEnabled));
+                this.applyWallpaper();
+            });
+        }
     }
 
     setupChatInterface() {
@@ -735,12 +765,22 @@ class TerminalApp {
         await this.updateSpeakerSelect();
         this.updateConnectionStatus(this.connectionStatus === 'connected' ? '接続済み' : '未接続', this.connectionStatus);
 
-        // 壁紙設定の同期 - ロード時に選択肢を更新する
-        await this.loadWallpaperList();
+        // 壁紙設定の同期
+        const wallpaperDefaultRadio = document.getElementById('wallpaper-default-radio');
+        const wallpaperUploadedRadio = document.getElementById('wallpaper-uploaded-radio');
+        if (wallpaperDefaultRadio && wallpaperUploadedRadio) {
+            if (this.currentWallpaperOption === 'default') {
+                wallpaperDefaultRadio.checked = true;
+            } else {
+                wallpaperUploadedRadio.checked = true;
+            }
+        }
 
-        // 読み上げ履歴状況を更新
-        // this.updateSpeechHistoryStatus(); // メソッドが存在しないためコメントアウト
-        
+        const wallpaperAnimationToggle = document.getElementById('wallpaper-animation-toggle');
+        if (wallpaperAnimationToggle) {
+            wallpaperAnimationToggle.checked = this.wallpaperAnimationEnabled;
+        }
+
         // Claude Code 作業ディレクトリ設定の同期
         const claudeCwdDisplay = document.getElementById('claude-cwd-display');
         const claudeCwdMessage = document.getElementById('claude-cwd-message');
@@ -767,6 +807,36 @@ class TerminalApp {
             }
         }
 
+        // ユーザー設定を読み込み
+        const savedVoiceEnabled = localStorage.getItem('voiceEnabled');
+        if (savedVoiceEnabled !== null) {
+            this.voiceEnabled = JSON.parse(savedVoiceEnabled);
+        }
+
+        const savedSelectedSpeaker = localStorage.getItem('selectedSpeaker');
+        if (savedSelectedSpeaker !== null) {
+            this.selectedSpeaker = parseInt(savedSelectedSpeaker, 10);
+        }
+
+        const savedWallpaperOption = localStorage.getItem('wallpaperOption');
+        if (savedWallpaperOption) {
+            this.currentWallpaperOption = savedWallpaperOption;
+        } else {
+            this.currentWallpaperOption = 'default'; // デフォルトは静止画
+        }
+
+        const savedWallpaperAnimationEnabled = localStorage.getItem('wallpaperAnimationEnabled');
+        if (savedWallpaperAnimationEnabled !== null) {
+            this.wallpaperAnimationEnabled = JSON.parse(savedWallpaperAnimationEnabled);
+        }
+
+        localStorage.setItem('selectedSpeaker', this.selectedSpeaker.toString());
+        localStorage.setItem('wallpaperOption', this.currentWallpaperOption);
+        localStorage.setItem('wallpaperAnimationEnabled', JSON.stringify(this.wallpaperAnimationEnabled));
+
+        if (this.claudeWorkingDir) {
+            localStorage.setItem('claudeWorkingDir', this.claudeWorkingDir);
+        }
     }
 
     async handleSelectClaudeCwd() {
@@ -1213,47 +1283,103 @@ class TerminalApp {
     }
 
     // 壁紙を適用
-    async applyWallpaper(wallpaperName) {
+    async applyWallpaper() {
         const body = document.body;
-        
-        if (wallpaperName === 'default') {
-            // デフォルト壁紙
-            const currentHour = new Date().getHours();
-            let defaultWallpaperFileName = 'default.png'; // Fallback, though we expect specific files
 
-            if (currentHour >= 4 && currentHour < 6) {
-                defaultWallpaperFileName = 'default_morning_evening.jpg';
-            } else if (currentHour >= 6 && currentHour < 17) {
-                defaultWallpaperFileName = 'default_noon.jpg';
-            } else if (currentHour >= 17 && currentHour < 19) {
-                defaultWallpaperFileName = 'default_morning_evening.jpg';
-            } else if (currentHour >= 19 && currentHour <= 23) { // 19:00 - 23:59
-                defaultWallpaperFileName = 'default_night.jpg';
-            } else { // 0:00 - 3:59
-                defaultWallpaperFileName = 'default_latenight.jpg';
+        // 既存の動画要素をクリア
+        const existingVideo = document.getElementById('wallpaper-video');
+        if (existingVideo) {
+            existingVideo.remove();
+            debugLog('既存の動画壁紙を削除しました。');
+        }
+        // 既存の静止画背景をクリア
+        body.style.background = '';
+        body.style.backgroundAttachment = '';
+
+        const currentHour = new Date().getHours();
+        let baseFileName = '';
+
+        // 時間帯に応じたベースファイル名決定
+        if (currentHour >= 4 && currentHour < 6) {
+            baseFileName = 'default_morning_evening';
+        } else if (currentHour >= 6 && currentHour < 17) {
+            baseFileName = 'default_noon';
+        } else if (currentHour >= 17 && currentHour < 19) {
+            baseFileName = 'default_morning_evening';
+        } else if (currentHour >= 19 && currentHour <= 23) { // 19:00 - 23:59
+            baseFileName = 'default_night';
+        } else { // 0:00 - 3:59
+            baseFileName = 'default_latenight';
+        }
+
+        if (this.currentWallpaperOption === 'default') {
+            if (this.wallpaperAnimationEnabled) {
+                // 動画壁紙を適用
+                const videoPath = `assets/wallpapers/default/${baseFileName}.mp4`;
+                const video = document.createElement('video');
+                video.id = 'wallpaper-video';
+                video.src = videoPath;
+                video.loop = true;
+                video.autoplay = true;
+                video.muted = true;
+                video.playsInline = true; // iOSなどで自動再生を有効にするため
+
+                video.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    z-index: -1;
+                `;
+                body.prepend(video); // bodyの最初に挿入
+                debugLog(`動画壁紙を適用: ${videoPath}`);
+            } else {
+                // 静止画壁紙を適用
+                const imagePath = `assets/wallpapers/default/${baseFileName}.jpg`; // デフォルト静止画は.jpgを想定
+                body.style.background = `url('${imagePath}') center/cover fixed`;
+                body.style.backgroundAttachment = 'fixed';
+                debugLog(`静止画壁紙を適用: ${imagePath}`);
             }
-            
-            const defaultWallpaperPath = `assets/wallpapers/default/${defaultWallpaperFileName}`;
-            body.style.background = `url('${defaultWallpaperPath}') center/cover fixed`;
-            body.style.backgroundAttachment = 'fixed';
-        } else {
+            this.startWallpaperTimer(); // デフォルト壁紙なのでタイマーを開始
+        } else if (this.currentWallpaperOption === 'uploaded') {
             // ユーザー壁紙
+            this.stopWallpaperTimer(); // アップロード済み壁紙なのでタイマーを停止
+
             try {
-                const response = await window.electronAPI.getUserDataPath();
-                if (response.success) {
-                    const userDataPath = response.path;
-                    const wallpaperPath = `file://${userDataPath}/wallpapers/user/${wallpaperName}`;
-                    body.style.background = `url('${wallpaperPath}') center/cover fixed`;
-                    body.style.backgroundAttachment = 'fixed';
+                const response = await window.electronAPI.wallpaper.getWallpaperList();
+                if (response.success && response.wallpapers.length > 0) {
+                    const latestWallpaper = response.wallpapers[response.wallpapers.length - 1];
+                    const userDataPathResponse = await window.electronAPI.getUserDataPath();
+                    if (userDataPathResponse.success) {
+                        const userDataPath = userDataPathResponse.path;
+                        const wallpaperPath = `file://${userDataPath}/wallpapers/user/${latestWallpaper.filename}`;
+                        body.style.background = `url('${wallpaperPath}') center/cover fixed`;
+                        body.style.backgroundAttachment = 'fixed';
+                        debugLog(`アップロード済み壁紙を適用: ${wallpaperPath}`);
+                    } else {
+                        debugError('ユーザーデータパスの取得に失敗しました:', userDataPathResponse.error);
+                        this.currentWallpaperOption = 'default';
+                        localStorage.setItem('wallpaperOption', 'default');
+                        document.getElementById('wallpaper-default-radio').checked = true;
+                        this.applyWallpaper(); // フォールバック
+                        this.addVoiceMessage('クロード', 'アップロードされた壁紙の読み込みに失敗したため、デフォルト壁紙に戻したよ！');
+                    }
                 } else {
-                    debugError('ユーザーデータパスの取得に失敗しました:', response.error);
-                    // エラー時はデフォルト壁紙に戻すなど、フォールバック処理を検討
-                    this.applyWallpaper('default');
-                    this.addVoiceMessage('クロード', 'アップロードされた壁紙の読み込みに失敗したため、デフォルト壁紙に戻したよ！');
+                    debugLog('アップロードされた壁紙がないため、デフォルト壁紙に戻します。');
+                    this.currentWallpaperOption = 'default';
+                    localStorage.setItem('wallpaperOption', 'default');
+                    document.getElementById('wallpaper-default-radio').checked = true;
+                    this.applyWallpaper(); // 再帰的に呼び出してデフォルトを適用
+                    this.addVoiceMessage('クロード', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
                 }
             } catch (error) {
                 debugError('壁紙適用エラー（ユーザー壁紙）:', error);
-                this.applyWallpaper('default');
+                this.currentWallpaperOption = 'default';
+                localStorage.setItem('wallpaperOption', 'default');
+                document.getElementById('wallpaper-default-radio').checked = true;
+                this.applyWallpaper(); // フォールバック
                 this.addVoiceMessage('クロード', 'アップロードされた壁紙の読み込み中にエラーが発生したため、デフォルト壁紙に戻したよ！');
             }
         }
@@ -1334,7 +1460,7 @@ class TerminalApp {
             const defaultRadio = document.getElementById('wallpaper-default-radio');
             if (defaultRadio && defaultRadio.checked) {
                 debugLog('Wallpaper timer triggered: Applying default wallpaper.');
-                this.applyWallpaper('default');
+                this.applyWallpaper();
             }
         }, 60 * 1000); // 1分ごと
         debugLog('Wallpaper timer started.');

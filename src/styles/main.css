@@ -866,7 +866,7 @@ body {
 }
 
 .setting-group label::before {
-    content: '•';
+    content: ''; /* ドットを非表示にする */
     color: #FFB366;
     font-size: 20px;
     font-weight: bold;
