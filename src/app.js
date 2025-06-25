@@ -360,11 +360,6 @@ class TerminalApp {
             selectClaudeCwdBtn.addEventListener('click', () => this.handleSelectClaudeCwd());
         }
 
-        // キャラクター選択のイベントリスナー
-        const characterSelect = document.getElementById('character-select');
-        if (characterSelect) {
-            characterSelect.addEventListener('change', (e) => this.handleCharacterChange(e.target.value));
-        }
 
         // マイクボタンのイベントリスナー
         const micButton = document.getElementById('mic-button');
@@ -786,8 +781,6 @@ class TerminalApp {
             }
         }
 
-        // キャラクター選択の同期
-        await this.syncCharacterSelection();
     }
 
     async handleSelectClaudeCwd() {
