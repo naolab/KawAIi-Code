@@ -19,10 +19,33 @@ Claude CodeとアニメキャラクターVRMが対話するデスクトップア
 ## 📥 インストール（ユーザー向け）
 
 ### 配布版ダウンロード
-1. [Releases](../../releases)から最新の`KawAIi Code-X.X.X-arm64.dmg`をダウンロード
-2. DMGファイルをダブルクリックしてマウント
-3. `KawAIi Code.app`をアプリケーションフォルダにドラッグ＆ドロップ
-4. アプリケーションフォルダから起動
+1. GoogleドライブまたはGitHub Releasesから最新の`KawAIi-Code-1.0.0-arm64-app.zip`をダウンロード
+
+2. **隔離属性を削除（重要！）**  
+   ダウンロード後、ターミナルを開いて以下のコマンドを実行：
+   ```bash
+   # ZIPファイルの隔離属性を削除
+   xattr -dr com.apple.quarantine /Users/YOUR_USERNAME/Downloads/KawAIi-Code-1.0.0-arm64-app.zip
+   ```
+
+3. **ZIPファイルを展開**  
+   ZIPファイルをダブルクリックして展開
+
+4. **アプリの隔離属性を削除**  
+   展開されたアプリの隔離属性も削除：
+   ```bash
+   # アプリの隔離属性を削除
+   xattr -dr com.apple.quarantine "/Users/YOUR_USERNAME/Downloads/KawAIi Code.app"
+   ```
+
+5. **アプリを移動**  
+   `KawAIi Code.app`をApplicationsフォルダにドラッグ&ドロップ
+
+6. **起動**  
+   アプリをダブルクリックして起動
+
+### ⚠️ なぜこの手順が必要？
+macOSは、インターネットからダウンロードしたファイルに「隔離属性」を自動で付けます。署名がないアプリは「壊れている」として実行を拒否されますが、隔離属性を削除すれば正常に動作します。
 
 ### システム要件
 - macOS 10.15 (Catalina) 以降
