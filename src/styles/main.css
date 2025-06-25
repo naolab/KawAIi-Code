@@ -76,7 +76,7 @@ body {
     flex: 1;
     display: flex;
     gap: 20px;
-    padding: 0 40px 0 40px;
+    padding: 0 20px 0 40px;
     overflow: visible;
     height: 100vh;
     margin-top: -70px;
@@ -85,7 +85,7 @@ body {
 
 /* ターミナルセクション（可愛い白っぽいデザイン） */
 .terminal-section {
-    flex: 0.9;
+    flex: 1;
     display: flex;
     flex-direction: column;
     background: rgba(255, 255, 255, 0.7);
@@ -257,7 +257,7 @@ body {
 
 /* 右側：キャラクターセクション */
 .character-section {
-    flex: 1.1;
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
