@@ -63,13 +63,6 @@ window.electronAPI = {
   openDirectoryDialog: () => ipcRenderer.invoke("open-directory-dialog"),
   getClaudeCwd: () => ipcRenderer.invoke("get-claude-cwd"),
 
-  // Speech Recognition APIs (Google Cloud Speech用)
-  startSpeechRecognitionStream: () => ipcRenderer.invoke("start-speech-recognition-stream"),
-  sendAudioChunk: (chunk) => ipcRenderer.invoke("send-audio-chunk", chunk),
-  stopSpeechRecognitionStream: () => ipcRenderer.invoke("stop-speech-recognition-stream"),
-  onSpeechRecognitionResult: (callback) => ipcRenderer.on("speech-recognition-result", (event, data) => callback(data)),
-  onSpeechRecognitionError: (callback) => ipcRenderer.on("speech-recognition-error", (event, errorMessage) => callback(errorMessage)),
-  onSpeechRecognitionEnd: (callback) => ipcRenderer.on("speech-recognition-end", callback),
   fs: require('fs'), // fsモジュールを公開
   path: require('path'), // pathモジュールを公開
   os: require('os') // osモジュールを公開

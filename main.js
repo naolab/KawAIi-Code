@@ -6,7 +6,6 @@ const pty = require('node-pty');
 const { spawn } = require('child_process');
 const VoiceService = require('./src/voiceService');
 const appConfig = require('./src/appConfig');
-const { SpeechClient } = require('@google-cloud/speech');
 
 let mainWindow;
 let terminalProcess;
@@ -16,14 +15,6 @@ let websocketProcess; // WebSocketサーバープロセスを追加
 // Add a global variable to store the current working directory for Claude Code
 let claudeWorkingDir = appConfig.get('claudeWorkingDir', os.homedir()); // デフォルトはホームディレクトリ
 
-// Google Cloud Speechクライアントの初期化
-// 認証情報ファイルを設定するか、GCPの環境変数に設定してください。
-process.env.GOOGLE_APPLICATION_CREDENTIALS = require('path').join(__dirname, 'decoded-shadow-459505-b5-6b7baaa9f326.json');
-const speechClient = new SpeechClient();
-
-// Google Cloud Speech関連の変数
-let recognizeStream = null; // 認識ストリーム
-let isRecognitionActive = false; // 認識がアクティブかどうか
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -513,79 +504,3 @@ ipcMain.handle('wallpaper-delete', async (event, filename) => {
 });
 
 // ★ 新しいIPCハンドラ: 音声認識ストリームの開始
-ipcMain.handle('start-speech-recognition-stream', async () => {
-  if (isRecognitionActive) {
-    console.log('Speech recognition stream is already active.');
-    return { success: true, message: 'Already active' };
-  }
-
-  try {
-    const request = {
-      config: {
-        encoding: 'WEBM_OPUS', // WEBM_OPUSに変更
-        sampleRateHertz: 48000, 
-        languageCode: 'ja-JP',
-      },
-      interimResults: true,
-    };
-
-    recognizeStream = speechClient.streamingRecognize(request)
-      .on('error', (error) => {
-        console.error('Google Speech API stream error:', error);
-        // エラーをレンダラープロセスに送信
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('speech-recognition-error', error.message);
-        }
-        isRecognitionActive = false;
-        recognizeStream = null;
-      })
-      .on('data', (data) => {
-        const result = data.results[0];
-        if (result) {
-          const transcript = result.alternatives[0].transcript;
-          const isFinal = result.isFinal;
-          console.log(`Speech Recognition Result: "${transcript}" (Final: ${isFinal})`);
-          mainWindow.webContents.send('speech-recognition-result', { result: transcript, isFinal });
-        }
-      })
-      .on('end', () => {
-        console.log('Google Speech API stream ended.');
-        isRecognitionActive = false;
-        recognizeStream = null;
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('speech-recognition-end');
-        }
-      });
-
-    isRecognitionActive = true;
-    console.log('Speech recognition stream started.');
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to start speech recognition stream:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-// ★ 新しいIPCハンドラ: 音声チャンクの送信
-ipcMain.handle('send-audio-chunk', (event, audioChunk) => {
-  if (recognizeStream && isRecognitionActive) {
-    if (audioChunk && audioChunk.length > 0) {
-      // 受信した音声チャンクのサイズをログ出力
-      console.log(`Received audio chunk size: ${audioChunk.length}`);
-      recognizeStream.write(Buffer.from(audioChunk));
-    } else {
-      console.warn('Received empty audio chunk.');
-    }
-  }
-});
-
-// ★ 新しいIPCハンドラ: 音声認識ストリームの停止
-ipcMain.handle('stop-speech-recognition-stream', async () => {
-  if (recognizeStream) {
-    recognizeStream.end(); // ストリームを終了
-    recognizeStream = null;
-  }
-  isRecognitionActive = false;
-  console.log('Speech recognition stream stopped.');
-  return { success: true };
-});
