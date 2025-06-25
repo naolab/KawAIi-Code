@@ -9,6 +9,12 @@ import { EmoteController } from '@/features/emoteController/emoteController'
 import { loadVRMAnimation } from '@/lib/loadVRMAnimation'
 import { LipSync } from '@/features/lipSync/lipSync'
 
+// ログレベル制御（本番環境では詳細ログを無効化）
+const isProduction = process.env.NODE_ENV === 'production'
+const debugLog = isProduction ? () => {} : console.log
+const infoLog = console.log // 重要な情報は常に出力
+const errorLog = console.error // エラーは常に出力
+
 interface VRMViewerProps {
   className?: string
 }
@@ -41,7 +47,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
   // アイドルアニメーションを読み込む関数（mainブランチ互換 + T字ポーズ修正）
   const loadIdleAnimation = useCallback(async (vrm: VRM) => {
     try {
-      console.log('🎭 Loading idle animation...')
+      debugLog('🎭 アイドルアニメーション読み込み中...')
       
       // まずT字ポーズを修正
       if (mixerRef.current && vrm.humanoid) {
@@ -74,7 +80,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
           poseAction.setLoop(THREE.LoopOnce, 1)
           poseAction.clampWhenFinished = true
           poseAction.play()
-          console.log('🎭 T-pose fix applied')
+          debugLog('🎭 Tポーズ修正適用')
         }
       }
       
@@ -87,24 +93,24 @@ export default function VRMViewer({ className }: VRMViewerProps) {
           action.setLoop(THREE.LoopRepeat, Infinity)
           action.weight = 1.0  // アニメーションの重みを1.0に増加
           action.play()
-          console.log('🎭 Idle animation loaded and playing')
+          infoLog('🎭 アイドルアニメーション開始')
         }
       } catch {
-        console.log('🎭 VRMAnimation failed, using simple body sway animation')
+        debugLog('🎭 VRMアニメーション失敗、シンプルアニメーションを使用')
         
         // VRMAが読み込めない場合：全身の軽い揺れアニメーション
         if (mixerRef.current && vrm.humanoid) {
           // 利用可能なボーンを詳細確認
-          console.log('🎭 Checking body bones:')
+          debugLog('🎭 ボディボーン確認中:')
           const spineNode = vrm.humanoid.getNormalizedBoneNode('spine')
           const hipsNode = vrm.humanoid.getNormalizedBoneNode('hips')
           const chestNode = vrm.humanoid.getNormalizedBoneNode('chest')
           const upperChestNode = vrm.humanoid.getNormalizedBoneNode('upperChest')
           
-          console.log('  spine:', spineNode ? spineNode.name : 'NOT FOUND')
-          console.log('  hips:', hipsNode ? hipsNode.name : 'NOT FOUND')
-          console.log('  chest:', chestNode ? chestNode.name : 'NOT FOUND')
-          console.log('  upperChest:', upperChestNode ? upperChestNode.name : 'NOT FOUND')
+          debugLog('  spine:', spineNode ? spineNode.name : 'NOT FOUND')
+          debugLog('  hips:', hipsNode ? hipsNode.name : 'NOT FOUND')
+          debugLog('  chest:', chestNode ? chestNode.name : 'NOT FOUND')
+          debugLog('  upperChest:', upperChestNode ? upperChestNode.name : 'NOT FOUND')
           
           const bodySwayTracks: THREE.KeyframeTrack[] = []
           
@@ -121,7 +127,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
               ]
             )
             bodySwayTracks.push(spineSwayRotation)
-            console.log('  🎭 Added spine rotation track')
+            debugLog('  🎭 背骨回転トラック追加')
           }
           
           if (hipsNode) {
@@ -136,7 +142,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
               ]
             )
             bodySwayTracks.push(hipsSwayRotation)
-            console.log('  🎭 Added hips rotation track')
+            debugLog('  🎭 腰回転トラック追加')
           }
           
           if (chestNode) {
@@ -150,7 +156,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
               ]
             )
             bodySwayTracks.push(chestSwayRotation)
-            console.log('  🎭 Added chest rotation track')
+            debugLog('  🎭 胸回転トラック追加')
           }
           
           if (upperChestNode) {
@@ -164,7 +170,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
               ]
             )
             bodySwayTracks.push(upperChestSwayRotation)
-            console.log('  🎭 Added upperChest rotation track')
+            debugLog('  🎭 上胸回転トラック追加')
           }
           
           if (bodySwayTracks.length > 0) {
@@ -173,7 +179,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
             bodySwayAction.setLoop(THREE.LoopRepeat, Infinity)
             bodySwayAction.weight = 1.0  // フル重み
             bodySwayAction.play()
-            console.log('🎭 Strong body sway animation applied')
+            debugLog('🎭 強いボディスウェイアニメーション適用')
           }
         }
       }
@@ -232,9 +238,9 @@ export default function VRMViewer({ className }: VRMViewerProps) {
 
       // アニメーション制御を初期化（loadIdleAnimationより前に必要）
       if (cameraRef.current) {
-        console.log('Initializing EmoteController for loaded VRM...')
+        debugLog('読み込みVRM用EmoteController初期化中...')
         emoteControllerRef.current = new EmoteController(vrm, cameraRef.current)
-        console.log('EmoteController initialized for loaded VRM:', emoteControllerRef.current)
+        debugLog('読み込みVRM用EmoteController初期化完了:', emoteControllerRef.current)
       }
 
       // アイドルアニメーションを読み込む
@@ -250,7 +256,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       //   作者: ${(vrm.meta as Record<string, unknown>)?.author || '不明'}
       // `)
       
-      console.log('VRM loaded successfully:', vrm)
+      infoLog('VRM読み込み成功:', vrm?.meta?.name || 'Unknown')
     } catch (err) {
       console.error('VRM loading error:', err)
       setError(err instanceof Error ? err.message : 'VRMの読み込みに失敗しました')
@@ -310,9 +316,9 @@ export default function VRMViewer({ className }: VRMViewerProps) {
 
         // アニメーション制御を初期化
         if (cameraRef.current) {
-          console.log('Initializing EmoteController for default VRM...')
+          debugLog('デフォルトVRM用EmoteController初期化中...')
           emoteControllerRef.current = new EmoteController(vrm, cameraRef.current)
-          console.log('EmoteController initialized for default VRM:', emoteControllerRef.current)
+          debugLog('デフォルトVRM用EmoteController初期化完了:', emoteControllerRef.current)
         }
 
         // カメラをキャラクターの頭に合わせる
@@ -324,7 +330,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
         setVrmInfo('')
       }
 
-      console.log('Default VRM loaded successfully:', vrm)
+      infoLog('デフォルトVRM読み込み成功:', vrm?.meta?.name || 'Unknown')
     } catch (err) {
       console.error('Default VRM loading error:', err)
       setError('デフォルトVRMの読み込みに失敗しました')
@@ -395,7 +401,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
       audioContextRef.current = audioContext
       lipSyncRef.current = new LipSync(audioContext)
-      console.log('LipSync initialized')
+      debugLog('LipSync初期化完了')
     } catch (error) {
       console.error('Failed to initialize LipSync:', error)
     }
@@ -478,7 +484,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).playAudioWithLipSync = async (audioData: ArrayBuffer) => {
       if (lipSyncRef.current) {
-        console.log('🎭 LipSync再生開始, サイズ:', audioData.byteLength)
+        debugLog('🎭 LipSync再生開始, サイズ:', audioData.byteLength)
         await lipSyncRef.current.playFromArrayBuffer(audioData)
       }
     }
@@ -488,7 +494,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       if (event.origin !== 'file://') return // Electronからのメッセージのみ受信
       
       if (event.data.type === 'lipSync' && event.data.audioData) {
-        console.log('🎭 postMessageで音声データ受信, サイズ:', event.data.audioData.length)
+        debugLog('🎭 postMessageで音声データ受信, サイズ:', event.data.audioData.length)
         const audioBuffer = new Uint8Array(event.data.audioData).buffer
         if (lipSyncRef.current) {
           lipSyncRef.current.playFromArrayBuffer(audioBuffer)

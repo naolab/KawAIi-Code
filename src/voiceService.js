@@ -1,5 +1,11 @@
 const axios = require('axios');
 
+// ログレベル制御（本番環境では詳細ログを無効化）
+const isProduction = process.env.NODE_ENV === 'production';
+const debugLog = isProduction ? () => {} : console.log;
+const infoLog = console.log; // 重要な情報は常に出力
+const errorLog = console.error; // エラーは常に出力
+
 class VoiceService {
     constructor() {
         this.baseUrl = 'http://127.0.0.1:10101';
@@ -109,7 +115,8 @@ class VoiceService {
 
     // Parse terminal output to extract text for TTS
     parseTerminalOutput(data) {
-        console.log('Raw terminal data:', JSON.stringify(data));
+        // セキュリティ上の理由でターミナルデータの詳細ログは出力しない
+        debugLog('ターミナルデータ解析中, データ長:', data.length, '文字');
         
         // より強力なANSI除去処理
         let cleanText = data
@@ -123,11 +130,12 @@ class VoiceService {
             .replace(/\s+/g, ' '); // 連続空白を単一空白に
 
         const trimmed = cleanText.trim();
-        console.log('Cleaned text:', JSON.stringify(trimmed));
+        // セキュリティ上の理由で詳細テキストは出力せず長さのみ記録
+        debugLog('テキスト整理完了, 文字数:', trimmed.length);
         
         // 空文字やごく短いテキストをスキップ
         if (trimmed.length < 3) {
-            console.log('Skipped: too short');
+            debugLog('スキップ: 文字数不足');
             return null;
         }
 
@@ -135,21 +143,21 @@ class VoiceService {
         if (!trimmed.includes('⏺')) {
             // ⏺記号がない場合はユーザー入力の可能性が高い
             if (trimmed.includes('>') || (trimmed.includes('╭') && trimmed.includes('│'))) {
-                console.log('Skipped: likely user input without ⏺');
+                debugLog('スキップ: ユーザー入力の可能性');
                 return null;
             }
         }
 
         // ⏺記号での会話抽出（最優先）  
         if (trimmed.includes('⏺')) {
-            console.log('Found ⏺ symbol in text:', JSON.stringify(trimmed.substring(0, 100)));
+            debugLog('⏺記号を検出, 会話抽出開始');
             
             // ⏺の直後から会話内容を抽出
             const circleIndex = trimmed.indexOf('⏺');
             if (circleIndex !== -1) {
                 let afterCircle = trimmed.substring(circleIndex + 1).trim();
                 
-                console.log('Text after ⏺:', JSON.stringify(afterCircle));
+                debugLog('⏺後のテキスト長:', afterCircle.length, '文字');
                 
                 // 状態インジケーターやUI要素を除去
                 afterCircle = afterCircle
@@ -164,7 +172,7 @@ class VoiceService {
                     .replace(/\s*\[[0-9;]+m.*$/g, '') // ANSI残存除去
                     .trim();
                 
-                console.log('After cleanup:', JSON.stringify(afterCircle));
+                debugLog('クリーンアップ完了, 最終文字数:', afterCircle.length);
                 
                 // 早期読み上げ用: 短い文でも読み上げ開始
                 if (afterCircle.length > 15) {
@@ -174,7 +182,7 @@ class VoiceService {
                     const hasEmoji = /[✨🎀💕]/.test(afterCircle);
                     const hasValidChars = /[a-zA-Z]/.test(afterCircle) && afterCircle.length > 10;
                     
-                    console.log('Content validation:', {
+                    debugLog('コンテンツ検証:', {
                         hasJapanese,
                         hasPunctuation,
                         hasEmoji,
@@ -205,12 +213,12 @@ class VoiceService {
                             finalText = firstMeaningfulLines + '...など！';
                         }
                         
-                        console.log('Returning extracted conversation (optimized):', finalText);
+                        debugLog('抽出した会話を返却 (最適化済み):', finalText.substring(0, 50) + '...');
                         return finalText;
                     }
                 }
                 
-                console.log('⏺ found but content not valid for speech');
+                debugLog('⏺が見つかったが音声合成に適さないコンテンツ');
                 return null;
             }
         }
@@ -219,11 +227,11 @@ class VoiceService {
 
         // 一般的な日本語テキストとして処理
         if (/[あ-んア-ヶ一-龯]/.test(trimmed) && trimmed.length > 10) {
-            console.log('Returning general Japanese text:', trimmed);
+            debugLog('一般的な日本語テキストを返却:', trimmed.substring(0, 50) + '...');
             return trimmed;
         }
 
-        console.log('No valid content found, skipping');
+        debugLog('有効なコンテンツが見つからずスキップ');
         return null;
     }
 }

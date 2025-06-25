@@ -2,16 +2,22 @@ const WebSocket = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
 
+// ログレベル制御（本番環境では詳細ログを無効化）
+const isProduction = process.env.NODE_ENV === 'production';
+const debugLog = isProduction ? () => {} : console.log;
+const infoLog = console.log; // 重要な情報は常に出力
+const errorLog = console.error; // エラーは常に出力
+
 const CLAUDE_MD_CONTENT = process.env.CLAUDE_MD_CONTENT || ''; // CLAUDE.mdの内容を環境変数から取得
-console.log('WebSocket Server: CLAUDE_MD_CONTENT loaded:', CLAUDE_MD_CONTENT ? CLAUDE_MD_CONTENT.substring(0, 100) + '...' : 'empty/undefined');
+debugLog('WebSocket Server: CLAUDE_MD_CONTENT読み込み完了:', CLAUDE_MD_CONTENT ? `長さ: ${CLAUDE_MD_CONTENT.length}文字` : '空/未定義');
 
 // WebSocketサーバーを作成
 const wss = new WebSocket.Server({ port: 8080 });
 
-console.log('🌟 WebSocketサーバーが起動しました！ポート: 8080');
+infoLog('🌟 WebSocketサーバーが起動しました！ポート: 8080');
 
 wss.on('connection', (ws) => {
-  console.log('✨ クライアントが接続しました');
+  debugLog('✨ クライアントが接続しました');
   
   let currentProcess = null;
   let claudeSession = null;
@@ -28,7 +34,7 @@ wss.on('connection', (ws) => {
       const data = JSON.parse(message);
       
       if (data.type === 'audio') {
-        console.log('🎵 音声データ受信, サイズ:', data.audioData.length);
+        debugLog('🎵 音声データ受信, サイズ:', data.audioData.length);
         // VRMビューワーに音声データを送信
         ws.send(JSON.stringify({
           type: 'lipSync',
@@ -36,7 +42,7 @@ wss.on('connection', (ws) => {
         }));
         return;
       } else if (data.type === 'command') {
-        console.log('📝 コマンド受信:', data.command);
+        debugLog('📝 コマンド受信:', data.command);
         
         // 既存のプロセスがあれば終了
         if (currentProcess) {
@@ -75,7 +81,7 @@ wss.on('connection', (ws) => {
         }
       }
     } catch (error) {
-      console.error('❌ メッセージ解析エラー:', error);
+      errorLog('❌ メッセージ解析エラー:', error);
       ws.send(JSON.stringify({
         type: 'error',
         message: `エラー: ${error.message}\r\n`
@@ -84,7 +90,7 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log('👋 クライアントが切断しました');
+    debugLog('👋 クライアントが切断しました');
     if (currentProcess) {
       currentProcess.kill();
     }
@@ -94,12 +100,12 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('error', (error) => {
-    console.error('❌ WebSocketエラー:', error);
+    errorLog('❌ WebSocketエラー:', error);
   });
 
   // Claude対話セッションを開始する関数
   function startClaudeSession(command, ws) {
-    console.log('🤖 Claude対話セッション開始:', command);
+    infoLog('🤖 Claude対話セッション開始:', command);
     
     // 既存のClaudeセッションがあれば終了
     if (claudeSession) {
@@ -115,7 +121,7 @@ wss.on('connection', (ws) => {
     } else {
         args = ['--prompt', args.join(' ')];
     }
-    console.log('WebSocket Server: startClaudeSession args:', args.join(' ').substring(0, 200) + '...');
+    debugLog('WebSocket Server: Claudeセッション引数長:', args.join(' ').length, '文字');
 
     claudeSession = spawn(claudePath, args, {
       cwd: process.cwd(),
@@ -133,7 +139,7 @@ wss.on('connection', (ws) => {
 
     claudeSession.stdout.on('data', (data) => {
       const output = data.toString();
-      console.log('📤 Claude出力:', output);
+      debugLog('📤 Claude出力(対話):', output.substring(0, 100) + '...');
       ws.send(JSON.stringify({
         type: 'output',
         message: output
@@ -152,7 +158,7 @@ wss.on('connection', (ws) => {
 
     claudeSession.stderr.on('data', (data) => {
       const error = data.toString();
-      console.log('❌ Claudeエラー:', error);
+      errorLog('❌ Claudeエラー(対話):', error);
       ws.send(JSON.stringify({
         type: 'error',
         message: error
@@ -160,7 +166,7 @@ wss.on('connection', (ws) => {
     });
 
     claudeSession.on('close', (code) => {
-      console.log(`🔚 Claude対話セッション終了 コード: ${code}`);
+      infoLog(`🔚 Claude対話セッション終了 コード: ${code}`);
       isClaudeInteractive = false;
       claudeSession = null;
       ws.send(JSON.stringify({
@@ -170,7 +176,7 @@ wss.on('connection', (ws) => {
     });
 
     claudeSession.on('error', (error) => {
-      console.error('❌ Claude対話セッションエラー:', error);
+      errorLog('❌ Claude対話セッションエラー:', error);
       isClaudeInteractive = false;
       claudeSession = null;
       ws.send(JSON.stringify({
@@ -183,7 +189,7 @@ wss.on('connection', (ws) => {
   // Claude対話セッションに入力を送信する関数
   function sendToClaudeSession(input, ws) {
     if (claudeSession && isClaudeInteractive) {
-      console.log('📝 Claude対話入力:', input);
+      debugLog('📝 Claude対話入力:', input.substring(0, 50) + '...');
       claudeSession.stdin.write(input + '\n');
     } else {
       // 対話セッションがない場合は -p オプションで単発実行
@@ -193,16 +199,15 @@ wss.on('connection', (ws) => {
 
   // Claude Codeを-pオプションで実行する関数
   function executeClaudeWithPrint(prompt, ws) {
-    console.log('🤖 Claude -p 実行:', prompt);
+    debugLog('🤖 Claude -p 実行:', prompt.substring(0, 50) + '...');
     
     const claudePath = '/opt/homebrew/bin/claude';
     
     // CLAUDE.mdの内容をプロンプトの先頭に追加
     const fullPrompt = CLAUDE_MD_CONTENT ? CLAUDE_MD_CONTENT + '\n' + prompt : prompt;
-    console.log('WebSocket Server: fullPrompt for Claude (raw):', fullPrompt);
-    console.log('WebSocket Server: fullPrompt for Claude (truncated):', fullPrompt.substring(0, 500) + '...');
+    // セキュリティ上の理由でCLAUDE.md内容の詳細ログは出力しない
+    debugLog('WebSocket Server: Claude実行準備完了, プロンプト長:', fullPrompt.length, '文字');
     const args = ['-p', fullPrompt];
-    console.log('WebSocket Server: args for Claude spawn:', args);
     
     const claudeProcess = spawn(claudePath, args, {
       cwd: process.cwd(),
@@ -217,7 +222,7 @@ wss.on('connection', (ws) => {
 
     claudeProcess.stdout.on('data', (data) => {
       const output = data.toString();
-      console.log('📤 Claude出力:', output);
+      debugLog('📤 Claude出力(-p):', output.substring(0, 100) + '...');
       ws.send(JSON.stringify({
         type: 'output',
         message: output
@@ -226,7 +231,7 @@ wss.on('connection', (ws) => {
 
     claudeProcess.stderr.on('data', (data) => {
       const error = data.toString();
-      console.log('❌ Claudeエラー:', error);
+      errorLog('❌ Claudeエラー:', error);
       ws.send(JSON.stringify({
         type: 'error',
         message: error
@@ -234,7 +239,7 @@ wss.on('connection', (ws) => {
     });
 
     claudeProcess.on('close', (code) => {
-      console.log(`🔚 Claude -p プロセス終了 コード: ${code}`);
+      infoLog(`🔚 Claude -p プロセス終了 コード: ${code}`);
       ws.send(JSON.stringify({
         type: 'output',
         message: `\r\n✨ 回答完了\r\n`
@@ -253,7 +258,7 @@ wss.on('connection', (ws) => {
   // Claude対話セッションを停止する関数
   function stopClaudeSession(ws) {
     if (claudeSession) {
-      console.log('🛑 Claude対話セッション停止');
+      infoLog('🛑 Claude対話セッション停止');
       claudeSession.kill('SIGTERM');
       isClaudeInteractive = false;
       claudeSession = null;
@@ -266,7 +271,7 @@ wss.on('connection', (ws) => {
 
   // Claude Codeコマンドを実行する関数
   function executeClaudeCommand(command, ws) {
-    console.log('🤖 Claude Code実行:', command);
+    debugLog('🤖 Claude Code実行:', command);
     
     // Claude Codeのパスを設定（実際のインストールパスに合わせて調整）
     const claudePath = '/opt/homebrew/bin/claude'; // Claude Codeの実際のパス
@@ -281,7 +286,7 @@ wss.on('connection', (ws) => {
 
     currentProcess.stdout.on('data', (data) => {
       const output = data.toString();
-      console.log('📤 Claude出力:', output);
+      debugLog('📤 Claude出力(-p):', output.substring(0, 100) + '...');
       ws.send(JSON.stringify({
         type: 'output',
         message: output
@@ -290,7 +295,7 @@ wss.on('connection', (ws) => {
 
     currentProcess.stderr.on('data', (data) => {
       const error = data.toString();
-      console.log('❌ Claudeエラー:', error);
+      errorLog('❌ Claudeエラー:', error);
       ws.send(JSON.stringify({
         type: 'error',
         message: error
@@ -298,7 +303,7 @@ wss.on('connection', (ws) => {
     });
 
     currentProcess.on('close', (code) => {
-      console.log(`🔚 Claudeプロセス終了 コード: ${code}`);
+      infoLog(`🔚 Claudeプロセス終了 コード: ${code}`);
       ws.send(JSON.stringify({
         type: 'output',
         message: `\r\nプロセスが終了しました (コード: ${code})\r\n`
@@ -318,7 +323,7 @@ wss.on('connection', (ws) => {
 
   // シェルコマンドを実行する関数
   function executeShellCommand(command, ws) {
-    console.log('💻 シェル実行:', command);
+    debugLog('💻 シェル実行:', command);
     
     currentProcess = spawn(command, {
       cwd: process.cwd(),

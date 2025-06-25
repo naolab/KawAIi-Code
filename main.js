@@ -7,6 +7,12 @@ const { spawn } = require('child_process');
 const VoiceService = require('./src/voiceService');
 const appConfig = require('./src/appConfig');
 
+// ログレベル制御（本番環境では詳細ログを無効化）
+const isProduction = process.env.NODE_ENV === 'production' || app.isPackaged;
+const debugLog = isProduction ? () => {} : console.log;
+const infoLog = console.log; // 重要な情報は常に出力
+const errorLog = console.error; // エラーは常に出力
+
 let mainWindow;
 let terminalProcess;
 let voiceService;
@@ -60,7 +66,7 @@ function createWindow() {
 // Start Next.js server before creating window
 async function startNextjsServer() {
   return new Promise(async (resolve, reject) => {
-    console.log('Starting Next.js server...');
+    infoLog('Next.jsサーバーを起動中...');
 
     // CLAUDE.mdは各プロセスが直接読み込むため、ここでの読み込みは不要
     
@@ -77,7 +83,7 @@ async function startNextjsServer() {
     });
 
     websocketProcess.stdout.on('data', (data) => {
-      console.log('WebSocket:', data.toString().trim());
+      debugLog('WebSocket:', data.toString().trim());
     });
 
     websocketProcess.stderr.on('data', (data) => {
@@ -89,7 +95,7 @@ async function startNextjsServer() {
     });
 
     websocketProcess.on('close', (code) => {
-      console.log(`WebSocket server exited with code ${code}`);
+      infoLog(`WebSocketサーバーが終了: コード ${code}`);
       websocketProcess = null;
     });
 
@@ -97,7 +103,7 @@ async function startNextjsServer() {
       ...process.env,
       PORT: '3002'
     };
-    console.log('Starting Next.js server on port 3002');
+    infoLog('Next.jsサーバーをポート3002で起動');
 
     nextjsProcess = spawn('npm', ['run', 'dev'], {
       cwd: nextjsPath,
@@ -107,17 +113,17 @@ async function startNextjsServer() {
 
     nextjsProcess.stdout.on('data', (data) => {
       const output = data.toString();
-      console.log('Next.js:', output);
+      debugLog('Next.js:', output);
       
       // Check if server is ready
       if (output.includes('Ready in') || output.includes('ready started server')) {
-        console.log('Next.js server is ready!');
+        infoLog('Next.jsサーバーが準備完了!');
         resolve();
       }
     });
 
     nextjsProcess.stderr.on('data', (data) => {
-      console.log('Next.js stderr:', data.toString());
+      debugLog('Next.js stderr:', data.toString());
     });
 
     nextjsProcess.on('error', (error) => {
@@ -127,7 +133,7 @@ async function startNextjsServer() {
 
     // Timeout after 30 seconds
     setTimeout(() => {
-      console.log('Next.js server ready (timeout)');
+      infoLog('Next.jsサーバー準備完了 (タイムアウト)');
       resolve();
     }, 30000);
   });
@@ -164,7 +170,7 @@ app.on('activate', () => {
 
 // Claude Code process management
 ipcMain.handle('terminal-start', async () => {
-  console.log('Starting Claude Code process...');
+  infoLog('Claude Codeプロセスを起動中...');
   
   // Claude Codeのパスを取得（複数の可能なパスをチェック）
   let claudePath = process.env.CLAUDE_PATH;
@@ -181,7 +187,7 @@ ipcMain.handle('terminal-start', async () => {
       try {
         require('fs').accessSync(testPath, require('fs').constants.F_OK);
         claudePath = testPath;
-        console.log('Found Claude Code at:', claudePath);
+        debugLog('Claude Codeが見つかりました:', claudePath);
         break;
       } catch (error) {
         // このパスは存在しない、次を試す
@@ -196,15 +202,15 @@ ipcMain.handle('terminal-start', async () => {
   }
 
   if (terminalProcess) {
-    console.log('Killing existing process...');
+    debugLog('既存プロセスを終了中...');
     terminalProcess.kill();
   }
 
   try {
     // Start Claude Code with proper PTY for full terminal support
-    console.log('Starting Claude Code with PTY...');
-    console.log('Claude Code Path:', claudePath);
-    console.log('Claude Code CWD:', claudeWorkingDir);
+    debugLog('Claude CodeをPTYで起動中...');
+    debugLog('Claude Code Path:', claudePath);
+    debugLog('Claude Code CWD:', claudeWorkingDir);
     
     terminalProcess = pty.spawn(claudePath, [], {
       name: 'xterm-color',
@@ -219,10 +225,10 @@ ipcMain.handle('terminal-start', async () => {
       }
     });
 
-    console.log('Claude Code started with PTY, PID:', terminalProcess.pid);
+    infoLog('Claude Code起動完了, PID:', terminalProcess.pid);
 
     terminalProcess.onData((data) => {
-      console.log('Claude PTY data:', data);
+      debugLog('Claude PTY data:', data);
       if (mainWindow) {
         mainWindow.webContents.send('terminal-data', data);
         
@@ -239,7 +245,7 @@ ipcMain.handle('terminal-start', async () => {
     });
 
     terminalProcess.onExit(({ exitCode, signal }) => {
-      console.log('Claude Code exited:', { exitCode, signal });
+      infoLog('Claude Code終了:', { exitCode, signal });
       if (mainWindow) {
         mainWindow.webContents.send('terminal-exit', exitCode);
       }
@@ -256,7 +262,7 @@ ipcMain.handle('terminal-start', async () => {
 ipcMain.handle('terminal-write', (event, data) => {
   if (terminalProcess) {
     try {
-      console.log('Writing to Claude Code:', data);
+      debugLog('Claude Codeに書き込み:', data);
       terminalProcess.write(data);
       return { success: true };
     } catch (error) {
@@ -283,7 +289,7 @@ ipcMain.handle('terminal-resize', (event, cols, rows) => {
 ipcMain.handle('terminal-stop', () => {
   if (terminalProcess) {
     try {
-      console.log('Stopping Claude Code...');
+      infoLog('Claude Codeを停止中...');
       terminalProcess.kill();
       terminalProcess = null;
       return { success: true };
@@ -306,13 +312,13 @@ ipcMain.handle('open-directory-dialog', async () => {
     });
 
     if (canceled) {
-      console.log('ディレクトリ選択がキャンセルされました。');
+      debugLog('ディレクトリ選択がキャンセルされました。');
       return { success: true, path: null }; // キャンセルされたことを通知
     } else {
       const newCwd = filePaths[0];
       claudeWorkingDir = newCwd; // グローバル変数を更新
       await appConfig.set('claudeWorkingDir', newCwd);
-      console.log('Claude Code 作業ディレクトリが設定されました:', newCwd);
+      infoLog('Claude Code 作業ディレクトリが設定されました:', newCwd);
       return { success: true, path: newCwd };
     }
   } catch (error) {
@@ -408,14 +414,14 @@ ipcMain.handle('voice-stop', () => {
 ipcMain.handle('load-vrm-file', async (event, filename) => {
   try {
     const vrmPath = path.join(__dirname, filename);
-    console.log('Loading VRM file from:', vrmPath);
+    debugLog('VRMファイル読み込み中:', vrmPath);
     
     if (!fs.existsSync(vrmPath)) {
       throw new Error(`VRM file not found: ${vrmPath}`);
     }
     
     const vrmData = fs.readFileSync(vrmPath);
-    console.log('VRM file loaded, size:', vrmData.length, 'bytes');
+    debugLog('VRMファイル読み込み完了, サイズ:', vrmData.length, 'bytes');
     
     return { 
       success: true, 
@@ -473,7 +479,7 @@ ipcMain.handle('wallpaper-upload', async (event, fileData) => {
     const buffer = Buffer.from(fileData.data);
     fs.writeFileSync(filePath, buffer);
     
-    console.log('壁紙アップロード完了:', filename);
+    infoLog('壁紙アップロード完了:', filename);
     
     return { 
       success: true, 
@@ -492,7 +498,7 @@ ipcMain.handle('wallpaper-delete', async (event, filename) => {
     
     if (fs.existsSync(wallpaperPath)) {
       fs.unlinkSync(wallpaperPath);
-      console.log('壁紙削除完了:', filename);
+      infoLog('壁紙削除完了:', filename);
       return { success: true };
     } else {
       return { success: false, error: 'ファイルが見つかりません' };
