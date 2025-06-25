@@ -126,7 +126,8 @@ class TerminalApp {
         this.isProcessingChat = false;
         this.claudeWorkingDir = ''; // Claude Code作業ディレクトリの初期値
 
-        
+        // 時間帯別壁紙切り替え用タイマー
+        this.wallpaperTimer = null;
         
         // 読み上げ履歴管理
         this.speechHistory = new SpeechHistoryManager(50);
@@ -1106,6 +1107,7 @@ class TerminalApp {
                 if (uploadedWallpaperNameSpan) uploadedWallpaperNameSpan.textContent = '';
 
                 if (uploadedRadio && lastUploadedWallpaper && (savedWallpaperChoice === 'uploaded' || (savedWallpaperChoice === null && savedUploadedWallpaper))) {
+                    // アップロードされた壁紙が存在し、それが選択されていた、または以前アップロード済みの場合
                     uploadedRadio.checked = true;
                     if (uploadedWallpaperNameSpan) {
                         uploadedWallpaperNameSpan.textContent = `現在の壁紙: ${lastUploadedWallpaper.name}`;
@@ -1113,12 +1115,14 @@ class TerminalApp {
                     this.applyWallpaper(lastUploadedWallpaper.filename);
                     localStorage.setItem('selectedWallpaperChoice', 'uploaded');
                     localStorage.setItem('lastUploadedWallpaper', lastUploadedWallpaper.filename);
+                    this.stopWallpaperTimer(); // アップロード済み壁紙が選択されたらタイマーを停止
                 } else if (defaultRadio) {
                     // それ以外の場合はデフォルト壁紙を選択
                     defaultRadio.checked = true;
                     this.applyWallpaper('default');
                     localStorage.setItem('selectedWallpaperChoice', 'default');
                     localStorage.removeItem('lastUploadedWallpaper'); // デフォルト選択時はクリア
+                    this.startWallpaperTimer(); // デフォルト壁紙が選択されたらタイマーを開始
                 }
 
                 // アップロードした壁紙がない場合は、「アップロードした壁紙を使用する」を選択不可にする
@@ -1155,6 +1159,7 @@ class TerminalApp {
                     localStorage.setItem('selectedWallpaperChoice', 'default');
                     localStorage.removeItem('lastUploadedWallpaper');
                     if (uploadedWallpaperNameSpan) uploadedWallpaperNameSpan.textContent = '';
+                    this.startWallpaperTimer(); // デフォルト壁紙が選択されたらタイマーを開始
                 }
             });
         }
@@ -1162,6 +1167,7 @@ class TerminalApp {
         if (uploadedRadio) {
             uploadedRadio.addEventListener('change', async () => {
                 if (uploadedRadio.checked) {
+                    this.stopWallpaperTimer(); // アップロード済み壁紙が選択されたらタイマーを停止
                     const response = await window.electronAPI.wallpaper.getWallpaperList();
                     if (response.success && response.wallpapers.length > 0) {
                         // 最新のアップロードされた壁紙を適用
@@ -1180,6 +1186,7 @@ class TerminalApp {
                         localStorage.removeItem('lastUploadedWallpaper');
                         if (uploadedWallpaperNameSpan) uploadedWallpaperNameSpan.textContent = '';
                         this.addVoiceMessage('クロード', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
+                        this.startWallpaperTimer(); // デフォルト壁紙に戻るのでタイマーを開始
                     }
                 }
             });
@@ -1198,6 +1205,7 @@ class TerminalApp {
                         // アップロード成功後、自動選択は行わず、loadWallpaperListでUIを更新
                         // loadWallpaperListがlocalStorageと現在の壁紙の状態に基づいて適切にラジオボタンを設定する
                         uploadedRadio.disabled = false; // アップロード済み壁紙が利用可能になったので有効化
+                        this.stopWallpaperTimer(); // アップロード時はタイマーを停止 (loadWallpaperListで再開される可能性あり)
                     }
                 }
             });
@@ -1210,7 +1218,22 @@ class TerminalApp {
         
         if (wallpaperName === 'default') {
             // デフォルト壁紙
-            const defaultWallpaperPath = 'assets/wallpapers/default/default.png';
+            const currentHour = new Date().getHours();
+            let defaultWallpaperFileName = 'default.png'; // Fallback, though we expect specific files
+
+            if (currentHour >= 4 && currentHour < 6) {
+                defaultWallpaperFileName = 'default_morning_evening.jpg';
+            } else if (currentHour >= 6 && currentHour < 17) {
+                defaultWallpaperFileName = 'default_noon.jpg';
+            } else if (currentHour >= 17 && currentHour < 19) {
+                defaultWallpaperFileName = 'default_morning_evening.jpg';
+            } else if (currentHour >= 19 && currentHour <= 23) { // 19:00 - 23:59
+                defaultWallpaperFileName = 'default_night.jpg';
+            } else { // 0:00 - 3:59
+                defaultWallpaperFileName = 'default_latenight.jpg';
+            }
+            
+            const defaultWallpaperPath = `assets/wallpapers/default/${defaultWallpaperFileName}`;
             body.style.background = `url('${defaultWallpaperPath}') center/cover fixed`;
             body.style.backgroundAttachment = 'fixed';
         } else {
@@ -1298,6 +1321,31 @@ class TerminalApp {
             debugError('壁紙アップロードエラー:', error);
             alert('壁紙のアップロードに失敗しました');
             return { success: false, error: error.message };
+        }
+    }
+
+    // 壁紙タイマーを開始
+    startWallpaperTimer() {
+        if (this.wallpaperTimer) {
+            clearInterval(this.wallpaperTimer);
+        }
+        // 1分ごとに壁紙をチェックして適用（デバッグ用、本番は1時間ごとなど調整可能）
+        this.wallpaperTimer = setInterval(() => {
+            const defaultRadio = document.getElementById('wallpaper-default-radio');
+            if (defaultRadio && defaultRadio.checked) {
+                debugLog('Wallpaper timer triggered: Applying default wallpaper.');
+                this.applyWallpaper('default');
+            }
+        }, 60 * 1000); // 1分ごと
+        debugLog('Wallpaper timer started.');
+    }
+
+    // 壁紙タイマーを停止
+    stopWallpaperTimer() {
+        if (this.wallpaperTimer) {
+            clearInterval(this.wallpaperTimer);
+            this.wallpaperTimer = null;
+            debugLog('Wallpaper timer stopped.');
         }
     }
 
