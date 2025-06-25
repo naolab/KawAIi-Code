@@ -1382,21 +1382,38 @@ class TerminalApp {
             const baseSettingsPath = path.join(srcPath, 'character_settings', 'base_settings.md');
             const baseSettings = await fs.promises.readFile(baseSettingsPath, 'utf8');
             
-            // 選択されたキャラクターを読み込み
-            let selectedCharacter = 'shy'; // デフォルト
-            if (window.electronAPI && window.electronAPI.config) {
-                try {
-                    selectedCharacter = await window.electronAPI.config.get('selectedCharacter', 'shy');
-                } catch (configError) {
-                    debugError('Failed to get character config, using default:', configError);
+            // 全てのキャラクター設定ファイルを読み込み
+            const characterSettingsDir = path.join(srcPath, 'character_settings');
+            const characterFiles = await fs.promises.readdir(characterSettingsDir);
+            
+            // .mdファイルのみをフィルタリング（base_settings.md以外）
+            const characterMdFiles = characterFiles.filter(file => 
+                file.endsWith('.md') && file !== 'base_settings.md'
+            );
+            
+            let allCharacterSettings = '';
+            
+            // 照れ屋キャラクターを最初に追加（デフォルト）
+            const shyFile = characterMdFiles.find(file => file === 'shy.md');
+            if (shyFile) {
+                const shyPath = path.join(characterSettingsDir, shyFile);
+                const shyContent = await fs.promises.readFile(shyPath, 'utf8');
+                allCharacterSettings += '\n\n---\n\n' + shyContent;
+                debugLog('Loaded default character: shy');
+            }
+            
+            // 他のキャラクター設定を追加
+            for (const file of characterMdFiles) {
+                if (file !== 'shy.md') { // 照れ屋は既に追加済み
+                    const characterPath = path.join(characterSettingsDir, file);
+                    const characterContent = await fs.promises.readFile(characterPath, 'utf8');
+                    allCharacterSettings += '\n\n---\n\n' + characterContent;
+                    debugLog('Loaded character:', file.replace('.md', ''));
                 }
             }
             
-            const characterPath = path.join(srcPath, 'character_settings', `${selectedCharacter}.md`);
-            const characterSettings = await fs.promises.readFile(characterPath, 'utf8');
-            
             // 設定を統合
-            this.claudeMdContent = baseSettings + '\n\n---\n\n' + characterSettings;
+            this.claudeMdContent = baseSettings + allCharacterSettings;
             
             
             // ホームディレクトリにCLAUDE.mdファイルを作成または更新
