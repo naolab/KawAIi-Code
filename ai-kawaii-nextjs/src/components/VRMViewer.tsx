@@ -13,7 +13,7 @@ import { LipSync } from '@/features/lipSync/lipSync'
 const isProduction = process.env.NODE_ENV === 'production'
 const debugLog = isProduction ? () => {} : console.log
 const infoLog = console.log // 重要な情報は常に出力
-const errorLog = console.error // エラーは常に出力
+// const errorLog = console.error // エラーは常に出力（未使用のためコメントアウト）
 
 interface VRMViewerProps {
   className?: string
@@ -256,7 +256,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       //   作者: ${(vrm.meta as Record<string, unknown>)?.author || '不明'}
       // `)
       
-      infoLog('VRM読み込み成功:', vrm?.meta?.name || 'Unknown')
+      infoLog('VRM読み込み成功')
     } catch (err) {
       console.error('VRM loading error:', err)
       setError(err instanceof Error ? err.message : 'VRMの読み込みに失敗しました')
@@ -330,7 +330,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
         setVrmInfo('')
       }
 
-      infoLog('デフォルトVRM読み込み成功:', vrm?.meta?.name || 'Unknown')
+      infoLog('デフォルトVRM読み込み成功')
     } catch (err) {
       console.error('Default VRM loading error:', err)
       setError('デフォルトVRMの読み込みに失敗しました')

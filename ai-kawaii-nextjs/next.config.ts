@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "export", // 静的エクスポートを有効化
   trailingSlash: true, // Electronでの読み込み互換性
+  // assetPrefix: '.', // 相対パス（Next.js 15では使用不可）
   // 開発用インジケーターを完全無効化 (非推奨のため削除)
   // devIndicators: {
   //   buildActivity: false,
@@ -36,6 +37,9 @@ const nextConfig: NextConfig = {
     if (!isServer) {
       config.output.publicPath = './_next/';
     }
+    
+    // アセットの相対パス出力を強制
+    config.output.assetModuleFilename = './_next/static/media/[hash][ext][query]';
 
     return config;
   },

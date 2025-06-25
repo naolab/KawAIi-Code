@@ -52,6 +52,7 @@ temp/
 # Next.js build output and cache
 .next/
 ai-kawaii-nextjs/.next/
+ai-kawaii-nextjs/out/  # 静的エクスポート出力（ビルド時に自動生成）
 next-env.d.ts
 *.tsbuildinfo
 
