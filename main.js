@@ -437,7 +437,7 @@ ipcMain.handle('load-vrm-file', async (event, filename) => {
 // 壁紙システムのハンドラー
 ipcMain.handle('wallpaper-get-list', async () => {
   try {
-    const wallpaperDir = path.join(__dirname, 'src', 'assets', 'wallpapers', 'user');
+    const wallpaperDir = path.join(app.getPath('userData'), 'wallpapers', 'user');
     
     // ディレクトリが存在しない場合は作成
     if (!fs.existsSync(wallpaperDir)) {
@@ -462,7 +462,7 @@ ipcMain.handle('wallpaper-get-list', async () => {
 
 ipcMain.handle('wallpaper-upload', async (event, fileData) => {
   try {
-    const wallpaperDir = path.join(__dirname, 'src', 'assets', 'wallpapers', 'user');
+    const wallpaperDir = path.join(app.getPath('userData'), 'wallpapers', 'user');
     
     // ディレクトリが存在しない場合は作成
     if (!fs.existsSync(wallpaperDir)) {
@@ -494,7 +494,7 @@ ipcMain.handle('wallpaper-upload', async (event, fileData) => {
 
 ipcMain.handle('wallpaper-delete', async (event, filename) => {
   try {
-    const wallpaperPath = path.join(__dirname, 'src', 'assets', 'wallpapers', 'user', filename);
+    const wallpaperPath = path.join(app.getPath('userData'), 'wallpapers', 'user', filename);
     
     if (fs.existsSync(wallpaperPath)) {
       fs.unlinkSync(wallpaperPath);
@@ -505,6 +505,16 @@ ipcMain.handle('wallpaper-delete', async (event, filename) => {
     }
   } catch (error) {
     console.error('壁紙削除エラー:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ★ 新しいIPCハンドラ: ユーザーデータディレクトリのパスを取得
+ipcMain.handle('get-user-data-path', () => {
+  try {
+    return { success: true, path: app.getPath('userData') };
+  } catch (error) {
+    console.error('ユーザーデータパスの取得に失敗しました:', error);
     return { success: false, error: error.message };
   }
 });

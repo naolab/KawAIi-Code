@@ -62,6 +62,7 @@ window.electronAPI = {
     ipcRenderer.on("update-connection-status", callback),
   openDirectoryDialog: () => ipcRenderer.invoke("open-directory-dialog"),
   getClaudeCwd: () => ipcRenderer.invoke("get-claude-cwd"),
+  getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
 
   fs: require('fs'), // fsモジュールを公開
   path: require('path'), // pathモジュールを公開

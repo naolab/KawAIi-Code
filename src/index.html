@@ -22,7 +22,6 @@
                     <span class="gear-diagonal"></span>
                 </button>
                 <button id="help-btn" class="settings-btn help-btn" aria-label="使い方を見る">
-                    <span style="color: red; font-size: 20px; font-weight: bold;">?</span>
                 </button>
             </div>
             <div class="controls">
@@ -95,13 +94,20 @@
                     <!-- 壁紙設定セクション -->
                     <div class="setting-group">
                         <label>壁紙設定</label>
-                        <div class="wallpaper-controls">
-                            <select id="wallpaper-select" class="wallpaper-select">
-                                <option value="default">デフォルト壁紙</option>
-                            </select>
+                        <div class="wallpaper-controls" style="display: flex; flex-direction: column; gap: 10px;">
+                            <label class="radio-label">
+                                <input type="radio" name="wallpaper-option" id="wallpaper-default-radio" value="default">
+                                <span>デフォルト壁紙を使用する</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="wallpaper-option" id="wallpaper-uploaded-radio" value="uploaded">
+                                <span>アップロードした壁紙を使用する</span>
+                            </label>
                             <input type="file" id="wallpaper-upload" accept="image/*" style="display: none;">
-                            <button id="upload-wallpaper-btn" class="simple-btn">壁紙をアップロード</button>
-                            <button id="reset-wallpaper-btn" class="simple-btn">リセット</button>
+                            <button id="upload-wallpaper-btn" class="simple-btn" style="width: auto;">壁紙をアップロード</button>
+                            <button id="reset-wallpaper-btn" class="simple-btn" style="width: auto;">アップロードした壁紙をリセット</button>
+                            <!-- アップロードした壁紙の名前を表示する要素を追加 -->
+                            <span id="uploaded-wallpaper-name" style="font-size: 13px; color: #555; word-break: break-all; min-height: 20px;"></span>
                         </div>
                     </div>
                     
@@ -142,8 +148,8 @@
                             <strong>設定ボタン（歯車）:</strong> 音声読み上げ、壁紙、作業ディレクトリなどの設定を変更できます
                         </div>
                         <div class="help-item">
-                            <span class="help-icon">?</span>
-                            <strong>ヘルプボタン（?）:</strong> この使い方ガイドを表示します
+                            <span class="help-icon"></span>
+                            <strong>ヘルプボタン:</strong> この使い方ガイドを表示します
                         </div>
                     </div>
                     
