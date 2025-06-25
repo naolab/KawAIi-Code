@@ -141,6 +141,7 @@ async function startNextjsServer() {
 
 app.whenReady().then(async () => {
   await startNextjsServer();
+
   createWindow();
 });
 
