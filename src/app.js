@@ -132,6 +132,7 @@ class TerminalApp {
         // 読み上げ履歴管理
         this.speechHistory = new SpeechHistoryManager(50);
         this.wallpaperAnimationEnabled = false; // デフォルト壁紙アニメーションの有効/無効
+        this.currentAppliedWallpaperFileName = null; // 現在適用されている壁紙のファイル名を保持
         
         this.init();
     }
@@ -1286,16 +1287,6 @@ class TerminalApp {
     async applyWallpaper() {
         const body = document.body;
 
-        // 既存の動画要素をクリア
-        const existingVideo = document.getElementById('wallpaper-video');
-        if (existingVideo) {
-            existingVideo.remove();
-            debugLog('既存の動画壁紙を削除しました。');
-        }
-        // 既存の静止画背景をクリア
-        body.style.background = '';
-        body.style.backgroundAttachment = '';
-
         const currentHour = new Date().getHours();
         let baseFileName = '';
 
@@ -1312,13 +1303,61 @@ class TerminalApp {
             baseFileName = 'default_latenight';
         }
 
+        let newWallpaperPath = null;
+
+        if (this.currentWallpaperOption === 'default') {
+            if (this.wallpaperAnimationEnabled) {
+                newWallpaperPath = `assets/wallpapers/default/${baseFileName}.mp4`;
+            } else {
+                newWallpaperPath = `assets/wallpapers/default/${baseFileName}.jpg`;
+            }
+        } else if (this.currentWallpaperOption === 'uploaded') {
+            // ユーザー壁紙の場合は、最新のアップロードされた壁紙のパスを取得する
+            const response = await window.electronAPI.wallpaper.getWallpaperList();
+            if (response.success && response.wallpapers.length > 0) {
+                const latestWallpaper = response.wallpapers[response.wallpapers.length - 1];
+                const userDataPathResponse = await window.electronAPI.getUserDataPath();
+                if (userDataPathResponse.success) {
+                    newWallpaperPath = `file://${userDataPathResponse.path}/wallpapers/user/${latestWallpaper.filename}`;
+                }
+            } else {
+                // アップロードされた壁紙がない場合はデフォルトに戻す（再帰呼び出しを防ぐため直接処理）
+                this.currentWallpaperOption = 'default';
+                localStorage.setItem('wallpaperOption', 'default');
+                document.getElementById('wallpaper-default-radio').checked = true;
+                this.addVoiceMessage('クロード', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
+                // ここでnewWallpaperPathを更新し、下の比較ロジックで再適用されるようにする
+                if (this.wallpaperAnimationEnabled) {
+                    newWallpaperPath = `assets/wallpapers/default/${baseFileName}.mp4`;
+                } else {
+                    newWallpaperPath = `assets/wallpapers/default/${baseFileName}.jpg`;
+                }
+            }
+        }
+
+        // 現在適用されている壁紙と新しい壁紙のパスが同じなら何もしない
+        if (newWallpaperPath === this.currentAppliedWallpaperFileName) {
+            debugLog(`現在の壁紙は既に適用済みです: ${newWallpaperPath}`);
+            return;
+        }
+
+        // 異なる場合は、既存の要素をクリアして新しい壁紙を適用
+        // 既存の動画要素をクリア
+        const existingVideo = document.getElementById('wallpaper-video');
+        if (existingVideo) {
+            existingVideo.remove();
+            debugLog('既存の動画壁紙を削除しました。');
+        }
+        // 既存の静止画背景をクリア
+        body.style.background = '';
+        body.style.backgroundAttachment = '';
+
         if (this.currentWallpaperOption === 'default') {
             if (this.wallpaperAnimationEnabled) {
                 // 動画壁紙を適用
-                const videoPath = `assets/wallpapers/default/${baseFileName}.mp4`;
                 const video = document.createElement('video');
                 video.id = 'wallpaper-video';
-                video.src = videoPath;
+                video.src = newWallpaperPath; // newWallpaperPathを使用
                 video.loop = true;
                 video.autoplay = true;
                 video.muted = true;
@@ -1334,13 +1373,12 @@ class TerminalApp {
                     z-index: -1;
                 `;
                 body.prepend(video); // bodyの最初に挿入
-                debugLog(`動画壁紙を適用: ${videoPath}`);
+                debugLog(`動画壁紙を適用: ${newWallpaperPath}`);
             } else {
                 // 静止画壁紙を適用
-                const imagePath = `assets/wallpapers/default/${baseFileName}.jpg`; // デフォルト静止画は.jpgを想定
-                body.style.background = `url('${imagePath}') center/cover fixed`;
+                body.style.background = `url('${newWallpaperPath}') center/cover fixed`; // newWallpaperPathを使用
                 body.style.backgroundAttachment = 'fixed';
-                debugLog(`静止画壁紙を適用: ${imagePath}`);
+                debugLog(`静止画壁紙を適用: ${newWallpaperPath}`);
             }
             this.startWallpaperTimer(); // デフォルト壁紙なのでタイマーを開始
         } else if (this.currentWallpaperOption === 'uploaded') {
@@ -1348,32 +1386,9 @@ class TerminalApp {
             this.stopWallpaperTimer(); // アップロード済み壁紙なのでタイマーを停止
 
             try {
-                const response = await window.electronAPI.wallpaper.getWallpaperList();
-                if (response.success && response.wallpapers.length > 0) {
-                    const latestWallpaper = response.wallpapers[response.wallpapers.length - 1];
-                    const userDataPathResponse = await window.electronAPI.getUserDataPath();
-                    if (userDataPathResponse.success) {
-                        const userDataPath = userDataPathResponse.path;
-                        const wallpaperPath = `file://${userDataPath}/wallpapers/user/${latestWallpaper.filename}`;
-                        body.style.background = `url('${wallpaperPath}') center/cover fixed`;
-                        body.style.backgroundAttachment = 'fixed';
-                        debugLog(`アップロード済み壁紙を適用: ${wallpaperPath}`);
-                    } else {
-                        debugError('ユーザーデータパスの取得に失敗しました:', userDataPathResponse.error);
-                        this.currentWallpaperOption = 'default';
-                        localStorage.setItem('wallpaperOption', 'default');
-                        document.getElementById('wallpaper-default-radio').checked = true;
-                        this.applyWallpaper(); // フォールバック
-                        this.addVoiceMessage('クロード', 'アップロードされた壁紙の読み込みに失敗したため、デフォルト壁紙に戻したよ！');
-                    }
-                } else {
-                    debugLog('アップロードされた壁紙がないため、デフォルト壁紙に戻します。');
-                    this.currentWallpaperOption = 'default';
-                    localStorage.setItem('wallpaperOption', 'default');
-                    document.getElementById('wallpaper-default-radio').checked = true;
-                    this.applyWallpaper(); // 再帰的に呼び出してデフォルトを適用
-                    this.addVoiceMessage('クロード', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
-                }
+                body.style.background = `url('${newWallpaperPath}') center/cover fixed`; // newWallpaperPathを使用
+                body.style.backgroundAttachment = 'fixed';
+                debugLog(`アップロード済み壁紙を適用: ${newWallpaperPath}`);
             } catch (error) {
                 debugError('壁紙適用エラー（ユーザー壁紙）:', error);
                 this.currentWallpaperOption = 'default';
@@ -1383,6 +1398,9 @@ class TerminalApp {
                 this.addVoiceMessage('クロード', 'アップロードされた壁紙の読み込み中にエラーが発生したため、デフォルト壁紙に戻したよ！');
             }
         }
+
+        // 現在適用されている壁紙のファイル名を更新
+        this.currentAppliedWallpaperFileName = newWallpaperPath;
     }
 
     // 壁紙をアップロード
