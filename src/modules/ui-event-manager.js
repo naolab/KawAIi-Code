@@ -256,15 +256,15 @@ class UIEventManager {
      * ボタンの有効・無効状態を更新
      */
     updateButtons() {
-        const startBtn = document.getElementById('start-terminal');
+        const startAiSelectionBtn = document.getElementById('start-ai-selection');
         const stopBtn = document.getElementById('stop-terminal');
         
-        if (startBtn && stopBtn) {
-            startBtn.disabled = this.app.isTerminalRunning;
+        if (startAiSelectionBtn && stopBtn) {
+            startAiSelectionBtn.disabled = this.app.isTerminalRunning;
             stopBtn.disabled = !this.app.isTerminalRunning;
             
             this.debugLog('Buttons updated:', {
-                startDisabled: startBtn.disabled,
+                startAiSelectionDisabled: startAiSelectionBtn.disabled,
                 stopDisabled: stopBtn.disabled,
                 isTerminalRunning: this.app.isTerminalRunning
             });
