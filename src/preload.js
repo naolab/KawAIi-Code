@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // contextIsolation: false なので、直接windowオブジェクトに設定
 window.electronAPI = {
   terminal: {
-    start: () => ipcRenderer.invoke('terminal-start'),
+    start: (aiType) => ipcRenderer.invoke('terminal-start', aiType),
     write: (data) => ipcRenderer.invoke('terminal-write', data),
     resize: (cols, rows) => ipcRenderer.invoke('terminal-resize', cols, rows),
     stop: () => ipcRenderer.invoke('terminal-stop'),

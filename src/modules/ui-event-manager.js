@@ -54,7 +54,7 @@ class UIEventManager {
      * モーダル関連のイベントリスナー設定
      */
     setupModalEventListeners() {
-        const startBtn = document.getElementById('start-terminal');
+        const startBtn = document.getElementById('start-ai-selection');
         const stopBtn = document.getElementById('stop-terminal');
         const settingsBtn = document.getElementById('settings-btn');
         const closeSettingsBtn = document.getElementById('close-settings');
@@ -62,6 +62,12 @@ class UIEventManager {
         const helpBtn = document.getElementById('help-btn');
         const closeHelpBtn = document.getElementById('close-help');
         const helpModal = document.getElementById('help-modal');
+
+        // AI選択モーダル用の要素を取得
+        const aiSelectModal = document.getElementById('ai-select-modal');
+        const closeAiSelectBtn = document.getElementById('close-ai-select');
+        const startClaudeBtn = document.getElementById('start-claude');
+        const startGeminiBtn = document.getElementById('start-gemini');
 
         // デバッグ用：要素の取得状況をログ出力
         this.debugLog('Modal elements check:', {
@@ -72,12 +78,46 @@ class UIEventManager {
             settingsModal: !!settingsModal,
             helpBtn: !!helpBtn,
             closeHelpBtn: !!closeHelpBtn,
-            helpModal: !!helpModal
+            helpModal: !!helpModal,
+            aiSelectModal: !!aiSelectModal,
+            closeAiSelectBtn: !!closeAiSelectBtn,
+            startClaudeBtn: !!startClaudeBtn,
+            startGeminiBtn: !!startGeminiBtn
         });
 
         // ターミナル制御ボタン
-        if (startBtn) startBtn.addEventListener('click', () => this.app.startTerminal());
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                if (aiSelectModal) aiSelectModal.style.display = 'flex';
+            });
+        }
         if (stopBtn) stopBtn.addEventListener('click', () => this.app.stopTerminal());
+
+        // AI選択モーダルのイベント
+        if (closeAiSelectBtn && aiSelectModal) {
+            closeAiSelectBtn.addEventListener('click', () => {
+                aiSelectModal.style.display = 'none';
+            });
+        }
+        if (startClaudeBtn && aiSelectModal) {
+            startClaudeBtn.addEventListener('click', () => {
+                this.app.startTerminal('claude');
+                aiSelectModal.style.display = 'none';
+            });
+        }
+        if (startGeminiBtn && aiSelectModal) {
+            startGeminiBtn.addEventListener('click', () => {
+                this.app.startTerminal('gemini');
+                aiSelectModal.style.display = 'none';
+            });
+        }
+        if (aiSelectModal) {
+            aiSelectModal.addEventListener('click', (e) => {
+                if (e.target === aiSelectModal) {
+                    aiSelectModal.style.display = 'none';
+                }
+            });
+        }
         
         // 設定モーダルのイベント
         if (settingsBtn && settingsModal) {

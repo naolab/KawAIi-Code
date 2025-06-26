@@ -11,6 +11,22 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
 </head>
 <body>
+    <!-- AI選択モーダル -->
+    <div id="ai-select-modal" class="settings-modal" style="display: none;">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h3>AIアシスタントを選択</h3>
+                <button id="close-ai-select" class="close-btn">×</button>
+            </div>
+            <div class="settings-body" style="text-align: center; padding: 30px;">
+                <div style="display: flex; justify-content: center; gap: 20px;">
+                    <button id="start-claude" class="simple-btn" style="width: 150px; background-color: #ff6b35;">Claude Code</button>
+                    <button id="start-gemini" class="simple-btn" style="width: 180px; background-color: #4285F4;">Gemini Code Assist</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         <div class="header">
             <div class="header-left">
@@ -25,8 +41,8 @@
                 </button>
             </div>
             <div class="controls">
-                <button id="start-terminal" class="simple-btn start-btn" aria-label="Claude Codeを開始"></button>
-                <button id="stop-terminal" class="simple-btn stop-btn" aria-label="Claude Codeを停止"></button>
+                <button id="start-ai-selection" class="simple-btn start-btn" aria-label="AIアシスタントを開始"></button>
+                <button id="stop-terminal" class="simple-btn stop-btn" aria-label="AIアシスタントを停止"></button>
             </div>
         </div>
         

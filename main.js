@@ -53,8 +53,8 @@ function createWindow() {
     }
   });
 
-  // DevTools for debugging (commented out for production)
-  // mainWindow.webContents.openDevTools();
+  // DevTools for debugging
+  mainWindow.webContents.openDevTools();
 
   // Initialize voice service
   voiceService = new VoiceService();
@@ -170,54 +170,80 @@ app.on('activate', () => {
 });
 
 // Claude Code process management
-ipcMain.handle('terminal-start', async () => {
-  infoLog('Claude Codeプロセスを起動中...');
-  
-  // Claude Codeのパスを取得（複数の可能なパスをチェック）
-  let claudePath = process.env.CLAUDE_PATH;
-  
-  if (!claudePath) {
-    const possiblePaths = [
-      '/opt/homebrew/bin/claude',
-      '/usr/local/bin/claude',
-      '/usr/bin/claude',
-      'claude'
-    ];
-    
-    for (const testPath of possiblePaths) {
-      try {
-        require('fs').accessSync(testPath, require('fs').constants.F_OK);
-        claudePath = testPath;
-        debugLog('Claude Codeが見つかりました:', claudePath);
-        break;
-      } catch (error) {
-        // このパスは存在しない、次を試す
-      }
+ipcMain.handle('terminal-start', async (event, aiType) => {
+  infoLog(`AIアシスタントの起動リクエストを受信: ${aiType}`);
+
+  const aiConfig = {
+    claude: {
+      name: 'Claude Code',
+      possiblePaths: [
+        process.env.CLAUDE_PATH,
+        '/opt/homebrew/bin/claude',
+        '/usr/local/bin/claude',
+        '/usr/bin/claude',
+        'claude'
+      ].filter(p => p)
+    },
+    gemini: {
+      name: 'Gemini Code Assist',
+      possiblePaths: [
+        process.env.GEMINI_PATH,
+        '/opt/homebrew/bin/gemini',
+        '/usr/local/bin/gemini',
+        '/usr/bin/gemini',
+        'gemini'
+      ].filter(p => p)
+    }
+  };
+
+  const selectedAI = aiConfig[aiType];
+  if (!selectedAI) {
+    const errorMsg = `無効なAIタイプが指定されました: ${aiType}`;
+    errorLog(errorMsg);
+    dialog.showErrorBox('起動エラー', errorMsg);
+    return { success: false, error: errorMsg };
+  }
+
+  infoLog(`${selectedAI.name} の実行パスを探索中...`);
+  let commandPath = '';
+  for (const testPath of selectedAI.possiblePaths) {
+    try {
+      fs.accessSync(testPath, fs.constants.F_OK);
+      commandPath = testPath;
+      infoLog(`実行可能ファイルを発見: ${commandPath}`);
+      break;
+    } catch (error) {
+      debugLog(`パスが見つかりません: ${testPath}`);
     }
   }
 
-  if (!claudePath) {
-    const errorMsg = 'Claude Codeが見つかりません。CLAUDE_PATH環境変数を設定するか、Claude Codeをインストールしてください。';
-    console.error(errorMsg);
+  if (!commandPath) {
+    const errorMsg = `${selectedAI.name} の実行可能ファイルが見つかりませんでした。
+
+以下の点を確認してください:
+- ${selectedAI.name} はインストールされていますか？
+- 環境変数PATHは正しく設定されていますか？
+- (必要であれば) CLAUDE_PATH または GEMINI_PATH 環境変数を設定してください。`;
+    errorLog(errorMsg);
+    dialog.showErrorBox('起動エラー', errorMsg);
     return { success: false, error: errorMsg };
   }
 
   if (terminalProcess) {
-    debugLog('既存プロセスを終了中...');
+    debugLog('既存のターミナルプロセスを終了中...');
     terminalProcess.kill();
   }
 
   try {
-    // Start Claude Code with proper PTY for full terminal support
-    debugLog('Claude CodeをPTYで起動中...');
-    debugLog('Claude Code Path:', claudePath);
-    debugLog('Claude Code CWD:', claudeWorkingDir);
+    infoLog(`${selectedAI.name}をPTYで起動します...`);
+    debugLog('実行パス:', commandPath);
+    debugLog('作業ディレクトリ:', claudeWorkingDir);
     
-    terminalProcess = pty.spawn(claudePath, [], {
+    terminalProcess = pty.spawn(commandPath, [], {
       name: 'xterm-color',
       cols: 80,
       rows: 24,
-      cwd: claudeWorkingDir, // ★ ユーザーが設定した作業ディレクトリを使用
+      cwd: claudeWorkingDir,
       env: {
         ...process.env,
         TERM: 'xterm-256color',
@@ -226,27 +252,17 @@ ipcMain.handle('terminal-start', async () => {
       }
     });
 
-    infoLog('Claude Code起動完了, PID:', terminalProcess.pid);
+    infoLog(`${selectedAI.name}起動完了, PID:`, terminalProcess.pid);
 
     terminalProcess.onData((data) => {
-      debugLog('Claude PTY data:', data);
+      debugLog(`PTY data from ${selectedAI.name}:`, data);
       if (mainWindow) {
         mainWindow.webContents.send('terminal-data', data);
-        
-        // 音声処理はレンダラープロセス側に一元化するため、この処理をコメントアウト
-        // Process for voice synthesis if enabled - 条件を緩和
-        // if (voiceService) {
-        //   const textToSpeak = voiceService.parseTerminalOutput(data);
-        //   if (textToSpeak) {
-        //     console.log('Voice synthesis approved for:', JSON.stringify(textToSpeak.substring(0, 50) + '...'));
-        //     mainWindow.webContents.send('voice-text-available', textToSpeak);
-        //   }
-        // }
       }
     });
 
     terminalProcess.onExit(({ exitCode, signal }) => {
-      infoLog('Claude Code終了:', { exitCode, signal });
+      infoLog(`${selectedAI.name}終了:`, { exitCode, signal });
       if (mainWindow) {
         mainWindow.webContents.send('terminal-exit', exitCode);
       }
@@ -255,7 +271,10 @@ ipcMain.handle('terminal-start', async () => {
 
     return { success: true };
   } catch (error) {
-    console.error('Failed to start Claude Code:', error);
+    errorLog(`Failed to start ${selectedAI.name}:`, error);
+    dialog.showErrorBox('起動失敗', `プロセスの起動中にエラーが発生しました。
+
+エラー内容: ${error.message}`);
     return { success: false, error: error.message };
   }
 });

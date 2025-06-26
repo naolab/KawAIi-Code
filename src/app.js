@@ -450,29 +450,28 @@ class TerminalApp {
         }
     }
 
-    async startTerminal() {
+    async startTerminal(aiType) {
         try {
             if (!window.electronAPI || !window.electronAPI.terminal) {
                 this.updateStatus('ElectronAPI not available');
                 return;
             }
+
+            const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
             
-            this.updateStatus('Starting Claude Code...');
-            const result = await window.electronAPI.terminal.start();
+            this.updateStatus(`Starting ${aiName}...`);
+            const result = await window.electronAPI.terminal.start(aiType);
             
             if (result.success) {
                 this.isTerminalRunning = true;
-                this.updateStatus('Claude Code running - Type your message and press Enter');
+                this.updateStatus(`${aiName} running - Type your message and press Enter`);
                 this.terminal.focus();
                 
-                // Show app welcome message
-                this.terminal.writeln('\x1b[90m🎀 KawAIi Code Integration Started! 🎀\x1b[0m');
-                this.terminal.writeln('\x1b[90mClaude Code is starting up...\x1b[0m');
+                this.terminal.writeln(`\x1b[90m🎀 KawAIi Code Integration Started! 🎀\x1b[0m`);
+                this.terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
                 
-                // 音声メッセージで通知
-                this.addVoiceMessage('クロード', 'Claude Codeが起動したよ〜！✨');
+                this.addVoiceMessage('クロード', `${aiName}が起動したよ〜！✨`);
                 
-                // Resize terminal to fit
                 setTimeout(() => {
                     this.fitAddon.fit();
                     window.electronAPI.terminal.resize(
@@ -481,11 +480,15 @@ class TerminalApp {
                     );
                 }, 100);
             } else {
-                this.updateStatus('Failed to start Claude Code');
+                // 失敗した場合、メインプロセスからの詳細なエラーメッセージを表示
+                const errorMessage = result.error || `Failed to start ${aiName}`;
+                this.updateStatus(errorMessage);
+                debugError(`Failed to start ${aiName}:`, errorMessage);
             }
         } catch (error) {
-            debugError('Error starting Claude Code:', error);
-            this.updateStatus('Error starting Claude Code');
+            const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
+            debugError(`Error starting ${aiName}:`, error);
+            this.updateStatus(`Error starting ${aiName}: ${error.message}`);
         }
         
         this.updateButtons();
