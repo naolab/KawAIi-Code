@@ -54,7 +54,7 @@ class TerminalApp {
         }
         
         this.setupTerminal();
-        this.setupEventListeners();
+        this.initializeUIEventManager(); // UI制御初期化
         this.setupChatInterface();
         this.initializeModules(); // モジュール初期化
         this.updateStatus('Ready');
@@ -71,6 +71,12 @@ class TerminalApp {
         
         // 設定管理の初期化
         await this.configManager.initialize(this.claudeWorkingDir);
+    }
+
+    // UIEventManager初期化
+    initializeUIEventManager() {
+        this.uiEventManager = new UIEventManager(this);
+        this.uiEventManager.setupEventListeners();
     }
 
     setupTerminal() {
@@ -189,128 +195,7 @@ class TerminalApp {
         }
     }
 
-    setupEventListeners() {
-        const startBtn = document.getElementById('start-terminal');
-        const stopBtn = document.getElementById('stop-terminal');
-        const settingsBtn = document.getElementById('settings-btn');
-        const closeSettingsBtn = document.getElementById('close-settings');
-        const settingsModal = document.getElementById('settings-modal');
-        const helpBtn = document.getElementById('help-btn');
-        const closeHelpBtn = document.getElementById('close-help');
-        const helpModal = document.getElementById('help-modal');
-
-        // デバッグ用：要素の取得状況をログ出力
-        debugLog('Element check:', {
-            startBtn: !!startBtn,
-            stopBtn: !!stopBtn,
-            settingsBtn: !!settingsBtn,
-            closeSettingsBtn: !!closeSettingsBtn,
-            settingsModal: !!settingsModal,
-            helpBtn: !!helpBtn,
-            closeHelpBtn: !!closeHelpBtn,
-            helpModal: !!helpModal
-        });
-
-        if (startBtn) startBtn.addEventListener('click', () => this.startTerminal());
-        if (stopBtn) stopBtn.addEventListener('click', () => this.stopTerminal());
-        
-        // 設定モーダルのイベント
-        if (settingsBtn && settingsModal) {
-            settingsBtn.addEventListener('click', () => {
-                settingsModal.style.display = 'flex';
-                this.syncSettingsToModal();
-            });
-        }
-        
-        if (closeSettingsBtn && settingsModal) {
-            closeSettingsBtn.addEventListener('click', () => {
-                settingsModal.style.display = 'none';
-            });
-        }
-        
-        // モーダル外クリックで閉じる
-        if (settingsModal) {
-            settingsModal.addEventListener('click', (e) => {
-                if (e.target === settingsModal) {
-                    settingsModal.style.display = 'none';
-                }
-            });
-        }
-        
-        // ヘルプモーダルのイベント
-        if (helpBtn && helpModal) {
-            helpBtn.addEventListener('click', () => {
-                helpModal.style.display = 'flex';
-            });
-        }
-        
-        if (closeHelpBtn && helpModal) {
-            closeHelpBtn.addEventListener('click', () => {
-                helpModal.style.display = 'none';
-            });
-        }
-        
-        if (helpModal) {
-            helpModal.addEventListener('click', (e) => {
-                if (e.target === helpModal) {
-                    helpModal.style.display = 'none';
-                }
-            });
-        }
-
-        // 設定モーダル内のコントロール
-        const voiceToggleModal = document.getElementById('voice-toggle-modal');
-        const speakerSelectModal = document.getElementById('speaker-select-modal');
-        const stopVoiceBtnModal = document.getElementById('stop-voice-modal');
-        const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
-
-        if (voiceToggleModal) {
-            voiceToggleModal.addEventListener('change', (e) => {
-                this.voiceEnabled = e.target.checked;
-                this.updateVoiceControls();
-            });
-        }
-
-        if (speakerSelectModal) {
-            speakerSelectModal.addEventListener('change', async (e) => {
-                this.selectedSpeaker = parseInt(e.target.value);
-                
-                // 設定を永続化
-                if (window.electronAPI && window.electronAPI.config) {
-                    await window.electronAPI.config.set('defaultSpeakerId', this.selectedSpeaker);
-                }
-                debugLog('話者設定を更新:', this.selectedSpeaker);
-            });
-        }
-
-        if (stopVoiceBtnModal) {
-            stopVoiceBtnModal.addEventListener('click', () => this.stopVoice());
-        }
-
-        if (refreshConnectionBtnModal) {
-            refreshConnectionBtnModal.addEventListener('click', () => this.checkVoiceConnection());
-        }
-
-        
-        // Claude Code 作業ディレクトリ設定のイベントリスナー
-        const selectClaudeCwdBtn = document.getElementById('select-claude-cwd-btn');
-        if (selectClaudeCwdBtn) {
-            selectClaudeCwdBtn.addEventListener('click', () => this.handleSelectClaudeCwd());
-        }
-
-
-        // マイクボタンのイベントリスナー
-
-        this.updateButtons();
-        this.updateVoiceControls();
-        // this.updateSpeechHistoryStatus(); // メソッドが存在しないためコメントアウト
-
-        // 壁紙設定ラジオボタンのリスナー
-        const wallpaperDefaultRadio = document.getElementById('wallpaper-default-radio');
-        const wallpaperUploadedRadio = document.getElementById('wallpaper-uploaded-radio');
-
-        // 壁紙関連のイベントリスナーは WallpaperSystem モジュールで処理
-    }
+    // setupEventListeners() - modules/ui-event-manager.js に移動済み
 
     setupChatInterface() {
         const chatInput = document.getElementById('chat-input');
@@ -637,36 +522,16 @@ class TerminalApp {
         }
     }
 
+    // updateButtons() と updateVoiceControls() - UIEventManagerで処理
     updateButtons() {
-        const startBtn = document.getElementById('start-terminal');
-        const stopBtn = document.getElementById('stop-terminal');
-        
-        if (startBtn && stopBtn) {
-            startBtn.disabled = this.isTerminalRunning;
-            stopBtn.disabled = !this.isTerminalRunning;
+        if (this.uiEventManager) {
+            this.uiEventManager.updateButtons();
         }
     }
 
     updateVoiceControls() {
-        const speakerSelectModal = document.getElementById('speaker-select-modal');
-        const stopVoiceBtnModal = document.getElementById('stop-voice-modal');
-        const voiceToggleModal = document.getElementById('voice-toggle-modal');
-        const cooldownInputModal = document.getElementById('voice-cooldown-modal');
-        const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
-
-        const canUseVoice = this.connectionStatus === 'connected';
-
-        if (voiceToggleModal) {
-            voiceToggleModal.disabled = !canUseVoice;
-        }
-        if (speakerSelectModal) {
-            speakerSelectModal.disabled = !this.voiceEnabled || !canUseVoice;
-        }
-        if (stopVoiceBtnModal) {
-            stopVoiceBtnModal.disabled = !this.voiceEnabled || !canUseVoice;
-        }
-        if (refreshConnectionBtnModal) {
-            refreshConnectionBtnModal.disabled = false;
+        if (this.uiEventManager) {
+            this.uiEventManager.updateVoiceControls();
         }
     }
     
