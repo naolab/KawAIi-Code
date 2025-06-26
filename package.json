@@ -40,7 +40,7 @@
       "node_modules/**/*"
     ],
     "mac": {
-      "icon": "icon.icns",
+      "icon": "assets/icons/new-app-icon.icns",
       "category": "public.app-category.developer-tools",
       "target": [
         {
@@ -54,7 +54,7 @@
       ]
     },
     "win": {
-      "icon": "assets/icons/app-icon-1024.png",
+      "icon": "assets/icons/new-app-icon.png",
       "target": [
         {
           "target": "nsis",
@@ -67,7 +67,7 @@
       ]
     },
     "linux": {
-      "icon": "assets/icons/app-icon-1024.png",
+      "icon": "assets/icons/new-app-icon.png",
       "target": [
         {
           "target": "AppImage",

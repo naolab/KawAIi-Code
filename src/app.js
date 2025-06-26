@@ -22,6 +22,7 @@ class TerminalApp {
         this.isPlaying = false;
         this.audioQueue = []; // { audioData, timestamp } の配列
         this.maxAudioAge = 120000; // 120秒（2分）で古い音声とみなす
+        this.maxQueueSize = 10; // キューの最大サイズ（メモリ使用量制限）
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
@@ -785,6 +786,13 @@ class TerminalApp {
         
         // 既に再生中の場合はキューに追加（タイムスタンプ付き）
         if (this.isPlaying) {
+            // キューサイズ制限チェック
+            if (this.audioQueue.length >= this.maxQueueSize) {
+                // 古いアイテムを削除してスペースを確保
+                const removedItem = this.audioQueue.shift();
+                debugLog('🗑️ Queue full, removed oldest item. Queue length:', this.audioQueue.length);
+            }
+            
             this.audioQueue.push({
                 audioData: audioData,
                 timestamp: Date.now()
@@ -861,12 +869,27 @@ class TerminalApp {
     cleanOldAudio() {
         const now = Date.now();
         const oldLength = this.audioQueue.length;
+        
+        // 時間制限による削除
         this.audioQueue = this.audioQueue.filter(item => 
             (now - item.timestamp) < this.maxAudioAge
         );
+        
+        // サイズ制限による削除（念のため）
+        if (this.audioQueue.length > this.maxQueueSize) {
+            const excess = this.audioQueue.length - this.maxQueueSize;
+            this.audioQueue.splice(0, excess); // 古いものから削除
+            debugLog('🗑️ Queue size limit exceeded, removed', excess, 'items');
+        }
+        
         const newLength = this.audioQueue.length;
         if (oldLength !== newLength) {
-            debugLog('🧹 Cleaned old audio:', oldLength - newLength, 'items removed');
+            debugLog('🧹 Cleaned audio queue:', {
+                removed: oldLength - newLength,
+                remaining: newLength,
+                maxAge: this.maxAudioAge / 1000 + 's',
+                maxSize: this.maxQueueSize
+            });
         }
     }
 
@@ -887,10 +910,22 @@ class TerminalApp {
             this.currentAudio = null;
             this.isPlaying = false;
             // キューもクリア
+            const queueLength = this.audioQueue.length;
             this.audioQueue = [];
-            debugLog('🛑 Audio stopped and queue cleared');
+            debugLog('🛑 Audio stopped and queue cleared:', queueLength, 'items removed');
         }
         // lastSpeechTimeはリセットしない（間隔制御を維持）
+    }
+
+    // 🔧 追加機能: キューの状態を取得
+    getAudioQueueStatus() {
+        return {
+            length: this.audioQueue.length,
+            maxSize: this.maxQueueSize,
+            maxAge: this.maxAudioAge,
+            isPlaying: this.isPlaying,
+            oldestTimestamp: this.audioQueue.length > 0 ? this.audioQueue[0].timestamp : null
+        };
     }
 
     async stopVoice() {
