@@ -74,15 +74,8 @@ class ConfigManager {
             // 設定を統合
             this.claudeMdContent = baseSettings + allCharacterSettings;
             
-            // ホームディレクトリにCLAUDE.mdファイルを作成または更新
-            try {
-                const homeDir = os.homedir();
-                const claudeMdPath = path.join(homeDir, 'CLAUDE.md');
-                await fs.promises.writeFile(claudeMdPath, this.claudeMdContent, 'utf8');
-                ConfigManager_debugLog('CLAUDE.md file created/updated at:', claudeMdPath);
-            } catch (writeError) {
-                ConfigManager_debugError('Failed to write CLAUDE.md to home directory:', writeError);
-            }
+            // CLAUDE.mdのファイル書き込みは、Claude Code起動時にのみ行うため、ここでは行わない
+            // 内容はthis.claudeMdContentに保持される
             
             ConfigManager_debugLog('Character settings loaded successfully (shy character)');
         } catch (error) {
@@ -221,15 +214,8 @@ class ConfigManager {
                 ConfigManager_debugLog('No project-specific CLAUDE.md found at:', projectClaudeMdPath);
             }
 
-            // ホームディレクトリのCLAUDE.mdを更新
-            try {
-                const homeDir = os.homedir();
-                const claudeMdPath = path.join(homeDir, 'CLAUDE.md');
-                await fs.promises.writeFile(claudeMdPath, this.claudeMdContent, 'utf8');
-                ConfigManager_debugLog('CLAUDE.md file updated with project settings at:', claudeMdPath);
-            } catch (writeError) {
-                ConfigManager_debugError('Failed to write CLAUDE.md to home directory:', writeError);
-            }
+            // CLAUDE.mdのファイル書き込みは、Claude Code起動時にのみ行うため、ここでは行わない
+            // 内容はthis.claudeMdContentに保持される
 
         } catch (error) {
             ConfigManager_debugError('Failed to load project-specific settings:', error);
@@ -290,6 +276,30 @@ class ConfigManager {
         return this.speechCooldown;
     }
 
+    // CLAUDE.mdをホームディレクトリに書き込む
+    async writeClaudeMdToHomeDir() {
+        try {
+            const { fs, path, os } = window.electronAPI;
+            if (!fs || !path || !os) {
+                ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
+                return false;
+            }
+            if (!this.claudeMdContent) {
+                ConfigManager_debugLog('No CLAUDE.md content to write.');
+                return false;
+            }
+
+            const homeDir = os.homedir();
+            const claudeMdPath = path.join(homeDir, 'CLAUDE.md');
+            await fs.promises.writeFile(claudeMdPath, this.claudeMdContent, 'utf8');
+            ConfigManager_debugLog('CLAUDE.md successfully written to:', claudeMdPath);
+            return true;
+        } catch (writeError) {
+            ConfigManager_debugError('Failed to write CLAUDE.md to home directory:', writeError);
+            return false;
+        }
+    }
+
     // 設定をリセット
     async resetSettings() {
         try {
@@ -304,6 +314,32 @@ class ConfigManager {
             ConfigManager_debugError('Failed to reset settings:', error);
         }
         return false;
+    }
+
+    // CLAUDE.mdをホームディレクトリから削除
+    async deleteClaudeMdFromHomeDir() {
+        try {
+            const { fs, path, os } = window.electronAPI;
+            if (!fs || !path || !os) {
+                ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
+                return false;
+            }
+
+            const homeDir = os.homedir();
+            const claudeMdPath = path.join(homeDir, 'CLAUDE.md');
+
+            if (fs.existsSync(claudeMdPath)) {
+                await fs.promises.unlink(claudeMdPath);
+                ConfigManager_debugLog('CLAUDE.md successfully deleted from:', claudeMdPath);
+                return true;
+            } else {
+                ConfigManager_debugLog('CLAUDE.md not found at:', claudeMdPath, 'no deletion needed.');
+                return false;
+            }
+        } catch (deleteError) {
+            ConfigManager_debugError('Failed to delete CLAUDE.md from home directory:', deleteError);
+            return false;
+        }
     }
 
     // 利用可能なキャラクター一覧を取得

@@ -26,6 +26,7 @@ class TerminalApp {
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
+        this.currentRunningAI = null; // 現在起動しているAIの種類を保持
         
         // VRM口パク用通信（postMessage使用）
         this.vrmWebSocket = null;
@@ -464,6 +465,7 @@ class TerminalApp {
             
             if (result.success) {
                 this.isTerminalRunning = true;
+                this.currentRunningAI = aiType; // 起動したAIの種類を保存
                 this.updateStatus(`${aiName} running - Type your message and press Enter`);
                 this.terminal.focus();
                 
@@ -472,6 +474,12 @@ class TerminalApp {
                 
                 this.addVoiceMessage('クロード', `${aiName}が起動したよ〜！✨`);
                 
+                // Claude Code起動時のみCLAUDE.mdを生成/更新
+                if (aiType === 'claude') {
+                    await this.configManager.writeClaudeMdToHomeDir();
+                    this.addVoiceMessage('クロード', 'CLAUDE.mdを更新したよ！');
+                }
+
                 setTimeout(() => {
                     this.fitAddon.fit();
                     window.electronAPI.terminal.resize(
@@ -501,19 +509,26 @@ class TerminalApp {
                 return;
             }
             
-            this.updateStatus('Stopping Claude Code...');
+            this.updateStatus('Stopping AI assistant...');
             const result = await window.electronAPI.terminal.stop();
             
             if (result.success) {
                 this.isTerminalRunning = false;
-                this.updateStatus('Claude Code stopped');
+                this.updateStatus('AI assistant stopped');
                 this.terminal.clear();
+
+                // Claude Codeが停止した場合のみCLAUDE.mdを削除
+                if (this.currentRunningAI === 'claude') {
+                    await this.configManager.deleteClaudeMdFromHomeDir();
+                    this.addVoiceMessage('クロード', 'CLAUDE.mdを削除したよ！');
+                }
+                this.currentRunningAI = null; // 停止したのでクリア
             } else {
-                this.updateStatus('Failed to stop Claude Code');
+                this.updateStatus(`Failed to stop AI assistant: ${result.error || 'Unknown error'}`);
             }
         } catch (error) {
-            debugError('Error stopping Claude Code:', error);
-            this.updateStatus('Error stopping Claude Code');
+            debugError('Error stopping AI assistant:', error);
+            this.updateStatus(`Error stopping AI assistant: ${error.message}`);
         }
         
         this.updateButtons();
