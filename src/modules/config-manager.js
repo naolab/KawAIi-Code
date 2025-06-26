@@ -7,7 +7,7 @@ const ConfigManager_debugError = ConfigManager_isDev ? console.error : console.e
 
 class ConfigManager {
     constructor() {
-        this.claudeMdContent = null;
+        this.aiBaseContent = null;
         this.claudeWorkingDir = null;
         this.speechCooldown = 1000; // デフォルト1秒
     }
@@ -72,7 +72,7 @@ class ConfigManager {
             }
             
             // 設定を統合
-            this.claudeMdContent = baseSettings + allCharacterSettings;
+            this.aiBaseContent = baseSettings + allCharacterSettings;
             
             // CLAUDE.mdのファイル書き込みは、Claude Code起動時にのみ行うため、ここでは行わない
             // 内容はthis.claudeMdContentに保持される
@@ -172,53 +172,36 @@ class ConfigManager {
     }
 
     // プロジェクト固有設定を読み込んでCLAUDE.mdを更新
-    async loadProjectSpecificSettings(projectDir = null) {
+    async loadProjectSpecificSettings(projectDir = null, aiType = 'claude') {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
                 ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
-                return;
+                return ''; // エラー時は空文字列を返す
             }
 
-            // プロジェクトディレクトリが指定されていない場合は、現在設定されている作業ディレクトリを使用
             const targetDir = projectDir || this.claudeWorkingDir;
             if (!targetDir) {
                 ConfigManager_debugLog('No project directory specified for loading project settings');
-                return;
+                return ''; // 空文字列を返す
             }
 
-            // 基本的なキャラクター設定が読み込まれていない場合は先に読み込む
-            if (!this.claudeMdContent) {
-                await this.loadCharacterSettings();
-                return; // loadCharacterSettingsが完了した後にこのメソッドを呼び直す必要はない
-            }
-
-            // 現在の基本設定を保持（プロジェクト設定を除く）
-            let baseContent = this.claudeMdContent;
-            const projectSectionIndex = baseContent.indexOf('\n\n---\n\n# プロジェクト固有設定\n\n');
-            if (projectSectionIndex !== -1) {
-                baseContent = baseContent.substring(0, projectSectionIndex);
-            }
-
-            // プロジェクトディレクトリのCLAUDE.mdをチェック
-            const projectClaudeMdPath = path.join(targetDir, 'CLAUDE.md');
+            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+            const projectAiMdPath = path.join(targetDir, aiMdFilename);
             
             try {
-                await fs.promises.access(projectClaudeMdPath);
-                const projectSettings = await fs.promises.readFile(projectClaudeMdPath, 'utf8');
-                this.claudeMdContent = baseContent + '\n\n---\n\n# プロジェクト固有設定\n\n' + projectSettings;
-                ConfigManager_debugLog('Project-specific CLAUDE.md found and merged:', projectClaudeMdPath);
+                await fs.promises.access(projectAiMdPath);
+                const projectSettings = await fs.promises.readFile(projectAiMdPath, 'utf8');
+                ConfigManager_debugLog(`Project-specific ${aiMdFilename} found and loaded:`, projectAiMdPath);
+                return projectSettings;
             } catch (accessError) {
-                // ファイルが存在しない場合は基本設定のみ
-                this.claudeMdContent = baseContent;
-                ConfigManager_debugLog('No project-specific CLAUDE.md found at:', projectClaudeMdPath);
+                ConfigManager_debugLog(`No project-specific ${aiMdFilename} found at:`, projectAiMdPath);
+                return ''; // ファイルが存在しない場合は空文字列を返す
             }
-
-            // CLAUDE.mdのファイル書き込みは、Claude Code起動時にのみ行うため、ここでは行わない
-            // 内容はthis.claudeMdContentに保持される
 
         } catch (error) {
             ConfigManager_debugError('Failed to load project-specific settings:', error);
+            return ''; // エラー時は空文字列を返す
         }
     }
 
@@ -276,26 +259,52 @@ class ConfigManager {
         return this.speechCooldown;
     }
 
-    // CLAUDE.mdをホームディレクトリに書き込む
-    async writeClaudeMdToHomeDir() {
+    // AIに渡す最終的な.mdコンテンツを生成
+    async getCombinedAiMdContent(aiType) {
+        let combinedContent = this.aiBaseContent;
+        
+        // プロジェクト固有設定を読み込み、結合
+        const projectSpecificContent = await this.loadProjectSpecificSettings(this.claudeWorkingDir, aiType);
+        if (projectSpecificContent) {
+            combinedContent += '\n\n---\n\n# プロジェクト固有設定\n\n' + projectSpecificContent;
+        }
+        return combinedContent;
+    }
+
+    // AIの.mdファイルをホームディレクトリに書き込む
+    async writeAiMdToHomeDir(aiType) {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
                 ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
                 return false;
             }
-            if (!this.claudeMdContent) {
-                ConfigManager_debugLog('No CLAUDE.md content to write.');
+
+            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+            const combinedContent = await this.getCombinedAiMdContent(aiType);
+
+            if (!combinedContent) {
+                ConfigManager_debugLog(`No ${aiMdFilename} content to write.`);
                 return false;
             }
 
-            const homeDir = os.homedir();
-            const claudeMdPath = path.join(homeDir, 'CLAUDE.md');
-            await fs.promises.writeFile(claudeMdPath, this.claudeMdContent, 'utf8');
-            ConfigManager_debugLog('CLAUDE.md successfully written to:', claudeMdPath);
+            let targetDir;
+            if (aiType === 'gemini') {
+                targetDir = this.claudeWorkingDir; // Geminiの場合は作業ディレクトリ
+                if (!targetDir) {
+                    ConfigManager_debugError('Gemini MD write: claudeWorkingDir is not set.');
+                    return false;
+                }
+            } else {
+                targetDir = os.homedir(); // Claudeの場合はホームディレクトリ
+            }
+            
+            const aiMdPath = path.join(targetDir, aiMdFilename);
+            await fs.promises.writeFile(aiMdPath, combinedContent, 'utf8');
+            ConfigManager_debugLog(`${aiMdFilename} successfully written to:`, aiMdPath);
             return true;
         } catch (writeError) {
-            ConfigManager_debugError('Failed to write CLAUDE.md to home directory:', writeError);
+            ConfigManager_debugError(`Failed to write ${aiMdFilename} to home directory:`, writeError);
             return false;
         }
     }
@@ -316,8 +325,8 @@ class ConfigManager {
         return false;
     }
 
-    // CLAUDE.mdをホームディレクトリから削除
-    async deleteClaudeMdFromHomeDir() {
+    // AIの.mdファイルをホームディレクトリから削除
+    async deleteAiMdFromHomeDir(aiType) {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
@@ -325,19 +334,31 @@ class ConfigManager {
                 return false;
             }
 
-            const homeDir = os.homedir();
-            const claudeMdPath = path.join(homeDir, 'CLAUDE.md');
+            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+            
+            let targetDir;
+            if (aiType === 'gemini') {
+                targetDir = this.claudeWorkingDir; // Geminiの場合は作業ディレクトリ
+                if (!targetDir) {
+                    ConfigManager_debugError('Gemini MD delete: claudeWorkingDir is not set.');
+                    return false;
+                }
+            } else {
+                targetDir = os.homedir(); // Claudeの場合はホームディレクトリ
+            }
 
-            if (fs.existsSync(claudeMdPath)) {
-                await fs.promises.unlink(claudeMdPath);
-                ConfigManager_debugLog('CLAUDE.md successfully deleted from:', claudeMdPath);
+            const aiMdPath = path.join(targetDir, aiMdFilename);
+
+            if (fs.existsSync(aiMdPath)) {
+                await fs.promises.unlink(aiMdPath);
+                ConfigManager_debugLog(`${aiMdFilename} successfully deleted from:`, aiMdPath);
                 return true;
             } else {
-                ConfigManager_debugLog('CLAUDE.md not found at:', claudeMdPath, 'no deletion needed.');
+                ConfigManager_debugLog(`${aiMdFilename} not found at:`, aiMdPath, 'no deletion needed.');
                 return false;
             }
         } catch (deleteError) {
-            ConfigManager_debugError('Failed to delete CLAUDE.md from home directory:', deleteError);
+            ConfigManager_debugError(`Failed to delete ${aiMdFilename} from home directory:`, deleteError);
             return false;
         }
     }

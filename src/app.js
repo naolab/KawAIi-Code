@@ -47,7 +47,7 @@ class TerminalApp {
         this.init();
     }
 
-    init() {
+    async init() {
         // xtermライブラリが読み込まれるまで待機
         if (typeof Terminal === 'undefined') {
             debugLog('xterm.jsを読み込み中...');
@@ -55,10 +55,25 @@ class TerminalApp {
             return;
         }
         
+        // Claude Codeの作業ディレクトリを初期化時に取得
+        try {
+            const result = await window.electronAPI.getClaudeCwd();
+            if (result.success) {
+                this.claudeWorkingDir = result.cwd;
+                debugLog('Initial Claude CWD set to:', this.claudeWorkingDir);
+                // ConfigManagerにも作業ディレクトリを同期
+                this.configManager.setWorkingDirectory(this.claudeWorkingDir);
+            } else {
+                debugError('Failed to get initial Claude CWD:', result.error);
+            }
+        } catch (error) {
+            debugError('Error calling getClaudeCwd during init:', error);
+        }
+
         this.setupTerminal();
         this.initializeUIEventManager(); // UI制御初期化
         this.setupChatInterface();
-        this.initializeModules(); // モジュール初期化
+        await this.initializeModules(); // モジュール初期化をawait
         this.updateStatus('Ready');
         this.checkVoiceConnection();
     }
@@ -72,6 +87,7 @@ class TerminalApp {
         this.wallpaperSystem.setupWallpaperSystem();
         
         // 設定管理の初期化
+        // configManagerに現在のclaudeWorkingDirを渡す
         await this.configManager.initialize(this.claudeWorkingDir);
     }
 
@@ -474,11 +490,10 @@ class TerminalApp {
                 
                 this.addVoiceMessage('クロード', `${aiName}が起動したよ〜！✨`);
                 
-                // Claude Code起動時のみCLAUDE.mdを生成/更新
-                if (aiType === 'claude') {
-                    await this.configManager.writeClaudeMdToHomeDir();
-                    this.addVoiceMessage('クロード', 'CLAUDE.mdを更新したよ！');
-                }
+                // 起動するAIに応じて.mdファイルを生成/更新
+                const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+                await this.configManager.writeAiMdToHomeDir(aiType);
+                this.addVoiceMessage('クロード', `${aiMdFilename}を更新したよ！`);
 
                 setTimeout(() => {
                     this.fitAddon.fit();
@@ -517,10 +532,11 @@ class TerminalApp {
                 this.updateStatus('AI assistant stopped');
                 this.terminal.clear();
 
-                // Claude Codeが停止した場合のみCLAUDE.mdを削除
-                if (this.currentRunningAI === 'claude') {
-                    await this.configManager.deleteClaudeMdFromHomeDir();
-                    this.addVoiceMessage('クロード', 'CLAUDE.mdを削除したよ！');
+                // 停止したAIに応じて.mdファイルを削除
+                const aiMdFilename = this.currentRunningAI === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+                if (this.currentRunningAI) { // 念のためnullチェック
+                    await this.configManager.deleteAiMdFromHomeDir(this.currentRunningAI);
+                    this.addVoiceMessage('クロード', `${aiMdFilename}を削除したよ！`);
                 }
                 this.currentRunningAI = null; // 停止したのでクリア
             } else {
@@ -634,8 +650,13 @@ class TerminalApp {
                     claudeCwdMessage.style.color = 'green';
                 }
                 
+                // ConfigManagerにも作業ディレクトリを同期
+                this.configManager.setWorkingDirectory(this.claudeWorkingDir);
+                
                 // プロジェクト固有設定を読み込み
-                await this.configManager.loadProjectSpecificSettings(result.path);
+                // loadProjectSpecificSettingsはaiTypeを引数に取るようになったため、ここでは呼び出さない
+                // 代わりに、writeAiMdToHomeDirが呼び出された際に最新のclaudeWorkingDirが使われる
+
             } else if (result.success && !result.path) {
                 if (claudeCwdMessage) {
                     claudeCwdMessage.textContent = '作業ディレクトリの選択がキャンセルされました。';
