@@ -251,7 +251,7 @@ class TerminalApp {
 
     // バッチ処理でチャット解析を最適化
     queueChatParsing(data) {
-        if (!data.includes('⏺')) return;
+        if (!data.includes('⏺') && !data.includes('✦')) return;
         
         this.chatParseQueue.push(data);
         
@@ -277,22 +277,27 @@ class TerminalApp {
     parseTerminalDataForChat(data) {
         try {
             const cleanData = data.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').trim();
-            const circleIndex = cleanData.indexOf('⏺');
-            if (circleIndex === -1) return;
             
-            let afterCircle = cleanData.substring(circleIndex + 1).trim();
+            // Claude Code (⏺) と Gemini Code Assist (✦) の両方に対応
+            let markerIndex = cleanData.indexOf('⏺');
+            if (markerIndex === -1) {
+                markerIndex = cleanData.indexOf('✦');
+            }
+            if (markerIndex === -1) return;
+            
+            let afterMarker = cleanData.substring(markerIndex + 1).trim();
             
             // 文字列クリーニング（音声読み上げ用）
-            afterCircle = afterCircle
+            afterMarker = afterMarker
                     .replace(/^[⚒↓⭐✶✻✢·✳]+\s*/g, '')
                     .replace(/\s*[✢✳✶✻✽·⚒↓↑]\s*(Synthesizing|Conjuring|Spinning|Vibing|Computing|Mulling|Pondering|musing|thinking).*$/gi, '')
                     .replace(/\s*\([0-9]+s[^)]*\).*$/g, '')
                     .replace(/\s*tokens.*$/gi, '')
                     .trim();
             
-            // カッコ内のテキストを抽出（音声読み上げ用）
-            const quotedTextMatches = afterCircle.match(/「([^」]+)」/g);
-            debugLog('Original text:', afterCircle);
+            // カッコ内のテキストを抽出（音声読み上げ用・改行にも対応）
+            const quotedTextMatches = afterMarker.match(/「([^」]+)」/gs);
+            debugLog('Original text:', afterMarker);
             debugLog('Quoted matches:', quotedTextMatches);
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
