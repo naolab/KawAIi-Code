@@ -456,6 +456,26 @@ class TerminalApp {
         }
     }
 
+    // 音声再生完了を待機する関数
+    async waitForAudioComplete() {
+        return new Promise(resolve => {
+            if (!this.isPlaying && this.audioQueue.length === 0) {
+                resolve();
+                return;
+            }
+            
+            const checkComplete = () => {
+                if (!this.isPlaying && this.audioQueue.length === 0) {
+                    debugLog('🎵 音声再生完了を確認');
+                    resolve();
+                } else {
+                    setTimeout(checkComplete, 100);
+                }
+            };
+            checkComplete();
+        });
+    }
+
     // カッコ内のテキストを一個ずつ順次処理
     async processQuotedTexts(quotedTextMatches) {
         debugLog('🎤 processQuotedTexts 開始 - 総カギカッコ数:', quotedTextMatches.length);
@@ -487,11 +507,9 @@ class TerminalApp {
             // 音声読み上げ実行
             if (this.voiceEnabled) {
                 await this.speakText(quotedText);
-            }
-            
-            // 次のテキストまで少し間隔を開ける
-            if (i < quotedTextMatches.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                // 音声再生完了まで待機（順序保証）
+                await this.waitForAudioComplete();
+                debugLog(`✅ 音声${i + 1}/${quotedTextMatches.length}の再生完了`);
             }
         }
         
@@ -1169,6 +1187,21 @@ class TerminalApp {
         
         if (this.audioQueue.length > 0 && !this.isPlaying) {
             debugLog('🎵 Processing queue, items:', this.audioQueue.length);
+            
+            // 前の音声から3秒間隔を確保
+            const timeSinceLastSpeech = Date.now() - this.lastSpeechTime;
+            const requiredInterval = 3000; // 3秒間隔
+            
+            if (timeSinceLastSpeech < requiredInterval) {
+                const remainingWait = requiredInterval - timeSinceLastSpeech;
+                debugLog(`⏰ キュー処理待機: ${remainingWait}ms後に次の音声を再生`);
+                
+                setTimeout(() => {
+                    this.processAudioQueue();
+                }, remainingWait);
+                return;
+            }
+            
             const nextItem = this.audioQueue.shift();
             this.playAudio(nextItem.audioData);
         }
