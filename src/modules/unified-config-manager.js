@@ -1,9 +1,9 @@
 // 統一設定管理システム - フェーズ1: 基盤実装
 
 // デバッグログ制御
-const UnifiedConfig_isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
+const UnifiedConfig_isDev = false; // 本番環境では無効化
 const UnifiedConfig_debugLog = UnifiedConfig_isDev ? console.log : () => {};
-const UnifiedConfig_infoLog = console.log;
+const UnifiedConfig_infoLog = UnifiedConfig_isDev ? console.log : () => {};
 const UnifiedConfig_errorLog = console.error;
 
 // Storage Adapter インターフェース
