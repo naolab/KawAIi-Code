@@ -39,6 +39,7 @@ class TerminalApp {
         this.chatParseTimer = null;
         this.isProcessingChat = false;
         this.claudeWorkingDir = ''; // Claude Code作業ディレクトリの初期値
+        this.speakerInitialized = false; // 話者選択初期化フラグ
         
         // 読み上げ履歴管理
         this.speechHistory = new SpeechHistoryManager(50);
@@ -77,6 +78,7 @@ class TerminalApp {
         this.initializeUIEventManager(); // UI制御初期化
         this.setupChatInterface();
         await this.initializeModules(); // モジュール初期化をawait
+        await this.loadInitialSettings(); // 初期設定の読み込み
         this.updateStatus('Ready');
         this.checkVoiceConnection();
     }
@@ -92,6 +94,18 @@ class TerminalApp {
         // 設定管理の初期化
         // configManagerに現在のclaudeWorkingDirを渡す
         await this.configManager.initialize(this.claudeWorkingDir);
+    }
+
+    // 初期設定の読み込み（起動時のみ）
+    async loadInitialSettings() {
+        // 統一設定システムから設定を読み込み（起動時のみ）
+        this.voiceEnabled = await unifiedConfig.get('voiceEnabled', this.voiceEnabled);
+        this.selectedSpeaker = await unifiedConfig.get('selectedSpeaker', this.selectedSpeaker);
+        
+        debugLog('Initial settings loaded:', {
+            voiceEnabled: this.voiceEnabled,
+            selectedSpeaker: this.selectedSpeaker
+        });
     }
 
     // UIEventManager初期化
@@ -563,14 +577,11 @@ class TerminalApp {
             debugLog(`Configuration migration completed: ${migratedCount} settings migrated`);
         }
 
-        // ユーザー設定を統一設定システムから読み込み
-        this.voiceEnabled = await unifiedConfig.get('voiceEnabled', this.voiceEnabled);
-        this.selectedSpeaker = await unifiedConfig.get('selectedSpeaker', this.selectedSpeaker);
+        // 現在の設定を統一設定システムに保存（読み込みは初期化時のみ）
+        await unifiedConfig.set('voiceEnabled', this.voiceEnabled);
+        await unifiedConfig.set('selectedSpeaker', this.selectedSpeaker);
 
         // 壁紙設定の復元は WallpaperSystem モジュールで処理
-
-        // 設定を統一設定システムに保存
-        await unifiedConfig.set('selectedSpeaker', this.selectedSpeaker);
 
         if (this.claudeWorkingDir) {
             await unifiedConfig.set('claudeWorkingDir', this.claudeWorkingDir);
@@ -672,14 +683,15 @@ class TerminalApp {
                 });
             });
             
-            // 現在選択中の話者IDを優先的に使用
+            // 現在選択中の話者IDを保持（リセットしない）
             let targetSpeakerId = this.selectedSpeaker;
             
-            // 現在の選択が無効または未設定の場合、設定ファイルから読み込み
-            if (!targetSpeakerId || targetSpeakerId === 0) {
+            // 初回起動時など、まだ話者が選択されていない場合のみデフォルト設定を読み込み
+            if (!targetSpeakerId || (targetSpeakerId === 0 && !this.speakerInitialized)) {
                 if (window.electronAPI && window.electronAPI.config) {
                     try {
                         targetSpeakerId = await window.electronAPI.config.get('defaultSpeakerId');
+                        this.speakerInitialized = true; // 初期化フラグを設定
                     } catch (error) {
                         debugError('保存済み話者ID取得エラー:', error);
                     }
