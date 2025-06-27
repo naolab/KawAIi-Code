@@ -360,10 +360,19 @@ class UnifiedConfigManager {
         let migratedCount = 0;
         
         for (const key of localStorageKeys) {
+            let value = null;
             try {
                 const item = localStorage.getItem(key);
                 if (item !== null) {
-                    const value = JSON.parse(item);
+                    try {
+                        // JSONとしてパースを試みる
+                        value = JSON.parse(item);
+                    } catch (parseError) {
+                        // パースに失敗した場合、生の文字列をそのまま使用
+                        UnifiedConfig_errorLog('Migration parse error, using raw value:', { key, item, parseError });
+                        value = item;
+                    }
+                    
                     // 既存の設定がない場合のみ移行
                     if (!(await this.has(key))) {
                         await this.set(key, value);
@@ -372,7 +381,7 @@ class UnifiedConfigManager {
                     }
                 }
             } catch (error) {
-                UnifiedConfig_errorLog('Migration error', { key, error });
+                UnifiedConfig_errorLog('Migration process error', { key, error });
             }
         }
         
