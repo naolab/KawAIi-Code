@@ -353,7 +353,7 @@ ipcMain.handle('get-claude-cwd', async () => {
     // まず統一設定システム（appConfig）から取得を試行
     await appConfig.loadConfig();
     const savedDir = appConfig.config.claudeWorkingDir;
-    if (savedDir && savedDir !== os.homedir()) {
+    if (savedDir) {
       debugLog('Claude working directory from appConfig:', savedDir);
       return { success: true, cwd: savedDir };
     }
