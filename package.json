@@ -36,8 +36,27 @@
       "main.js",
       "src/**/*",
       "assets/**/*",
-      "ai-kawaii-nextjs/**/*",
-      "node_modules/**/*"
+      "ai-kawaii-nextjs/out/**/*",
+      "ai-kawaii-nextjs/websocket-server.js",
+      "!ai-kawaii-nextjs/node_modules/**/*",
+      "!ai-kawaii-nextjs/src/**/*",
+      "!ai-kawaii-nextjs/.next/**/*",
+      "!ai-kawaii-nextjs/package*.json",
+      "!ai-kawaii-nextjs/tsconfig*",
+      "!ai-kawaii-nextjs/server.log",
+      "node_modules/@xterm/**/*",
+      "node_modules/axios/**/*",
+      "node_modules/form-data/**/*",
+      "node_modules/node-pty/**/*",
+      "!node_modules/**/test/**",
+      "!node_modules/**/tests/**",
+      "!node_modules/**/*.md",
+      "!node_modules/**/README*",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/.git*"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
     ],
     "mac": {
       "icon": "assets/icons/new-app-icon.icns",
