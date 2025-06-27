@@ -1,10 +1,10 @@
 const axios = require('axios');
 
-// ログレベル制御（本番環境では詳細ログを無効化）
-const isProduction = process.env.NODE_ENV === 'production';
-const debugLog = isProduction ? () => {} : console.log;
-const infoLog = console.log; // 重要な情報は常に出力
-const errorLog = console.error; // エラーは常に出力
+// ログレベル制御（本番環境でも有効）
+const isProduction = false; // 常にデバッグログを有効化
+const debugLog = console.log;
+const infoLog = console.log;
+const errorLog = console.error;
 
 class VoiceService {
     constructor() {
@@ -15,6 +15,26 @@ class VoiceService {
         this.currentAudio = null;
         this.isConnected = false;
         this.speakers = [];
+        
+        // 動的タイムアウト設定
+        this.minTimeout = 30000; // 30秒（最低）
+        this.maxTimeout = 120000; // 120秒（最高）
+        this.baseTimeout = 45000; // 45秒（基準）
+        this.timeoutPerChar = 100; // 1文字あたり100ms追加
+        
+        // 再試行設定
+        this.maxRetries = 3;
+        this.retryBaseDelay = 1000; // 1秒
+        this.retryMultiplier = 2;
+        
+        // エラー分類マップ
+        this.errorTypes = {
+            NETWORK: 'network',
+            TIMEOUT: 'timeout',
+            SERVER: 'server',
+            SYNTHESIS: 'synthesis',
+            UNKNOWN: 'unknown'
+        };
     }
 
     async checkConnection() {
@@ -39,20 +59,82 @@ class VoiceService {
         }
     }
 
+    // 動的タイムアウト計算
+    calculateTimeout(text) {
+        const textLength = text ? text.length : 0;
+        const dynamicTimeout = this.baseTimeout + (textLength * this.timeoutPerChar);
+        return Math.min(Math.max(dynamicTimeout, this.minTimeout), this.maxTimeout);
+    }
+    
+    // エラー分類
+    classifyError(error) {
+        if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+            return this.errorTypes.NETWORK;
+        }
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+            return this.errorTypes.TIMEOUT;
+        }
+        if (error.response && error.response.status >= 500) {
+            return this.errorTypes.SERVER;
+        }
+        if (error.response && error.response.status >= 400) {
+            return this.errorTypes.SYNTHESIS;
+        }
+        return this.errorTypes.UNKNOWN;
+    }
+    
+    // 指数バックオフでの再試行
+    async retryWithBackoff(fn, context, retryCount = 0) {
+        try {
+            return await fn();
+        } catch (error) {
+            const errorType = this.classifyError(error);
+            
+            if (retryCount >= this.maxRetries) {
+                errorLog(`最大再試行回数に達しました (${retryCount}/${this.maxRetries}):`, {
+                    context,
+                    errorType,
+                    message: error.message
+                });
+                throw new Error(`音声合成が失敗しました (${errorType}): ${error.message}`);
+            }
+            
+            // ネットワークエラーやタイムアウトの場合のみ再試行
+            if (errorType === this.errorTypes.NETWORK || errorType === this.errorTypes.TIMEOUT || errorType === this.errorTypes.SERVER) {
+                const delay = this.retryBaseDelay * Math.pow(this.retryMultiplier, retryCount);
+                
+                infoLog(`音声合成エラー (${errorType}) - ${delay}ms後に再試行 (${retryCount + 1}/${this.maxRetries}):`, {
+                    context,
+                    error: error.message
+                });
+                
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return this.retryWithBackoff(fn, context, retryCount + 1);
+            }
+            
+            // 再試行不可能なエラー
+            errorLog('再試行不可能なエラー:', { errorType, message: error.message });
+            throw new Error(`音声合成エラー (${errorType}): ${error.message}`);
+        }
+    }
+
     async synthesizeText(text, speaker = 0) {
         if (!this.isConnected) {
             throw new Error('AivisSpeech Engine not connected');
         }
 
-        try {
-            // Step 1: Get audio query with speed optimization
+        const timeout = this.calculateTimeout(text);
+        debugLog(`音声合成開始: テキスト長=${text.length}文字, タイムアウト=${timeout}ms`);
+        
+        const synthesizeOperation = async () => {
+            // Step 1: Get audio query with dynamic timeout
             const queryResponse = await axios.post(
                 `${this.baseUrl}/audio_query`,
                 null,
                 {
                     params: { text, speaker },
                     headers: { 'accept': 'application/json' },
-                    timeout: 30000  // 30秒タイムアウト
+                    timeout: Math.floor(timeout * 0.4) // クエリには40%の時間を割り当て
                 }
             );
             
@@ -62,7 +144,7 @@ class VoiceService {
                 queryData.speedScale = 1.2;  // 20%高速化
             }
 
-            // Step 2: Synthesize audio with optimized query
+            // Step 2: Synthesize audio with remaining timeout
             const audioResponse = await axios.post(
                 `${this.baseUrl}/synthesis`,
                 queryData,
@@ -73,31 +155,41 @@ class VoiceService {
                         'Content-Type': 'application/json' 
                     },
                     responseType: 'arraybuffer',
-                    timeout: 45000  // 45秒タイムアウト
+                    timeout: Math.floor(timeout * 0.6) // 合成には60%の時間を割り当て
                 }
             );
 
             return audioResponse.data;
-        } catch (error) {
-            console.error('Voice synthesis error:', error);
-            throw error;
-        }
+        };
+        
+        return await this.retryWithBackoff(synthesizeOperation, `text=${text.substring(0, 30)}...`);
     }
 
     async speakText(text, speaker = 0) {
         try {
-            // 音声合成を非同期で開始（Promise化でタイムアウト対応）
-            const synthesisPromise = this.synthesizeText(text, speaker);
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Speech synthesis timeout')), 60000)
-            );
+            // 動的タイムアウトで音声合成実行（再試行機構付き）
+            const audioData = await this.synthesizeText(text, speaker);
             
-            const audioData = await Promise.race([synthesisPromise, timeoutPromise]);
+            infoLog('音声合成完了:', {
+                textLength: text.length,
+                audioSize: audioData.byteLength
+            });
+            
             // 音声データはメインプロセスからレンダラープロセスに送信
             return { success: true, audioData };
         } catch (error) {
-            console.error('Text-to-speech error:', error);
-            throw error;
+            const errorType = this.classifyError(error);
+            errorLog('音声読み上げエラー:', {
+                errorType,
+                message: error.message,
+                textLength: text.length
+            });
+            
+            // エラー情報を詳細化して再スロー
+            const enhancedError = new Error(`音声読み上げに失敗しました (${errorType}): ${error.message}`);
+            enhancedError.errorType = errorType;
+            enhancedError.originalError = error;
+            throw enhancedError;
         }
     }
 
@@ -226,12 +318,18 @@ class VoiceService {
         // skipPatternsを削除 - カッコ制限以外のスキップ処理を除去
 
         // 一般的な日本語テキストとして処理
-        if (/[あ-んア-ヶ一-龯]/.test(trimmed) && trimmed.length > 10) {
-            debugLog('一般的な日本語テキストを返却:', trimmed.substring(0, 50) + '...');
+        const hasJapanese = /[あ-んア-ヶ一-龯]/.test(trimmed);
+        const isLongEnough = trimmed.length > 10;
+        
+        debugLog('🔍 日本語チェック:', { hasJapanese, isLongEnough, length: trimmed.length });
+        
+        if (hasJapanese && isLongEnough) {
+            debugLog('✅ 一般的な日本語テキストとして返却:', trimmed.substring(0, 50) + '...');
             return trimmed;
         }
 
-        debugLog('有効なコンテンツが見つからずスキップ');
+        debugLog('⚠️ 有効なコンテンツが見つからずスキップ');
+        debugLog('⚠️ スキップ理由:', { hasJapanese, isLongEnough, textSample: trimmed.substring(0, 100) });
         return null;
     }
 }

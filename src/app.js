@@ -1,15 +1,126 @@
 // xtermライブラリはCDNから読み込み
 
-// デバッグログ制御（本番環境では無効化）
-const isDev = !window.location.protocol.startsWith('file:') || process.env.NODE_ENV === 'development';
-const debugLog = isDev ? console.log : () => {};
-const debugTrace = isDev ? console.trace : () => {};
-const debugError = console.error; // エラーは常に出力
+// デバッグログ制御（本番環境でも有効）
+const isDev = true; // 常にデバッグログを有効化
+const debugLog = console.log;
+const debugTrace = console.trace;
+const debugError = console.error;
 
 // 統一設定管理システム（グローバル参照）
 // unifiedConfigはunified-config-manager.jsで既にグローバルに定義済み
 
 // 読み上げ履歴管理クラス - modules/speech-history-manager.js に移動済み
+
+// メッセージチャンク結合クラス
+class MessageAccumulator {
+    constructor() {
+        this.pendingMessage = '';
+        this.lastChunkTime = 0;
+        this.completionTimeout = 2000; // 2秒でメッセージ完了と判定
+        this.completionTimer = null;
+        this.isAccumulating = false;
+        this.processCallback = null;
+    }
+    
+    setProcessCallback(callback) {
+        debugLog(`🔧 setProcessCallback呼び出し - コールバックタイプ:`, typeof callback);
+        debugLog(`🔧 コールバック関数:`, callback);
+        this.processCallback = callback;
+        debugLog(`🔧 コールバック設定完了 - 現在のコールバック:`, this.processCallback);
+    }
+    
+    addChunk(data) {
+        const hasMarker = data.includes('⏺') || data.includes('✦');
+        const hasQuotes = data.includes('「') && data.includes('」');
+        
+        debugLog(`📝 MessageAccumulator.addChunk - マーカー: ${hasMarker}, 括弧: ${hasQuotes}, データ長: ${data.length}`);
+        
+        if (hasMarker) {
+            // 新しいメッセージ開始
+            if (this.isAccumulating) {
+                debugLog(`🔄 既存メッセージを強制完了してから新メッセージ開始`);
+                this.forceComplete();
+            }
+            
+            this.pendingMessage = data;
+            this.lastChunkTime = Date.now();
+            this.isAccumulating = true;
+            debugLog(`🆕 新しいメッセージ蓄積開始 - 長さ: ${data.length}`);
+            this.scheduleCompletion();
+            
+        } else if (hasQuotes && this.isAccumulating) {
+            // 既存メッセージに追加（括弧付きテキストがある場合のみ）
+            this.pendingMessage += '\n' + data;
+            this.lastChunkTime = Date.now();
+            debugLog(`➕ メッセージに追加 - 現在の総長: ${this.pendingMessage.length}`);
+            this.scheduleCompletion();
+            
+        } else {
+            debugLog(`⏭️ チャンクをスキップ - 条件に合致せず`);
+        }
+    }
+    
+    scheduleCompletion() {
+        clearTimeout(this.completionTimer);
+        this.completionTimer = setTimeout(() => {
+            this.complete();
+        }, this.completionTimeout);
+        
+        debugLog(`⏰ 完了タイマーを${this.completionTimeout}ms後に設定`);
+    }
+    
+    forceComplete() {
+        clearTimeout(this.completionTimer);
+        this.complete();
+    }
+    
+    complete() {
+        if (!this.isAccumulating || !this.pendingMessage) {
+            debugLog(`❌ 完了処理スキップ - 蓄積中でないかメッセージが空`);
+            debugLog(`❌ デバッグ情報:`, {
+                isAccumulating: this.isAccumulating,
+                messageLength: this.pendingMessage ? this.pendingMessage.length : 0,
+                hasCallback: !!this.processCallback
+            });
+            return;
+        }
+        
+        debugLog(`✅ メッセージ蓄積完了 - 最終長: ${this.pendingMessage.length}`);
+        debugLog(`✅ 蓄積時間: ${Date.now() - this.lastChunkTime + this.completionTimeout}ms`);
+        debugLog(`🔔 complete()呼び出し - コールバック有無:`, !!this.processCallback);
+        debugLog(`🔔 コールバック関数:`, this.processCallback);
+        
+        const completeMessage = this.pendingMessage;
+        this.pendingMessage = '';
+        this.isAccumulating = false;
+        this.completionTimer = null;
+        
+        if (this.processCallback) {
+            debugLog(`📞 コールバック実行開始 - メッセージ長: ${completeMessage.length}`);
+            debugLog(`📞 メッセージサンプル:`, completeMessage.substring(0, 100) + '...');
+            
+            try {
+                this.processCallback(completeMessage);
+                debugLog(`📞 コールバック実行完了`);
+            } catch (error) {
+                debugError(`❌ コールバック実行エラー:`, error);
+            }
+        } else {
+            debugError(`❌ コールバックが設定されていません！`);
+            debugError(`❌ メッセージが破棄されました:`, completeMessage.substring(0, 100) + '...');
+        }
+    }
+    
+    // 現在の蓄積状態を取得（デバッグ用）
+    getStatus() {
+        return {
+            isAccumulating: this.isAccumulating,
+            messageLength: this.pendingMessage.length,
+            timeSinceLastChunk: Date.now() - this.lastChunkTime,
+            hasTimer: !!this.completionTimer
+        };
+    }
+}
 
 class TerminalApp {
     constructor() {
@@ -25,7 +136,7 @@ class TerminalApp {
         this.isPlaying = false;
         this.audioQueue = []; // { audioData, timestamp } の配列
         this.maxAudioAge = 120000; // 120秒（2分）で古い音声とみなす
-        this.maxQueueSize = 10; // キューの最大サイズ（メモリ使用量制限）
+        this.maxQueueSize = 50; // キューの最大サイズ（メモリ使用量制限）
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
@@ -34,10 +145,8 @@ class TerminalApp {
         // VRM口パク用通信（postMessage使用）
         this.vrmWebSocket = null;
         
-        // パフォーマンス最適化用
-        this.chatParseQueue = [];
-        this.chatParseTimer = null;
-        this.isProcessingChat = false;
+        // パフォーマンス最適化用（チャンク結合方式に変更）
+        this.messageAccumulator = new MessageAccumulator();
         this.claudeWorkingDir = ''; // Claude Code作業ディレクトリの初期値
         this.speakerInitialized = false; // 話者選択初期化フラグ
         
@@ -85,6 +194,11 @@ class TerminalApp {
 
     // モジュール初期化
     async initializeModules() {
+        // MessageAccumulatorのコールバック設定
+        this.messageAccumulator.setProcessCallback((data) => {
+            this.parseTerminalDataForChat(data);
+        });
+        
         // 壁紙システムの初期化
         this.wallpaperSystem.setMessageCallback((character, message) => {
             this.addVoiceMessage(character, message);
@@ -194,8 +308,8 @@ class TerminalApp {
                 if (this.terminal) {
                     this.terminal.write(data);
                 }
-                // チャット解析をバッチ処理で高速化（「」内処理）
-                this.queueChatParsing(data);
+                // チャンク結合方式でメッセージ処理
+                this.messageAccumulator.addChunk(data);
             });
 
             // Handle Claude Code exit
@@ -240,45 +354,43 @@ class TerminalApp {
     }
 
 
-    // バッチ処理でチャット解析を最適化
-    queueChatParsing(data) {
-        if (!data.includes('⏺') && !data.includes('✦')) return;
-        
-        this.chatParseQueue.push(data);
-        
-        if (!this.chatParseTimer) {
-            this.chatParseTimer = setTimeout(() => {
-                this.processChatQueue();
-            }, 50); // 50msに短縮で高速化
-        }
-    }
+    // 🗑️ 旧バッチ処理システムは削除し、MessageAccumulatorで置き換え
+    // 以下の関数は互換性のため残してありますが、使用されません
     
-    processChatQueue() {
-        if (this.isProcessingChat) return;
-        this.isProcessingChat = true;
-        
-        const latestData = this.chatParseQueue[this.chatParseQueue.length - 1];
-        this.chatParseQueue = [];
-        this.chatParseTimer = null;
-        
-        this.parseTerminalDataForChat(latestData);
-        this.isProcessingChat = false;
+    // デバッグ用: MessageAccumulatorの状態を取得
+    getMessageAccumulatorStatus() {
+        return this.messageAccumulator.getStatus();
     }
 
     parseTerminalDataForChat(data) {
         try {
+            debugLog('🔍 parseTerminalDataForChat 開始 - 入力データ長:', data.length);
+            debugLog('🔍 [チャンク結合版] 完全なメッセージを処理中');
+            
             const cleanData = data.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').trim();
+            debugLog('🔍 ANSIエスケープ除去後 - データ長:', cleanData.length);
             
             // Claude Code (⏺) と Gemini Code Assist (✦) の両方に対応
             let markerIndex = cleanData.indexOf('⏺');
+            let markerType = '⏺';
             if (markerIndex === -1) {
                 markerIndex = cleanData.indexOf('✦');
+                markerType = '✦';
             }
-            if (markerIndex === -1) return;
+            
+            if (markerIndex === -1) {
+                debugLog('🔍 マーカーが見つからないため処理をスキップ');
+                return;
+            }
+            
+            debugLog('🔍 マーカー検出:', { markerType, markerIndex });
             
             let afterMarker = cleanData.substring(markerIndex + 1).trim();
+            debugLog('🔍 マーカー後のテキスト長:', afterMarker.length);
+            debugLog('🔍 マーカー後のテキスト（最初の100文字）:', afterMarker.substring(0, 100));
             
             // 文字列クリーニング（音声読み上げ用）
+            const beforeCleaning = afterMarker;
             afterMarker = afterMarker
                     .replace(/^[⚒↓⭐✶✻✢·✳]+\s*/g, '')
                     .replace(/\s*[✢✳✶✻✽·⚒↓↑]\s*(Synthesizing|Conjuring|Spinning|Vibing|Computing|Mulling|Pondering|musing|thinking).*$/gi, '')
@@ -286,33 +398,42 @@ class TerminalApp {
                     .replace(/\s*tokens.*$/gi, '')
                     .trim();
             
+            debugLog('🔍 クリーニング前後の長さ変化:', { before: beforeCleaning.length, after: afterMarker.length });
+            
             // カッコ内のテキストを抽出（音声読み上げ用・改行にも対応）
             const quotedTextMatches = afterMarker.match(/「([^」]+)」/gs);
-            debugLog('Original text:', afterMarker);
-            debugLog('Quoted matches:', quotedTextMatches);
+            debugLog('🔍 正規表現マッチ結果:', {
+                matchCount: quotedTextMatches ? quotedTextMatches.length : 0,
+                matches: quotedTextMatches
+            });
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
                 // カギカッコ内のテキストを一個ずつ処理
-                debugLog('Found quoted text, processing only quoted content');
+                debugLog('🎤 抽出されたカギカッコテキストをprocessQuotedTextsに送信');
                 this.processQuotedTexts(quotedTextMatches);
                 return; // カギカッコ処理の場合は通常の処理をスキップ
             } else {
                 // カギカッコがない場合は読み上げをスキップ
-                debugLog('No quoted text found, skipping speech synthesis.');
+                debugLog('⚠️ カギカッコテキストが見つからないため音声合成をスキップ');
+                debugLog('⚠️ テキスト内容サンプル:', afterMarker.substring(0, 200));
                 return; // 読み上げをスキップ
             }
 
         } catch (error) {
+            debugError('❌ parseTerminalDataForChat エラー:', error);
             console.warn('Chat parsing error:', error);
         }
     }
 
     // カッコ内のテキストを一個ずつ順次処理
     async processQuotedTexts(quotedTextMatches) {
-        debugLog('Processing quoted texts:', quotedTextMatches);
+        debugLog('🎤 processQuotedTexts 開始 - 総カギカッコ数:', quotedTextMatches.length);
         
         for (let i = 0; i < quotedTextMatches.length; i++) {
+            debugLog(`🎤 処理中 ${i + 1}/${quotedTextMatches.length}:`, quotedTextMatches[i]);
+            
             let quotedText = quotedTextMatches[i].replace(/[「」]/g, '').trim();
+            debugLog(`🎤 カギカッコ除去後のテキスト ${i + 1}:`, quotedText.substring(0, 50) + '...');
             
             // 改行と余分な空白を除去
             quotedText = quotedText.replace(/\r?\n\s*/g, '').replace(/\s+/g, ' ').trim();
@@ -342,6 +463,14 @@ class TerminalApp {
                 await new Promise(resolve => setTimeout(resolve, 3000));
             }
         }
+        
+        debugLog(`🎉 processQuotedTexts 完了 - 総処理数: ${quotedTextMatches.length}`);
+        
+        // キャラクターの気分をリセット
+        setTimeout(() => {
+            this.updateCharacterMood('待機中💕');
+            debugLog('💕 キャラクター気分をリセット');
+        }, 3000);
     }
 
     // sendChatMessage は削除済み（チャット入力エリア削除に伴い）
@@ -732,25 +861,138 @@ class TerminalApp {
     }
 
     async speakText(text) {
-        if (!window.electronAPI || !window.electronAPI.voice || !this.voiceEnabled || this.connectionStatus !== 'connected') {
+        debugLog(`🗣️ speakText 開始 - テキスト長: ${text.length}文字`);
+        debugLog(`🗣️ テキスト内容: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"`);        
+        
+        // 前提条件チェック
+        if (!window.electronAPI || !window.electronAPI.voice) {
+            debugLog('⚠️ electronAPIまたはvoice APIが利用不可');
+            return;
+        }
+        
+        if (!this.voiceEnabled) {
+            debugLog('🔇 音声機能が無効のためスキップ');
+            return;
+        }
+        
+        if (this.connectionStatus !== 'connected') {
+            debugLog(`⚠️ 音声エンジン未接続のためスキップ (現在のステータス: ${this.connectionStatus})`);
             return;
         }
 
-        // 重複チェックを実行
-        if (this.speechHistory.isDuplicate(text)) {
-            debugLog('🔄 重複テキストをスキップ:', text.substring(0, 30) + '...');
-            return;
-        }
+        // 重複チェックを実行 (一時的に無効化)
+        // if (this.speechHistory.isDuplicate(text)) {
+        //     debugLog('🔄 重複テキストをスキップ:', text.substring(0, 30) + '...');
+        //     return;
+        // }
 
         try {
-            debugLog('Speaking text:', text, 'with speaker:', this.selectedSpeaker);
+            debugLog(`🎙️ 音声合成開始 - 話者ID: ${this.selectedSpeaker}`);
+            const startTime = Date.now();
             
-            // 読み上げ履歴に追加
-            this.speechHistory.addToHistory(text);
+            // 読み上げ履歴に追加 (一時的に無効化)
+            // this.speechHistory.addToHistory(text);
             
             await window.electronAPI.voice.speak(text, this.selectedSpeaker);
+            
+            const duration = Date.now() - startTime;
+            debugLog(`✅ 音声合成完了 - 所要時間: ${duration}ms`);
+            
         } catch (error) {
-            debugError('Failed to speak text:', error);
+            debugError(`❌ 音声合成エラー:`, {
+                message: error.message,
+                textLength: text.length,
+                speaker: this.selectedSpeaker,
+                connectionStatus: this.connectionStatus,
+                voiceEnabled: this.voiceEnabled
+            });
+            
+            // エラー通知をユーザーに表示
+            this.showVoiceError(error);
+        }
+    }
+    
+    // ユーザー向けエラー通知
+    showVoiceError(error) {
+        const errorMessage = this.getVoiceErrorMessage(error);
+        
+        // エラー通知を画面に表示
+        this.showNotification(errorMessage, 'error');
+        
+        // 音声関連のUIを更新
+        this.updateVoiceErrorIndicator(error);
+    }
+    
+    // エラーメッセージの生成
+    getVoiceErrorMessage(error) {
+        if (error.errorType) {
+            switch (error.errorType) {
+                case 'network':
+                    return '音声エンジンに接続できません。AivisSpeechが起動しているか確認してください。';
+                case 'timeout':
+                    return '音声生成に時間がかかりすぎています。しばらく待ってから再試行してください。';
+                case 'server':
+                    return '音声エンジンでエラーが発生しました。エンジンの再起動を試してください。';
+                case 'synthesis':
+                    return 'テキストの音声変換に失敗しました。内容を確認してください。';
+                default:
+                    return '音声読み上げエラーが発生しました。';
+            }
+        }
+        
+        return `音声読み上げエラー: ${error.message || 'Unknown error'}`;
+    }
+    
+    // 通知の表示
+    showNotification(message, type = 'info') {
+        // 既存の通知を削除
+        const existingNotification = document.querySelector('.voice-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        // 新しい通知を作成
+        const notification = document.createElement('div');
+        notification.className = `voice-notification voice-notification-${type}`;
+        notification.textContent = message;
+        
+        // 通知のスタイルを設定
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'error' ? '#ff4444' : '#4CAF50'};
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 300px;
+            word-wrap: break-word;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // 5秒後に自動削除
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+    
+    // 音声エラーインジケーターの更新
+    updateVoiceErrorIndicator(error) {
+        const statusElement = document.getElementById('connection-status-modal');
+        if (statusElement) {
+            statusElement.textContent = 'エラー発生';
+            statusElement.className = 'status-error';
+            
+            // 10秒後にステータスを復元
+            setTimeout(() => {
+                this.checkVoiceConnection();
+            }, 10000);
         }
     }
 
