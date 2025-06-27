@@ -219,36 +219,10 @@ class TerminalApp {
     // setupEventListeners() - modules/ui-event-manager.js に移動済み
 
     setupChatInterface() {
-        const chatInput = document.getElementById('chat-input');
-        const sendButton = document.getElementById('send-button');
-
-        if (chatInput && sendButton) {
-            // チャット入力のイベントリスナー
-            chatInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault(); // デフォルト動作を防ぐ
-                    e.stopPropagation(); // イベントの伝播を停止
-                    this.sendChatMessage();
-                }
-            });
-            
-            // フォーカス時にターミナルへの入力を防ぐ
-            chatInput.addEventListener('focus', () => {
-                if (this.terminal) {
-                    this.terminal.blur();
-                }
-            });
-
-            sendButton.addEventListener('click', () => {
-                this.sendChatMessage();
-            });
-        }
-
-
-        // クイックボタンは削除済み
+        // チャット入力エリアは削除済み
 
         // 初期メッセージを追加（音声読み上げ用）
-        this.addVoiceMessage('クロード', 'こんにちは〜！✨ 何をお手伝いしましょうか？');
+        this.addVoiceMessage('ことね', 'こんにちは〜！何をお手伝いしましょうか？');
     }
 
 
@@ -340,7 +314,7 @@ class TerminalApp {
             
             // DOM操作を最小化
             requestAnimationFrame(() => {
-                this.addVoiceMessage('クロード', quotedText);
+                this.addVoiceMessage('ことね', quotedText);
                 this.updateCharacterMood('おしゃべり中✨');
             });
             
@@ -356,43 +330,7 @@ class TerminalApp {
         }
     }
 
-    sendChatMessage() {
-        const chatInput = document.getElementById('chat-input');
-        if (!chatInput) return;
-
-        const message = chatInput.value.trim();
-        if (!message) return;
-
-        // Claude Codeにメッセージを送信して完全に送信まで実行
-        if (this.isTerminalRunning && window.electronAPI && window.electronAPI.terminal) {
-            debugLog('Sending message to terminal:', message);
-            // タイピング風に送信（Claude Codeのターミナル処理に合わせる）
-            setTimeout(() => {
-                window.electronAPI.terminal.write(message + '\r');
-            }, 100);
-            this.updateCharacterMood('考え中...');
-            
-            // 送信完了後に入力エリアをクリア（非同期で確実に実行）
-            setTimeout(() => {
-                chatInput.value = '';
-                chatInput.blur(); // フォーカスを外す
-            }, 50);
-            
-            // 入力後にターミナルにフォーカスを戻す（遅延を長くして確実に処理完了を待つ）
-            setTimeout(() => {
-                if (this.terminal) {
-                    this.terminal.focus();
-                }
-            }, 300);
-        } else {
-            debugError('Cannot send message:', {
-                isTerminalRunning: this.isTerminalRunning,
-                hasElectronAPI: !!window.electronAPI,
-                hasTerminalAPI: !!(window.electronAPI && window.electronAPI.terminal)
-            });
-            this.addVoiceMessage('クロード', 'Claude Codeが起動してないよ〜！先にStartボタンを押してね！');
-        }
-    }
+    // sendChatMessage は削除済み（チャット入力エリア削除に伴い）
 
     // sendQuickMessage は削除済み
 
@@ -496,12 +434,12 @@ class TerminalApp {
                 this.terminal.writeln(`\x1b[90m🎀 KawAIi Code Integration Started! 🎀\x1b[0m`);
                 this.terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
                 
-                this.addVoiceMessage('クロード', `${aiName}が起動したよ〜！✨`);
+                this.addVoiceMessage('ことね', `${aiName}が起動したよ〜！`);
                 
                 // 起動するAIに応じて.mdファイルを生成/更新
                 const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
                 await this.configManager.writeAiMdToHomeDir(aiType);
-                this.addVoiceMessage('クロード', `${aiMdFilename}を更新したよ！`);
+                this.addVoiceMessage('ことね', `${aiMdFilename}を更新したよ！`);
 
                 setTimeout(() => {
                     this.fitAddon.fit();
@@ -544,7 +482,7 @@ class TerminalApp {
                 const aiMdFilename = this.currentRunningAI === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
                 if (this.currentRunningAI) { // 念のためnullチェック
                     await this.configManager.deleteAiMdFromHomeDir(this.currentRunningAI);
-                    this.addVoiceMessage('クロード', `${aiMdFilename}を削除したよ！`);
+                    this.addVoiceMessage('ことね', `${aiMdFilename}を削除したよ！`);
                 }
                 this.currentRunningAI = null; // 停止したのでクリア
             } else {
