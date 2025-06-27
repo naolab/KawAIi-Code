@@ -234,6 +234,7 @@ class UnifiedConfigManager {
             voiceSynthesisEnabled: true,
             defaultSpeakerId: null,
             voiceCooldownSeconds: 1,
+            voiceIntervalSeconds: 3,
             
             // UI設定
             voiceEnabled: true,
@@ -333,7 +334,7 @@ class UnifiedConfigManager {
     
     _determineLevel(key) {
         // システム設定
-        if (['claudeWorkingDir', 'voiceSynthesisEnabled', 'defaultSpeakerId', 'voiceCooldownSeconds'].includes(key)) {
+        if (['claudeWorkingDir', 'voiceSynthesisEnabled', 'defaultSpeakerId', 'voiceCooldownSeconds', 'voiceIntervalSeconds'].includes(key)) {
             return 'user';
         }
         

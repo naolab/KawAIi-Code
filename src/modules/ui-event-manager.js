@@ -210,6 +210,21 @@ class UIEventManager {
             refreshConnectionBtnModal.addEventListener('click', () => this.app.checkVoiceConnection());
         }
 
+        // 音声読み上げ間隔スライダー
+        const voiceIntervalSlider = document.getElementById('voice-interval-slider');
+        if (voiceIntervalSlider) {
+            // 初期値を設定から読み込み
+            voiceIntervalSlider.value = this.app.voiceIntervalSeconds;
+            
+            voiceIntervalSlider.addEventListener('input', async (e) => {
+                const newValue = parseFloat(e.target.value);
+                this.app.voiceIntervalSeconds = newValue;
+                
+                // 統一設定システムに保存
+                await unifiedConfig.set('voiceIntervalSeconds', newValue);
+            });
+        }
+
         this.debugLog('Voice control event listeners setup completed');
     }
 

@@ -165,6 +165,7 @@ class TerminalApp {
         this.audioContext = null;
         this.currentAudio = null;
         this.isPlaying = false;
+        this.voiceIntervalSeconds = 3; // 音声読み上げ間隔（デフォルト3秒）
         this.audioQueue = []; // { audioData, timestamp } の配列
         this.maxAudioAge = 120000; // 120秒（2分）で古い音声とみなす
         this.maxQueueSize = 50; // キューの最大サイズ（メモリ使用量制限）
@@ -246,10 +247,12 @@ class TerminalApp {
         // 統一設定システムから設定を読み込み（起動時のみ）
         this.voiceEnabled = await unifiedConfig.get('voiceEnabled', this.voiceEnabled);
         this.selectedSpeaker = await unifiedConfig.get('selectedSpeaker', this.selectedSpeaker);
+        this.voiceIntervalSeconds = await unifiedConfig.get('voiceIntervalSeconds', this.voiceIntervalSeconds);
         
         debugLog('Initial settings loaded:', {
             voiceEnabled: this.voiceEnabled,
-            selectedSpeaker: this.selectedSpeaker
+            selectedSpeaker: this.selectedSpeaker,
+            voiceIntervalSeconds: this.voiceIntervalSeconds
         });
     }
 
@@ -396,11 +399,8 @@ class TerminalApp {
     parseTerminalDataForChat(data) {
         try {
             debugLog('🔍 parseTerminalDataForChat 開始 - 入力データ長:', data.length);
-            debugLog('🔍 [チャンク結合版] 完全なメッセージを処理中');
             
             const cleanData = data.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').trim();
-            debugLog('🔍 ANSIエスケープ除去後 - データ長:', cleanData.length);
-            
             // Claude Code (⏺) と Gemini Code Assist (✦) の両方に対応
             let markerIndex = cleanData.indexOf('⏺');
             let markerType = '⏺';
@@ -410,18 +410,12 @@ class TerminalApp {
             }
             
             if (markerIndex === -1) {
-                debugLog('🔍 マーカーが見つからないため処理をスキップ');
                 return;
             }
             
-            debugLog('🔍 マーカー検出:', { markerType, markerIndex });
-            
             let afterMarker = cleanData.substring(markerIndex + 1).trim();
-            debugLog('🔍 マーカー後のテキスト長:', afterMarker.length);
-            debugLog('🔍 マーカー後のテキスト（最初の100文字）:', afterMarker.substring(0, 100));
             
             // 文字列クリーニング（音声読み上げ用）
-            const beforeCleaning = afterMarker;
             afterMarker = afterMarker
                     .replace(/^[⚒↓⭐✶✻✢·✳]+\s*/g, '')
                     .replace(/\s*[✢✳✶✻✽·⚒↓↑]\s*(Synthesizing|Conjuring|Spinning|Vibing|Computing|Mulling|Pondering|musing|thinking).*$/gi, '')
@@ -429,24 +423,15 @@ class TerminalApp {
                     .replace(/\s*tokens.*$/gi, '')
                     .trim();
             
-            debugLog('🔍 クリーニング前後の長さ変化:', { before: beforeCleaning.length, after: afterMarker.length });
-            
             // カッコ内のテキストを抽出（音声読み上げ用・改行にも対応）
             const quotedTextMatches = afterMarker.match(/「([^」]+)」/gs);
-            debugLog('🔍 正規表現マッチ結果:', {
-                matchCount: quotedTextMatches ? quotedTextMatches.length : 0,
-                matches: quotedTextMatches
-            });
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
                 // カギカッコ内のテキストを一個ずつ処理
-                debugLog('🎤 抽出されたカギカッコテキストをprocessQuotedTextsに送信');
                 this.processQuotedTexts(quotedTextMatches);
                 return; // カギカッコ処理の場合は通常の処理をスキップ
             } else {
                 // カギカッコがない場合は読み上げをスキップ
-                debugLog('⚠️ カギカッコテキストが見つからないため音声合成をスキップ');
-                debugLog('⚠️ テキスト内容サンプル:', afterMarker.substring(0, 200));
                 return; // 読み上げをスキップ
             }
 
@@ -478,23 +463,15 @@ class TerminalApp {
 
     // カッコ内のテキストを一個ずつ順次処理
     async processQuotedTexts(quotedTextMatches) {
-        debugLog('🎤 processQuotedTexts 開始 - 総カギカッコ数:', quotedTextMatches.length);
         
         for (let i = 0; i < quotedTextMatches.length; i++) {
-            debugLog(`🎤 処理中 ${i + 1}/${quotedTextMatches.length}:`, quotedTextMatches[i]);
-            
             let quotedText = quotedTextMatches[i].replace(/[「」]/g, '').trim();
-            debugLog(`🎤 カギカッコ除去後のテキスト ${i + 1}:`, quotedText.substring(0, 50) + '...');
             
             // 改行と余分な空白を除去
             quotedText = quotedText.replace(/\r?\n\s*/g, '').replace(/\s+/g, ' ').trim();
             
-            debugLog(`Original quoted text: "${quotedText}"`);
-            
-            
             // 空のテキストはスキップ
             if (quotedText.length === 0) {
-                debugLog('Skipping empty text');
                 continue;
             }
             
@@ -509,16 +486,12 @@ class TerminalApp {
                 await this.speakText(quotedText);
                 // 音声再生完了まで待機（順序保証）
                 await this.waitForAudioComplete();
-                debugLog(`✅ 音声${i + 1}/${quotedTextMatches.length}の再生完了`);
             }
         }
-        
-        debugLog(`🎉 processQuotedTexts 完了 - 総処理数: ${quotedTextMatches.length}`);
         
         // キャラクターの気分をリセット
         setTimeout(() => {
             this.updateCharacterMood('待機中💕');
-            debugLog('💕 キャラクター気分をリセット');
         }, 3000);
     }
 
@@ -910,8 +883,6 @@ class TerminalApp {
     }
 
     async speakText(text) {
-        debugLog(`🗣️ speakText 開始 - テキスト長: ${text.length}文字`);
-        debugLog(`🗣️ テキスト内容: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"`);        
         
         // 前提条件チェック
         if (!window.electronAPI || !window.electronAPI.voice) {
@@ -932,20 +903,16 @@ class TerminalApp {
         // 重複チェックを実行
         if (this.speechHistory.isDuplicate(text)) {
             debugLog('🔄 重複テキストをスキップ:', text.substring(0, 30) + '...');
+            // 重複スキップ時も間隔制御のためlastSpeechTimeを更新
+            this.lastSpeechTime = Date.now();
             return;
         }
 
         try {
-            debugLog(`🎙️ 音声合成開始 - 話者ID: ${this.selectedSpeaker}`);
-            const startTime = Date.now();
-            
             // 読み上げ履歴に追加
             this.speechHistory.addToHistory(text);
             
             await window.electronAPI.voice.speak(text, this.selectedSpeaker);
-            
-            const duration = Date.now() - startTime;
-            debugLog(`✅ 音声合成完了 - 所要時間: ${duration}ms`);
             
         } catch (error) {
             debugError(`❌ 音声合成エラー:`, {
@@ -1188,9 +1155,9 @@ class TerminalApp {
         if (this.audioQueue.length > 0 && !this.isPlaying) {
             debugLog('🎵 Processing queue, items:', this.audioQueue.length);
             
-            // 前の音声から3秒間隔を確保
+            // 前の音声から設定可能間隔を確保
             const timeSinceLastSpeech = Date.now() - this.lastSpeechTime;
-            const requiredInterval = 3000; // 3秒間隔
+            const requiredInterval = (this.voiceIntervalSeconds || 3) * 1000; // 設定可能間隔
             
             if (timeSinceLastSpeech < requiredInterval) {
                 const remainingWait = requiredInterval - timeSinceLastSpeech;
