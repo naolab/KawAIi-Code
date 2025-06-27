@@ -95,8 +95,8 @@ body {
     border: 3px solid rgba(255, 140, 66, 0.8);
     -ms-overflow-style: none;
     scrollbar-width: none;
-    height: calc(100vh - 70px - 80px - 40px);
-    margin-bottom: 80px;
+    height: calc(100vh - 70px - 50px - 20px);
+    margin-bottom: 50px;
 }
 
 /* 壁紙設定用スタイル */

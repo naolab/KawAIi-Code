@@ -281,13 +281,15 @@ class WallpaperSystem {
                 video.playsInline = true; // iOSなどで自動再生を有効にするため
 
                 video.style.cssText = `
-                    position: absolute;
+                    position: fixed;
                     top: 0;
                     left: 0;
-                    width: 100%;
-                    height: 100%;
+                    width: 100vw;
+                    height: 100vh;
                     object-fit: cover;
                     z-index: -1;
+                    margin: 0;
+                    padding: 0;
                 `;
                 body.prepend(video); // bodyの最初に挿入
                 WallpaperSystem_debugLog(`動画壁紙を適用: ${newWallpaperPath}`);
