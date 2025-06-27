@@ -350,8 +350,18 @@ ipcMain.handle('open-directory-dialog', async () => {
 // ★ 新しいIPCハンドラ: 現在の作業ディレクトリの取得
 ipcMain.handle('get-claude-cwd', async () => {
   try {
-    const currentCwd = appConfig.get('claudeWorkingDir', os.homedir()); // デフォルトはホームディレクトリ
-    return { success: true, cwd: currentCwd };
+    // まず統一設定システム（appConfig）から取得を試行
+    await appConfig.loadConfig();
+    const savedDir = appConfig.config.claudeWorkingDir;
+    if (savedDir && savedDir !== os.homedir()) {
+      debugLog('Claude working directory from appConfig:', savedDir);
+      return { success: true, cwd: savedDir };
+    }
+    
+    // デフォルトはホームディレクトリ
+    const defaultCwd = os.homedir();
+    debugLog('Claude working directory using default:', defaultCwd);
+    return { success: true, cwd: defaultCwd };
   } catch (error) {
     console.error('Claude Code 作業ディレクトリの取得に失敗しました:', error);
     return { success: false, error: error.message };
@@ -554,6 +564,17 @@ ipcMain.handle('set-app-config', async (event, key, value) => {
   try {
     await appConfig.set(key, value);
     debugLog('App config set:', { key, value });
+    
+    // claudeWorkingDirの場合は既存のappConfigにも同期
+    if (key === 'claudeWorkingDir') {
+      try {
+        await appConfig.set('claudeWorkingDir', value);
+        debugLog('Synced claudeWorkingDir to appConfig:', value);
+      } catch (syncError) {
+        debugLog('Failed to sync to appConfig:', syncError.message);
+      }
+    }
+    
     return { success: true };
   } catch (error) {
     errorLog('set-app-config error:', error);

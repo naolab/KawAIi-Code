@@ -61,6 +61,15 @@ class AppConfig {
             // その他のデフォルト設定
         };
     }
+
+    getClaudeWorkingDir() {
+        return this.config.claudeWorkingDir || os.homedir();
+    }
+
+    setClaudeWorkingDir(dir) {
+        this.config.claudeWorkingDir = dir;
+        this.saveConfig();
+    }
 }
 
 const appConfig = new AppConfig();
