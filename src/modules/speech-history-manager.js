@@ -22,6 +22,9 @@
     }
 })();
 
+// 統一設定管理システム（グローバル参照）
+// unifiedConfigはunified-config-manager.jsで既にグローバルに定義済み
+
 class SpeechHistoryManager {
     constructor(maxHistorySize = 10) {
         // ログ関数の初期化
@@ -30,16 +33,23 @@ class SpeechHistoryManager {
         
         this.maxHistorySize = maxHistorySize;
         this.historyKey = 'speech_history';
-        this.history = this.loadHistory();
+        this.history = [];
+        
+        // 非同期初期化
+        this.initializeAsync();
         
         this.debugLog('SpeechHistoryManager initialized with maxSize:', maxHistorySize);
     }
 
-    // LocalStorageから履歴を読み込み
-    loadHistory() {
+    // 非同期初期化
+    async initializeAsync() {
+        this.history = await this.loadHistory();
+    }
+
+    // 統一設定システムから履歴を読み込み
+    async loadHistory() {
         try {
-            const stored = localStorage.getItem(this.historyKey);
-            const history = stored ? JSON.parse(stored) : [];
+            const history = await unifiedConfig.get(this.historyKey, []);
             this.debugLog('音声履歴を読み込み:', { count: history.length });
             return history;
         } catch (error) {
@@ -48,10 +58,10 @@ class SpeechHistoryManager {
         }
     }
 
-    // LocalStorageに履歴を保存
-    saveHistory() {
+    // 統一設定システムに履歴を保存
+    async saveHistory() {
         try {
-            localStorage.setItem(this.historyKey, JSON.stringify(this.history));
+            await unifiedConfig.set(this.historyKey, this.history);
             this.debugLog('音声履歴を保存:', { count: this.history.length });
         } catch (error) {
             this.debugError('履歴保存エラー:', error);

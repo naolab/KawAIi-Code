@@ -6,6 +6,9 @@ const debugLog = isDev ? console.log : () => {};
 const debugTrace = isDev ? console.trace : () => {};
 const debugError = console.error; // エラーは常に出力
 
+// 統一設定管理システム（グローバル参照）
+// unifiedConfigはunified-config-manager.jsで既にグローバルに定義済み
+
 // 読み上げ履歴管理クラス - modules/speech-history-manager.js に移動済み
 
 class TerminalApp {
@@ -616,23 +619,23 @@ class TerminalApp {
             }
         }
 
-        // ユーザー設定を読み込み
-        const savedVoiceEnabled = localStorage.getItem('voiceEnabled');
-        if (savedVoiceEnabled !== null) {
-            this.voiceEnabled = JSON.parse(savedVoiceEnabled);
+        // 既存データの自動マイグレーション実行
+        const migratedCount = await unifiedConfig.migrateFromLocalStorage();
+        if (migratedCount > 0) {
+            debugLog(`Configuration migration completed: ${migratedCount} settings migrated`);
         }
 
-        const savedSelectedSpeaker = localStorage.getItem('selectedSpeaker');
-        if (savedSelectedSpeaker !== null) {
-            this.selectedSpeaker = parseInt(savedSelectedSpeaker, 10);
-        }
+        // ユーザー設定を統一設定システムから読み込み
+        this.voiceEnabled = await unifiedConfig.get('voiceEnabled', this.voiceEnabled);
+        this.selectedSpeaker = await unifiedConfig.get('selectedSpeaker', this.selectedSpeaker);
 
         // 壁紙設定の復元は WallpaperSystem モジュールで処理
 
-        localStorage.setItem('selectedSpeaker', this.selectedSpeaker.toString());
+        // 設定を統一設定システムに保存
+        await unifiedConfig.set('selectedSpeaker', this.selectedSpeaker);
 
         if (this.claudeWorkingDir) {
-            localStorage.setItem('claudeWorkingDir', this.claudeWorkingDir);
+            await unifiedConfig.set('claudeWorkingDir', this.claudeWorkingDir);
         }
     }
 

@@ -64,6 +64,12 @@ window.electronAPI = {
   getClaudeCwd: () => ipcRenderer.invoke("get-claude-cwd"),
   getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
 
+  // 統一設定管理システム
+  getAppConfig: () => ipcRenderer.invoke('get-app-config'),
+  setAppConfig: (key, value) => ipcRenderer.invoke('set-app-config', key, value),
+  removeAppConfig: (key) => ipcRenderer.invoke('remove-app-config', key),
+  clearAppConfig: () => ipcRenderer.invoke('clear-app-config'),
+
   fs: require('fs'), // fsモジュールを公開
   path: require('path'), // pathモジュールを公開
   os: require('os') // osモジュールを公開

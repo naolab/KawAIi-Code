@@ -539,4 +539,50 @@ ipcMain.handle('get-user-data-path', () => {
   }
 });
 
+// 統一設定管理システムのIPCハンドラー
+ipcMain.handle('get-app-config', async () => {
+  try {
+    await appConfig.loadConfig();
+    return appConfig.config;
+  } catch (error) {
+    errorLog('get-app-config error:', error);
+    return {};
+  }
+});
+
+ipcMain.handle('set-app-config', async (event, key, value) => {
+  try {
+    await appConfig.set(key, value);
+    debugLog('App config set:', { key, value });
+    return { success: true };
+  } catch (error) {
+    errorLog('set-app-config error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('remove-app-config', async (event, key) => {
+  try {
+    delete appConfig.config[key];
+    await appConfig.saveConfig();
+    debugLog('App config removed:', { key });
+    return { success: true };
+  } catch (error) {
+    errorLog('remove-app-config error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('clear-app-config', async () => {
+  try {
+    appConfig.config = appConfig.getDefaultConfig();
+    await appConfig.saveConfig();
+    debugLog('App config cleared');
+    return { success: true };
+  } catch (error) {
+    errorLog('clear-app-config error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // ★ 新しいIPCハンドラ: 音声認識ストリームの開始

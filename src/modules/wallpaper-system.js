@@ -5,6 +5,9 @@ const WallpaperSystem_isDev = !window.location.protocol.startsWith('file:') || p
 const WallpaperSystem_debugLog = WallpaperSystem_isDev ? console.log : () => {};
 const WallpaperSystem_debugError = console.error; // エラーは常に出力
 
+// 統一設定管理システム（グローバル参照）
+// unifiedConfigはunified-config-manager.jsで既にグローバルに定義済み
+
 class WallpaperSystem {
     constructor() {
         this.wallpaperTimer = null;
@@ -13,16 +16,18 @@ class WallpaperSystem {
         this.wallpaperAnimationEnabled = true;
         this.messageCallback = null; // 音声メッセージ用コールバック
         
-        // localStorageから設定を復元
-        this.loadSettings();
+        // 統一設定システムから設定を復元
+        this.initializeAsync();
     }
 
-    // localStorageから設定を読み込み
-    loadSettings() {
-        const savedWallpaperAnimationEnabled = localStorage.getItem('wallpaperAnimationEnabled');
-        if (savedWallpaperAnimationEnabled !== null) {
-            this.wallpaperAnimationEnabled = JSON.parse(savedWallpaperAnimationEnabled);
-        }
+    // 非同期初期化
+    async initializeAsync() {
+        await this.loadSettings();
+    }
+
+    // 統一設定システムから設定を読み込み
+    async loadSettings() {
+        this.wallpaperAnimationEnabled = await unifiedConfig.get('wallpaperAnimationEnabled', this.wallpaperAnimationEnabled);
     }
 
     // 音声メッセージ用コールバックを設定
@@ -67,8 +72,8 @@ class WallpaperSystem {
                     lastUploadedWallpaper = response.wallpapers[response.wallpapers.length - 1];
                 }
 
-                const savedWallpaperChoice = localStorage.getItem('selectedWallpaperChoice'); // 'default' or 'uploaded'
-                const savedUploadedWallpaper = localStorage.getItem('lastUploadedWallpaper'); // ファイル名
+                const savedWallpaperChoice = await unifiedConfig.get('selectedWallpaperChoice'); // 'default' or 'uploaded'
+                const savedUploadedWallpaper = await unifiedConfig.get('lastUploadedWallpaper'); // ファイル名
 
                 // UIを初期化
                 if (defaultRadio) defaultRadio.checked = false;
@@ -83,16 +88,16 @@ class WallpaperSystem {
                     }
                     this.currentWallpaperOption = 'uploaded';
                     this.applyWallpaper(lastUploadedWallpaper.filename);
-                    localStorage.setItem('selectedWallpaperChoice', 'uploaded');
-                    localStorage.setItem('lastUploadedWallpaper', lastUploadedWallpaper.filename);
+                    await unifiedConfig.set('selectedWallpaperChoice', 'uploaded');
+                    await unifiedConfig.set('lastUploadedWallpaper', lastUploadedWallpaper.filename);
                     this.stopWallpaperTimer(); // アップロード済み壁紙が選択されたらタイマーを停止
                 } else if (defaultRadio) {
                     // それ以外の場合はデフォルト壁紙を選択
                     defaultRadio.checked = true;
                     this.currentWallpaperOption = 'default';
                     this.applyWallpaper('default');
-                    localStorage.setItem('selectedWallpaperChoice', 'default');
-                    localStorage.removeItem('lastUploadedWallpaper'); // デフォルト選択時はクリア
+                    await unifiedConfig.set('selectedWallpaperChoice', 'default');
+                    await unifiedConfig.remove('lastUploadedWallpaper'); // デフォルト選択時はクリア
                     this.startWallpaperTimer(); // デフォルト壁紙が選択されたらタイマーを開始
                 }
 
@@ -111,8 +116,8 @@ class WallpaperSystem {
             if (defaultRadio) defaultRadio.checked = true;
             this.currentWallpaperOption = 'default';
             this.applyWallpaper('default');
-            localStorage.setItem('selectedWallpaperChoice', 'default');
-            localStorage.removeItem('lastUploadedWallpaper');
+            await unifiedConfig.set('selectedWallpaperChoice', 'default');
+            await unifiedConfig.remove('lastUploadedWallpaper');
         }
     }
 
@@ -125,12 +130,12 @@ class WallpaperSystem {
         const uploadedWallpaperNameSpan = document.getElementById('uploaded-wallpaper-name');
 
         if (defaultRadio) {
-            defaultRadio.addEventListener('change', () => {
+            defaultRadio.addEventListener('change', async () => {
                 if (defaultRadio.checked) {
                     this.currentWallpaperOption = 'default';
                     this.applyWallpaper('default');
-                    localStorage.setItem('selectedWallpaperChoice', 'default');
-                    localStorage.removeItem('lastUploadedWallpaper');
+                    await unifiedConfig.set('selectedWallpaperChoice', 'default');
+                    await unifiedConfig.remove('lastUploadedWallpaper');
                     if (uploadedWallpaperNameSpan) uploadedWallpaperNameSpan.textContent = '';
                     this.startWallpaperTimer(); // デフォルト壁紙が選択されたらタイマーを開始
                 }
@@ -147,8 +152,8 @@ class WallpaperSystem {
                         const latestWallpaper = response.wallpapers[response.wallpapers.length - 1];
                         this.currentWallpaperOption = 'uploaded';
                         this.applyWallpaper(latestWallpaper.filename);
-                        localStorage.setItem('selectedWallpaperChoice', 'uploaded');
-                        localStorage.setItem('lastUploadedWallpaper', latestWallpaper.filename);
+                        await unifiedConfig.set('selectedWallpaperChoice', 'uploaded');
+                        await unifiedConfig.set('lastUploadedWallpaper', latestWallpaper.filename);
                         if (uploadedWallpaperNameSpan) {
                             uploadedWallpaperNameSpan.textContent = `現在の壁紙: ${latestWallpaper.name}`;
                         }
@@ -157,8 +162,8 @@ class WallpaperSystem {
                         if (defaultRadio) defaultRadio.checked = true;
                         this.currentWallpaperOption = 'default';
                         this.applyWallpaper('default');
-                        localStorage.setItem('selectedWallpaperChoice', 'default');
-                        localStorage.removeItem('lastUploadedWallpaper');
+                        await unifiedConfig.set('selectedWallpaperChoice', 'default');
+                        await unifiedConfig.remove('lastUploadedWallpaper');
                         if (uploadedWallpaperNameSpan) uploadedWallpaperNameSpan.textContent = '';
                         this.addVoiceMessage('クロード', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
                         this.startWallpaperTimer(); // デフォルト壁紙に戻るのでタイマーを開始
@@ -189,8 +194,8 @@ class WallpaperSystem {
         // 壁紙アニメーション切り替えボタン
         const wallpaperAnimationToggle = document.getElementById('wallpaper-animation-toggle');
         if (wallpaperAnimationToggle) {
-            wallpaperAnimationToggle.addEventListener('change', () => {
-                this.setWallpaperAnimationEnabled(wallpaperAnimationToggle.checked);
+            wallpaperAnimationToggle.addEventListener('change', async () => {
+                await this.setWallpaperAnimationEnabled(wallpaperAnimationToggle.checked);
             });
         }
     }
@@ -235,7 +240,7 @@ class WallpaperSystem {
             } else {
                 // アップロードされた壁紙がない場合はデフォルトに戻す（再帰呼び出しを防ぐため直接処理）
                 this.currentWallpaperOption = 'default';
-                localStorage.setItem('wallpaperOption', 'default');
+                await unifiedConfig.set('wallpaperOption', 'default');
                 document.getElementById('wallpaper-default-radio').checked = true;
                 this.addVoiceMessage('クロード', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
                 // ここでnewWallpaperPathを更新し、下の比較ロジックで再適用されるようにする
@@ -304,7 +309,7 @@ class WallpaperSystem {
             } catch (error) {
                 WallpaperSystem_debugError('壁紙適用エラー（ユーザー壁紙）:', error);
                 this.currentWallpaperOption = 'default';
-                localStorage.setItem('wallpaperOption', 'default');
+                await unifiedConfig.set('wallpaperOption', 'default');
                 document.getElementById('wallpaper-default-radio').checked = true;
                 this.applyWallpaper(); // フォールバック
                 this.addVoiceMessage('クロード', 'アップロードされた壁紙の読み込み中にエラーが発生したため、デフォルト壁紙に戻したよ！');
@@ -406,9 +411,9 @@ class WallpaperSystem {
     }
 
     // 壁紙アニメーション設定
-    setWallpaperAnimationEnabled(enabled) {
+    async setWallpaperAnimationEnabled(enabled) {
         this.wallpaperAnimationEnabled = enabled;
-        localStorage.setItem('wallpaperAnimationEnabled', JSON.stringify(enabled));
+        await unifiedConfig.set('wallpaperAnimationEnabled', enabled);
         // 現在の壁紙に変更を反映
         if (this.currentWallpaperOption === 'default') {
             this.applyWallpaper();
