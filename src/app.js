@@ -60,7 +60,38 @@ class MessageAccumulator {
         }
     }
     
+    // より賢い完了判定
+    isMessageComplete(data) {
+        // 1. 明確な終了マーカーがある（ユーザー入力プロンプト）
+        const hasEndMarker = data.includes('\n> ') || data.includes('╭─') || data.includes('│ ');
+        
+        // 2. カギカッコが閉じられている
+        const openQuotes = (data.match(/「/g) || []).length;
+        const closeQuotes = (data.match(/」/g) || []).length;
+        const quotesBalanced = openQuotes === closeQuotes && openQuotes > 0;
+        
+        // 3. 文章が完結している
+        const endsWithPunctuation = /[。！？][\s\n]*$/.test(data.trim());
+        
+        debugLog(`🔍 完了判定チェック:`, {
+            hasEndMarker,
+            quotesBalanced: `${openQuotes}/${closeQuotes}`,
+            endsWithPunctuation,
+            dataEnd: data.trim().slice(-20)
+        });
+        
+        return hasEndMarker || (quotesBalanced && endsWithPunctuation);
+    }
+    
     scheduleCompletion() {
+        // 即座に完了判定をチェック
+        if (this.isMessageComplete(this.pendingMessage)) {
+            debugLog(`✅ 即座に完了 - 完了条件を満たしています`);
+            clearTimeout(this.completionTimer);
+            this.complete();
+            return;
+        }
+        
         clearTimeout(this.completionTimer);
         this.completionTimer = setTimeout(() => {
             this.complete();
@@ -880,18 +911,18 @@ class TerminalApp {
             return;
         }
 
-        // 重複チェックを実行 (一時的に無効化)
-        // if (this.speechHistory.isDuplicate(text)) {
-        //     debugLog('🔄 重複テキストをスキップ:', text.substring(0, 30) + '...');
-        //     return;
-        // }
+        // 重複チェックを実行
+        if (this.speechHistory.isDuplicate(text)) {
+            debugLog('🔄 重複テキストをスキップ:', text.substring(0, 30) + '...');
+            return;
+        }
 
         try {
             debugLog(`🎙️ 音声合成開始 - 話者ID: ${this.selectedSpeaker}`);
             const startTime = Date.now();
             
-            // 読み上げ履歴に追加 (一時的に無効化)
-            // this.speechHistory.addToHistory(text);
+            // 読み上げ履歴に追加
+            this.speechHistory.addToHistory(text);
             
             await window.electronAPI.voice.speak(text, this.selectedSpeaker);
             
