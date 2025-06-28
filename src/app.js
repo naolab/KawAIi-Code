@@ -603,8 +603,17 @@ class TerminalApp {
                 
                 // 起動するAIに応じて.mdファイルを生成/更新
                 const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
-                await this.configManager.writeAiMdToHomeDir(aiType);
-                this.addVoiceMessage('ことね', `${aiMdFilename}を更新したよ！`);
+                const mdResult = await this.configManager.writeAiMdToHomeDir(aiType);
+                
+                if (mdResult.success) {
+                    if (aiType === 'gemini' && mdResult.hadBackup) {
+                        this.addVoiceMessage('ことね', `${aiMdFilename}を準備したよ！既存ファイルはバックアップ済み✨`);
+                    } else {
+                        this.addVoiceMessage('ことね', `${aiMdFilename}を更新したよ！`);
+                    }
+                } else {
+                    this.addVoiceMessage('ことね', `${aiMdFilename}の更新に失敗しちゃった...`);
+                }
 
                 setTimeout(() => {
                     this.fitAddon.fit();
@@ -643,11 +652,20 @@ class TerminalApp {
                 this.updateStatus('AI assistant stopped');
                 this.terminal.clear();
 
-                // 停止したAIに応じて.mdファイルを削除
+                // 停止したAIに応じて.mdファイルを削除/復元
                 const aiMdFilename = this.currentRunningAI === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
                 if (this.currentRunningAI) { // 念のためnullチェック
-                    await this.configManager.deleteAiMdFromHomeDir(this.currentRunningAI);
-                    this.addVoiceMessage('ことね', `${aiMdFilename}を削除したよ！`);
+                    const deleteResult = await this.configManager.deleteAiMdFromHomeDir(this.currentRunningAI);
+                    
+                    if (deleteResult.success) {
+                        if (this.currentRunningAI === 'gemini' && deleteResult.restored) {
+                            this.addVoiceMessage('ことね', `${aiMdFilename}を元の状態に戻したよ！`);
+                        } else {
+                            this.addVoiceMessage('ことね', `${aiMdFilename}を削除したよ！`);
+                        }
+                    } else {
+                        this.addVoiceMessage('ことね', `${aiMdFilename}の処理に失敗しちゃった...`);
+                    }
                 }
                 this.currentRunningAI = null; // 停止したのでクリア
             } else {

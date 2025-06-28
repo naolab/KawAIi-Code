@@ -10,6 +10,12 @@ class ConfigManager {
         this.aiBaseContent = null;
         this.claudeWorkingDir = null;
         this.speechCooldown = 1000; // デフォルト1秒
+        
+        // バックアップ状態管理
+        this.backupState = {
+            claude: { hasBackup: false },
+            gemini: { hasBackup: false, workingDir: null }
+        };
     }
 
     // 初期設定を読み込み
@@ -277,7 +283,7 @@ class ConfigManager {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
                 ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
-                return false;
+                return { success: false, hadBackup: false };
             }
 
             const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
@@ -285,7 +291,7 @@ class ConfigManager {
 
             if (!combinedContent) {
                 ConfigManager_debugLog(`No ${aiMdFilename} content to write.`);
-                return false;
+                return { success: false, hadBackup: false };
             }
 
             let targetDir;
@@ -293,19 +299,22 @@ class ConfigManager {
                 targetDir = this.claudeWorkingDir; // Geminiの場合は作業ディレクトリ
                 if (!targetDir) {
                     ConfigManager_debugError('Gemini MD write: claudeWorkingDir is not set.');
-                    return false;
+                    return { success: false, hadBackup: false };
                 }
+                
+                // Geminiの場合はバックアップ機能を使用
+                return await this.createAiMdWithBackup(aiType, combinedContent, targetDir);
             } else {
-                targetDir = os.homedir(); // Claudeの場合はホームディレクトリ
+                // Claudeの場合は従来通り（ホームディレクトリ、バックアップなし）
+                targetDir = os.homedir();
+                const aiMdPath = path.join(targetDir, aiMdFilename);
+                await fs.promises.writeFile(aiMdPath, combinedContent, 'utf8');
+                ConfigManager_debugLog(`${aiMdFilename} successfully written to:`, aiMdPath);
+                return { success: true, hadBackup: false };
             }
-            
-            const aiMdPath = path.join(targetDir, aiMdFilename);
-            await fs.promises.writeFile(aiMdPath, combinedContent, 'utf8');
-            ConfigManager_debugLog(`${aiMdFilename} successfully written to:`, aiMdPath);
-            return true;
         } catch (writeError) {
             ConfigManager_debugError(`Failed to write ${aiMdFilename} to home directory:`, writeError);
-            return false;
+            return { success: false, hadBackup: false, error: writeError.message };
         }
     }
 
@@ -325,13 +334,13 @@ class ConfigManager {
         return false;
     }
 
-    // AIの.mdファイルをホームディレクトリから削除
+    // AIの.mdファイルをホームディレクトリから削除/復元
     async deleteAiMdFromHomeDir(aiType) {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
                 ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
-                return false;
+                return { success: false, restored: false };
             }
 
             const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
@@ -341,25 +350,105 @@ class ConfigManager {
                 targetDir = this.claudeWorkingDir; // Geminiの場合は作業ディレクトリ
                 if (!targetDir) {
                     ConfigManager_debugError('Gemini MD delete: claudeWorkingDir is not set.');
-                    return false;
+                    return { success: false, restored: false };
                 }
+                
+                // Geminiの場合はバックアップから復元
+                return await this.restoreAiMdFromBackup(aiType, targetDir);
             } else {
-                targetDir = os.homedir(); // Claudeの場合はホームディレクトリ
-            }
+                // Claudeの場合は従来通り削除のみ
+                targetDir = os.homedir();
+                const aiMdPath = path.join(targetDir, aiMdFilename);
 
-            const aiMdPath = path.join(targetDir, aiMdFilename);
-
-            if (fs.existsSync(aiMdPath)) {
-                await fs.promises.unlink(aiMdPath);
-                ConfigManager_debugLog(`${aiMdFilename} successfully deleted from:`, aiMdPath);
-                return true;
-            } else {
-                ConfigManager_debugLog(`${aiMdFilename} not found at:`, aiMdPath, 'no deletion needed.');
-                return false;
+                if (fs.existsSync(aiMdPath)) {
+                    await fs.promises.unlink(aiMdPath);
+                    ConfigManager_debugLog(`${aiMdFilename} successfully deleted from:`, aiMdPath);
+                    return { success: true, restored: false };
+                } else {
+                    ConfigManager_debugLog(`${aiMdFilename} not found at:`, aiMdPath, 'no deletion needed.');
+                    return { success: true, restored: false };
+                }
             }
         } catch (deleteError) {
             ConfigManager_debugError(`Failed to delete ${aiMdFilename} from home directory:`, deleteError);
-            return false;
+            return { success: false, restored: false, error: deleteError.message };
+        }
+    }
+
+    // AIの.mdファイルをバックアップ付きで作成
+    async createAiMdWithBackup(aiType, content, targetDir) {
+        try {
+            const { fs, path } = window.electronAPI;
+            if (!fs || !path) {
+                ConfigManager_debugError('fs or path module not available via electronAPI.');
+                return false;
+            }
+
+            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+            const aiMdPath = path.join(targetDir, aiMdFilename);
+            const backupPath = path.join(targetDir, aiMdFilename + '.backup');
+
+            // 既存ファイルのバックアップ作成
+            if (fs.existsSync(aiMdPath)) {
+                await fs.promises.copyFile(aiMdPath, backupPath);
+                this.backupState[aiType].hasBackup = true;
+                this.backupState[aiType].workingDir = targetDir;
+                ConfigManager_debugLog(`${aiMdFilename} backed up to:`, backupPath);
+            } else {
+                this.backupState[aiType].hasBackup = false;
+                ConfigManager_debugLog(`No existing ${aiMdFilename} found, no backup needed.`);
+            }
+
+            // 新しいファイル作成
+            await fs.promises.writeFile(aiMdPath, content, 'utf8');
+            ConfigManager_debugLog(`${aiMdFilename} created successfully at:`, aiMdPath);
+            
+            return {
+                success: true,
+                hadBackup: this.backupState[aiType].hasBackup
+            };
+        } catch (error) {
+            ConfigManager_debugError(`Failed to create ${aiType} MD with backup:`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // AIの.mdファイルをバックアップから復元
+    async restoreAiMdFromBackup(aiType, targetDir) {
+        try {
+            const { fs, path } = window.electronAPI;
+            if (!fs || !path) {
+                ConfigManager_debugError('fs or path module not available via electronAPI.');
+                return { success: false, restored: false };
+            }
+
+            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+            const aiMdPath = path.join(targetDir, aiMdFilename);
+            const backupPath = path.join(targetDir, aiMdFilename + '.backup');
+
+            // 作成したファイルを削除
+            if (fs.existsSync(aiMdPath)) {
+                await fs.promises.unlink(aiMdPath);
+                ConfigManager_debugLog(`${aiMdFilename} deleted from:`, aiMdPath);
+            }
+
+            // バックアップから復元
+            if (this.backupState[aiType].hasBackup && fs.existsSync(backupPath)) {
+                await fs.promises.rename(backupPath, aiMdPath);
+                ConfigManager_debugLog(`${aiMdFilename} restored from backup:`, aiMdPath);
+                
+                // バックアップ状態をリセット
+                this.backupState[aiType].hasBackup = false;
+                this.backupState[aiType].workingDir = null;
+                
+                return { success: true, restored: true };
+            } else {
+                ConfigManager_debugLog(`No backup found for ${aiMdFilename}, file simply deleted.`);
+                return { success: true, restored: false };
+            }
+        } catch (error) {
+            ConfigManager_debugError(`Failed to restore ${aiType} MD from backup:`, error);
+            return { success: false, restored: false, error: error.message };
         }
     }
 
