@@ -183,7 +183,7 @@ class TerminalApp {
         this.speakerInitialized = false; // 話者選択初期化フラグ
         
         // 読み上げ履歴管理
-        this.speechHistory = new SpeechHistoryManager(50);
+        this.speechHistory = new SpeechHistoryManager(100);
         
         // モジュールインスタンス
         this.wallpaperSystem = new WallpaperSystem();
