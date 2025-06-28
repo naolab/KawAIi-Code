@@ -19,7 +19,7 @@ let voiceService;
 let nextjsProcess;
 let websocketProcess; // WebSocketサーバープロセスを追加
 // Add a global variable to store the current working directory for Claude Code
-let claudeWorkingDir = appConfig.get('claudeWorkingDir', os.homedir()); // デフォルトはホームディレクトリ
+let claudeWorkingDir; // 初期化はapp.whenReady()内で行う
 
 
 function createWindow() {
@@ -140,6 +140,22 @@ async function startNextjsServer() {
 }
 
 app.whenReady().then(async () => {
+  // 設定を先に読み込む
+  await appConfig.loadConfig();
+  claudeWorkingDir = appConfig.getClaudeWorkingDir();
+  
+  // 作業ディレクトリをプロセスのcwdに設定
+  try {
+    process.chdir(claudeWorkingDir);
+    infoLog(`作業ディレクトリを設定: ${claudeWorkingDir}`);
+  } catch (error) {
+    errorLog('作業ディレクトリ設定失敗:', error);
+    // フォールバック: ホームディレクトリを使用
+    claudeWorkingDir = os.homedir();
+    process.chdir(claudeWorkingDir);
+    infoLog(`フォールバック作業ディレクトリを設定: ${claudeWorkingDir}`);
+  }
+
   await startNextjsServer();
 
   createWindow();
