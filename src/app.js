@@ -16,7 +16,7 @@ class MessageAccumulator {
     constructor() {
         this.pendingMessage = '';
         this.lastChunkTime = 0;
-        this.completionTimeout = 2000; // 2秒でメッセージ完了と判定
+        this.completionTimeout = 3000; // 3秒でメッセージ完了と判定
         this.completionTimer = null;
         this.isAccumulating = false;
         this.processCallback = null;
