@@ -117,7 +117,7 @@ body {
     display: flex;
     align-items: center;
     padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 140, 66, 0.6);
     border-right: 1px solid rgba(255, 140, 66, 0.3);
     cursor: pointer;
     min-width: 120px;
@@ -125,16 +125,17 @@ body {
     transition: all 0.2s ease;
     font-size: 13px;
     height: 40px;
+    color: white;
 }
 
 .tab:hover {
-    background: rgba(255, 140, 66, 0.2);
+    background: rgba(255, 140, 66, 0.8);
 }
 
 .tab.active {
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 140, 66, 0.9);
     border-bottom: 3px solid #ff8c42;
-    color: #4A3728;
+    color: white;
     font-weight: 500;
 }
 
@@ -166,18 +167,19 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 13px;
-    color: #4A3728;
+    color: white;
 }
 
 /* 閉じるボタン */
 .tab .close-button {
-    margin-left: 8px;
+    margin-left: 12px;
+    margin-right: 4px;
     width: 18px;
     height: 18px;
     border-radius: 50%;
     background: transparent;
     border: none;
-    color: #999;
+    color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -193,8 +195,8 @@ body {
 }
 
 .tab .close-button:hover {
-    background: rgba(255, 140, 66, 0.3);
-    color: #4A3728;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
 }
 
 /* 新規タブボタン */
