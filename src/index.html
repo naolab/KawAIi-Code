@@ -48,7 +48,16 @@
         
         <div class="main-content">
             <div class="terminal-section">
-                <div id="terminal"></div>
+                <!-- タブバー -->
+                <div id="tab-bar" class="tab-bar">
+                    <!-- タブは動的に追加される -->
+                    <button id="new-tab-button" class="new-tab-button" title="新しいタブを作成">+</button>
+                </div>
+                
+                <!-- ターミナルコンテナ -->
+                <div id="terminal-container" class="terminal-container">
+                    <div id="terminal" class="terminal-wrapper active"></div>
+                </div>
             </div>
             
             <div class="character-section">

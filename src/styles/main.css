@@ -99,6 +99,144 @@ body {
     margin-bottom: 50px;
 }
 
+/* タブバー */
+.tab-bar {
+    display: flex;
+    background: rgba(255, 140, 66, 0.1);
+    border-bottom: 2px solid rgba(255, 140, 66, 0.3);
+    padding: 0;
+    margin: 0;
+    user-select: none;
+    min-height: 40px;
+    align-items: center;
+}
+
+/* 個別タブ */
+.tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.3);
+    border-right: 1px solid rgba(255, 140, 66, 0.3);
+    cursor: pointer;
+    min-width: 120px;
+    max-width: 200px;
+    transition: all 0.2s ease;
+    font-size: 13px;
+    height: 40px;
+}
+
+.tab:hover {
+    background: rgba(255, 140, 66, 0.2);
+}
+
+.tab.active {
+    background: rgba(255, 255, 255, 0.8);
+    border-bottom: 3px solid #ff8c42;
+    color: #4A3728;
+    font-weight: 500;
+}
+
+/* 星マーク */
+.tab .parent-star {
+    margin-right: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.tab .parent-star.active {
+    color: #ffd700;
+    text-shadow: 0 0 4px rgba(255, 215, 0, 0.5);
+}
+
+.tab .parent-star.inactive {
+    color: #ccc;
+}
+
+.tab .parent-star:hover {
+    color: #ffed4e;
+}
+
+/* タブ名 */
+.tab .tab-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: #4A3728;
+}
+
+/* 閉じるボタン */
+.tab .close-button {
+    margin-left: 8px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.2s ease;
+    line-height: 1;
+}
+
+.tab:hover .close-button {
+    opacity: 1;
+}
+
+.tab .close-button:hover {
+    background: rgba(255, 140, 66, 0.3);
+    color: #4A3728;
+}
+
+/* 新規タブボタン */
+.new-tab-button {
+    padding: 8px 16px;
+    background: rgba(255, 140, 66, 0.2);
+    border: none;
+    color: #4A3728;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 0;
+}
+
+.new-tab-button:hover {
+    background: rgba(255, 140, 66, 0.3);
+    color: #2d1f17;
+}
+
+/* ターミナルコンテナ */
+.terminal-container {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+}
+
+.terminal-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+}
+
+.terminal-wrapper.active {
+    display: block;
+}
+
 /* 壁紙設定用スタイル */
 .wallpaper-controls {
     display: flex;
