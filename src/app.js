@@ -158,6 +158,9 @@ class TerminalApp {
         this.terminal = null;
         this.fitAddon = null;
         this.isTerminalRunning = false;
+        
+        // タブ管理システム
+        this.tabManager = null;
         this.voiceEnabled = true; // デフォルトで有効に
         this.selectedSpeaker = 0;
         this.connectionStatus = 'disconnected';
@@ -216,6 +219,7 @@ class TerminalApp {
         }
 
         this.setupTerminal();
+        this.initializeTabManager(); // タブ管理システム初期化
         this.initializeUIEventManager(); // UI制御初期化
         this.setupChatInterface();
         await this.initializeModules(); // モジュール初期化をawait
@@ -254,6 +258,12 @@ class TerminalApp {
             selectedSpeaker: this.selectedSpeaker,
             voiceIntervalSeconds: this.voiceIntervalSeconds
         });
+    }
+
+    // タブ管理システム初期化
+    initializeTabManager() {
+        this.tabManager = new TabManager(this);
+        this.tabManager.initialize();
     }
 
     // UIEventManager初期化
@@ -1228,6 +1238,448 @@ class TerminalApp {
     }
 
 
+}
+
+// タブ管理クラス
+class TabManager {
+    constructor(terminalApp) {
+        this.terminalApp = terminalApp;
+        this.tabs = {};
+        this.activeTabId = null;
+        this.parentTabId = null;
+        this.nextTabNumber = 1;
+    }
+
+    initialize() {
+        this.setupEventListeners();
+        
+        // 初期タブを作成
+        if (Object.keys(this.tabs).length === 0) {
+            this.createInitialTab();
+        }
+    }
+
+    setupEventListeners() {
+        // 新規タブボタン
+        const newTabButton = document.getElementById('new-tab-button');
+        if (newTabButton) {
+            newTabButton.addEventListener('click', () => {
+                this.showAISelectionModal();
+            });
+        }
+        
+        // タブ別データ受信処理
+        if (window.electronAPI && window.electronAPI.tab) {
+            window.electronAPI.tab.onData((tabId, data) => {
+                this.handleTabData(tabId, data);
+            });
+            
+            window.electronAPI.tab.onExit((tabId, exitCode) => {
+                this.handleTabExit(tabId, exitCode);
+            });
+        }
+    }
+    
+    handleTabData(tabId, data) {
+        const tab = this.tabs[tabId];
+        if (!tab) {
+            debugLog(`Received data for unknown tab: ${tabId}`);
+            return;
+        }
+        
+        // ターミナルに出力
+        if (tab.terminal) {
+            tab.terminal.write(data);
+        }
+        
+        // 親タブの場合のみ音声処理
+        if (tab.isParent && this.terminalApp.messageAccumulator) {
+            this.terminalApp.messageAccumulator.addChunk(data);
+        }
+    }
+    
+    handleTabExit(tabId, exitCode) {
+        const tab = this.tabs[tabId];
+        if (!tab) {
+            debugLog(`Tab exit event for unknown tab: ${tabId}`);
+            return;
+        }
+        
+        debugLog(`Tab ${tabId} process exited with code: ${exitCode}`);
+        
+        if (tab.terminal) {
+            if (exitCode === 0) {
+                tab.terminal.writeln('\r\n\x1b[90m[プロセス正常終了] 新しいタブを作成してください\x1b[0m');
+            } else {
+                tab.terminal.writeln(`\r\n\x1b[31m[プロセス異常終了: ${exitCode}] 新しいタブを作成してください\x1b[0m`);
+            }
+        }
+    }
+
+    createInitialTab() {
+        // 既存のターミナルを最初のタブとして登録
+        const tabId = `tab-${this.nextTabNumber++}`;
+        this.tabs[tabId] = {
+            id: tabId,
+            name: 'Main',
+            aiType: null,
+            isParent: true,
+            isActive: true,
+            terminal: this.terminalApp.terminal,
+            fitAddon: this.terminalApp.fitAddon,
+            element: document.getElementById('terminal'),
+            createdAt: Date.now()
+        };
+        
+        this.activeTabId = tabId;
+        this.parentTabId = tabId;
+        
+        this.renderTabs();
+    }
+
+    showAISelectionModal() {
+        const modal = document.getElementById('ai-select-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            
+            // Claude Codeボタン
+            const claudeBtn = document.getElementById('start-claude');
+            const geminiBtn = document.getElementById('start-gemini');
+            
+            if (claudeBtn) {
+                claudeBtn.onclick = () => {
+                    this.createTab('claude');
+                    modal.style.display = 'none';
+                };
+            }
+            
+            if (geminiBtn) {
+                geminiBtn.onclick = () => {
+                    this.createTab('gemini');
+                    modal.style.display = 'none';
+                };
+            }
+            
+            // 閉じるボタン
+            const closeBtn = document.getElementById('close-ai-select');
+            if (closeBtn) {
+                closeBtn.onclick = () => {
+                    modal.style.display = 'none';
+                };
+            }
+        }
+    }
+
+    async createTab(aiType, name = null) {
+        const tabId = `tab-${this.nextTabNumber++}`;
+        const aiName = aiType === 'claude' ? 'Claude' : 'Gemini';
+        const tabName = name || `${aiName} #${this.nextTabNumber - 1}`;
+        
+        // 新しいターミナル要素を作成
+        const terminalElement = document.createElement('div');
+        terminalElement.id = `terminal-${tabId}`;
+        terminalElement.className = 'terminal-wrapper';
+        
+        const terminalContainer = document.getElementById('terminal-container');
+        if (terminalContainer) {
+            terminalContainer.appendChild(terminalElement);
+        }
+        
+        // 新しいTerminalインスタンスを作成
+        const terminal = new Terminal(this.getTerminalConfig());
+        const fitAddon = new FitAddon.FitAddon();
+        terminal.loadAddon(fitAddon);
+        terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
+        terminal.open(terminalElement);
+        fitAddon.fit();
+        
+        // タブデータを作成
+        this.tabs[tabId] = {
+            id: tabId,
+            name: tabName,
+            aiType: aiType,
+            isParent: false,
+            isActive: false,
+            terminal: terminal,
+            fitAddon: fitAddon,
+            element: terminalElement,
+            createdAt: Date.now()
+        };
+        
+        this.renderTabs();
+        this.switchTab(tabId);
+        
+        // AIを起動
+        await this.startAIForTab(tabId, aiType);
+        
+        return tabId;
+    }
+
+    getTerminalConfig() {
+        return {
+            fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+            fontSize: 14,
+            lineHeight: 1.3,
+            cursorBlink: true,
+            cursorStyle: 'block',
+            theme: {
+                background: '#F0EAD6',
+                foreground: '#4A3728',
+                cursor: '#D2691E',
+                cursorAccent: '#FFFEF7',
+                selectionBackground: 'rgba(210, 105, 30, 0.2)',
+                selectionForeground: '#5D4E3A',
+                black: '#3C2E1F',
+                red: '#A0522D',
+                green: '#8B7355',
+                yellow: '#B8860B',
+                blue: '#708090',
+                magenta: '#CD853F',
+                cyan: '#5F9EA0',
+                white: '#8B7D6B',
+                brightBlack: '#696969',
+                brightRed: '#CD853F',
+                brightGreen: '#8B7355',
+                brightYellow: '#B8860B',
+                brightBlue: '#4682B4',
+                brightMagenta: '#A0522D',
+                brightCyan: '#2F4F4F',
+                brightWhite: '#5D4E3A'
+            },
+            allowTransparency: false,
+            convertEol: true,
+            scrollback: 50,
+            tabStopWidth: 4,
+            fastScrollModifier: 'shift',
+            fastScrollSensitivity: 5,
+            rendererType: 'canvas',
+            smoothScrollDuration: 0,
+            windowsMode: false,
+            macOptionIsMeta: true
+        };
+    }
+
+    async startAIForTab(tabId, aiType) {
+        try {
+            if (!window.electronAPI || !window.electronAPI.tab) {
+                debugError('ElectronAPI.tab not available');
+                return false;
+            }
+
+            const tab = this.tabs[tabId];
+            if (!tab) {
+                debugError(`Tab ${tabId} not found`);
+                return false;
+            }
+
+            const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
+            debugLog(`Starting ${aiName} for tab ${tabId}`);
+            
+            // バックエンドでPTYプロセス作成
+            const result = await window.electronAPI.tab.create(tabId, aiType);
+            if (!result.success) {
+                debugError(`Failed to create tab process: ${result.error}`);
+                tab.terminal.writeln(`\x1b[31mError: ${result.error}\x1b[0m`);
+                return false;
+            }
+            
+            // ターミナルをプロセスに接続
+            const terminal = tab.terminal;
+            
+            // 初期化メッセージ
+            terminal.writeln(`\x1b[90m🎀 KawAIi Code Tab Integration Started! 🎀\x1b[0m`);
+            terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
+            
+            // ユーザー入力をプロセスに送信
+            terminal.onData((data) => {
+                window.electronAPI.tab.write(tabId, data);
+            });
+            
+            // リサイズ処理
+            terminal.onResize(({ cols, rows }) => {
+                window.electronAPI.tab.resize(tabId, cols, rows);
+            });
+            
+            debugLog(`Tab ${tabId} AI startup completed`);
+            return true;
+        } catch (error) {
+            debugError(`Error starting AI for tab ${tabId}:`, error);
+            if (this.tabs[tabId]) {
+                this.tabs[tabId].terminal.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
+            }
+            return false;
+        }
+    }
+
+    switchTab(tabId) {
+        if (!this.tabs[tabId]) return;
+        
+        // 現在のアクティブタブを非表示
+        if (this.activeTabId && this.tabs[this.activeTabId]) {
+            this.tabs[this.activeTabId].isActive = false;
+            this.tabs[this.activeTabId].element.classList.remove('active');
+        }
+        
+        // 新しいタブをアクティブに
+        this.activeTabId = tabId;
+        this.tabs[tabId].isActive = true;
+        this.tabs[tabId].element.classList.add('active');
+        this.tabs[tabId].terminal.focus();
+        
+        // ターミナルサイズを調整
+        if (this.tabs[tabId].fitAddon) {
+            setTimeout(() => {
+                this.tabs[tabId].fitAddon.fit();
+            }, 50);
+        }
+        
+        this.updateTabUI();
+    }
+
+    setParentTab(tabId) {
+        if (!this.tabs[tabId]) return;
+        
+        // 現在の親タブを解除
+        if (this.parentTabId && this.tabs[this.parentTabId]) {
+            this.tabs[this.parentTabId].isParent = false;
+        }
+        
+        // 新しい親タブを設定
+        this.parentTabId = tabId;
+        this.tabs[tabId].isParent = true;
+        
+        this.updateTabUI();
+    }
+
+    async deleteTab(tabId) {
+        if (!this.tabs[tabId] || Object.keys(this.tabs).length === 1) {
+            return; // 最後のタブは削除不可
+        }
+        
+        const tab = this.tabs[tabId];
+        
+        // 1. PTYプロセスの終了処理
+        if (window.electronAPI && window.electronAPI.tab) {
+            try {
+                await window.electronAPI.tab.delete(tabId);
+                debugLog(`PTY process for tab ${tabId} terminated`);
+            } catch (error) {
+                debugError(`Failed to terminate PTY process for tab ${tabId}:`, error);
+            }
+        }
+        
+        // 2. イベントリスナーの削除（ターミナル破棄前に実行）
+        if (tab.terminal) {
+            // onDataとonResizeイベントは自動的にクリーンアップされるが、念のため
+            try {
+                // ターミナルが提供するクリーンアップ機能があれば利用
+                if (typeof tab.terminal.clear === 'function') {
+                    tab.terminal.clear();
+                }
+            } catch (error) {
+                debugError(`Error clearing terminal for tab ${tabId}:`, error);
+            }
+        }
+        
+        // 3. ターミナルインスタンスの破棄
+        if (tab.terminal) {
+            try {
+                tab.terminal.dispose();
+                debugLog(`Terminal instance for tab ${tabId} disposed`);
+            } catch (error) {
+                debugError(`Error disposing terminal for tab ${tabId}:`, error);
+            }
+        }
+        
+        // 4. DOM要素の削除
+        if (tab.element && tab.element.parentNode) {
+            tab.element.parentNode.removeChild(tab.element);
+            debugLog(`DOM element for tab ${tabId} removed`);
+        }
+        
+        // 5. 親タブ変更時の処理
+        if (tab.isParent) {
+            const remainingTabs = Object.keys(this.tabs).filter(id => id !== tabId);
+            if (remainingTabs.length > 0) {
+                this.setParentTab(remainingTabs[0]);
+                debugLog(`Parent tab switched from ${tabId} to ${remainingTabs[0]}`);
+            }
+        }
+        
+        // 6. アクティブタブの場合、他のタブに切り替え
+        if (this.activeTabId === tabId) {
+            const remainingTabs = Object.keys(this.tabs).filter(id => id !== tabId);
+            if (remainingTabs.length > 0) {
+                this.switchTab(remainingTabs[0]);
+                debugLog(`Active tab switched from ${tabId} to ${remainingTabs[0]}`);
+            }
+        }
+        
+        // 7. タブデータ削除
+        delete this.tabs[tabId];
+        debugLog(`Tab data for ${tabId} deleted`);
+        
+        this.renderTabs();
+    }
+
+    renderTabs() {
+        const tabBar = document.getElementById('tab-bar');
+        if (!tabBar) return;
+        
+        // 既存のタブを削除（新規タブボタン以外）
+        const existingTabs = tabBar.querySelectorAll('.tab');
+        existingTabs.forEach(tab => tab.remove());
+        
+        // タブを作成
+        Object.values(this.tabs).forEach(tabData => {
+            const tabElement = this.createTabElement(tabData);
+            tabBar.insertBefore(tabElement, document.getElementById('new-tab-button'));
+        });
+    }
+
+    createTabElement(tabData) {
+        const tab = document.createElement('div');
+        tab.className = `tab ${tabData.isActive ? 'active' : ''}`;
+        tab.setAttribute('data-tab-id', tabData.id);
+        
+        // 星マーク
+        const star = document.createElement('span');
+        star.className = `parent-star ${tabData.isParent ? 'active' : 'inactive'}`;
+        star.textContent = tabData.isParent ? '★' : '☆';
+        star.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.setParentTab(tabData.id);
+        });
+        
+        // タブ名
+        const name = document.createElement('span');
+        name.className = 'tab-name';
+        name.textContent = tabData.name;
+        
+        // 閉じるボタン
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'close-button';
+        closeBtn.textContent = '×';
+        closeBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await this.deleteTab(tabData.id);
+        });
+        
+        // タブクリックイベント
+        tab.addEventListener('click', () => {
+            this.switchTab(tabData.id);
+        });
+        
+        tab.appendChild(star);
+        tab.appendChild(name);
+        tab.appendChild(closeBtn);
+        
+        return tab;
+    }
+
+    updateTabUI() {
+        this.renderTabs();
+    }
 }
 
 // Initialize the application when DOM is loaded

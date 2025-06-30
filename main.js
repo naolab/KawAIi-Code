@@ -14,7 +14,8 @@ const infoLog = console.log; // 重要な情報は常に出力
 const errorLog = console.error; // エラーは常に出力
 
 let mainWindow;
-let terminalProcess;
+let terminalProcess; // 既存の単一ターミナル（後方互換性のため残す）
+let terminalProcesses = {}; // 複数タブ用PTYプロセス管理
 let voiceService;
 let nextjsProcess;
 let websocketProcess; // WebSocketサーバープロセスを追加
@@ -621,5 +622,173 @@ ipcMain.handle('clear-app-config', async () => {
     return { success: false, error: error.message };
   }
 });
+
+// ===== タブ機能用IPCハンドラー =====
+
+// AI設定の取得（共通関数）
+function getAIConfig(aiType) {
+  const aiConfig = {
+    claude: {
+      name: 'Claude Code',
+      possiblePaths: [
+        process.env.CLAUDE_PATH,
+        '/opt/homebrew/bin/claude',
+        '/usr/local/bin/claude',
+        '/usr/bin/claude',
+        'claude'
+      ].filter(p => p)
+    },
+    gemini: {
+      name: 'Gemini Code Assist',
+      possiblePaths: [
+        process.env.GEMINI_PATH,
+        '/opt/homebrew/bin/gemini',
+        '/usr/local/bin/gemini',
+        '/usr/bin/gemini',
+        'gemini'
+      ].filter(p => p)
+    }
+  };
+  return aiConfig[aiType];
+}
+
+// AI実行パスの検索（共通関数）
+function findAICommand(aiConfig) {
+  if (!aiConfig) return null;
+  
+  for (const testPath of aiConfig.possiblePaths) {
+    try {
+      fs.accessSync(testPath, fs.constants.F_OK);
+      return testPath;
+    } catch (error) {
+      debugLog(`パスが見つかりません: ${testPath}`);
+    }
+  }
+  return null;
+}
+
+// タブ作成
+ipcMain.handle('tab-create', async (event, tabId, aiType) => {
+  try {
+    infoLog(`タブ作成リクエスト: ${tabId}, AI: ${aiType}`);
+    
+    const aiConfig = getAIConfig(aiType);
+    if (!aiConfig) {
+      return { success: false, error: `無効なAIタイプ: ${aiType}` };
+    }
+    
+    const commandPath = findAICommand(aiConfig);
+    if (!commandPath) {
+      return { success: false, error: `${aiConfig.name} の実行可能ファイルが見つかりません` };
+    }
+    
+    // 既存のプロセスがある場合は終了
+    if (terminalProcesses[tabId]) {
+      terminalProcesses[tabId].kill();
+      delete terminalProcesses[tabId];
+    }
+    
+    // 新しいPTYプロセス作成
+    terminalProcesses[tabId] = pty.spawn(commandPath, [], {
+      name: 'xterm-color',
+      cols: 80,
+      rows: 24,
+      cwd: claudeWorkingDir,
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color',
+        COLORTERM: 'truecolor',
+        PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin'
+      }
+    });
+    
+    infoLog(`タブ ${tabId} でプロセス起動完了, PID: ${terminalProcesses[tabId].pid}`);
+    
+    // データハンドラー設定
+    terminalProcesses[tabId].onData((data) => {
+      debugLog(`Tab ${tabId} data:`, data);
+      if (mainWindow) {
+        mainWindow.webContents.send('tab-data', tabId, data);
+      }
+    });
+    
+    // 終了ハンドラー設定
+    terminalProcesses[tabId].onExit(({ exitCode, signal }) => {
+      infoLog(`Tab ${tabId} プロセス終了:`, { exitCode, signal });
+      if (mainWindow) {
+        mainWindow.webContents.send('tab-exit', tabId, exitCode);
+      }
+      delete terminalProcesses[tabId];
+    });
+    
+    return { success: true };
+  } catch (error) {
+    errorLog(`Tab ${tabId} 作成エラー:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+// タブ削除
+ipcMain.handle('tab-delete', async (event, tabId) => {
+  try {
+    infoLog(`タブ削除リクエスト: ${tabId}`);
+    
+    if (terminalProcesses[tabId]) {
+      terminalProcesses[tabId].kill();
+      delete terminalProcesses[tabId];
+      infoLog(`Tab ${tabId} プロセス終了完了`);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    errorLog(`Tab ${tabId} 削除エラー:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+// タブ書き込み
+ipcMain.handle('tab-write', (event, tabId, data) => {
+  try {
+    if (terminalProcesses[tabId]) {
+      debugLog(`Tab ${tabId} 書き込み:`, data);
+      terminalProcesses[tabId].write(data);
+      return { success: true };
+    }
+    return { success: false, error: `Tab ${tabId} が見つかりません` };
+  } catch (error) {
+    errorLog(`Tab ${tabId} 書き込みエラー:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+// タブリサイズ
+ipcMain.handle('tab-resize', (event, tabId, cols, rows) => {
+  try {
+    if (terminalProcesses[tabId]) {
+      terminalProcesses[tabId].resize(cols, rows);
+      debugLog(`Tab ${tabId} リサイズ: ${cols}x${rows}`);
+      return { success: true };
+    }
+    return { success: true }; // タブが存在しない場合もエラーにしない
+  } catch (error) {
+    errorLog(`Tab ${tabId} リサイズエラー:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 親タブ設定（音声読み上げ制御用）
+let currentParentTabId = null;
+ipcMain.handle('set-parent-tab', (event, tabId) => {
+  try {
+    currentParentTabId = tabId;
+    infoLog(`親タブ設定: ${tabId}`);
+    return { success: true };
+  } catch (error) {
+    errorLog('親タブ設定エラー:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ===== 既存のIPCハンドラー =====
 
 // ★ 新しいIPCハンドラ: 音声認識ストリームの開始

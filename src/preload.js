@@ -18,6 +18,23 @@ window.electronAPI = {
       ipcRenderer.removeAllListeners('terminal-exit');
     }
   },
+  tab: {
+    create: (tabId, aiType) => ipcRenderer.invoke('tab-create', tabId, aiType),
+    delete: (tabId) => ipcRenderer.invoke('tab-delete', tabId),
+    write: (tabId, data) => ipcRenderer.invoke('tab-write', tabId, data),
+    resize: (tabId, cols, rows) => ipcRenderer.invoke('tab-resize', tabId, cols, rows),
+    setParent: (tabId) => ipcRenderer.invoke('set-parent-tab', tabId),
+    onData: (callback) => {
+      ipcRenderer.on('tab-data', (event, tabId, data) => callback(tabId, data));
+    },
+    onExit: (callback) => {
+      ipcRenderer.on('tab-exit', (event, tabId, exitCode) => callback(tabId, exitCode));
+    },
+    removeAllListeners: () => {
+      ipcRenderer.removeAllListeners('tab-data');
+      ipcRenderer.removeAllListeners('tab-exit');
+    }
+  },
   voice: {
     checkConnection: () => ipcRenderer.invoke('voice-check-connection'),
     getSpeakers: () => ipcRenderer.invoke('voice-get-speakers'),
