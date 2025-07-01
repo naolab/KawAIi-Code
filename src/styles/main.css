@@ -219,6 +219,23 @@ body {
     color: #2d1f17;
 }
 
+/* ドラッグ&ドロップ関連のスタイル */
+.tab[draggable="true"] {
+    cursor: move;
+}
+
+.tab.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    transition: all 0.2s ease;
+}
+
+.tab.drag-over {
+    border-left: 3px solid #FF8C42;
+    background: rgba(255, 140, 66, 0.2);
+    transition: all 0.2s ease;
+}
+
 /* ターミナルコンテナ */
 .terminal-container {
     position: relative;

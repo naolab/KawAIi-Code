@@ -1319,6 +1319,8 @@ class TabManager {
         this.activeTabId = null;
         this.parentTabId = null;
         this.nextTabNumber = 1;
+        this.draggedTabId = null; // ドラッグ中のタブID
+        this.tabOrder = []; // タブの順序を管理する配列
     }
 
     initialize() {
@@ -1415,6 +1417,9 @@ class TabManager {
         this.activeTabId = tabId;
         this.parentTabId = tabId;
         
+        // タブ順序配列に追加
+        this.tabOrder.push(tabId);
+        
         this.renderTabs();
     }
 
@@ -1461,6 +1466,9 @@ class TabManager {
             element: terminalElement,
             createdAt: Date.now()
         };
+        
+        // タブ順序配列に追加
+        this.tabOrder.push(tabId);
         
         this.renderTabs();
         this.switchTab(tabId);
@@ -1739,7 +1747,13 @@ class TabManager {
             }
         }
         
-        // 7. タブデータ削除
+        // 7. タブ順序配列から削除
+        const orderIndex = this.tabOrder.indexOf(tabId);
+        if (orderIndex !== -1) {
+            this.tabOrder.splice(orderIndex, 1);
+        }
+        
+        // 8. タブデータ削除
         delete this.tabs[tabId];
         debugLog(`Tab data for ${tabId} deleted`);
         
@@ -1754,10 +1768,12 @@ class TabManager {
         const existingTabs = tabBar.querySelectorAll('.tab');
         existingTabs.forEach(tab => tab.remove());
         
-        // タブを作成
-        Object.values(this.tabs).forEach(tabData => {
-            const tabElement = this.createTabElement(tabData);
-            tabBar.insertBefore(tabElement, document.getElementById('new-tab-button'));
+        // タブを順序に従って作成
+        this.tabOrder.forEach(tabId => {
+            if (this.tabs[tabId]) {
+                const tabElement = this.createTabElement(this.tabs[tabId]);
+                tabBar.insertBefore(tabElement, document.getElementById('new-tab-button'));
+            }
         });
     }
 
@@ -1765,6 +1781,14 @@ class TabManager {
         const tab = document.createElement('div');
         tab.className = `tab ${tabData.isActive ? 'active' : ''}`;
         tab.setAttribute('data-tab-id', tabData.id);
+        
+        // ドラッグ&ドロップ機能を追加
+        tab.draggable = true;
+        tab.addEventListener('dragstart', (e) => this.handleDragStart(e, tabData.id));
+        tab.addEventListener('dragover', (e) => this.handleDragOver(e));
+        tab.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+        tab.addEventListener('drop', (e) => this.handleDrop(e, tabData.id));
+        tab.addEventListener('dragend', (e) => this.handleDragEnd(e));
         
         // 星マーク
         const star = document.createElement('span');
@@ -1803,6 +1827,80 @@ class TabManager {
 
     updateTabUI() {
         this.renderTabs();
+    }
+
+    // ドラッグ&ドロップハンドラー
+    handleDragStart(e, tabId) {
+        this.draggedTabId = tabId;
+        e.target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', e.target.outerHTML);
+        debugLog(`Drag started: ${tabId}`);
+    }
+
+    handleDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        
+        // ドラッグオーバー効果を追加
+        const tabElement = e.currentTarget;
+        if (tabElement && !tabElement.classList.contains('dragging')) {
+            tabElement.classList.add('drag-over');
+        }
+        
+        return false;
+    }
+
+    handleDragLeave(e) {
+        // マウスが子要素に移動した場合は無視
+        if (e.currentTarget.contains(e.relatedTarget)) {
+            return;
+        }
+        e.currentTarget.classList.remove('drag-over');
+    }
+
+    handleDrop(e, targetTabId) {
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+
+        // ドラッグオーバー効果を削除
+        e.currentTarget.classList.remove('drag-over');
+
+        if (this.draggedTabId && this.draggedTabId !== targetTabId) {
+            this.reorderTabs(this.draggedTabId, targetTabId);
+            debugLog(`Tab dropped: ${this.draggedTabId} -> ${targetTabId}`);
+        }
+
+        return false;
+    }
+
+    handleDragEnd(e) {
+        // 全てのドラッグ関連クラスを削除
+        e.target.classList.remove('dragging');
+        const allTabs = document.querySelectorAll('.tab');
+        allTabs.forEach(tab => tab.classList.remove('drag-over'));
+        
+        this.draggedTabId = null;
+        debugLog('Drag ended');
+    }
+
+    // タブの順序を変更
+    reorderTabs(draggedTabId, targetTabId) {
+        const draggedIndex = this.tabOrder.indexOf(draggedTabId);
+        const targetIndex = this.tabOrder.indexOf(targetTabId);
+
+        if (draggedIndex !== -1 && targetIndex !== -1) {
+            // 配列から要素を削除して新しい位置に挿入
+            this.tabOrder.splice(draggedIndex, 1);
+            const newTargetIndex = this.tabOrder.indexOf(targetTabId);
+            this.tabOrder.splice(newTargetIndex, 0, draggedTabId);
+
+            debugLog(`Tab order updated:`, this.tabOrder);
+            this.renderTabs();
+        }
     }
 }
 
