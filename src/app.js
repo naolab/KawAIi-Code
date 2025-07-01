@@ -1893,10 +1893,24 @@ class TabManager {
         const targetIndex = this.tabOrder.indexOf(targetTabId);
 
         if (draggedIndex !== -1 && targetIndex !== -1) {
-            // 配列から要素を削除して新しい位置に挿入
+            // ドラッグ方向を判定
+            const isMovingRight = draggedIndex < targetIndex;
+            
+            // 配列から要素を削除
             this.tabOrder.splice(draggedIndex, 1);
+            
+            // ドラッグ方向に応じて挿入位置を決定
             const newTargetIndex = this.tabOrder.indexOf(targetTabId);
-            this.tabOrder.splice(newTargetIndex, 0, draggedTabId);
+            
+            if (isMovingRight) {
+                // 右移動：ターゲットの後に挿入
+                this.tabOrder.splice(newTargetIndex + 1, 0, draggedTabId);
+                debugLog(`Moving right: ${draggedTabId} inserted after ${targetTabId}`);
+            } else {
+                // 左移動：ターゲットの前に挿入（従来通り）
+                this.tabOrder.splice(newTargetIndex, 0, draggedTabId);
+                debugLog(`Moving left: ${draggedTabId} inserted before ${targetTabId}`);
+            }
 
             debugLog(`Tab order updated:`, this.tabOrder);
             this.renderTabs();
