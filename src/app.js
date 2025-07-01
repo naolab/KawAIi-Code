@@ -305,7 +305,7 @@ class TerminalApp {
             },
             allowTransparency: false,
             convertEol: true,
-            scrollback: 50,
+            scrollback: 1000,
             tabStopWidth: 4,
             fastScrollModifier: 'shift',
             fastScrollSensitivity: 5,
@@ -589,6 +589,12 @@ class TerminalApp {
     }
 
     async startTerminal(aiType) {
+        // タブシステムが有効な場合はアクティブタブでAIを起動
+        if (this.tabManager && this.tabManager.activeTabId) {
+            return await this.startTerminalForActiveTab(aiType);
+        }
+        
+        // 従来のメインターミナル起動（後方互換性）
         try {
             if (!window.electronAPI || !window.electronAPI.terminal) {
                 this.updateStatus('ElectronAPI not available');
@@ -642,6 +648,50 @@ class TerminalApp {
             const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
             debugError(`Error starting ${aiName}:`, error);
             this.updateStatus(`Error starting ${aiName}: ${error.message}`);
+        }
+        
+        this.updateButtons();
+    }
+    
+    async startTerminalForActiveTab(aiType) {
+        if (!this.tabManager || !this.tabManager.activeTabId) {
+            debugError('No active tab available');
+            return;
+        }
+        
+        const activeTab = this.tabManager.tabs[this.tabManager.activeTabId];
+        if (!activeTab) {
+            debugError('Active tab not found');
+            return;
+        }
+        
+        // 既にAIが起動している場合は停止してから新しいAIを起動
+        if (activeTab.isRunning) {
+            await this.tabManager.stopAIForTab(this.tabManager.activeTabId);
+        }
+        
+        const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
+        this.updateStatus(`Starting ${aiName} in active tab...`);
+        
+        try {
+            const success = await this.tabManager.startAIForTab(this.tabManager.activeTabId, aiType);
+            if (success) {
+                // タブ情報を更新
+                activeTab.aiType = aiType;
+                activeTab.isRunning = true;
+                activeTab.name = `${aiType === 'claude' ? 'Claude' : 'Gemini'} #${activeTab.id.split('-')[1]}`;
+                
+                this.updateStatus(`${aiName} running in tab - Type your message and press Enter`);
+                this.addVoiceMessage('ことね', `${aiName}をタブで起動したよ〜！`);
+                
+                // タブUIを更新
+                this.tabManager.renderTabs();
+            } else {
+                this.updateStatus(`Failed to start ${aiName} in tab`);
+            }
+        } catch (error) {
+            debugError(`Error starting ${aiName} in tab:`, error);
+            this.updateStatus(`Error starting ${aiName} in tab: ${error.message}`);
         }
         
         this.updateButtons();
@@ -1264,7 +1314,7 @@ class TabManager {
         const newTabButton = document.getElementById('new-tab-button');
         if (newTabButton) {
             newTabButton.addEventListener('click', () => {
-                this.showAISelectionModal();
+                this.createEmptyTab();
             });
         }
         
@@ -1319,15 +1369,25 @@ class TabManager {
     createInitialTab() {
         // 既存のターミナルを最初のタブとして登録
         const tabId = `tab-${this.nextTabNumber++}`;
+        
+        // 既存の#terminal要素をリネームして統一化
+        const existingTerminal = document.getElementById('terminal');
+        const newTerminalId = `terminal-${tabId}`;
+        if (existingTerminal) {
+            existingTerminal.id = newTerminalId;
+            existingTerminal.className = 'terminal-wrapper active';
+        }
+        
         this.tabs[tabId] = {
             id: tabId,
             name: 'Main',
             aiType: null,
             isParent: true,
             isActive: true,
+            isRunning: false, // 初期状態はAI未起動
             terminal: this.terminalApp.terminal,
             fitAddon: this.terminalApp.fitAddon,
-            element: document.getElementById('terminal'),
+            element: existingTerminal, // リネーム後の要素を参照
             createdAt: Date.now()
         };
         
@@ -1337,48 +1397,15 @@ class TabManager {
         this.renderTabs();
     }
 
-    showAISelectionModal() {
-        const modal = document.getElementById('ai-select-modal');
-        if (modal) {
-            modal.style.display = 'flex';
-            
-            // Claude Codeボタン
-            const claudeBtn = document.getElementById('start-claude');
-            const geminiBtn = document.getElementById('start-gemini');
-            
-            if (claudeBtn) {
-                claudeBtn.onclick = () => {
-                    this.createTab('claude');
-                    modal.style.display = 'none';
-                };
-            }
-            
-            if (geminiBtn) {
-                geminiBtn.onclick = () => {
-                    this.createTab('gemini');
-                    modal.style.display = 'none';
-                };
-            }
-            
-            // 閉じるボタン
-            const closeBtn = document.getElementById('close-ai-select');
-            if (closeBtn) {
-                closeBtn.onclick = () => {
-                    modal.style.display = 'none';
-                };
-            }
-        }
-    }
-
-    async createTab(aiType, name = null) {
+    createEmptyTab() {
         const tabId = `tab-${this.nextTabNumber++}`;
-        const aiName = aiType === 'claude' ? 'Claude' : 'Gemini';
-        const tabName = name || `${aiName} #${this.nextTabNumber - 1}`;
+        const tabName = `Tab #${this.nextTabNumber - 1}`;
         
         // 新しいターミナル要素を作成
         const terminalElement = document.createElement('div');
         terminalElement.id = `terminal-${tabId}`;
         terminalElement.className = 'terminal-wrapper';
+        terminalElement.style.display = 'none'; // 初期状態は非表示
         
         const terminalContainer = document.getElementById('terminal-container');
         if (terminalContainer) {
@@ -1393,13 +1420,18 @@ class TabManager {
         terminal.open(terminalElement);
         fitAddon.fit();
         
-        // タブデータを作成
+        // 初期メッセージを表示（アプリ起動時と同じ状態）
+        terminal.writeln(`\x1b[90m🎀 KawAIi Code - New Tab 🎀\x1b[0m`);
+        terminal.writeln(`\x1b[90mClick the start button to begin with Claude Code or Gemini CLI\x1b[0m`);
+        
+        // タブデータを作成（AIは未起動状態）
         this.tabs[tabId] = {
             id: tabId,
             name: tabName,
-            aiType: aiType,
+            aiType: null, // AI未起動
             isParent: false,
             isActive: false,
+            isRunning: false, // AI起動状態フラグ追加
             terminal: terminal,
             fitAddon: fitAddon,
             element: terminalElement,
@@ -1409,11 +1441,9 @@ class TabManager {
         this.renderTabs();
         this.switchTab(tabId);
         
-        // AIを起動
-        await this.startAIForTab(tabId, aiType);
-        
         return tabId;
     }
+
 
     getTerminalConfig() {
         return {
@@ -1448,7 +1478,7 @@ class TabManager {
             },
             allowTransparency: false,
             convertEol: true,
-            scrollback: 50,
+            scrollback: 1000,
             tabStopWidth: 4,
             fastScrollModifier: 'shift',
             fastScrollSensitivity: 5,
@@ -1511,28 +1541,67 @@ class TabManager {
         }
     }
 
+    async stopAIForTab(tabId) {
+        try {
+            const tab = this.tabs[tabId];
+            if (!tab) {
+                debugError(`Tab ${tabId} not found`);
+                return false;
+            }
+
+            if (window.electronAPI && window.electronAPI.tab) {
+                await window.electronAPI.tab.delete(tabId);
+                debugLog(`AI stopped for tab ${tabId}`);
+            }
+
+            // タブ状態を更新
+            tab.aiType = null;
+            tab.isRunning = false;
+            tab.name = `Tab #${tabId.split('-')[1]}`;
+
+            // ターミナルをクリア
+            if (tab.terminal) {
+                tab.terminal.clear();
+                tab.terminal.writeln(`\x1b[90m🎀 KawAIi Code - Tab Ready 🎀\x1b[0m`);
+                tab.terminal.writeln(`\x1b[90mClick the start button to begin with Claude Code or Gemini CLI\x1b[0m`);
+            }
+
+            return true;
+        } catch (error) {
+            debugError(`Error stopping AI for tab ${tabId}:`, error);
+            return false;
+        }
+    }
+
     switchTab(tabId) {
         if (!this.tabs[tabId]) return;
         
-        // 現在のアクティブタブを非表示
-        if (this.activeTabId && this.tabs[this.activeTabId]) {
-            this.tabs[this.activeTabId].isActive = false;
-            this.tabs[this.activeTabId].element.classList.remove('active');
-        }
+        // 全てのタブを非表示（確実な表示制御）
+        Object.values(this.tabs).forEach(tab => {
+            tab.isActive = false;
+            if (tab.element) {
+                tab.element.style.display = 'none';
+                tab.element.classList.remove('active');
+            }
+        });
         
-        // 新しいタブをアクティブに
-        this.activeTabId = tabId;
-        this.tabs[tabId].isActive = true;
-        this.tabs[tabId].element.classList.add('active');
-        this.tabs[tabId].terminal.focus();
+        // アクティブタブを表示
+        const activeTab = this.tabs[tabId];
+        activeTab.isActive = true;
+        if (activeTab.element) {
+            activeTab.element.style.display = 'block';
+            activeTab.element.classList.add('active');
+        }
+        activeTab.terminal.focus();
         
         // ターミナルサイズを調整
-        if (this.tabs[tabId].fitAddon) {
+        if (activeTab.fitAddon) {
             setTimeout(() => {
-                this.tabs[tabId].fitAddon.fit();
+                activeTab.fitAddon.fit();
             }, 50);
         }
         
+        this.activeTabId = tabId;
         this.updateTabUI();
     }
 
