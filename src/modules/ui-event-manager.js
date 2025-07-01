@@ -318,11 +318,18 @@ class UIEventManager {
                 this.debugLog('Tab-based button state check:', {
                     activeTabId: this.app.tabManager.activeTabId,
                     activeTabRunning: isAIRunning,
-                    activeTabAiType: activeTab?.aiType
+                    activeTabAiType: activeTab?.aiType,
+                    activeTabName: activeTab?.name,
+                    allTabsStatus: Object.keys(this.app.tabManager.tabs).map(id => ({
+                        id,
+                        isRunning: this.app.tabManager.tabs[id].isRunning,
+                        aiType: this.app.tabManager.tabs[id].aiType
+                    }))
                 });
             } else {
                 // フォールバック：メインターミナルの状態
                 isAIRunning = this.app.isTerminalRunning;
+                this.debugLog('Fallback to main terminal state:', { isTerminalRunning: isAIRunning });
             }
             
             startAiSelectionBtn.disabled = isAIRunning;

@@ -1566,8 +1566,8 @@ class TabManager {
             
             // UI状態を更新
             this.updateTabUI();
-            if (this.app && this.app.updateButtons) {
-                this.app.updateButtons();
+            if (this.terminalApp && this.terminalApp.updateButtons) {
+                this.terminalApp.updateButtons();
             }
             
             debugLog(`Tab ${tabId} AI startup completed`);
@@ -1607,8 +1607,8 @@ class TabManager {
             
             // UI状態を更新
             this.updateTabUI();
-            if (this.app && this.app.updateButtons) {
-                this.app.updateButtons();
+            if (this.terminalApp && this.terminalApp.updateButtons) {
+                this.terminalApp.updateButtons();
             }
 
             return true;
@@ -1655,8 +1655,8 @@ class TabManager {
         this.updateTabUI();
         
         // ボタン状態を更新（アクティブタブ変更時）
-        if (this.app && this.app.updateButtons) {
-            this.app.updateButtons();
+        if (this.terminalApp && this.terminalApp.updateButtons) {
+            this.terminalApp.updateButtons();
         }
     }
 
