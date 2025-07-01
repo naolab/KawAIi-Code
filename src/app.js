@@ -31,7 +31,7 @@ class MessageAccumulator {
     
     addChunk(data) {
         const hasMarker = data.includes('⏺') || data.includes('✦');
-        const hasQuotes = data.includes('「') && data.includes('」');
+        const hasQuotes = data.includes('『') && data.includes('』');
         
         debugLog(`📝 MessageAccumulator.addChunk - マーカー: ${hasMarker}, 括弧: ${hasQuotes}, データ長: ${data.length}`);
         
@@ -66,8 +66,8 @@ class MessageAccumulator {
         const hasEndMarker = data.includes('\n> ') || data.includes('╭─') || data.includes('│ ');
         
         // 2. カギカッコが閉じられている
-        const openQuotes = (data.match(/「/g) || []).length;
-        const closeQuotes = (data.match(/」/g) || []).length;
+        const openQuotes = (data.match(/『/g) || []).length;
+        const closeQuotes = (data.match(/』/g) || []).length;
         const quotesBalanced = openQuotes === closeQuotes && openQuotes > 0;
         
         // 3. 文章が完結している
@@ -439,7 +439,7 @@ class TerminalApp {
                     .trim();
             
             // カッコ内のテキストを抽出（音声読み上げ用・改行にも対応）
-            const quotedTextMatches = afterMarker.match(/「([^」]+)」/gs);
+            const quotedTextMatches = afterMarker.match(/『([^』]+)』/gs);
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
                 // カギカッコ内のテキストを一個ずつ処理
@@ -480,7 +480,7 @@ class TerminalApp {
     async processQuotedTexts(quotedTextMatches) {
         
         for (let i = 0; i < quotedTextMatches.length; i++) {
-            let quotedText = quotedTextMatches[i].replace(/[「」]/g, '').trim();
+            let quotedText = quotedTextMatches[i].replace(/[『』]/g, '').trim();
             
             // 改行と余分な空白を除去
             quotedText = quotedText.replace(/\r?\n\s*/g, '').replace(/\s+/g, ' ').trim();
