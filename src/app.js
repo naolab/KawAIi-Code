@@ -1544,6 +1544,12 @@ class TabManager {
                 }
             }, 200); // Claude Codeの初期化完了を待つ
             
+            // UI状態を更新
+            this.updateTabUI();
+            if (this.app && this.app.updateButtons) {
+                this.app.updateButtons();
+            }
+            
             debugLog(`Tab ${tabId} AI startup completed`);
             return true;
         } catch (error) {
@@ -1578,6 +1584,12 @@ class TabManager {
                 tab.terminal.clear();
                 tab.terminal.writeln(`\x1b[90m🎀 KawAIi Code - Tab Ready 🎀\x1b[0m`);
                 tab.terminal.writeln(`\x1b[90mClick the start button to begin with Claude Code or Gemini CLI\x1b[0m`);
+            }
+            
+            // UI状態を更新
+            this.updateTabUI();
+            if (this.app && this.app.updateButtons) {
+                this.app.updateButtons();
             }
 
             return true;
@@ -1622,6 +1634,11 @@ class TabManager {
         
         this.activeTabId = tabId;
         this.updateTabUI();
+        
+        // ボタン状態を更新（アクティブタブ変更時）
+        if (this.app && this.app.updateButtons) {
+            this.app.updateButtons();
+        }
     }
 
     setParentTab(tabId) {

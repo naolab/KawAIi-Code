@@ -91,7 +91,7 @@ class UIEventManager {
                 if (aiSelectModal) aiSelectModal.style.display = 'flex';
             });
         }
-        if (stopBtn) stopBtn.addEventListener('click', () => this.app.stopTerminal());
+        if (stopBtn) stopBtn.addEventListener('click', () => this.handleStopButtonClick());
 
         // AI選択モーダルのイベント
         if (closeAiSelectBtn && aiSelectModal) {
@@ -268,6 +268,39 @@ class UIEventManager {
     }
 
     /**
+     * 停止ボタンクリックの処理
+     */
+    async handleStopButtonClick() {
+        try {
+            // タブ機能有効時は、アクティブタブのAIを停止
+            if (this.app.tabManager && this.app.tabManager.activeTabId) {
+                const activeTab = this.app.tabManager.tabs[this.app.tabManager.activeTabId];
+                if (activeTab && activeTab.isRunning) {
+                    this.debugLog('Stopping AI in active tab:', this.app.tabManager.activeTabId);
+                    await this.app.tabManager.stopAIForTab(this.app.tabManager.activeTabId);
+                    
+                    // ボタン状態を更新
+                    this.updateButtons();
+                    
+                    // タブ表示も更新
+                    this.app.tabManager.renderTabs();
+                    
+                    this.app.updateStatus('AI stopped - Tab ready for new session');
+                    return;
+                }
+            }
+            
+            // フォールバック：メインターミナルを停止
+            this.debugLog('Stopping main terminal');
+            await this.app.stopTerminal();
+            
+        } catch (error) {
+            this.debugError('Error in stop button handler:', error);
+            this.app.updateStatus('Error stopping AI');
+        }
+    }
+
+    /**
      * ボタンの有効・無効状態を更新
      */
     updateButtons() {
@@ -275,13 +308,30 @@ class UIEventManager {
         const stopBtn = document.getElementById('stop-terminal');
         
         if (startAiSelectionBtn && stopBtn) {
-            startAiSelectionBtn.disabled = this.app.isTerminalRunning;
-            stopBtn.disabled = !this.app.isTerminalRunning;
+            // タブ機能有効時は、アクティブタブの状態を確認
+            let isAIRunning = false;
+            
+            if (this.app.tabManager && this.app.tabManager.activeTabId) {
+                const activeTab = this.app.tabManager.tabs[this.app.tabManager.activeTabId];
+                isAIRunning = activeTab ? activeTab.isRunning : false;
+                
+                this.debugLog('Tab-based button state check:', {
+                    activeTabId: this.app.tabManager.activeTabId,
+                    activeTabRunning: isAIRunning,
+                    activeTabAiType: activeTab?.aiType
+                });
+            } else {
+                // フォールバック：メインターミナルの状態
+                isAIRunning = this.app.isTerminalRunning;
+            }
+            
+            startAiSelectionBtn.disabled = isAIRunning;
+            stopBtn.disabled = !isAIRunning;
             
             this.debugLog('Buttons updated:', {
                 startAiSelectionDisabled: startAiSelectionBtn.disabled,
                 stopDisabled: stopBtn.disabled,
-                isTerminalRunning: this.app.isTerminalRunning
+                isAIRunning: isAIRunning
             });
         }
     }
