@@ -1418,7 +1418,11 @@ class TabManager {
         terminal.loadAddon(fitAddon);
         terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
         terminal.open(terminalElement);
-        fitAddon.fit();
+        
+        // ターミナルサイズ調整を遅延実行（確実にDOM要素が準備されてから）
+        setTimeout(() => {
+            fitAddon.fit();
+        }, 50);
         
         // 初期メッセージを表示（アプリ起動時と同じ状態）
         terminal.writeln(`\x1b[90m🎀 KawAIi Code - New Tab 🎀\x1b[0m`);
@@ -1530,6 +1534,16 @@ class TabManager {
                 window.electronAPI.tab.resize(tabId, cols, rows);
             });
             
+            // ターミナルサイズを適切に調整（AI起動後に実行）
+            setTimeout(() => {
+                if (tab.fitAddon && tab.terminal) {
+                    tab.fitAddon.fit();
+                    // バックエンドプロセスにも新しいサイズを通知
+                    window.electronAPI.tab.resize(tabId, tab.terminal.cols, tab.terminal.rows);
+                    debugLog(`Tab ${tabId} resized to ${tab.terminal.cols}x${tab.terminal.rows}`);
+                }
+            }, 200); // Claude Codeの初期化完了を待つ
+            
             debugLog(`Tab ${tabId} AI startup completed`);
             return true;
         } catch (error) {
@@ -1598,7 +1612,12 @@ class TabManager {
         if (activeTab.fitAddon) {
             setTimeout(() => {
                 activeTab.fitAddon.fit();
-            }, 50);
+                // AI起動中のタブの場合、バックエンドプロセスにもリサイズを通知
+                if (activeTab.isRunning && activeTab.terminal) {
+                    window.electronAPI.tab.resize(tabId, activeTab.terminal.cols, activeTab.terminal.rows);
+                    debugLog(`Active tab ${tabId} resized to ${activeTab.terminal.cols}x${activeTab.terminal.rows}`);
+                }
+            }, 100); // Claude Codeの表示が落ち着くまで少し待つ
         }
         
         this.activeTabId = tabId;
