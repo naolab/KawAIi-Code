@@ -281,9 +281,14 @@ body {
 
 /* ターミナルセクション全体のスクロールバーも非表示 */
 .terminal-section::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+.terminal-section {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
 }
 
 #terminal {
@@ -298,6 +303,8 @@ body {
     backface-visibility: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
 }
 
 /* ターミナルのスクロールバーを非表示 */
@@ -1264,7 +1271,10 @@ input[type="checkbox"]:checked::before {
 }
 
 /* 全てのxtermスクロールバーを強制非表示 */
-.xterm *::-webkit-scrollbar {
+.xterm *::-webkit-scrollbar,
+.xterm::-webkit-scrollbar,
+.xterm-viewport::-webkit-scrollbar,
+.xterm-screen::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
@@ -1284,12 +1294,16 @@ input[type="checkbox"]:checked::before {
 }
 
 /* 全ての子要素のスクロールバーを非表示 */
-#terminal * {
+#terminal *,
+.xterm *,
+.xterm-viewport,
+.xterm-screen {
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
 }
 
-#terminal *::-webkit-scrollbar {
+#terminal *::-webkit-scrollbar,
+.terminal-section *::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
