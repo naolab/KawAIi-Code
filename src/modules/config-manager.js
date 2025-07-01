@@ -277,6 +277,78 @@ class ConfigManager {
         return combinedContent;
     }
 
+    // 両方のAI.mdファイルを同時に生成
+    async generateBothAiMdFiles() {
+        try {
+            const claudeResult = await this.writeAiMdToHomeDir('claude');
+            const geminiResult = await this.writeAiMdToHomeDir('gemini');
+            
+            ConfigManager_debugLog('Both AI MD files generation result:', {
+                claude: claudeResult,
+                gemini: geminiResult
+            });
+            
+            return {
+                success: claudeResult.success && geminiResult.success,
+                claude: claudeResult,
+                gemini: geminiResult
+            };
+        } catch (error) {
+            ConfigManager_debugError('Failed to generate both AI MD files:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 両方のAI.mdファイルを同時に削除
+    async deleteBothAiMdFiles() {
+        try {
+            const { fs, path, os } = window.electronAPI;
+            if (!fs || !path || !os) {
+                ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
+                return { success: false };
+            }
+
+            const results = {};
+            
+            // CLAUDE.mdを削除（ホームディレクトリから）
+            try {
+                const claudeMdPath = path.join(os.homedir(), 'CLAUDE.md');
+                await fs.promises.unlink(claudeMdPath);
+                results.claude = { success: true, path: claudeMdPath };
+                ConfigManager_debugLog('CLAUDE.md deleted from:', claudeMdPath);
+            } catch (error) {
+                results.claude = { success: false, error: error.message };
+                ConfigManager_debugLog('CLAUDE.md deletion failed or file not found:', error.message);
+            }
+            
+            // GEMINI.mdを削除（作業ディレクトリから）
+            if (this.claudeWorkingDir) {
+                try {
+                    const geminiMdPath = path.join(this.claudeWorkingDir, 'GEMINI.md');
+                    await fs.promises.unlink(geminiMdPath);
+                    results.gemini = { success: true, path: geminiMdPath };
+                    ConfigManager_debugLog('GEMINI.md deleted from:', geminiMdPath);
+                } catch (error) {
+                    results.gemini = { success: false, error: error.message };
+                    ConfigManager_debugLog('GEMINI.md deletion failed or file not found:', error.message);
+                }
+            } else {
+                results.gemini = { success: false, error: 'Working directory not set' };
+            }
+            
+            ConfigManager_debugLog('Both AI MD files deletion result:', results);
+            
+            return {
+                success: results.claude.success || results.gemini.success, // 少なくとも1つ成功すれば成功
+                claude: results.claude,
+                gemini: results.gemini
+            };
+        } catch (error) {
+            ConfigManager_debugError('Failed to delete both AI MD files:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // AIの.mdファイルをホームディレクトリに書き込む
     async writeAiMdToHomeDir(aiType) {
         try {

@@ -13,6 +13,47 @@ const debugLog = isProduction ? () => {} : console.log;
 const infoLog = console.log; // 重要な情報は常に出力
 const errorLog = console.error; // エラーは常に出力
 
+// AI.mdファイルクリーンアップ関数
+async function cleanupAiMdFiles() {
+  try {
+    const results = {};
+    
+    // CLAUDE.mdを削除（ホームディレクトリから）
+    try {
+      const claudeMdPath = path.join(os.homedir(), 'CLAUDE.md');
+      await fs.promises.unlink(claudeMdPath);
+      results.claude = { success: true, path: claudeMdPath };
+      infoLog('CLAUDE.md deleted from:', claudeMdPath);
+    } catch (error) {
+      results.claude = { success: false, error: error.message };
+      debugLog('CLAUDE.md deletion failed or file not found:', error.message);
+    }
+    
+    // GEMINI.mdを削除（現在の作業ディレクトリから）
+    try {
+      // 作業ディレクトリの取得（設定から）
+      let workingDir = await appConfig.get('claudeWorkingDir');
+      if (workingDir) {
+        const geminiMdPath = path.join(workingDir, 'GEMINI.md');
+        await fs.promises.unlink(geminiMdPath);
+        results.gemini = { success: true, path: geminiMdPath };
+        infoLog('GEMINI.md deleted from:', geminiMdPath);
+      } else {
+        results.gemini = { success: false, error: 'Working directory not set' };
+      }
+    } catch (error) {
+      results.gemini = { success: false, error: error.message };
+      debugLog('GEMINI.md deletion failed or file not found:', error.message);
+    }
+    
+    infoLog('AI MD files cleanup completed:', results);
+    return results;
+  } catch (error) {
+    errorLog('Failed to cleanup AI MD files:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 let mainWindow;
 let terminalProcess; // 既存の単一ターミナル（後方互換性のため残す）
 let terminalProcesses = {}; // 複数タブ用PTYプロセス管理
@@ -162,7 +203,10 @@ app.whenReady().then(async () => {
   createWindow();
 });
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
+  // AI.mdファイルのクリーンアップを直接実行
+  await cleanupAiMdFiles();
+  
   // Kill Next.js server when app closes
   if (nextjsProcess) {
     nextjsProcess.kill();

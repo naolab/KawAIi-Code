@@ -224,6 +224,10 @@ class TerminalApp {
         this.setupChatInterface();
         await this.initializeModules(); // モジュール初期化をawait
         await this.loadInitialSettings(); // 初期設定の読み込み
+        
+        // アプリ起動時に両方のAI.mdファイルを生成
+        await this.generateAiMdFiles();
+        
         this.updateStatus('Ready');
         this.checkVoiceConnection();
     }
@@ -367,6 +371,7 @@ class TerminalApp {
             debugError('electronAPI not available');
             this.updateStatus('ElectronAPI not available');
         }
+
 
         // Handle voice text available - DISABLED for bracket-only mode
         if (window.electronAPI && window.electronAPI.voice) {
@@ -616,20 +621,6 @@ class TerminalApp {
                 this.terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
                 
                 this.addVoiceMessage('ことね', `${aiName}が起動したよ〜！`);
-                
-                // 起動するAIに応じて.mdファイルを生成/更新
-                const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
-                const mdResult = await this.configManager.writeAiMdToHomeDir(aiType);
-                
-                if (mdResult.success) {
-                    if (aiType === 'gemini' && mdResult.hadBackup) {
-                        this.addVoiceMessage('ことね', `${aiMdFilename}を準備したよ！既存ファイルはバックアップ済み✨`);
-                    } else {
-                        this.addVoiceMessage('ことね', `${aiMdFilename}を更新したよ！`);
-                    }
-                } else {
-                    this.addVoiceMessage('ことね', `${aiMdFilename}の更新に失敗しちゃった...`);
-                }
 
                 setTimeout(() => {
                     this.fitAddon.fit();
@@ -746,6 +737,37 @@ class TerminalApp {
         }
     }
 
+    // 両方のAI.mdファイルを生成
+    async generateAiMdFiles() {
+        try {
+            const result = await this.configManager.generateBothAiMdFiles();
+            if (result.success) {
+                this.addVoiceMessage('ことね', 'CLAUDE.mdとGEMINI.mdを準備したよ！');
+                debugLog('Both AI MD files generated successfully');
+            } else {
+                this.addVoiceMessage('ことね', 'AI設定ファイルの生成に失敗しちゃった...');
+                debugError('Failed to generate AI MD files:', result);
+            }
+            return result;
+        } catch (error) {
+            debugError('Error generating AI MD files:', error);
+            this.addVoiceMessage('ことね', 'AI設定ファイルの生成でエラーが発生したよ...');
+            return { success: false, error: error.message };
+        }
+    }
+
+    // アプリ終了時にAI.mdファイルを削除
+    async cleanupAiMdFiles() {
+        try {
+            const result = await this.configManager.deleteBothAiMdFiles();
+            debugLog('AI MD files cleanup result:', result);
+            return result;
+        } catch (error) {
+            debugError('Error during AI MD files cleanup:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // updateButtons() と updateVoiceControls() - UIEventManagerで処理
     updateButtons() {
         if (this.uiEventManager) {
@@ -839,9 +861,8 @@ class TerminalApp {
                 // ConfigManagerにも作業ディレクトリを同期
                 this.configManager.setWorkingDirectory(this.claudeWorkingDir);
                 
-                // プロジェクト固有設定を読み込み
-                // loadProjectSpecificSettingsはaiTypeを引数に取るようになったため、ここでは呼び出さない
-                // 代わりに、writeAiMdToHomeDirが呼び出された際に最新のclaudeWorkingDirが使われる
+                // 作業ディレクトリ設定時に両方のAI.mdファイルを再生成
+                await this.generateAiMdFiles();
 
             } else if (result.success && !result.path) {
                 if (claudeCwdMessage) {
@@ -1426,7 +1447,6 @@ class TabManager {
         
         // 初期メッセージを表示（アプリ起動時と同じ状態）
         terminal.writeln(`\x1b[90m🎀 KawAIi Code - New Tab 🎀\x1b[0m`);
-        terminal.writeln(`\x1b[90mClick the start button to begin with Claude Code or Gemini CLI\x1b[0m`);
         
         // タブデータを作成（AIは未起動状態）
         this.tabs[tabId] = {
@@ -1583,7 +1603,6 @@ class TabManager {
             if (tab.terminal) {
                 tab.terminal.clear();
                 tab.terminal.writeln(`\x1b[90m🎀 KawAIi Code - Tab Ready 🎀\x1b[0m`);
-                tab.terminal.writeln(`\x1b[90mClick the start button to begin with Claude Code or Gemini CLI\x1b[0m`);
             }
             
             // UI状態を更新
