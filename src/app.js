@@ -48,8 +48,8 @@ class MessageAccumulator {
             debugLog(`🆕 新しいメッセージ蓄積開始 - 長さ: ${data.length}`);
             this.scheduleCompletion();
             
-        } else if (hasQuotes && this.isAccumulating) {
-            // 既存メッセージに追加（括弧付きテキストがある場合のみ）
+        } else if (this.isAccumulating) {
+            // 既存メッセージに追加（蓄積中は全てのチャンクを統合）
             this.pendingMessage += '\n' + data;
             this.lastChunkTime = Date.now();
             debugLog(`➕ メッセージに追加 - 現在の総長: ${this.pendingMessage.length}`);
