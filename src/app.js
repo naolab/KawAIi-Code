@@ -167,6 +167,13 @@ class TerminalApp {
         // リソース管理システム
         this.resourceManager = new ResourceManager('TerminalApp');
         
+        // 処理最適化システム
+        this.processingCache = new ProcessingCache({
+            maxCacheSize: 50,
+            maxAge: 300000, // 5分
+            maxPoolSize: 5
+        });
+        
         // タブ管理システム
         this.tabManager = null;
         this.voiceEnabled = true; // デフォルトで有効に
@@ -244,6 +251,11 @@ class TerminalApp {
         
         // リソース管理：定期クリーンアップ開始
         this.resourceManager.startPeriodicCleanup(AppConstants.AUDIO.DEFAULT_INTERVAL * 20); // 60秒間隔
+        
+        // 処理キャッシュ：定期クリーンアップ開始
+        this.resourceManager.setInterval(() => {
+            this.processingCache.cleanupExpiredEntries();
+        }, 120000); // 2分間隔
     }
 
     // モジュール初期化
@@ -391,7 +403,9 @@ class TerminalApp {
         try {
             debugLog('🔍 parseTerminalDataForChat 開始 - 入力データ長:', data.length);
             
-            const cleanData = data.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').trim();
+            // ProcessingCacheによる最適化されたテキストクリーニング
+            const cleanData = this.processingCache.optimizedTextCleaning(data);
+            
             // Claude Code (⏺) と Gemini Code Assist (✦) の両方に対応
             let markerIndex = cleanData.indexOf('⏺');
             let markerType = '⏺';
@@ -406,16 +420,11 @@ class TerminalApp {
             
             let afterMarker = cleanData.substring(markerIndex + 1).trim();
             
-            // 文字列クリーニング（音声読み上げ用）
-            afterMarker = afterMarker
-                    .replace(/^[⚒↓⭐✶✻✢·✳]+\s*/g, '')
-                    .replace(/\s*[✢✳✶✻✽·⚒↓↑]\s*(Synthesizing|Conjuring|Spinning|Vibing|Computing|Mulling|Pondering|musing|thinking).*$/gi, '')
-                    .replace(/\s*\([0-9]+s[^)]*\).*$/g, '')
-                    .replace(/\s*tokens.*$/gi, '')
-                    .trim();
-            
-            // カッコ内のテキストを抽出（音声読み上げ用・改行にも対応）
-            const quotedTextMatches = afterMarker.match(/『([^』]+)』/gs);
+            // カッコ内のテキストを抽出（キャッシュ化された正規表現処理）
+            const quotedTextMatches = this.processingCache.cachedRegexProcess(
+                afterMarker, 
+                /『([^』]+)』/gs
+            );
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
                 // カギカッコ内のテキストを一個ずつ処理
@@ -1119,23 +1128,8 @@ class TerminalApp {
                 }
             }
 
-            // BufferをArrayBufferに変換（VRM用のコピーも作成）
-            let arrayBuffer, vrmArrayBuffer;
-            if (audioData instanceof ArrayBuffer) {
-                arrayBuffer = audioData;
-                vrmArrayBuffer = audioData.slice(0); // VRM用にコピー
-            } else if (audioData.buffer instanceof ArrayBuffer) {
-                arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength);
-                vrmArrayBuffer = arrayBuffer.slice(0); // VRM用にコピー
-            } else {
-                // Uint8ArrayまたはBufferの場合
-                arrayBuffer = new ArrayBuffer(audioData.length);
-                const view = new Uint8Array(arrayBuffer);
-                for (let i = 0; i < audioData.length; i++) {
-                    view[i] = audioData[i];
-                }
-                vrmArrayBuffer = arrayBuffer.slice(0); // VRM用にコピー
-            }
+            // ProcessingCacheによる最適化された音声データ処理
+            const { arrayBuffer, sharedBuffer } = this.processingCache.optimizedAudioProcessing(audioData);
 
             // Decode audio data
             debugLog('🎵 Decoding audio data, size:', arrayBuffer.byteLength);
@@ -1159,8 +1153,8 @@ class TerminalApp {
                 this.processAudioQueue();
             };
 
-            // VRMビューワーに音声データを送信（専用コピーを使用）
-            this.sendAudioToVRM(vrmArrayBuffer);
+            // VRMビューワーに音声データを送信（共有バッファを使用）
+            this.sendAudioToVRM(sharedBuffer);
             
             this.currentAudio = source;
             this.isPlaying = true;
