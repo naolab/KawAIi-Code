@@ -6,12 +6,16 @@ const pty = require('node-pty');
 const { spawn } = require('child_process');
 const VoiceService = require('./src/voiceService');
 const appConfig = require('./src/appConfig');
+const AIConfigService = require('./src/services/ai-config-service');
 
 // ログレベル制御（本番環境では詳細ログを無効化）
 const isProduction = process.env.NODE_ENV === 'production' || app.isPackaged;
 const debugLog = isProduction ? () => {} : console.log;
 const infoLog = console.log; // 重要な情報は常に出力
 const errorLog = console.error; // エラーは常に出力
+
+// AIサービス初期化
+const aiConfigService = new AIConfigService();
 
 // AI.mdファイルクリーンアップ関数
 async function cleanupAiMdFiles() {
@@ -234,30 +238,7 @@ app.on('activate', () => {
 ipcMain.handle('terminal-start', async (event, aiType) => {
   infoLog(`AIアシスタントの起動リクエストを受信: ${aiType}`);
 
-  const aiConfig = {
-    claude: {
-      name: 'Claude Code',
-      possiblePaths: [
-        process.env.CLAUDE_PATH,
-        '/opt/homebrew/bin/claude',
-        '/usr/local/bin/claude',
-        '/usr/bin/claude',
-        'claude'
-      ].filter(p => p)
-    },
-    gemini: {
-      name: 'Gemini Code Assist',
-      possiblePaths: [
-        process.env.GEMINI_PATH,
-        '/opt/homebrew/bin/gemini',
-        '/usr/local/bin/gemini',
-        '/usr/bin/gemini',
-        'gemini'
-      ].filter(p => p)
-    }
-  };
-
-  const selectedAI = aiConfig[aiType];
+  const selectedAI = aiConfigService.getConfig(aiType);
   if (!selectedAI) {
     const errorMsg = `無効なAIタイプが指定されました: ${aiType}`;
     errorLog(errorMsg);
@@ -669,61 +650,23 @@ ipcMain.handle('clear-app-config', async () => {
 
 // ===== タブ機能用IPCハンドラー =====
 
-// AI設定の取得（共通関数）
-function getAIConfig(aiType) {
-  const aiConfig = {
-    claude: {
-      name: 'Claude Code',
-      possiblePaths: [
-        process.env.CLAUDE_PATH,
-        '/opt/homebrew/bin/claude',
-        '/usr/local/bin/claude',
-        '/usr/bin/claude',
-        'claude'
-      ].filter(p => p)
-    },
-    gemini: {
-      name: 'Gemini Code Assist',
-      possiblePaths: [
-        process.env.GEMINI_PATH,
-        '/opt/homebrew/bin/gemini',
-        '/usr/local/bin/gemini',
-        '/usr/bin/gemini',
-        'gemini'
-      ].filter(p => p)
-    }
-  };
-  return aiConfig[aiType];
-}
-
-// AI実行パスの検索（共通関数）
-function findAICommand(aiConfig) {
-  if (!aiConfig) return null;
-  
-  for (const testPath of aiConfig.possiblePaths) {
-    try {
-      fs.accessSync(testPath, fs.constants.F_OK);
-      return testPath;
-    } catch (error) {
-      debugLog(`パスが見つかりません: ${testPath}`);
-    }
-  }
-  return null;
-}
+// AI設定処理はAIConfigServiceに統一
 
 // タブ作成
 ipcMain.handle('tab-create', async (event, tabId, aiType) => {
   try {
     infoLog(`タブ作成リクエスト: ${tabId}, AI: ${aiType}`);
     
-    const aiConfig = getAIConfig(aiType);
+    const aiConfig = aiConfigService.getConfig(aiType);
     if (!aiConfig) {
       return { success: false, error: `無効なAIタイプ: ${aiType}` };
     }
     
-    const commandPath = findAICommand(aiConfig);
-    if (!commandPath) {
-      return { success: false, error: `${aiConfig.name} の実行可能ファイルが見つかりません` };
+    let commandPath;
+    try {
+      commandPath = await aiConfigService.findExecutablePath(aiType);
+    } catch (error) {
+      return { success: false, error: error.message };
     }
     
     // 既存のプロセスがある場合は終了
