@@ -133,6 +133,18 @@ class DOMUpdater {
                         tabElement.classList.remove('active');
                     }
                     
+                    // 親タブ星マーク状態の更新
+                    const starElement = tabElement.querySelector('.parent-star');
+                    if (starElement) {
+                        if (tabData.isParent) {
+                            starElement.className = 'parent-star active';
+                            starElement.textContent = '★';
+                        } else {
+                            starElement.className = 'parent-star inactive';
+                            starElement.textContent = '☆';
+                        }
+                    }
+                    
                     // タブ名の更新（変更された場合のみ）
                     const nameElement = tabElement.querySelector('.tab-name');
                     if (nameElement && nameElement.textContent !== tabData.name) {
