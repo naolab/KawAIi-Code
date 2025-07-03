@@ -1,4 +1,4 @@
-const Logger = require('./logger');
+// Logger はブラウザ環境でグローバルに利用可能
 
 class ErrorHandler {
     constructor(moduleName = 'App') {

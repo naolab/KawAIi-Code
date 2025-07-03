@@ -208,6 +208,9 @@ class TerminalApp {
             return;
         }
         
+        // ErrorHandlerを初期化
+        this.errorHandler = new ErrorHandler('TerminalApp');
+        
         // Claude Codeの作業ディレクトリを初期化時に取得
         try {
             const result = await window.electronAPI.getClaudeCwd();
@@ -283,7 +286,8 @@ class TerminalApp {
 
     setupTerminal() {
         this.terminal = new Terminal(TerminalFactory.createConfig());
-        this.errorHandler = new ErrorHandler('TerminalApp');
+        
+        // ErrorHandlerはすでにinitで初期化済み
 
         this.fitAddon = new FitAddon.FitAddon();
         this.terminal.loadAddon(this.fitAddon);
@@ -525,27 +529,8 @@ class TerminalApp {
         const chatMessages = document.getElementById('chat-messages');
         if (!chatMessages) return;
 
-        // DOM操作を最小化（innerHTML使用）
-        const timeString = new Date().toLocaleTimeString('ja-JP', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            second: '2-digit'
-        });
-
-        const messageHTML = `
-            <div class="voice-message">
-                <div class="voice-speaker">${speaker}</div>
-                <p class="voice-text">${text}</p>
-                <div class="voice-time">${timeString}</div>
-            </div>
-        `;
-
-        chatMessages.insertAdjacentHTML('beforeend', messageHTML);
-        
-        // スクロールを最小化
-        if (chatMessages.children.length > 20) {
-            chatMessages.removeChild(chatMessages.firstChild);
-        }
+        // DOMUpdaterを使用してセキュアで高速な更新
+        DOMUpdater.addVoiceMessage(speaker, text, chatMessages);
         
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -893,15 +878,8 @@ class TerminalApp {
     async updateSpeakerSelect() {
         const speakerSelectModal = document.getElementById('speaker-select-modal');
         if (speakerSelectModal && this.speakers.length > 0) {
-            speakerSelectModal.innerHTML = '';
-            this.speakers.forEach((speaker) => {
-                speaker.styles.forEach((style) => {
-                    const option = document.createElement('option');
-                    option.value = style.id;
-                    option.textContent = `${speaker.name} (${style.name})`;
-                    speakerSelectModal.appendChild(option);
-                });
-            });
+            // DOMUpdaterを使用して差分更新
+            DOMUpdater.updateSpeakerOptions(speakerSelectModal, this.speakers, this.selectedSpeaker);
             
             // 現在選択中の話者IDを保持（リセットしない）
             let targetSpeakerId = this.selectedSpeaker;
@@ -1691,17 +1669,14 @@ class TabManager {
         const tabBar = document.getElementById('tab-bar');
         if (!tabBar) return;
         
-        // 既存のタブを削除（新規タブボタン以外）
-        const existingTabs = tabBar.querySelectorAll('.tab');
-        existingTabs.forEach(tab => tab.remove());
-        
-        // タブを順序に従って作成
-        this.tabOrder.forEach(tabId => {
-            if (this.tabs[tabId]) {
-                const tabElement = this.createTabElement(this.tabs[tabId]);
-                tabBar.insertBefore(tabElement, document.getElementById('new-tab-button'));
-            }
-        });
+        // DOMUpdaterを使用して差分更新
+        DOMUpdater.updateTabList(
+            tabBar, 
+            this.tabs, 
+            this.tabOrder, 
+            this.activeTabId,
+            (tabData) => this.createTabElement(tabData)
+        );
     }
 
     createTabElement(tabData) {
