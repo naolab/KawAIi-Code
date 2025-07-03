@@ -27,6 +27,21 @@
   - Node.js/ブラウザ両環境対応
   - 保守性向上（設定変更時の修正箇所削減）
 
+### 2025-07-03: Phase 1 - マジックナンバー定数化
+- **実装**: `src/constants/app-constants.js` を新規作成
+- **対象**: `src/app.js` に散在していたマジックナンバーを統一管理
+  - `completionTimeout: 3000` → `AppConstants.MESSAGE.COMPLETION_TIMEOUT`
+  - `maxAudioAge: 120000` → `AppConstants.AUDIO.MAX_AGE`
+  - `maxQueueSize: 50` → `AppConstants.AUDIO.MAX_QUEUE_SIZE`
+  - `voiceIntervalSeconds: 3` → `AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS`
+  - `scrollback: 1000` → `AppConstants.TERMINAL.SCROLLBACK`
+  - その他のUI/タイマー関連定数
+- **効果**:
+  - 設定値の一元管理
+  - 意味のある定数名による可読性向上
+  - 変更時の修正箇所削減
+  - Node.js/ブラウザ両環境対応
+
 ---
 
 ## 1. コード重複・冗長性
@@ -187,9 +202,11 @@ class ResourceManager {
 
 ## 4. 保守性・可読性
 
-### 🚨 中優先度: マジックナンバー
+### ✅ 完了: マジックナンバー
 
-**問題箇所**
+**解決済み** - `src/constants/app-constants.js`で統一管理
+
+~~**問題箇所**~~
 ```javascript
 // src/app.js:19
 completionTimeout = 3000
@@ -201,17 +218,32 @@ maxAudioAge = 120000, maxQueueSize = 50
 voiceIntervalSeconds = 3
 ```
 
-**改善案**
+**実装済み**
 ```javascript
-// src/constants/app-constants.js
-export const APP_CONSTANTS = {
-    COMPLETION_TIMEOUT: 3000,
-    AUDIO: {
-        MAX_AGE: 120000,
-        MAX_QUEUE_SIZE: 50,
-        DEFAULT_INTERVAL: 3
+// src/constants/app-constants.js (実装完了)
+class AppConstants {
+    static get MESSAGE() {
+        return { COMPLETION_TIMEOUT: 3000 };
     }
-};
+    static get AUDIO() {
+        return {
+            MAX_AGE: 120000,
+            MAX_QUEUE_SIZE: 50,
+            DEFAULT_INTERVAL_SECONDS: 3,
+            DEFAULT_INTERVAL: 3000
+        };
+    }
+    static get TERMINAL() {
+        return { SCROLLBACK: 1000 };
+    }
+    static get UI() {
+        return {
+            Z_INDEX_HIGH: 1000,
+            NOTIFICATION_DELAY: 5000,
+            CLEANUP_DELAY: 10000
+        };
+    }
+}
 ```
 
 ### 🚨 高優先度: 複雑すぎる関数

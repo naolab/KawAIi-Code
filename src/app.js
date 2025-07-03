@@ -16,7 +16,7 @@ class MessageAccumulator {
     constructor() {
         this.pendingMessage = '';
         this.lastChunkTime = 0;
-        this.completionTimeout = 3000; // 3秒でメッセージ完了と判定
+        this.completionTimeout = AppConstants.MESSAGE.COMPLETION_TIMEOUT;
         this.completionTimer = null;
         this.isAccumulating = false;
         this.processCallback = null;
@@ -168,10 +168,10 @@ class TerminalApp {
         this.audioContext = null;
         this.currentAudio = null;
         this.isPlaying = false;
-        this.voiceIntervalSeconds = 3; // 音声読み上げ間隔（デフォルト3秒）
+        this.voiceIntervalSeconds = AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS;
         this.audioQueue = []; // { audioData, timestamp } の配列
-        this.maxAudioAge = 120000; // 120秒（2分）で古い音声とみなす
-        this.maxQueueSize = 50; // キューの最大サイズ（メモリ使用量制限）
+        this.maxAudioAge = AppConstants.AUDIO.MAX_AGE;
+        this.maxQueueSize = AppConstants.AUDIO.MAX_QUEUE_SIZE;
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
@@ -309,7 +309,7 @@ class TerminalApp {
             },
             allowTransparency: false,
             convertEol: true,
-            scrollback: 1000,
+            scrollback: AppConstants.TERMINAL.SCROLLBACK,
             tabStopWidth: 4,
             fastScrollModifier: 'shift',
             fastScrollSensitivity: 5,
@@ -507,7 +507,7 @@ class TerminalApp {
         // キャラクターの気分をリセット
         setTimeout(() => {
             this.updateCharacterMood('待機中💕');
-        }, 3000);
+        }, AppConstants.MESSAGE.COMPLETION_TIMEOUT);
     }
 
     // sendChatMessage は削除済み（チャット入力エリア削除に伴い）
@@ -1081,7 +1081,7 @@ class TerminalApp {
             padding: 12px 16px;
             border-radius: 8px;
             font-size: 14px;
-            z-index: 1000;
+            z-index: ${AppConstants.UI.Z_INDEX_HIGH};
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             max-width: 300px;
             word-wrap: break-word;
@@ -1107,7 +1107,7 @@ class TerminalApp {
             // 10秒後にステータスを復元
             setTimeout(() => {
                 this.checkVoiceConnection();
-            }, 10000);
+            }, AppConstants.UI.CLEANUP_DELAY);
         }
     }
 
@@ -1256,7 +1256,7 @@ class TerminalApp {
             
             // 前の音声から設定可能間隔を確保
             const timeSinceLastSpeech = Date.now() - this.lastSpeechTime;
-            const requiredInterval = (this.voiceIntervalSeconds || 3) * 1000; // 設定可能間隔
+            const requiredInterval = (this.voiceIntervalSeconds || AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS) * 1000; // 設定可能間隔
             
             if (timeSinceLastSpeech < requiredInterval) {
                 const remainingWait = requiredInterval - timeSinceLastSpeech;
@@ -1510,7 +1510,7 @@ class TabManager {
             },
             allowTransparency: false,
             convertEol: true,
-            scrollback: 1000,
+            scrollback: AppConstants.TERMINAL.SCROLLBACK,
             tabStopWidth: 4,
             fastScrollModifier: 'shift',
             fastScrollSensitivity: 5,
