@@ -10,13 +10,32 @@
 - **改善対象**: 37箇所の具体的リファクタリングポイント
 - **期待効果**: パフォーマンス向上、保守性向上、バグ削減
 
+## ✅ 完了した改善項目
+
+### 2025-07-03: Phase 1 - ログ管理ユーティリティ統一
+- **実装**: `src/utils/logger.js` を新規作成
+- **対象ファイル**: 6つのファイルで重複していたログ制御コードを統一
+  - `src/app.js`
+  - `src/voiceService.js` 
+  - `src/modules/config-manager.js`
+  - `main.js`
+  - `src/modules/ui-event-manager.js`
+  - `src/modules/wallpaper-system.js`
+- **効果**: 
+  - コード重複削除（6箇所 → 1箇所）
+  - 統一されたログ形式 `[ModuleName] メッセージ`
+  - Node.js/ブラウザ両環境対応
+  - 保守性向上（設定変更時の修正箇所削減）
+
 ---
 
 ## 1. コード重複・冗長性
 
-### 🚨 高優先度: ログ制御コードの重複
+### ✅ 完了: ログ制御コードの重複 
 
-**問題点**
+**解決済み** - `src/utils/logger.js`で統一管理
+
+~~**問題点**~~
 ```javascript
 // src/app.js:4-7
 const isDev = !window.location.protocol.startsWith('file:') || process.env.NODE_ENV === 'development';
@@ -29,16 +48,20 @@ const debugLog = isDev ? console.log : () => {};
 // src/voiceService.js:3-7 (同一パターン)
 ```
 
-**改善案**
+**実装済み**
 ```javascript
-// src/utils/logger.js (新規作成)
+// src/utils/logger.js (実装完了)
 class Logger {
-    static create(module) {
-        const isDev = process.env.NODE_ENV === 'development';
+    static create(moduleName = 'App') {
+        const isProduction = typeof process !== 'undefined' ? process.env.NODE_ENV === 'production' : false;
+        const isDev = !isProduction;
+        
         return {
-            debug: isDev ? console.log.bind(console, `[${module}]`) : () => {},
-            error: console.error.bind(console, `[${module}]`),
-            warn: console.warn.bind(console, `[${module}]`)
+            debug: isDev ? console.log.bind(console, `[${moduleName}]`) : () => {},
+            info: console.log.bind(console, `[${moduleName}]`),
+            error: console.error.bind(console, `[${moduleName}]`),
+            warn: console.warn.bind(console, `[${moduleName}]`),
+            trace: isDev ? console.trace.bind(console, `[${moduleName}]`) : () => {}
         };
     }
 }
@@ -281,7 +304,7 @@ export const APP_CONFIG_SCHEMA = {
 ## 🚀 実装優先度
 
 ### Phase 1: 基盤整備 (最高優先度)
-1. **ログ管理ユーティリティ統一** - 全モジュール対象
+1. ✅ **ログ管理ユーティリティ統一** - 全モジュール対象 (完了)
 2. **TerminalAppクラス分割** - 核となるリファクタリング
 3. **設定管理システム統一** - 中央集約化
 4. **エラーハンドリング統一** - 品質向上

@@ -1,9 +1,6 @@
 // 設定管理モジュール
-
-// デバッグログ制御（本番環境では無効化）
-const ConfigManager_isDev = !window.location.protocol.startsWith('file:') || process.env.NODE_ENV === 'development';
-const ConfigManager_debugLog = ConfigManager_isDev ? console.log : () => {};
-const ConfigManager_debugError = ConfigManager_isDev ? console.error : console.error; // エラーは常に出力
+// Logger は index.html で読み込み済み
+const logger = Logger.create('ConfigManager');
 
 class ConfigManager {
     constructor() {
@@ -33,7 +30,7 @@ class ConfigManager {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
-                ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
+                logger.error('fs, path, or os module not available via electronAPI.');
                 return;
             }
             
@@ -64,7 +61,7 @@ class ConfigManager {
                 const shyPath = path.join(characterSettingsDir, shyFile);
                 const shyContent = await fs.promises.readFile(shyPath, 'utf8');
                 allCharacterSettings += '\n\n---\n\n' + shyContent;
-                ConfigManager_debugLog('Loaded default character: shy');
+                logger.debug('Loaded default character: shy');
             }
             
             // 他のキャラクター設定を追加
@@ -73,7 +70,7 @@ class ConfigManager {
                     const characterPath = path.join(characterSettingsDir, file);
                     const characterContent = await fs.promises.readFile(characterPath, 'utf8');
                     allCharacterSettings += '\n\n---\n\n' + characterContent;
-                    ConfigManager_debugLog('Loaded character:', file.replace('.md', ''));
+                    logger.debug('Loaded character:', file.replace('.md', ''));
                 }
             }
             
@@ -83,9 +80,9 @@ class ConfigManager {
             // CLAUDE.mdのファイル書き込みは、Claude Code起動時にのみ行うため、ここでは行わない
             // 内容はthis.claudeMdContentに保持される
             
-            ConfigManager_debugLog('Character settings loaded successfully (shy character)');
+            logger.debug('Character settings loaded successfully (shy character)');
         } catch (error) {
-            ConfigManager_debugError('Failed to load character settings:', error);
+            logger.error('Failed to load character settings:', error);
             // フォールバック: 簡単なデフォルト設定
             this.claudeMdContent = `# AIアシスタント設定\n\n必ず日本語で回答してください。\n\n## デフォルトキャラクター\n照れ屋キャラクターとして応答してください。`;
         }
@@ -97,7 +94,7 @@ class ConfigManager {
             // 設定を保存
             if (window.electronAPI && window.electronAPI.config) {
                 await window.electronAPI.config.set('selectedCharacter', characterType);
-                ConfigManager_debugLog('Character setting saved:', characterType);
+                logger.debug('Character setting saved:', characterType);
             }
 
             // キャラクター設定を再読み込み
@@ -124,10 +121,10 @@ class ConfigManager {
                 }, 3000);
             }
 
-            ConfigManager_debugLog('Character changed successfully to:', characterType);
+            logger.debug('Character changed successfully to:', characterType);
             return true;
         } catch (error) {
-            ConfigManager_debugError('Failed to change character:', error);
+            logger.error('Failed to change character:', error);
             
             const characterMessage = document.getElementById('character-message');
             if (characterMessage) {
@@ -152,7 +149,7 @@ class ConfigManager {
                 try {
                     selectedCharacter = await window.electronAPI.config.get('selectedCharacter', 'shy');
                 } catch (configError) {
-                    ConfigManager_debugError('Failed to get character config:', configError);
+                    logger.error('Failed to get character config:', configError);
                 }
             }
 
@@ -169,10 +166,10 @@ class ConfigManager {
                 characterMessage.textContent = `現在のキャラクター: ${characterNames[selectedCharacter] || selectedCharacter}`;
             }
 
-            ConfigManager_debugLog('Character selection synced:', selectedCharacter);
+            logger.debug('Character selection synced:', selectedCharacter);
             return selectedCharacter;
         } catch (error) {
-            ConfigManager_debugError('Failed to sync character selection:', error);
+            logger.error('Failed to sync character selection:', error);
             return 'shy';
         }
     }
@@ -182,13 +179,13 @@ class ConfigManager {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
-                ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
+                logger.error('fs, path, or os module not available via electronAPI.');
                 return ''; // エラー時は空文字列を返す
             }
 
             const targetDir = projectDir || this.claudeWorkingDir;
             if (!targetDir) {
-                ConfigManager_debugLog('No project directory specified for loading project settings');
+                logger.debug('No project directory specified for loading project settings');
                 return ''; // 空文字列を返す
             }
 
@@ -198,15 +195,15 @@ class ConfigManager {
             try {
                 await fs.promises.access(projectAiMdPath);
                 const projectSettings = await fs.promises.readFile(projectAiMdPath, 'utf8');
-                ConfigManager_debugLog(`Project-specific ${aiMdFilename} found and loaded:`, projectAiMdPath);
+                logger.debug(`Project-specific ${aiMdFilename} found and loaded:`, projectAiMdPath);
                 return projectSettings;
             } catch (accessError) {
-                ConfigManager_debugLog(`No project-specific ${aiMdFilename} found at:`, projectAiMdPath);
+                logger.debug(`No project-specific ${aiMdFilename} found at:`, projectAiMdPath);
                 return ''; // ファイルが存在しない場合は空文字列を返す
             }
 
         } catch (error) {
-            ConfigManager_debugError('Failed to load project-specific settings:', error);
+            logger.error('Failed to load project-specific settings:', error);
             return ''; // エラー時は空文字列を返す
         }
     }
@@ -224,11 +221,11 @@ class ConfigManager {
                     cooldownInputModal.value = cooldownSeconds;
                 }
                 
-                ConfigManager_debugLog('設定を読み込み:', { voiceCooldownSeconds: cooldownSeconds });
+                logger.debug('設定を読み込み:', { voiceCooldownSeconds: cooldownSeconds });
                 return { voiceCooldownSeconds: cooldownSeconds };
             }
         } catch (error) {
-            ConfigManager_debugError('設定の読み込みに失敗:', error);
+            logger.error('設定の読み込みに失敗:', error);
         }
         return null;
     }
@@ -239,11 +236,11 @@ class ConfigManager {
             if (window.electronAPI && window.electronAPI.config) {
                 await window.electronAPI.config.set('voiceCooldownSeconds', cooldownSeconds);
                 this.speechCooldown = cooldownSeconds * 1000;
-                ConfigManager_debugLog('Voice cooldown setting saved:', cooldownSeconds);
+                logger.debug('Voice cooldown setting saved:', cooldownSeconds);
                 return true;
             }
         } catch (error) {
-            ConfigManager_debugError('Failed to save voice cooldown setting:', error);
+            logger.error('Failed to save voice cooldown setting:', error);
         }
         return false;
     }
@@ -283,7 +280,7 @@ class ConfigManager {
             const claudeResult = await this.writeAiMdToHomeDir('claude');
             const geminiResult = await this.writeAiMdToHomeDir('gemini');
             
-            ConfigManager_debugLog('Both AI MD files generation result:', {
+            logger.debug('Both AI MD files generation result:', {
                 claude: claudeResult,
                 gemini: geminiResult
             });
@@ -294,7 +291,7 @@ class ConfigManager {
                 gemini: geminiResult
             };
         } catch (error) {
-            ConfigManager_debugError('Failed to generate both AI MD files:', error);
+            logger.error('Failed to generate both AI MD files:', error);
             return { success: false, error: error.message };
         }
     }
@@ -304,7 +301,7 @@ class ConfigManager {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
-                ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
+                logger.error('fs, path, or os module not available via electronAPI.');
                 return { success: false };
             }
 
@@ -315,10 +312,10 @@ class ConfigManager {
                 const claudeMdPath = path.join(os.homedir(), 'CLAUDE.md');
                 await fs.promises.unlink(claudeMdPath);
                 results.claude = { success: true, path: claudeMdPath };
-                ConfigManager_debugLog('CLAUDE.md deleted from:', claudeMdPath);
+                logger.debug('CLAUDE.md deleted from:', claudeMdPath);
             } catch (error) {
                 results.claude = { success: false, error: error.message };
-                ConfigManager_debugLog('CLAUDE.md deletion failed or file not found:', error.message);
+                logger.debug('CLAUDE.md deletion failed or file not found:', error.message);
             }
             
             // GEMINI.mdを削除（作業ディレクトリから）
@@ -327,16 +324,16 @@ class ConfigManager {
                     const geminiMdPath = path.join(this.claudeWorkingDir, 'GEMINI.md');
                     await fs.promises.unlink(geminiMdPath);
                     results.gemini = { success: true, path: geminiMdPath };
-                    ConfigManager_debugLog('GEMINI.md deleted from:', geminiMdPath);
+                    logger.debug('GEMINI.md deleted from:', geminiMdPath);
                 } catch (error) {
                     results.gemini = { success: false, error: error.message };
-                    ConfigManager_debugLog('GEMINI.md deletion failed or file not found:', error.message);
+                    logger.debug('GEMINI.md deletion failed or file not found:', error.message);
                 }
             } else {
                 results.gemini = { success: false, error: 'Working directory not set' };
             }
             
-            ConfigManager_debugLog('Both AI MD files deletion result:', results);
+            logger.debug('Both AI MD files deletion result:', results);
             
             return {
                 success: results.claude.success || results.gemini.success, // 少なくとも1つ成功すれば成功
@@ -344,7 +341,7 @@ class ConfigManager {
                 gemini: results.gemini
             };
         } catch (error) {
-            ConfigManager_debugError('Failed to delete both AI MD files:', error);
+            logger.error('Failed to delete both AI MD files:', error);
             return { success: false, error: error.message };
         }
     }
@@ -354,7 +351,7 @@ class ConfigManager {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
-                ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
+                logger.error('fs, path, or os module not available via electronAPI.');
                 return { success: false, hadBackup: false };
             }
 
@@ -362,7 +359,7 @@ class ConfigManager {
             const combinedContent = await this.getCombinedAiMdContent(aiType);
 
             if (!combinedContent) {
-                ConfigManager_debugLog(`No ${aiMdFilename} content to write.`);
+                logger.debug(`No ${aiMdFilename} content to write.`);
                 return { success: false, hadBackup: false };
             }
 
@@ -370,7 +367,7 @@ class ConfigManager {
             if (aiType === 'gemini') {
                 targetDir = this.claudeWorkingDir; // Geminiの場合は作業ディレクトリ
                 if (!targetDir) {
-                    ConfigManager_debugError('Gemini MD write: claudeWorkingDir is not set.');
+                    logger.error('Gemini MD write: claudeWorkingDir is not set.');
                     return { success: false, hadBackup: false };
                 }
                 
@@ -381,11 +378,11 @@ class ConfigManager {
                 targetDir = os.homedir();
                 const aiMdPath = path.join(targetDir, aiMdFilename);
                 await fs.promises.writeFile(aiMdPath, combinedContent, 'utf8');
-                ConfigManager_debugLog(`${aiMdFilename} successfully written to:`, aiMdPath);
+                logger.debug(`${aiMdFilename} successfully written to:`, aiMdPath);
                 return { success: true, hadBackup: false };
             }
         } catch (writeError) {
-            ConfigManager_debugError(`Failed to write ${aiMdFilename} to home directory:`, writeError);
+            logger.error(`Failed to write ${aiMdFilename} to home directory:`, writeError);
             return { success: false, hadBackup: false, error: writeError.message };
         }
     }
@@ -397,11 +394,11 @@ class ConfigManager {
                 await window.electronAPI.config.clear();
                 await this.loadCharacterSettings();
                 await this.loadUserConfig();
-                ConfigManager_debugLog('Settings reset successfully');
+                logger.debug('Settings reset successfully');
                 return true;
             }
         } catch (error) {
-            ConfigManager_debugError('Failed to reset settings:', error);
+            logger.error('Failed to reset settings:', error);
         }
         return false;
     }
@@ -411,7 +408,7 @@ class ConfigManager {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
-                ConfigManager_debugError('fs, path, or os module not available via electronAPI.');
+                logger.error('fs, path, or os module not available via electronAPI.');
                 return { success: false, restored: false };
             }
 
@@ -421,7 +418,7 @@ class ConfigManager {
             if (aiType === 'gemini') {
                 targetDir = this.claudeWorkingDir; // Geminiの場合は作業ディレクトリ
                 if (!targetDir) {
-                    ConfigManager_debugError('Gemini MD delete: claudeWorkingDir is not set.');
+                    logger.error('Gemini MD delete: claudeWorkingDir is not set.');
                     return { success: false, restored: false };
                 }
                 
@@ -434,15 +431,15 @@ class ConfigManager {
 
                 if (fs.existsSync(aiMdPath)) {
                     await fs.promises.unlink(aiMdPath);
-                    ConfigManager_debugLog(`${aiMdFilename} successfully deleted from:`, aiMdPath);
+                    logger.debug(`${aiMdFilename} successfully deleted from:`, aiMdPath);
                     return { success: true, restored: false };
                 } else {
-                    ConfigManager_debugLog(`${aiMdFilename} not found at:`, aiMdPath, 'no deletion needed.');
+                    logger.debug(`${aiMdFilename} not found at:`, aiMdPath, 'no deletion needed.');
                     return { success: true, restored: false };
                 }
             }
         } catch (deleteError) {
-            ConfigManager_debugError(`Failed to delete ${aiMdFilename} from home directory:`, deleteError);
+            logger.error(`Failed to delete ${aiMdFilename} from home directory:`, deleteError);
             return { success: false, restored: false, error: deleteError.message };
         }
     }
@@ -452,7 +449,7 @@ class ConfigManager {
         try {
             const { fs, path } = window.electronAPI;
             if (!fs || !path) {
-                ConfigManager_debugError('fs or path module not available via electronAPI.');
+                logger.error('fs or path module not available via electronAPI.');
                 return false;
             }
 
@@ -465,22 +462,22 @@ class ConfigManager {
                 await fs.promises.copyFile(aiMdPath, backupPath);
                 this.backupState[aiType].hasBackup = true;
                 this.backupState[aiType].workingDir = targetDir;
-                ConfigManager_debugLog(`${aiMdFilename} backed up to:`, backupPath);
+                logger.debug(`${aiMdFilename} backed up to:`, backupPath);
             } else {
                 this.backupState[aiType].hasBackup = false;
-                ConfigManager_debugLog(`No existing ${aiMdFilename} found, no backup needed.`);
+                logger.debug(`No existing ${aiMdFilename} found, no backup needed.`);
             }
 
             // 新しいファイル作成
             await fs.promises.writeFile(aiMdPath, content, 'utf8');
-            ConfigManager_debugLog(`${aiMdFilename} created successfully at:`, aiMdPath);
+            logger.debug(`${aiMdFilename} created successfully at:`, aiMdPath);
             
             return {
                 success: true,
                 hadBackup: this.backupState[aiType].hasBackup
             };
         } catch (error) {
-            ConfigManager_debugError(`Failed to create ${aiType} MD with backup:`, error);
+            logger.error(`Failed to create ${aiType} MD with backup:`, error);
             return { success: false, error: error.message };
         }
     }
@@ -490,7 +487,7 @@ class ConfigManager {
         try {
             const { fs, path } = window.electronAPI;
             if (!fs || !path) {
-                ConfigManager_debugError('fs or path module not available via electronAPI.');
+                logger.error('fs or path module not available via electronAPI.');
                 return { success: false, restored: false };
             }
 
@@ -501,13 +498,13 @@ class ConfigManager {
             // 作成したファイルを削除
             if (fs.existsSync(aiMdPath)) {
                 await fs.promises.unlink(aiMdPath);
-                ConfigManager_debugLog(`${aiMdFilename} deleted from:`, aiMdPath);
+                logger.debug(`${aiMdFilename} deleted from:`, aiMdPath);
             }
 
             // バックアップから復元
             if (this.backupState[aiType].hasBackup && fs.existsSync(backupPath)) {
                 await fs.promises.rename(backupPath, aiMdPath);
-                ConfigManager_debugLog(`${aiMdFilename} restored from backup:`, aiMdPath);
+                logger.debug(`${aiMdFilename} restored from backup:`, aiMdPath);
                 
                 // バックアップ状態をリセット
                 this.backupState[aiType].hasBackup = false;
@@ -515,11 +512,11 @@ class ConfigManager {
                 
                 return { success: true, restored: true };
             } else {
-                ConfigManager_debugLog(`No backup found for ${aiMdFilename}, file simply deleted.`);
+                logger.debug(`No backup found for ${aiMdFilename}, file simply deleted.`);
                 return { success: true, restored: false };
             }
         } catch (error) {
-            ConfigManager_debugError(`Failed to restore ${aiType} MD from backup:`, error);
+            logger.error(`Failed to restore ${aiType} MD from backup:`, error);
             return { success: false, restored: false, error: error.message };
         }
     }
@@ -541,7 +538,7 @@ class ConfigManager {
                 return await window.electronAPI.config.get('selectedCharacter', 'shy');
             }
         } catch (error) {
-            ConfigManager_debugError('Failed to get current character:', error);
+            logger.error('Failed to get current character:', error);
         }
         return 'shy';
     }

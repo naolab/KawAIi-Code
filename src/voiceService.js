@@ -1,10 +1,7 @@
 const axios = require('axios');
+const Logger = require('./utils/logger');
 
-// ログレベル制御（本番環境でも有効）
-const isProduction = false; // 常にデバッグログを有効化
-const debugLog = console.log;
-const infoLog = console.log;
-const errorLog = console.error;
+const logger = Logger.create('VoiceService');
 
 class VoiceService {
     constructor() {
@@ -91,7 +88,7 @@ class VoiceService {
             const errorType = this.classifyError(error);
             
             if (retryCount >= this.maxRetries) {
-                errorLog(`最大再試行回数に達しました (${retryCount}/${this.maxRetries}):`, {
+                logger.error(`最大再試行回数に達しました (${retryCount}/${this.maxRetries}):`, {
                     context,
                     errorType,
                     message: error.message
@@ -103,7 +100,7 @@ class VoiceService {
             if (errorType === this.errorTypes.NETWORK || errorType === this.errorTypes.TIMEOUT || errorType === this.errorTypes.SERVER) {
                 const delay = this.retryBaseDelay * Math.pow(this.retryMultiplier, retryCount);
                 
-                infoLog(`音声合成エラー (${errorType}) - ${delay}ms後に再試行 (${retryCount + 1}/${this.maxRetries}):`, {
+                logger.info(`音声合成エラー (${errorType}) - ${delay}ms後に再試行 (${retryCount + 1}/${this.maxRetries}):`, {
                     context,
                     error: error.message
                 });
@@ -113,7 +110,7 @@ class VoiceService {
             }
             
             // 再試行不可能なエラー
-            errorLog('再試行不可能なエラー:', { errorType, message: error.message });
+            logger.error('再試行不可能なエラー:', { errorType, message: error.message });
             throw new Error(`音声合成エラー (${errorType}): ${error.message}`);
         }
     }
@@ -124,7 +121,7 @@ class VoiceService {
         }
 
         const timeout = this.calculateTimeout(text);
-        debugLog(`音声合成開始: テキスト長=${text.length}文字, タイムアウト=${timeout}ms`);
+        logger.debug(`音声合成開始: テキスト長=${text.length}文字, タイムアウト=${timeout}ms`);
         
         const synthesizeOperation = async () => {
             // Step 1: Get audio query with dynamic timeout
@@ -170,7 +167,7 @@ class VoiceService {
             // 動的タイムアウトで音声合成実行（再試行機構付き）
             const audioData = await this.synthesizeText(text, speaker);
             
-            infoLog('音声合成完了:', {
+            logger.info('音声合成完了:', {
                 textLength: text.length,
                 audioSize: audioData.byteLength
             });
@@ -179,7 +176,7 @@ class VoiceService {
             return { success: true, audioData };
         } catch (error) {
             const errorType = this.classifyError(error);
-            errorLog('音声読み上げエラー:', {
+            logger.error('音声読み上げエラー:', {
                 errorType,
                 message: error.message,
                 textLength: text.length
@@ -208,7 +205,7 @@ class VoiceService {
     // Parse terminal output to extract text for TTS
     parseTerminalOutput(data) {
         // セキュリティ上の理由でターミナルデータの詳細ログは出力しない
-        debugLog('ターミナルデータ解析中, データ長:', data.length, '文字');
+        logger.debug('ターミナルデータ解析中, データ長:', data.length, '文字');
         
         // より強力なANSI除去処理
         let cleanText = data
@@ -223,11 +220,11 @@ class VoiceService {
 
         const trimmed = cleanText.trim();
         // セキュリティ上の理由で詳細テキストは出力せず長さのみ記録
-        debugLog('テキスト整理完了, 文字数:', trimmed.length);
+        logger.debug('テキスト整理完了, 文字数:', trimmed.length);
         
         // 空文字やごく短いテキストをスキップ
         if (trimmed.length < 3) {
-            debugLog('スキップ: 文字数不足');
+            logger.debug('スキップ: 文字数不足');
             return null;
         }
 
@@ -235,21 +232,21 @@ class VoiceService {
         if (!trimmed.includes('⏺')) {
             // ⏺記号がない場合はユーザー入力の可能性が高い
             if (trimmed.includes('>') || (trimmed.includes('╭') && trimmed.includes('│'))) {
-                debugLog('スキップ: ユーザー入力の可能性');
+                logger.debug('スキップ: ユーザー入力の可能性');
                 return null;
             }
         }
 
         // ⏺記号での会話抽出（最優先）  
         if (trimmed.includes('⏺')) {
-            debugLog('⏺記号を検出, 会話抽出開始');
+            logger.debug('⏺記号を検出, 会話抽出開始');
             
             // ⏺の直後から会話内容を抽出
             const circleIndex = trimmed.indexOf('⏺');
             if (circleIndex !== -1) {
                 let afterCircle = trimmed.substring(circleIndex + 1).trim();
                 
-                debugLog('⏺後のテキスト長:', afterCircle.length, '文字');
+                logger.debug('⏺後のテキスト長:', afterCircle.length, '文字');
                 
                 // 状態インジケーターやUI要素を除去
                 afterCircle = afterCircle
@@ -264,7 +261,7 @@ class VoiceService {
                     .replace(/\s*\[[0-9;]+m.*$/g, '') // ANSI残存除去
                     .trim();
                 
-                debugLog('クリーンアップ完了, 最終文字数:', afterCircle.length);
+                logger.debug('クリーンアップ完了, 最終文字数:', afterCircle.length);
                 
                 // 早期読み上げ用: 短い文でも読み上げ開始
                 if (afterCircle.length > 15) {
@@ -274,7 +271,7 @@ class VoiceService {
                     const hasEmoji = /[✨🎀💕]/.test(afterCircle);
                     const hasValidChars = /[a-zA-Z]/.test(afterCircle) && afterCircle.length > 10;
                     
-                    debugLog('コンテンツ検証:', {
+                    logger.debug('コンテンツ検証:', {
                         hasJapanese,
                         hasPunctuation,
                         hasEmoji,
@@ -305,12 +302,12 @@ class VoiceService {
                             finalText = firstMeaningfulLines + '...など！';
                         }
                         
-                        debugLog('抽出した会話を返却 (最適化済み):', finalText.substring(0, 50) + '...');
+                        logger.debug('抽出した会話を返却 (最適化済み):', finalText.substring(0, 50) + '...');
                         return finalText;
                     }
                 }
                 
-                debugLog('⏺が見つかったが音声合成に適さないコンテンツ');
+                logger.debug('⏺が見つかったが音声合成に適さないコンテンツ');
                 return null;
             }
         }
@@ -321,15 +318,15 @@ class VoiceService {
         const hasJapanese = /[あ-んア-ヶ一-龯]/.test(trimmed);
         const isLongEnough = trimmed.length > 10;
         
-        debugLog('🔍 日本語チェック:', { hasJapanese, isLongEnough, length: trimmed.length });
+        logger.debug('🔍 日本語チェック:', { hasJapanese, isLongEnough, length: trimmed.length });
         
         if (hasJapanese && isLongEnough) {
-            debugLog('✅ 一般的な日本語テキストとして返却:', trimmed.substring(0, 50) + '...');
+            logger.debug('✅ 一般的な日本語テキストとして返却:', trimmed.substring(0, 50) + '...');
             return trimmed;
         }
 
-        debugLog('⚠️ 有効なコンテンツが見つからずスキップ');
-        debugLog('⚠️ スキップ理由:', { hasJapanese, isLongEnough, textSample: trimmed.substring(0, 100) });
+        logger.debug('⚠️ 有効なコンテンツが見つからずスキップ');
+        logger.debug('⚠️ スキップ理由:', { hasJapanese, isLongEnough, textSample: trimmed.substring(0, 100) });
         return null;
     }
 }
