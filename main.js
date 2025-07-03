@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const VoiceService = require('./src/voiceService');
 const appConfig = require('./src/appConfig');
 const AIConfigService = require('./src/services/ai-config-service');
+const ErrorHandler = require('./src/utils/error-handler');
 
 // ログレベル制御（本番環境では詳細ログを無効化）
 const isProduction = process.env.NODE_ENV === 'production' || app.isPackaged;
@@ -14,8 +15,9 @@ const debugLog = isProduction ? () => {} : console.log;
 const infoLog = console.log; // 重要な情報は常に出力
 const errorLog = console.error; // エラーは常に出力
 
-// AIサービス初期化
+// サービス初期化
 const aiConfigService = new AIConfigService();
+const errorHandler = new ErrorHandler('MainProcess');
 
 // AI.mdファイルクリーンアップ関数
 async function cleanupAiMdFiles() {
@@ -240,10 +242,14 @@ ipcMain.handle('terminal-start', async (event, aiType) => {
 
   const selectedAI = aiConfigService.getConfig(aiType);
   if (!selectedAI) {
-    const errorMsg = `無効なAIタイプが指定されました: ${aiType}`;
-    errorLog(errorMsg);
-    dialog.showErrorBox('起動エラー', errorMsg);
-    return { success: false, error: errorMsg };
+    const error = new Error(`無効なAIタイプが指定されました: ${aiType}`);
+    errorHandler.handle(error, {
+      severity: ErrorHandler.SEVERITY.HIGH,
+      category: ErrorHandler.CATEGORY.VALIDATION,
+      operation: 'terminal-start',
+      userMessage: '指定されたAIタイプが見つかりません'
+    });
+    return { success: false, error: error.message };
   }
 
   infoLog(`${selectedAI.name} の実行パスを探索中...`);
@@ -260,15 +266,22 @@ ipcMain.handle('terminal-start', async (event, aiType) => {
   }
 
   if (!commandPath) {
-    const errorMsg = `${selectedAI.name} の実行可能ファイルが見つかりませんでした。
+    const error = new Error(`${selectedAI.name} の実行可能ファイルが見つかりませんでした`);
+    const userMessage = `${selectedAI.name} の実行可能ファイルが見つかりませんでした。
 
 以下の点を確認してください:
 - ${selectedAI.name} はインストールされていますか？
 - 環境変数PATHは正しく設定されていますか？
 - (必要であれば) CLAUDE_PATH または GEMINI_PATH 環境変数を設定してください。`;
-    errorLog(errorMsg);
-    dialog.showErrorBox('起動エラー', errorMsg);
-    return { success: false, error: errorMsg };
+    
+    errorHandler.handle(error, {
+      severity: ErrorHandler.SEVERITY.CRITICAL,
+      category: ErrorHandler.CATEGORY.CONFIGURATION,
+      operation: 'find-ai-executable',
+      userMessage,
+      additionalInfo: { aiType, possiblePaths: selectedAI.possiblePaths }
+    });
+    return { success: false, error: error.message };
   }
 
   if (terminalProcess) {

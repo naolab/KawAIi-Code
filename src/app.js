@@ -134,7 +134,12 @@ class MessageAccumulator {
                 this.processCallback(completeMessage);
                 debugLog(`📞 コールバック実行完了`);
             } catch (error) {
-                debugError(`❌ コールバック実行エラー:`, error);
+                this.errorHandler.handle(error, {
+                    severity: ErrorHandler.SEVERITY.MEDIUM,
+                    category: ErrorHandler.CATEGORY.PROCESS,
+                    operation: 'message-callback-execution',
+                    userMessage: 'メッセージ処理中にエラーが発生しました'
+                });
             }
         } else {
             debugError(`❌ コールバックが設定されていません！`);
@@ -278,6 +283,7 @@ class TerminalApp {
 
     setupTerminal() {
         this.terminal = new Terminal(TerminalFactory.createConfig());
+        this.errorHandler = new ErrorHandler('TerminalApp');
 
         this.fitAddon = new FitAddon.FitAddon();
         this.terminal.loadAddon(this.fitAddon);
@@ -411,8 +417,12 @@ class TerminalApp {
             }
 
         } catch (error) {
-            debugError('❌ parseTerminalDataForChat エラー:', error);
-            console.warn('Chat parsing error:', error);
+            this.errorHandler.handle(error, {
+                severity: ErrorHandler.SEVERITY.LOW,
+                category: ErrorHandler.CATEGORY.PROCESS,
+                operation: 'parse-terminal-data',
+                userMessage: 'チャットデータの解析中にエラーが発生しました'
+            });
         }
     }
 
