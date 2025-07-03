@@ -164,6 +164,9 @@ class TerminalApp {
         this.fitAddon = null;
         this.isTerminalRunning = false;
         
+        // リソース管理システム
+        this.resourceManager = new ResourceManager('TerminalApp');
+        
         // タブ管理システム
         this.tabManager = null;
         this.voiceEnabled = true; // デフォルトで有効に
@@ -238,6 +241,9 @@ class TerminalApp {
         
         this.updateStatus('Ready');
         this.checkVoiceConnection();
+        
+        // リソース管理：定期クリーンアップ開始
+        this.resourceManager.startPeriodicCleanup(AppConstants.AUDIO.DEFAULT_INTERVAL * 20); // 60秒間隔
     }
 
     // モジュール初期化
@@ -307,8 +313,8 @@ class TerminalApp {
             }
         });
 
-        // Handle window resize
-        window.addEventListener('resize', () => {
+        // Handle window resize (ResourceManager経由)
+        this.resourceManager.addEventListener(window, 'resize', () => {
             if (this.fitAddon) {
                 this.fitAddon.fit();
                 if (this.isTerminalRunning) {
@@ -1169,25 +1175,26 @@ class TerminalApp {
 
     // 古い音声をクリーンアップ
     cleanOldAudio() {
-        const now = Date.now();
         const oldLength = this.audioQueue.length;
         
-        // 時間制限による削除
-        this.audioQueue = this.audioQueue.filter(item => 
-            (now - item.timestamp) < this.maxAudioAge
+        // ResourceManagerによる時間ベース削除
+        const removedByAge = this.resourceManager.removeOldItems(
+            this.audioQueue, 
+            this.maxAudioAge, 
+            'timestamp'
         );
         
-        // サイズ制限による削除（念のため）
-        if (this.audioQueue.length > this.maxQueueSize) {
-            const excess = this.audioQueue.length - this.maxQueueSize;
-            this.audioQueue.splice(0, excess); // 古いものから削除
-            debugLog('🗑️ Queue size limit exceeded, removed', excess, 'items');
-        }
+        // ResourceManagerによるサイズ制限
+        const removedBySize = this.resourceManager.limitArraySize(
+            this.audioQueue, 
+            this.maxQueueSize, 
+            'audio items'
+        );
         
         const newLength = this.audioQueue.length;
         if (oldLength !== newLength) {
             debugLog('🧹 Cleaned audio queue:', {
-                removed: oldLength - newLength,
+                removed: removedByAge + removedBySize,
                 remaining: newLength,
                 maxAge: this.maxAudioAge / 1000 + 's',
                 maxSize: this.maxQueueSize
@@ -1684,19 +1691,19 @@ class TabManager {
         tab.className = `tab ${tabData.isActive ? 'active' : ''}`;
         tab.setAttribute('data-tab-id', tabData.id);
         
-        // ドラッグ&ドロップ機能を追加
+        // ドラッグ&ドロップ機能を追加（ResourceManager経由）
         tab.draggable = true;
-        tab.addEventListener('dragstart', (e) => this.handleDragStart(e, tabData.id));
-        tab.addEventListener('dragover', (e) => this.handleDragOver(e));
-        tab.addEventListener('dragleave', (e) => this.handleDragLeave(e));
-        tab.addEventListener('drop', (e) => this.handleDrop(e, tabData.id));
-        tab.addEventListener('dragend', (e) => this.handleDragEnd(e));
+        this.terminalApp.resourceManager.addEventListener(tab, 'dragstart', (e) => this.handleDragStart(e, tabData.id));
+        this.terminalApp.resourceManager.addEventListener(tab, 'dragover', (e) => this.handleDragOver(e));
+        this.terminalApp.resourceManager.addEventListener(tab, 'dragleave', (e) => this.handleDragLeave(e));
+        this.terminalApp.resourceManager.addEventListener(tab, 'drop', (e) => this.handleDrop(e, tabData.id));
+        this.terminalApp.resourceManager.addEventListener(tab, 'dragend', (e) => this.handleDragEnd(e));
         
         // 星マーク
         const star = document.createElement('span');
         star.className = `parent-star ${tabData.isParent ? 'active' : 'inactive'}`;
         star.textContent = tabData.isParent ? '★' : '☆';
-        star.addEventListener('click', (e) => {
+        this.terminalApp.resourceManager.addEventListener(star, 'click', (e) => {
             e.stopPropagation();
             this.setParentTab(tabData.id);
         });
@@ -1710,13 +1717,13 @@ class TabManager {
         const closeBtn = document.createElement('button');
         closeBtn.className = 'close-button';
         closeBtn.textContent = '×';
-        closeBtn.addEventListener('click', async (e) => {
+        this.terminalApp.resourceManager.addEventListener(closeBtn, 'click', async (e) => {
             e.stopPropagation();
             await this.deleteTab(tabData.id);
         });
         
-        // タブクリックイベント
-        tab.addEventListener('click', () => {
+        // タブクリックイベント（ResourceManager経由）
+        this.terminalApp.resourceManager.addEventListener(tab, 'click', () => {
             this.switchTab(tabData.id);
         });
         
