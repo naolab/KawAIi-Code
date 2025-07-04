@@ -547,9 +547,9 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       
       {loading && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2"></div>
-            <p className="text-sm text-gray-600">VRMを読み込み中...</p>
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-lg border-2 border-orange-400 shadow-2xl">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-3 border-orange-500 mx-auto mb-3"></div>
+            <p className="text-sm text-orange-100">VRMを読み込み中...</p>
           </div>
         </div>
       )}

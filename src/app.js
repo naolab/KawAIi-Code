@@ -1823,5 +1823,17 @@ class TabManager {
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new TerminalApp();
+    // ローディング画面を表示
+    const loadingScreen = new LoadingScreen();
+    loadingScreen.show();
+    
+    // アプリ初期化処理
+    setTimeout(() => {
+        new TerminalApp();
+        
+        // 初期化完了後にローディング画面を非表示
+        setTimeout(() => {
+            loadingScreen.hide();
+        }, 500);
+    }, 1000); // 1秒間ローディング画面を表示
 });
