@@ -33,7 +33,7 @@ class MessageAccumulator {
         const hasMarker = data.includes('⏺') || data.includes('✦');
         const hasQuotes = data.includes('『') && data.includes('』');
         
-        debugLog(`📝 MessageAccumulator.addChunk - マーカー: ${hasMarker}, 括弧: ${hasQuotes}, データ長: ${data.length}`);
+        // debugLog(`📝 MessageAccumulator.addChunk - マーカー: ${hasMarker}, 括弧: ${hasQuotes}, データ長: ${data.length}`);
         
         if (hasMarker) {
             // 新しいメッセージ開始
@@ -56,7 +56,7 @@ class MessageAccumulator {
             this.scheduleCompletion();
             
         } else {
-            debugLog(`⏭️ チャンクをスキップ - 条件に合致せず`);
+            // debugLog(`⏭️ チャンクをスキップ - 条件に合致せず`);
         }
     }
     

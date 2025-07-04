@@ -101,11 +101,13 @@ class ProcessingCache {
         if (audioData instanceof ArrayBuffer) {
             // 既にArrayBufferの場合はそのまま使用
             arrayBuffer = audioData;
-            sharedBuffer = audioData; // 同じ参照を使用（コピー回避）
+            // VRM用には専用のコピーを作成（decodeAudioDataがarrayBufferを消費するため）
+            sharedBuffer = audioData.slice(0);
         } else if (audioData.buffer instanceof ArrayBuffer) {
             // TypedArrayの場合
             arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength);
-            sharedBuffer = arrayBuffer; // 新しく作成したバッファを共有
+            // VRM用には専用のコピーを作成
+            sharedBuffer = arrayBuffer.slice(0);
         } else {
             // その他の場合のみ新規作成
             arrayBuffer = this.getPooledBuffer(audioData.length);
@@ -120,12 +122,13 @@ class ProcessingCache {
                     view[i] = audioData[i];
                 }
             }
-            sharedBuffer = arrayBuffer;
+            // VRM用には専用のコピーを作成
+            sharedBuffer = arrayBuffer.slice(0);
         }
 
         return {
             arrayBuffer,
-            sharedBuffer, // VRM用も同じバッファを参照（メモリ節約）
+            sharedBuffer, // VRM用専用バッファ（detached問題回避）
             size: arrayBuffer.byteLength
         };
     }
