@@ -1443,6 +1443,18 @@ class TabManager {
             const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
             debugLog(`Starting ${aiName} for tab ${tabId}`);
             
+            // 既存のイベントリスナーをクリーンアップ（重複防止）
+            if (tab.eventListeners) {
+                tab.eventListeners.forEach(disposable => {
+                    if (disposable && typeof disposable.dispose === 'function') {
+                        disposable.dispose();
+                    }
+                });
+                tab.eventListeners = [];
+            } else {
+                tab.eventListeners = [];
+            }
+            
             // バックエンドでPTYプロセス作成
             const result = await window.electronAPI.tab.create(tabId, aiType);
             if (!result.success) {
@@ -1458,15 +1470,17 @@ class TabManager {
             terminal.writeln(`\x1b[90m🎀 KawAIi Code Tab Integration Started! 🎀\x1b[0m`);
             terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
             
-            // ユーザー入力をプロセスに送信
-            terminal.onData((data) => {
+            // ユーザー入力をプロセスに送信（重複防止）
+            const onDataListener = terminal.onData((data) => {
                 window.electronAPI.tab.write(tabId, data);
             });
+            tab.eventListeners.push(onDataListener);
             
-            // リサイズ処理
-            terminal.onResize(({ cols, rows }) => {
+            // リサイズ処理（重複防止）
+            const onResizeListener = terminal.onResize(({ cols, rows }) => {
                 window.electronAPI.tab.resize(tabId, cols, rows);
             });
+            tab.eventListeners.push(onResizeListener);
             
             // ターミナルサイズを適切に調整（AI起動後に実行）
             setTimeout(() => {
@@ -1501,6 +1515,16 @@ class TabManager {
             if (!tab) {
                 debugError(`Tab ${tabId} not found`);
                 return false;
+            }
+
+            // イベントリスナーをクリーンアップ
+            if (tab.eventListeners) {
+                tab.eventListeners.forEach(disposable => {
+                    if (disposable && typeof disposable.dispose === 'function') {
+                        disposable.dispose();
+                    }
+                });
+                tab.eventListeners = [];
             }
 
             if (window.electronAPI && window.electronAPI.tab) {
@@ -1596,7 +1620,17 @@ class TabManager {
         
         const tab = this.tabs[tabId];
         
-        // 1. PTYプロセスの終了処理
+        // 1. イベントリスナーをクリーンアップ
+        if (tab.eventListeners) {
+            tab.eventListeners.forEach(disposable => {
+                if (disposable && typeof disposable.dispose === 'function') {
+                    disposable.dispose();
+                }
+            });
+            tab.eventListeners = [];
+        }
+        
+        // 2. PTYプロセスの終了処理
         if (window.electronAPI && window.electronAPI.tab) {
             try {
                 await window.electronAPI.tab.delete(tabId);
@@ -1606,18 +1640,7 @@ class TabManager {
             }
         }
         
-        // 2. イベントリスナーの削除（ターミナル破棄前に実行）
-        if (tab.terminal) {
-            // onDataとonResizeイベントは自動的にクリーンアップされるが、念のため
-            try {
-                // ターミナルが提供するクリーンアップ機能があれば利用
-                if (typeof tab.terminal.clear === 'function') {
-                    tab.terminal.clear();
-                }
-            } catch (error) {
-                debugError(`Error clearing terminal for tab ${tabId}:`, error);
-            }
-        }
+        // 3. ターミナルの前処理
         
         // 3. ターミナルインスタンスの破棄
         if (tab.terminal) {
