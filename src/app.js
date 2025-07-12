@@ -387,7 +387,7 @@ class TerminalApp {
         // チャット入力エリアは削除済み
 
         // 初期メッセージを追加（音声読み上げ用）
-        this.addVoiceMessage('ことね', 'こんにちは〜！何をお手伝いしましょうか？');
+        this.addVoiceMessage('ニコ', 'こんにちは〜！何をお手伝いしましょうか？');
     }
 
 
@@ -481,7 +481,7 @@ class TerminalApp {
             
             // DOM操作を最小化
             requestAnimationFrame(() => {
-                this.addVoiceMessage('ことね', quotedText);
+                this.addVoiceMessage('ニコ', quotedText);
                 this.updateCharacterMood('おしゃべり中✨');
             });
             
@@ -590,7 +590,7 @@ class TerminalApp {
                 this.terminal.writeln(`\x1b[90m🎀 KawAIi Code Integration Started! 🎀\x1b[0m`);
                 this.terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
                 
-                this.addVoiceMessage('ことね', `${aiName}が起動したよ〜！`);
+                this.addVoiceMessage('ニコ', `${aiName}が起動したよ〜！`);
 
                 setTimeout(() => {
                     this.fitAddon.fit();
@@ -643,7 +643,7 @@ class TerminalApp {
                 activeTab.name = `${aiType === 'claude' ? 'Claude' : 'Gemini'} #${activeTab.id.split('-')[1]}`;
                 
                 this.updateStatus(`${aiName} running in tab - Type your message and press Enter`);
-                this.addVoiceMessage('ことね', `${aiName}をタブで起動したよ〜！`);
+                this.addVoiceMessage('ニコ', `${aiName}をタブで起動したよ〜！`);
                 
                 // タブUIを更新
                 this.tabManager.renderTabs();
@@ -680,12 +680,12 @@ class TerminalApp {
                     
                     if (deleteResult.success) {
                         if (this.currentRunningAI === 'gemini' && deleteResult.restored) {
-                            this.addVoiceMessage('ことね', `${aiMdFilename}を元の状態に戻したよ！`);
+                            this.addVoiceMessage('ニコ', `${aiMdFilename}を元の状態に戻したよ！`);
                         } else {
-                            this.addVoiceMessage('ことね', `${aiMdFilename}を削除したよ！`);
+                            this.addVoiceMessage('ニコ', `${aiMdFilename}を削除したよ！`);
                         }
                     } else {
-                        this.addVoiceMessage('ことね', `${aiMdFilename}の処理に失敗しちゃった...`);
+                        this.addVoiceMessage('ニコ', `${aiMdFilename}の処理に失敗しちゃった...`);
                     }
                 }
                 this.currentRunningAI = null; // 停止したのでクリア
@@ -712,16 +712,16 @@ class TerminalApp {
         try {
             const result = await this.configManager.generateBothAiMdFiles();
             if (result.success) {
-                this.addVoiceMessage('ことね', 'CLAUDE.mdとGEMINI.mdを準備したよ！');
+                this.addVoiceMessage('ニコ', 'CLAUDE.mdとGEMINI.mdを準備したよ！');
                 debugLog('Both AI MD files generated successfully');
             } else {
-                this.addVoiceMessage('ことね', 'AI設定ファイルの生成に失敗しちゃった...');
+                this.addVoiceMessage('ニコ', 'AI設定ファイルの生成に失敗しちゃった...');
                 debugError('Failed to generate AI MD files:', result);
             }
             return result;
         } catch (error) {
             debugError('Error generating AI MD files:', error);
-            this.addVoiceMessage('ことね', 'AI設定ファイルの生成でエラーが発生したよ...');
+            this.addVoiceMessage('ニコ', 'AI設定ファイルの生成でエラーが発生したよ...');
             return { success: false, error: error.message };
         }
     }
