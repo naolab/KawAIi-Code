@@ -184,6 +184,7 @@ class TerminalApp {
         this.currentAudio = null;
         this.isPlaying = false;
         this.voiceIntervalSeconds = AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS;
+        this.voiceVolume = 50; // デフォルト音量50%
         this.audioQueue = []; // { audioData, timestamp } の配列
         this.maxAudioAge = AppConstants.AUDIO.MAX_AGE;
         this.maxQueueSize = AppConstants.AUDIO.MAX_QUEUE_SIZE;
@@ -201,7 +202,7 @@ class TerminalApp {
         this.speakerInitialized = false; // 話者選択初期化フラグ
         
         // 読み上げ履歴管理
-        this.speechHistory = new SpeechHistoryManager(100);
+        this.speechHistory = new SpeechHistoryManager(200);
         
         // モジュールインスタンス
         this.wallpaperSystem = new WallpaperSystem();
@@ -282,11 +283,13 @@ class TerminalApp {
         this.voiceEnabled = await unifiedConfig.get('voiceEnabled', this.voiceEnabled);
         this.selectedSpeaker = await unifiedConfig.get('selectedSpeaker', this.selectedSpeaker);
         this.voiceIntervalSeconds = await unifiedConfig.get('voiceIntervalSeconds', this.voiceIntervalSeconds);
+        this.voiceVolume = await unifiedConfig.get('voiceVolume', this.voiceVolume);
         
         debugLog('Initial settings loaded:', {
             voiceEnabled: this.voiceEnabled,
             selectedSpeaker: this.selectedSpeaker,
-            voiceIntervalSeconds: this.voiceIntervalSeconds
+            voiceIntervalSeconds: this.voiceIntervalSeconds,
+            voiceVolume: this.voiceVolume
         });
     }
 
@@ -1138,7 +1141,13 @@ class TerminalApp {
             
             const source = this.audioContext.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(this.audioContext.destination);
+            
+            // 音量コントロールを追加
+            const gainNode = this.audioContext.createGain();
+            gainNode.gain.value = this.voiceVolume / 100; // 0-100を0.0-1.0に変換
+            
+            source.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
             
             source.onended = () => {
                 debugLog('🎵 Audio playback ended');

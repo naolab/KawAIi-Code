@@ -225,6 +225,33 @@ class UIEventManager {
             });
         }
 
+        // 音量調整スライダー
+        const voiceVolumeSlider = document.getElementById('voice-volume-slider');
+        const volumeValueDisplay = document.getElementById('volume-value-display');
+        if (voiceVolumeSlider) {
+            // 初期値を設定から読み込み
+            const initVolume = async () => {
+                const savedVolume = await unifiedConfig.get('voiceVolume', 50);
+                voiceVolumeSlider.value = savedVolume;
+                if (volumeValueDisplay) volumeValueDisplay.textContent = `${savedVolume}%`;
+                this.app.voiceVolume = savedVolume;
+            };
+            initVolume();
+            
+            voiceVolumeSlider.addEventListener('input', async (e) => {
+                const newValue = parseInt(e.target.value);
+                this.app.voiceVolume = newValue;
+                
+                // 表示を更新
+                if (volumeValueDisplay) volumeValueDisplay.textContent = `${newValue}%`;
+                
+                // 統一設定システムに保存
+                await unifiedConfig.set('voiceVolume', newValue);
+                
+                this.debugLog('Voice volume changed:', newValue);
+            });
+        }
+
         this.debugLog('Voice control event listeners setup completed');
     }
 
