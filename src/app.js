@@ -348,6 +348,16 @@ class TerminalApp {
             
             debugLog('🔊 Hook音声ファイル再生開始:', filepath);
             
+            // 音声ファイルを読み込んでVRMリップシンク用に送信
+            try {
+                const audioBuffer = fs.readFileSync(filepath);
+                this.sendAudioToVRM(audioBuffer);
+                debugLog('🎭 Hook音声データをVRMに送信完了');
+            } catch (vrmError) {
+                debugLog('❌ VRM音声データ送信エラー:', vrmError);
+                // エラーが発生しても音声再生は続行
+            }
+            
             // 音声ファイルを再生
             const audio = new Audio(filepath);
             const volumeValue = unifiedConfig.get('voiceVolume', 50);
