@@ -15,9 +15,8 @@ class VoiceHookService {
         this.appConfigPath = path.join(PROJECT_PATH, 'src', 'appConfig.js');
         this.tempDir = path.join(PROJECT_PATH, 'temp');
         
-        // 最新テキスト処理用
-        this.lastProcessedText = '';
-        this.processedTexts = new Set(); // 処理済みテキスト履歴
+        // ファイルベース重複チェック用
+        this.lastNotificationPath = null;
         
         // 設定読み込み
         this.loadConfig();
@@ -51,234 +50,43 @@ class VoiceHookService {
         }
     }
 
-    // Claude応答内容を反映した動的会話生成
-    generateConversationResponse(analysis, responseText) {
-        const basePatterns = this.getShyCharacterPatterns();
-        
-        // Claude応答から具体的な内容を抽出
-        const workSummary = this.extractWorkSummary(responseText, analysis);
-        
-        // 作業種別に応じた動的応答生成
-        let dynamicResponse = '';
-        
-        switch (analysis.workType) {
-            case 'code':
-                dynamicResponse = this.generateCodeResponse(workSummary, basePatterns.code);
-                break;
-            case 'fix':
-            case 'fix_success':
-                dynamicResponse = this.generateFixResponse(workSummary, basePatterns.fix);
-                break;
-            case 'file':
-            case 'code_file':
-                dynamicResponse = this.generateFileResponse(workSummary, basePatterns.file);
-                break;
-            case 'explanation':
-                dynamicResponse = this.generateExplanationResponse(workSummary, basePatterns.explanation);
-                break;
-            default:
-                dynamicResponse = this.generateGeneralResponse(workSummary, basePatterns.general);
-        }
-        
-        return dynamicResponse;
-    }
-
-    // Claude応答から作業内容を要約抽出
-    extractWorkSummary(responseText, analysis) {
-        const summary = {
-            action: '',
-            target: '',
-            result: '',
-            files: analysis.files || []
-        };
-
-        // 主要な動作を抽出
-        if (responseText.includes('作成') || responseText.includes('created')) {
-            summary.action = '作成';
-        } else if (responseText.includes('更新') || responseText.includes('updated')) {
-            summary.action = '更新';
-        } else if (responseText.includes('修正') || responseText.includes('fixed')) {
-            summary.action = '修正';
-        } else if (responseText.includes('追加') || responseText.includes('added')) {
-            summary.action = '追加';
-        } else if (responseText.includes('削除') || responseText.includes('removed')) {
-            summary.action = '削除';
-        }
-
-        // 対象を抽出（ファイル名、機能名など）
-        const targetMatches = responseText.match(/([a-zA-Z0-9_-]+\.[a-zA-Z0-9]+)|([a-zA-Z0-9_-]+関数)|([a-zA-Z0-9_-]+機能)|([a-zA-Z0-9_-]+クラス)/g);
-        if (targetMatches) {
-            summary.target = targetMatches[0];
-        }
-
-        // 結果を抽出
-        if (responseText.includes('完了') || responseText.includes('success')) {
-            summary.result = '完了';
-        } else if (responseText.includes('エラー') || responseText.includes('error')) {
-            summary.result = 'エラー対応';
-        }
-
-        return summary;
-    }
-
-    // コード作業の動的応答生成
-    generateCodeResponse(summary, fallbacks) {
-        if (summary.action && summary.target) {
-            return `『${summary.target}の${summary.action}が終わったぞ...まあ、普通だろ』`;
-        } else if (summary.action) {
-            return `『${summary.action}作業が完了したぞ...別に大したことじゃない』`;
-        } else if (summary.target) {
-            return `『${summary.target}をいじっておいた...どうだ？』`;
-        }
-        return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    }
-
-    // エラー修正の動的応答生成
-    generateFixResponse(summary, fallbacks) {
-        if (summary.action && summary.target) {
-            return `『${summary.target}の${summary.action}をしておいた...まあ、当然だ』`;
-        } else if (summary.result === 'エラー対応') {
-            return `『エラーを直してやったぞ...今度は気をつけろよ』`;
-        } else if (summary.action) {
-            return `『${summary.action}しておいた...別に感謝はいらない』`;
-        }
-        return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    }
-
-    // ファイル操作の動的応答生成
-    generateFileResponse(summary, fallbacks) {
-        if (summary.files.length > 0) {
-            const fileName = summary.files[0];
-            if (summary.action) {
-                return `『${fileName}の${summary.action}が完了だ...確認してくれ』`;
-            } else {
-                return `『${fileName}をいじっておいた...どうだ？』`;
+    // 直前のnotificationファイルからテキストを取得
+    getLastProcessedText() {
+        try {
+            const files = fs.readdirSync(this.tempDir);
+            const notificationFiles = files.filter(f => f.startsWith('notification_') && f.endsWith('.json'));
+            
+            if (notificationFiles.length === 0) {
+                return null;
             }
-        } else if (summary.action) {
-            return `『ファイルの${summary.action}が終わったぞ...まあ、普通だろ』`;
+            
+            // 最新のnotificationファイルを取得
+            const latestFile = notificationFiles.sort().pop();
+            const notificationPath = path.join(this.tempDir, latestFile);
+            
+            if (fs.existsSync(notificationPath)) {
+                const notification = JSON.parse(fs.readFileSync(notificationPath, 'utf8'));
+                console.log(`前回処理済みテキスト: ${notification.text}`);
+                return notification.text;
+            }
+        } catch (error) {
+            console.error('前回テキスト取得エラー:', error);
         }
-        return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        return null;
     }
 
-    // 説明の動的応答生成
-    generateExplanationResponse(summary, fallbacks) {
-        if (summary.target) {
-            return `『${summary.target}について説明してやったぞ...理解できたか？』`;
-        } else if (summary.action) {
-            return `『${summary.action}のやり方を教えてやったぞ...分からなかったら聞け』`;
+    // テキストが重複かどうかチェック
+    isDuplicateText(text) {
+        const lastText = this.getLastProcessedText();
+        if (!lastText) {
+            return false;
         }
-        return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    }
-
-    // 一般作業の動的応答生成
-    generateGeneralResponse(summary, fallbacks) {
-        if (summary.action && summary.result) {
-            return `『${summary.action}作業が${summary.result}だ...まあ、普通だな』`;
-        } else if (summary.action) {
-            return `『${summary.action}しておいた...別に褒めなくてもいいからな』`;
-        } else if (summary.result) {
-            return `『作業が${summary.result}したぞ...どうだ？』`;
+        
+        const isDuplicate = text === lastText;
+        if (isDuplicate) {
+            console.log(`重複テキストのため音声合成をスキップ: ${text}`);
         }
-        return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    }
-
-    // 照れ屋キャラクターの応答パターン
-    getShyCharacterPatterns() {
-        return {
-            code: [
-                '『コードを書いたぞ...まあ、普通だろ』',
-                '『プログラム作成完了だ。別に大したことじゃない』',
-                '『コーディングが終わったな...どうだ？』',
-                '『まあ、こんな感じでコードができた...普通だろ』',
-                '『プログラミング完了だ...別に褒めなくてもいいからな』'
-            ],
-            fix: [
-                '『エラーを直してやったぞ...まあ、当然だ』',
-                '『バグ修正完了だ。今度は気をつけろよ』',
-                '『問題を解決したぞ...別に感謝はいらない』',
-                '『まあ、エラーなんて簡単に直せるさ...普通だろ』',
-                '『修正しておいた...別に大したことじゃない』'
-            ],
-            file: [
-                '『{file}を更新したぞ...確認してくれ』',
-                '『ファイルの作業が完了だ...まあ、普通だろ』',
-                '『{file}の処理を終えたぞ』',
-                '『ファイル更新完了だ...別に大したことじゃない』',
-                '『{file}をいじっておいた...どうだ？』'
-            ],
-            explanation: [
-                '『説明してやったぞ...理解できたか？』',
-                '『まあ、こういうことだ...分からなかったら聞け』',
-                '『解説完了だ。別に難しくないだろ』',
-                '『説明しておいた...まあ、普通の話だ』',
-                '『教えてやったぞ...理解できたよな？』'
-            ],
-            general: [
-                '『作業が完了したぞ...まあ、普通だ』',
-                '『やっておいた...別に褒めなくてもいいからな』',
-                '『終わったぞ...どうだ？』',
-                '『まあ、こんなものだろ...普通だな』',
-                '『作業完了だ...別に大したことじゃない』'
-            ]
-        };
-    }
-
-    // Claude応答を解析して作業内容を判定
-    analyzeClaudeResponse(responseText) {
-        const analysis = {
-            hasCode: false,
-            hasError: false,
-            hasFile: false,
-            hasSuccess: false,
-            hasExplanation: false,
-            workType: 'unknown',
-            files: [],
-            keywords: []
-        };
-
-        // コード関連の検出
-        if (responseText.includes('```') || responseText.includes('def ') || responseText.includes('function') || responseText.includes('class ')) {
-            analysis.hasCode = true;
-            analysis.workType = 'code';
-        }
-
-        // エラー・修正関連の検出
-        if (responseText.includes('error') || responseText.includes('エラー') || responseText.includes('fix') || responseText.includes('修正')) {
-            analysis.hasError = true;
-            analysis.workType = 'fix';
-        }
-
-        // ファイル操作の検出
-        if (responseText.includes('created') || responseText.includes('updated') || responseText.includes('作成') || responseText.includes('更新')) {
-            analysis.hasFile = true;
-            analysis.workType = 'file';
-        }
-
-        // 成功・完了の検出
-        if (responseText.includes('success') || responseText.includes('完了') || responseText.includes('done') || responseText.includes('finished')) {
-            analysis.hasSuccess = true;
-        }
-
-        // 説明・解説の検出
-        if (responseText.includes('説明') || responseText.includes('について') || responseText.includes('解説') || responseText.includes('方法')) {
-            analysis.hasExplanation = true;
-            analysis.workType = 'explanation';
-        }
-
-        // ファイル名の抽出
-        const fileMatches = responseText.match(/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+/g);
-        if (fileMatches) {
-            analysis.files = fileMatches.slice(0, 3); // 最大3つまで
-        }
-
-        // 作業種別の最終決定
-        if (analysis.hasCode && analysis.hasFile) {
-            analysis.workType = 'code_file';
-        } else if (analysis.hasError && analysis.hasSuccess) {
-            analysis.workType = 'fix_success';
-        }
-
-        return analysis;
+        return isDuplicate;
     }
 
     // AivisSpeechとの接続確認
@@ -347,6 +155,53 @@ class VoiceHookService {
         }
     }
 
+    // 古いファイルを削除（最新1件以外）
+    cleanupOldFiles() {
+        try {
+            if (!fs.existsSync(this.tempDir)) {
+                return;
+            }
+            
+            const files = fs.readdirSync(this.tempDir);
+            const voiceFiles = files.filter(f => f.startsWith('voice_') && f.endsWith('.wav'));
+            const notificationFiles = files.filter(f => f.startsWith('notification_') && f.endsWith('.json'));
+            
+            // 最新以外のvoiceファイルを削除
+            if (voiceFiles.length > 1) {
+                const sortedVoiceFiles = voiceFiles.sort();
+                const filesToDelete = sortedVoiceFiles.slice(0, -1); // 最新1件以外
+                
+                for (const file of filesToDelete) {
+                    const filePath = path.join(this.tempDir, file);
+                    try {
+                        fs.unlinkSync(filePath);
+                        console.log(`🗑️ 古い音声ファイル削除: ${file}`);
+                    } catch (deleteError) {
+                        console.warn(`ファイル削除失敗: ${file}`, deleteError.message);
+                    }
+                }
+            }
+            
+            // 最新以外のnotificationファイルを削除
+            if (notificationFiles.length > 1) {
+                const sortedNotificationFiles = notificationFiles.sort();
+                const filesToDelete = sortedNotificationFiles.slice(0, -1); // 最新1件以外
+                
+                for (const file of filesToDelete) {
+                    const filePath = path.join(this.tempDir, file);
+                    try {
+                        fs.unlinkSync(filePath);
+                        console.log(`🗑️ 古い通知ファイル削除: ${file}`);
+                    } catch (deleteError) {
+                        console.warn(`ファイル削除失敗: ${file}`, deleteError.message);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('古いファイル削除エラー:', error);
+        }
+    }
+
     // 音声ファイルを保存してアプリに通知（テキスト表示も含む）
     async saveAndNotifyAudio(audioData, conversationText) {
         const timestamp = Date.now();
@@ -354,6 +209,9 @@ class VoiceHookService {
         const filepath = path.join(this.tempDir, filename);
         
         try {
+            // 新しい音声を保存する前に古いファイルを削除（最新1件以外）
+            this.cleanupOldFiles();
+            
             // 音声データをファイルに保存
             fs.writeFileSync(filepath, Buffer.from(audioData));
             
@@ -520,42 +378,6 @@ class VoiceHookService {
         return latestBracketText;
     }
 
-    // 重複チェック機能
-    isNewText(text) {
-        // 空のテキストは処理しない
-        if (!text || text.trim() === '') {
-            return false;
-        }
-        
-        // 前回と同じテキストは処理しない
-        if (text === this.lastProcessedText) {
-            console.log('重複テキストのため音声合成をスキップ:', text);
-            return false;
-        }
-        
-        // 処理済みテキスト履歴をチェック
-        if (this.processedTexts.has(text)) {
-            console.log('処理済みテキスト履歴にあるため音声合成をスキップ:', text);
-            return false;
-        }
-        
-        return true;
-    }
-
-    // 処理済みテキストを記録
-    recordProcessedText(text) {
-        this.lastProcessedText = text;
-        this.processedTexts.add(text);
-        
-        // 処理済みテキスト履歴のサイズを制限（最大50個）
-        if (this.processedTexts.size > 50) {
-            const firstItem = this.processedTexts.values().next().value;
-            this.processedTexts.delete(firstItem);
-        }
-        
-        console.log(`処理済みテキストを記録: ${text}`);
-        console.log(`処理済み履歴数: ${this.processedTexts.size}`);
-    }
 
     // 音声合成テキスト処理（最新『』テキストのみ）
     async processSpeechText(responseText) {
@@ -565,22 +387,12 @@ class VoiceHookService {
         const latestBracketText = this.extractLatestBracketText(responseText);
         
         if (!latestBracketText) {
-            console.log('『』テキストが見つかりません - 動的生成にフォールバック');
-            
-            // フォールバック: 従来の動的生成方式
-            const analysis = this.analyzeClaudeResponse(responseText);
-            const conversationText = this.generateConversationResponse(analysis, responseText);
-            
-            if (!this.isNewText(conversationText)) {
-                return;
-            }
-            
-            await this.processVoiceSynthesis(conversationText);
+            console.log('『』テキストが見つかりません - 音声合成をスキップ');
             return;
         }
 
         // 2. 重複チェック
-        if (!this.isNewText(latestBracketText)) {
+        if (this.isDuplicateText(latestBracketText)) {
             return;
         }
 
@@ -602,9 +414,6 @@ class VoiceHookService {
             
             // 音声ファイル保存・通知（テキスト表示も含む）
             await this.saveAndNotifyAudio(audioData, text);
-            
-            // 処理済みテキストを記録
-            this.recordProcessedText(text);
             
         } catch (error) {
             console.error('音声合成失敗:', error.message);
