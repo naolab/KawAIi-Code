@@ -67,6 +67,7 @@ class UIEventManager {
         const aiSelectModal = document.getElementById('ai-select-modal');
         const closeAiSelectBtn = document.getElementById('close-ai-select');
         const startClaudeBtn = document.getElementById('start-claude');
+        const startClaudeDangerousBtn = document.getElementById('start-claude-dangerous');
         const startGeminiBtn = document.getElementById('start-gemini');
 
         // デバッグ用：要素の取得状況をログ出力
@@ -82,6 +83,7 @@ class UIEventManager {
             aiSelectModal: !!aiSelectModal,
             closeAiSelectBtn: !!closeAiSelectBtn,
             startClaudeBtn: !!startClaudeBtn,
+            startClaudeDangerousBtn: !!startClaudeDangerousBtn,
             startGeminiBtn: !!startGeminiBtn
         });
 
@@ -102,6 +104,12 @@ class UIEventManager {
         if (startClaudeBtn && aiSelectModal) {
             startClaudeBtn.addEventListener('click', () => {
                 this.app.startTerminal('claude');
+                aiSelectModal.style.display = 'none';
+            });
+        }
+        if (startClaudeDangerousBtn && aiSelectModal) {
+            startClaudeDangerousBtn.addEventListener('click', () => {
+                this.app.startTerminal('claude-dangerous');
                 aiSelectModal.style.display = 'none';
             });
         }
@@ -249,6 +257,44 @@ class UIEventManager {
                 await unifiedConfig.set('voiceVolume', newValue);
                 
                 this.debugLog('Voice volume changed:', newValue);
+            });
+        }
+
+        // Hook使用切り替えスイッチ
+        const useHooksToggle = document.getElementById('use-hooks-toggle');
+        if (useHooksToggle) {
+            // 初期値を設定から読み込み
+            const initHooks = async () => {
+                const savedUseHooks = await unifiedConfig.get('useHooks', false);
+                useHooksToggle.checked = savedUseHooks;
+                this.debugLog('Hooks setting initialized:', savedUseHooks);
+            };
+            initHooks();
+            
+            useHooksToggle.addEventListener('change', async (e) => {
+                const newValue = e.target.checked;
+                
+                // 統一設定システムに保存
+                await unifiedConfig.set('useHooks', newValue);
+                
+                this.debugLog('Hooks usage changed:', newValue);
+                
+                // 設定変更の通知
+                if (newValue) {
+                    // Hook有効時の通知
+                    setTimeout(() => {
+                        if (window.showTemporaryMessage) {
+                            window.showTemporaryMessage('Claude Code Hooks機能を有効にしました。音声合成がHookで処理されます。', 'info');
+                        }
+                    }, 100);
+                } else {
+                    // Hook無効時の通知
+                    setTimeout(() => {
+                        if (window.showTemporaryMessage) {
+                            window.showTemporaryMessage('Claude Code Hooks機能を無効にしました。従来の音声合成処理を使用します。', 'info');
+                        }
+                    }, 100);
+                }
             });
         }
 

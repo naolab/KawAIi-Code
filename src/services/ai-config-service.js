@@ -14,6 +14,17 @@ class AIConfigService {
                     'claude'
                 ].filter(p => p)
             },
+            'claude-dangerous': {
+                name: 'Claude Code (Dangerous)',
+                possiblePaths: [
+                    process.env.CLAUDE_PATH,
+                    '/opt/homebrew/bin/claude',
+                    '/usr/local/bin/claude',
+                    '/usr/bin/claude',
+                    'claude'
+                ].filter(p => p),
+                arguments: ['--dangerously-skip-permissions']
+            },
             gemini: {
                 name: 'Gemini Code Assist',
                 possiblePaths: [

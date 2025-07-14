@@ -58,6 +58,12 @@ class AppConfig {
             voiceSynthesisEnabled: true,
             defaultSpeakerId: null,
             voiceCooldownSeconds: 1,
+            voiceEnabled: true,
+            selectedSpeaker: 0,
+            voiceVolume: 50,
+            voiceIntervalSeconds: 3,
+            useHooks: false, // デフォルトはfalse（従来機能使用）
+            currentCharacter: 'shy', // 照れ屋キャラクターに固定
             // その他のデフォルト設定
         };
     }

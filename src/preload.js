@@ -50,10 +50,14 @@ window.electronAPI = {
     onStopAudio: (callback) => {
       ipcRenderer.on('stop-audio', callback);
     },
+    onShowHookConversation: (callback) => {
+      ipcRenderer.on('show-hook-conversation', (event, data) => callback(data));
+    },
     removeAllListeners: () => {
       ipcRenderer.removeAllListeners('voice-text-available');
       ipcRenderer.removeAllListeners('play-audio');
       ipcRenderer.removeAllListeners('stop-audio');
+      ipcRenderer.removeAllListeners('show-hook-conversation');
     }
   },
   vrm: {

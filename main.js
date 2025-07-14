@@ -204,11 +204,17 @@ app.whenReady().then(async () => {
   await startNextjsServer();
 
   createWindow();
+  
+  // Hook通知監視開始
+  startHookNotificationWatcher();
 });
 
 app.on('window-all-closed', async () => {
   // AI.mdファイルのクリーンアップを直接実行
   await cleanupAiMdFiles();
+  
+  // Hook通知監視停止
+  stopHookNotificationWatcher();
   
   // Kill Next.js server when app closes
   if (nextjsProcess) {
@@ -282,7 +288,8 @@ ipcMain.handle('terminal-start', async (event, aiType) => {
     debugLog('実行パス:', commandPath);
     debugLog('作業ディレクトリ:', claudeWorkingDir);
     
-    terminalProcess = pty.spawn(commandPath, [], {
+    const spawnArgs = selectedAI.arguments || [];
+    terminalProcess = pty.spawn(commandPath, spawnArgs, {
       name: 'xterm-color',
       cols: 80,
       rows: 24,
@@ -483,6 +490,75 @@ ipcMain.handle('voice-stop', () => {
   return { success: false, error: 'Main window not available' };
 });
 
+// Hook通知監視機能
+let hookNotificationWatcher = null;
+
+function startHookNotificationWatcher() {
+  const tempDir = path.join(__dirname, 'temp');
+  
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+  
+  // 通知ファイルの監視
+  hookNotificationWatcher = fs.watch(tempDir, (eventType, filename) => {
+    if (eventType === 'rename' && filename && filename.startsWith('notification_') && filename.endsWith('.json')) {
+      const notificationPath = path.join(tempDir, filename);
+      
+      // ファイルが存在することを確認
+      if (fs.existsSync(notificationPath)) {
+        try {
+          const notification = JSON.parse(fs.readFileSync(notificationPath, 'utf8'));
+          
+          if (notification.type === 'voice-synthesis-hook' && notification.filepath) {
+            // 音声ファイルが存在することを確認
+            if (fs.existsSync(notification.filepath)) {
+              // 音声ファイルを読み込んでレンダラープロセスに送信
+              const audioData = fs.readFileSync(notification.filepath);
+              if (mainWindow) {
+                mainWindow.webContents.send('play-audio', audioData);
+                debugLog('Hook音声再生:', notification.text.substring(0, 30) + '...');
+                
+                // テキスト表示機能
+                if (notification.showInChat && notification.text) {
+                  mainWindow.webContents.send('show-hook-conversation', {
+                    text: notification.text,
+                    character: notification.character || 'shy',
+                    timestamp: notification.timestamp
+                  });
+                  debugLog('Hook会話表示:', notification.text);
+                }
+              }
+              
+              // 音声ファイルを削除（再生完了後）
+              setTimeout(() => {
+                if (fs.existsSync(notification.filepath)) {
+                  fs.unlinkSync(notification.filepath);
+                }
+              }, 10000); // 10秒後に削除
+            }
+          }
+          
+          // 通知ファイルを削除
+          fs.unlinkSync(notificationPath);
+        } catch (error) {
+          console.error('Hook通知処理エラー:', error);
+        }
+      }
+    }
+  });
+  
+  debugLog('Hook通知監視開始:', tempDir);
+}
+
+function stopHookNotificationWatcher() {
+  if (hookNotificationWatcher) {
+    hookNotificationWatcher.close();
+    hookNotificationWatcher = null;
+    debugLog('Hook通知監視停止');
+  }
+}
+
 // VRM file loading handler
 ipcMain.handle('load-vrm-file', async (event, filename) => {
   try {
@@ -677,7 +753,8 @@ ipcMain.handle('tab-create', async (event, tabId, aiType) => {
     }
     
     // 新しいPTYプロセス作成
-    terminalProcesses[tabId] = pty.spawn(commandPath, [], {
+    const spawnArgs = aiConfig.arguments || [];
+    terminalProcesses[tabId] = pty.spawn(commandPath, spawnArgs, {
       name: 'xterm-color',
       cols: 80,
       rows: 24,

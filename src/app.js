@@ -257,6 +257,9 @@ class TerminalApp {
         this.resourceManager.setInterval(() => {
             this.processingCache.cleanupExpiredEntries();
         }, 120000); // 2分間隔
+        
+        // Claude Code Hooks監視を開始
+        this.startHookFileWatcher();
     }
 
     // モジュール初期化
@@ -275,6 +278,112 @@ class TerminalApp {
         // 設定管理の初期化
         // configManagerに現在のclaudeWorkingDirを渡す
         await this.configManager.initialize(this.claudeWorkingDir);
+    }
+
+    // Claude Code Hooks用ファイル監視を開始
+    startHookFileWatcher() {
+        const fs = require('fs');
+        const path = require('path');
+        const tempDir = path.join(this.claudeWorkingDir, 'temp');
+        
+        debugLog('🔍 Hook file watcher開始:', tempDir);
+        
+        // tempディレクトリが存在しない場合は作成
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        // 定期的にnotificationファイルをチェック
+        this.resourceManager.setInterval(() => {
+            this.checkForHookNotifications(tempDir);
+        }, 1000); // 1秒間隔
+    }
+
+    // Hook通知ファイルをチェック
+    checkForHookNotifications(tempDir) {
+        const fs = require('fs');
+        const path = require('path');
+        
+        try {
+            const files = fs.readdirSync(tempDir);
+            const notificationFiles = files.filter(file => file.startsWith('notification_') && file.endsWith('.json'));
+            
+            for (const file of notificationFiles) {
+                const filePath = path.join(tempDir, file);
+                try {
+                    const notification = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                    this.processHookNotification(notification);
+                    
+                    // 処理済みの通知ファイルを削除
+                    fs.unlinkSync(filePath);
+                    debugLog('🔔 Hook通知処理完了:', file);
+                } catch (error) {
+                    debugLog('❌ Hook通知処理エラー:', error);
+                }
+            }
+        } catch (error) {
+            // tempディレクトリが存在しない場合は何もしない
+        }
+    }
+
+    // Hook通知を処理
+    processHookNotification(notification) {
+        debugLog('🔔 Hook通知受信:', notification);
+        
+        if (notification.type === 'voice-synthesis-hook' && notification.filepath) {
+            // 音声ファイルを再生
+            this.playHookVoiceFile(notification.filepath, notification.text);
+        }
+    }
+
+    // Hook音声ファイルを再生
+    async playHookVoiceFile(filepath, text) {
+        const fs = require('fs');
+        
+        try {
+            if (!fs.existsSync(filepath)) {
+                debugLog('❌ Hook音声ファイルが存在しません:', filepath);
+                return;
+            }
+            
+            debugLog('🔊 Hook音声ファイル再生開始:', filepath);
+            
+            // 音声ファイルを再生
+            const audio = new Audio(filepath);
+            const volumeValue = unifiedConfig.get('voiceVolume', 50);
+            const safeVolume = isNaN(volumeValue) ? 50 : volumeValue;
+            audio.volume = Math.max(0, Math.min(1, safeVolume / 100));
+            
+            debugLog('🔊 音量設定:', { volumeValue, safeVolume, finalVolume: audio.volume });
+            
+            audio.onended = () => {
+                debugLog('🔊 Hook音声再生完了');
+                // 再生完了後に音声ファイルを削除
+                try {
+                    const fs = require('fs');
+                    if (fs.existsSync(filepath)) {
+                        fs.unlinkSync(filepath);
+                        debugLog('🗑️ Hook音声ファイル削除完了:', filepath);
+                    }
+                } catch (error) {
+                    debugLog('❌ Hook音声ファイル削除エラー:', error);
+                }
+            };
+            
+            audio.onerror = (error) => {
+                debugLog('❌ Hook音声再生エラー:', error);
+            };
+            
+            await audio.play();
+            
+            // チャットにテキストを表示
+            if (text) {
+                this.addVoiceMessage('shy', text);
+            }
+            
+        } catch (error) {
+            debugLog('❌ Hook音声再生処理エラー:', error);
+        }
     }
 
     // 初期設定の読み込み（起動時のみ）
@@ -381,6 +490,11 @@ class TerminalApp {
             window.electronAPI.voice.onStopAudio(() => {
                 this.stopAudio();
             });
+
+            // Handle Hook conversation display
+            window.electronAPI.voice.onShowHookConversation((data) => {
+                this.displayHookConversation(data);
+            });
         }
     }
 
@@ -405,6 +519,12 @@ class TerminalApp {
     parseTerminalDataForChat(data) {
         try {
             debugLog('🔍 parseTerminalDataForChat 開始 - 入力データ長:', data.length);
+            
+            // Hook機能が有効な場合は従来の処理をスキップ
+            if (unifiedConfig.get('useHooks', false)) {
+                debugLog('🔄 Hook機能が有効なため、従来の音声合成処理をスキップ');
+                return;
+            }
             
             // ProcessingCacheによる最適化されたテキストクリーニング
             const cleanData = this.processingCache.optimizedTextCleaning(data);
@@ -500,6 +620,27 @@ class TerminalApp {
         setTimeout(() => {
             this.updateCharacterMood('待機中💕');
         }, AppConstants.MESSAGE.COMPLETION_TIMEOUT);
+    }
+
+    // Hook経由の会話表示
+    displayHookConversation(data) {
+        try {
+            debugLog('🎭 Hook会話表示:', data);
+            
+            // チャット画面に表示
+            this.addVoiceMessage('ニコ', data.text);
+            
+            // キャラクターの気分更新
+            this.updateCharacterMood('おしゃべり中✨');
+            
+            // 一定時間後に気分をリセット
+            setTimeout(() => {
+                this.updateCharacterMood('待機中💕');
+            }, 3000);
+            
+        } catch (error) {
+            debugError('Hook会話表示エラー:', error);
+        }
     }
 
     // sendChatMessage は削除済み（チャット入力エリア削除に伴い）

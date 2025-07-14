@@ -21,8 +21,9 @@
                 <button id="close-ai-select" class="close-btn">×</button>
             </div>
             <div class="settings-body" style="text-align: center; padding: 30px;">
-                <div style="display: flex; justify-content: center; gap: 20px;">
-                    <button id="start-claude" class="simple-btn" style="width: 150px; background-color: #ff6b35;">Claude Code</button>
+                <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                    <button id="start-claude" class="simple-btn" style="width: 140px; background-color: #ff6b35;">Claude Code</button>
+                    <button id="start-claude-dangerous" class="simple-btn" style="width: 170px; background-color: #ff3535;">Claude Code (Dangerous)</button>
                     <button id="start-gemini" class="simple-btn" style="width: 180px; background-color: #4285F4;">Gemini Code Assist</button>
                 </div>
             </div>
@@ -88,6 +89,17 @@
                     <div class="setting-group">
                         <label for="voice-toggle-modal">音声読み上げ</label>
                         <input type="checkbox" id="voice-toggle-modal">
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label for="use-hooks-toggle">Claude Code Hooks使用</label>
+                        <div class="setting-switch">
+                            <input type="checkbox" id="use-hooks-toggle">
+                            <label for="use-hooks-toggle" class="switch-label"></label>
+                        </div>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                            ONの場合、音声合成をClaude Code Hooksで処理します
+                        </div>
                     </div>
                     
                     <div class="setting-group">
