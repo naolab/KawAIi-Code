@@ -25,7 +25,7 @@ class ConfigManager {
         }
     }
 
-    // キャラクター設定を読み込み
+    // キャラクター設定を読み込み（照れ屋固定）
     async loadCharacterSettings() {
         try {
             const { fs, path, os } = window.electronAPI;
@@ -40,47 +40,17 @@ class ConfigManager {
                 : path.join(__dirname, '..');
             const srcPath = path.join(appPath, 'src');
             
-            // 基本設定を読み込み
-            const baseSettingsPath = path.join(srcPath, 'character_settings', 'base_settings.md');
-            const baseSettings = await fs.promises.readFile(baseSettingsPath, 'utf8');
+            // 照れ屋キャラクター設定を読み込み（基本設定含む）
+            const shySettingsPath = path.join(srcPath, 'character_settings', 'shy.md');
+            const shySettings = await fs.promises.readFile(shySettingsPath, 'utf8');
             
-            // 全てのキャラクター設定ファイルを読み込み
-            const characterSettingsDir = path.join(srcPath, 'character_settings');
-            const characterFiles = await fs.promises.readdir(characterSettingsDir);
-            
-            // .mdファイルのみをフィルタリング（base_settings.md以外）
-            const characterMdFiles = characterFiles.filter(file => 
-                file.endsWith('.md') && file !== 'base_settings.md'
-            );
-            
-            let allCharacterSettings = '';
-            
-            // 照れ屋キャラクターを最初に追加（デフォルト）
-            const shyFile = characterMdFiles.find(file => file === 'shy.md');
-            if (shyFile) {
-                const shyPath = path.join(characterSettingsDir, shyFile);
-                const shyContent = await fs.promises.readFile(shyPath, 'utf8');
-                allCharacterSettings += '\n\n---\n\n' + shyContent;
-                logger.debug('Loaded default character: shy');
-            }
-            
-            // 他のキャラクター設定を追加
-            for (const file of characterMdFiles) {
-                if (file !== 'shy.md') { // 照れ屋は既に追加済み
-                    const characterPath = path.join(characterSettingsDir, file);
-                    const characterContent = await fs.promises.readFile(characterPath, 'utf8');
-                    allCharacterSettings += '\n\n---\n\n' + characterContent;
-                    logger.debug('Loaded character:', file.replace('.md', ''));
-                }
-            }
-            
-            // 設定を統合
-            this.aiBaseContent = baseSettings + allCharacterSettings;
+            // 照れ屋設定を使用
+            this.aiBaseContent = shySettings;
             
             // CLAUDE.mdのファイル書き込みは、Claude Code起動時にのみ行うため、ここでは行わない
             // 内容はthis.claudeMdContentに保持される
             
-            logger.debug('Character settings loaded successfully (shy character)');
+            logger.debug('Character settings loaded successfully (shy character fixed)');
         } catch (error) {
             logger.error('Failed to load character settings:', error);
             // フォールバック: 簡単なデフォルト設定
@@ -88,8 +58,14 @@ class ConfigManager {
         }
     }
 
-    // キャラクター変更を処理
+    // キャラクター変更機能は削除（照れ屋固定のため）
+    // 以下のメソッドは使用されない
     async handleCharacterChange(characterType) {
+        // 照れ屋キャラクター固定のため、この機能は無効
+        logger.debug('Character change is disabled (shy character is fixed)');
+        return;
+        
+        // 削除予定コード:
         try {
             // 設定を保存
             if (window.electronAPI && window.electronAPI.config) {
@@ -135,7 +111,7 @@ class ConfigManager {
         }
     }
 
-    // キャラクター選択の同期
+    // キャラクター選択の同期（照れ屋固定）
     async syncCharacterSelection() {
         try {
             const characterSelect = document.getElementById('character-select');
@@ -143,27 +119,14 @@ class ConfigManager {
             
             if (!characterSelect) return;
 
-            // 保存された設定を読み込み
-            let selectedCharacter = 'shy'; // デフォルト
-            if (window.electronAPI && window.electronAPI.config) {
-                try {
-                    selectedCharacter = await window.electronAPI.config.get('selectedCharacter', 'shy');
-                } catch (configError) {
-                    logger.error('Failed to get character config:', configError);
-                }
-            }
+            // 照れ屋キャラクターに固定
+            const selectedCharacter = 'shy';
 
             // UIに反映
             characterSelect.value = selectedCharacter;
             
             if (characterMessage) {
-                const characterNames = {
-                    'shy': '照れ屋',
-                    'genki': '元気娘',
-                    'kuudere': 'クーデレ',
-                    'tsundere': 'ツンデレ'
-                };
-                characterMessage.textContent = `現在のキャラクター: ${characterNames[selectedCharacter] || selectedCharacter}`;
+                characterMessage.textContent = `現在のキャラクター: 照れ屋（固定）`;
             }
 
             logger.debug('Character selection synced:', selectedCharacter);
