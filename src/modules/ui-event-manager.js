@@ -241,7 +241,7 @@ class UIEventManager {
             const initVolume = async () => {
                 const savedVolume = await unifiedConfig.get('voiceVolume', 50);
                 voiceVolumeSlider.value = savedVolume;
-                if (volumeValueDisplay) volumeValueDisplay.textContent = `${savedVolume}%`;
+                // パーセンテージ表示を削除
                 this.app.voiceVolume = savedVolume;
             };
             initVolume();
@@ -250,8 +250,7 @@ class UIEventManager {
                 const newValue = parseInt(e.target.value);
                 this.app.voiceVolume = newValue;
                 
-                // 表示を更新
-                if (volumeValueDisplay) volumeValueDisplay.textContent = `${newValue}%`;
+                // パーセンテージ表示を削除
                 
                 // 統一設定システムに保存
                 await unifiedConfig.set('voiceVolume', newValue);
