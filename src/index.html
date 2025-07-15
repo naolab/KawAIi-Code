@@ -24,7 +24,6 @@
                 <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
                     <button id="start-claude" class="simple-btn" style="width: 140px; background-color: #ff6b35;">Claude Code</button>
                     <button id="start-claude-dangerous" class="simple-btn" style="width: 170px; background-color: #ff3535;">Claude Code (Dangerous)</button>
-                    <button id="start-gemini" class="simple-btn" style="width: 180px; background-color: #4285F4;">Gemini Code Assist</button>
                 </div>
             </div>
         </div>
@@ -44,6 +43,9 @@
                 </button>
             </div>
             <div class="controls">
+                <button id="terminal-toggle" class="simple-btn terminal-toggle-btn" aria-label="ターミナル表示切り替え">
+                    <span class="pupil"></span>
+                </button>
                 <button id="start-ai-selection" class="simple-btn start-btn" aria-label="AIアシスタントを開始"></button>
                 <button id="stop-terminal" class="simple-btn stop-btn" aria-label="AIアシスタントを停止"></button>
             </div>
@@ -194,7 +196,7 @@
                         <h4>基本操作</h4>
                         <div class="help-item">
                             <span class="help-icon">▶</span>
-                            <strong>開始ボタン:</strong> AIアシスタント（Claude Code / Gemini Code Assist）を起動してチャットを開始します。
+                            <strong>開始ボタン:</strong> AIアシスタント（Claude Code）を起動してチャットを開始します。
                         </div>
                         <div class="help-item">
                             <span class="help-icon">⏹</span>

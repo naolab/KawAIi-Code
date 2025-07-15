@@ -539,13 +539,8 @@ class TerminalApp {
             // ProcessingCacheによる最適化されたテキストクリーニング
             const cleanData = this.processingCache.optimizedTextCleaning(data);
             
-            // Claude Code (⏺) と Gemini Code Assist (✦) の両方に対応
+            // Claude Code (⏺) のマーカーを検索
             let markerIndex = cleanData.indexOf('⏺');
-            let markerType = '⏺';
-            if (markerIndex === -1) {
-                markerIndex = cleanData.indexOf('✦');
-                markerType = '✦';
-            }
             
             if (markerIndex === -1) {
                 return;
@@ -730,7 +725,7 @@ class TerminalApp {
                 return;
             }
 
-            const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
+            const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
             
             this.updateStatus(`Starting ${aiName}...`);
             const result = await window.electronAPI.terminal.start(aiType);
@@ -760,7 +755,7 @@ class TerminalApp {
                 debugError(`Failed to start ${aiName}:`, errorMessage);
             }
         } catch (error) {
-            const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
+            const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
             debugError(`Error starting ${aiName}:`, error);
             this.updateStatus(`Error starting ${aiName}: ${error.message}`);
         }
@@ -785,7 +780,7 @@ class TerminalApp {
             await this.tabManager.stopAIForTab(this.tabManager.activeTabId);
         }
         
-        const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
+        const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
         this.updateStatus(`Starting ${aiName} in active tab...`);
         
         try {
@@ -794,7 +789,7 @@ class TerminalApp {
                 // タブ情報を更新
                 activeTab.aiType = aiType;
                 activeTab.isRunning = true;
-                activeTab.name = `${aiType === 'claude' ? 'Claude' : 'Gemini'} #${activeTab.id.split('-')[1]}`;
+                activeTab.name = `${aiType === 'claude' ? 'Claude' : 'Claude-D'} #${activeTab.id.split('-')[1]}`;
                 
                 this.updateStatus(`${aiName} running in tab - Type your message and press Enter`);
                 this.addVoiceMessage('ニコ', `${aiName}をタブで起動したよ〜！`);
@@ -827,19 +822,14 @@ class TerminalApp {
                 this.updateStatus('AI assistant stopped');
                 this.terminal.clear();
 
-                // 停止したAIに応じて.mdファイルを削除/復元
-                const aiMdFilename = this.currentRunningAI === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+                // CLAUDE.mdファイルを削除
                 if (this.currentRunningAI) { // 念のためnullチェック
                     const deleteResult = await this.configManager.deleteAiMdFromHomeDir(this.currentRunningAI);
                     
                     if (deleteResult.success) {
-                        if (this.currentRunningAI === 'gemini' && deleteResult.restored) {
-                            this.addVoiceMessage('ニコ', `${aiMdFilename}を元の状態に戻したよ！`);
-                        } else {
-                            this.addVoiceMessage('ニコ', `${aiMdFilename}を削除したよ！`);
-                        }
+                        this.addVoiceMessage('ニコ', `CLAUDE.mdを削除したよ！`);
                     } else {
-                        this.addVoiceMessage('ニコ', `${aiMdFilename}の処理に失敗しちゃった...`);
+                        this.addVoiceMessage('ニコ', `CLAUDE.mdの処理に失敗しちゃった...`);
                     }
                 }
                 this.currentRunningAI = null; // 停止したのでクリア
@@ -866,8 +856,8 @@ class TerminalApp {
         try {
             const result = await this.configManager.generateBothAiMdFiles();
             if (result.success) {
-                this.addVoiceMessage('ニコ', 'CLAUDE.mdとGEMINI.mdを準備したよ！');
-                debugLog('Both AI MD files generated successfully');
+                this.addVoiceMessage('ニコ', 'CLAUDE.mdを準備したよ！');
+                debugLog('AI MD files generated successfully');
             } else {
                 this.addVoiceMessage('ニコ', 'AI設定ファイルの生成に失敗しちゃった...');
                 debugError('Failed to generate AI MD files:', result);
@@ -1600,7 +1590,7 @@ class TabManager {
                 return false;
             }
 
-            const aiName = aiType === 'claude' ? 'Claude Code' : 'Gemini Code Assist';
+            const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
             debugLog(`Starting ${aiName} for tab ${tabId}`);
             
             // 既存のイベントリスナーをクリーンアップ（重複防止）

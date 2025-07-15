@@ -8,11 +8,6 @@ class ConfigManager {
         this.claudeWorkingDir = null;
         this.speechCooldown = 1000; // デフォルト1秒
         
-        // バックアップ状態管理
-        this.backupState = {
-            claude: { hasBackup: false },
-            gemini: { hasBackup: false, workingDir: null }
-        };
     }
 
     // 初期設定を読み込み
@@ -138,7 +133,7 @@ class ConfigManager {
     }
 
     // プロジェクト固有設定を読み込んでCLAUDE.mdを更新
-    async loadProjectSpecificSettings(projectDir = null, aiType = 'claude') {
+    async loadProjectSpecificSettings(projectDir = null) {
         try {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
@@ -152,7 +147,7 @@ class ConfigManager {
                 return ''; // 空文字列を返す
             }
 
-            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+            const aiMdFilename = 'CLAUDE.md';
             const projectAiMdPath = path.join(targetDir, aiMdFilename);
             
             try {
@@ -226,40 +221,37 @@ class ConfigManager {
     }
 
     // AIに渡す最終的な.mdコンテンツを生成
-    async getCombinedAiMdContent(aiType) {
+    async getCombinedAiMdContent() {
         let combinedContent = this.aiBaseContent;
         
         // プロジェクト固有設定を読み込み、結合
-        const projectSpecificContent = await this.loadProjectSpecificSettings(this.claudeWorkingDir, aiType);
+        const projectSpecificContent = await this.loadProjectSpecificSettings(this.claudeWorkingDir);
         if (projectSpecificContent) {
             combinedContent += '\n\n---\n\n# プロジェクト固有設定\n\n' + projectSpecificContent;
         }
         return combinedContent;
     }
 
-    // 両方のAI.mdファイルを同時に生成
+    // AI.mdファイルを生成
     async generateBothAiMdFiles() {
         try {
             const claudeResult = await this.writeAiMdToHomeDir('claude');
-            const geminiResult = await this.writeAiMdToHomeDir('gemini');
             
-            logger.debug('Both AI MD files generation result:', {
-                claude: claudeResult,
-                gemini: geminiResult
+            logger.debug('AI MD file generation result:', {
+                claude: claudeResult
             });
             
             return {
-                success: claudeResult.success && geminiResult.success,
-                claude: claudeResult,
-                gemini: geminiResult
+                success: claudeResult.success,
+                claude: claudeResult
             };
         } catch (error) {
-            logger.error('Failed to generate both AI MD files:', error);
+            logger.error('Failed to generate AI MD file:', error);
             return { success: false, error: error.message };
         }
     }
 
-    // 両方のAI.mdファイルを同時に削除
+    // AI.mdファイルを削除
     async deleteBothAiMdFiles() {
         try {
             const { fs, path, os } = window.electronAPI;
@@ -281,30 +273,14 @@ class ConfigManager {
                 logger.debug('CLAUDE.md deletion failed or file not found:', error.message);
             }
             
-            // GEMINI.mdを削除（作業ディレクトリから）
-            if (this.claudeWorkingDir) {
-                try {
-                    const geminiMdPath = path.join(this.claudeWorkingDir, 'GEMINI.md');
-                    await fs.promises.unlink(geminiMdPath);
-                    results.gemini = { success: true, path: geminiMdPath };
-                    logger.debug('GEMINI.md deleted from:', geminiMdPath);
-                } catch (error) {
-                    results.gemini = { success: false, error: error.message };
-                    logger.debug('GEMINI.md deletion failed or file not found:', error.message);
-                }
-            } else {
-                results.gemini = { success: false, error: 'Working directory not set' };
-            }
-            
-            logger.debug('Both AI MD files deletion result:', results);
+            logger.debug('AI MD file deletion result:', results);
             
             return {
-                success: results.claude.success || results.gemini.success, // 少なくとも1つ成功すれば成功
-                claude: results.claude,
-                gemini: results.gemini
+                success: results.claude.success,
+                claude: results.claude
             };
         } catch (error) {
-            logger.error('Failed to delete both AI MD files:', error);
+            logger.error('Failed to delete AI MD file:', error);
             return { success: false, error: error.message };
         }
     }
@@ -318,32 +294,20 @@ class ConfigManager {
                 return { success: false, hadBackup: false };
             }
 
-            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
-            const combinedContent = await this.getCombinedAiMdContent(aiType);
+            const aiMdFilename = 'CLAUDE.md';
+            const combinedContent = await this.getCombinedAiMdContent();
 
             if (!combinedContent) {
                 logger.debug(`No ${aiMdFilename} content to write.`);
                 return { success: false, hadBackup: false };
             }
 
-            let targetDir;
-            if (aiType === 'gemini') {
-                targetDir = this.claudeWorkingDir; // Geminiの場合は作業ディレクトリ
-                if (!targetDir) {
-                    logger.error('Gemini MD write: claudeWorkingDir is not set.');
-                    return { success: false, hadBackup: false };
-                }
-                
-                // Geminiの場合はバックアップ機能を使用
-                return await this.createAiMdWithBackup(aiType, combinedContent, targetDir);
-            } else {
-                // Claudeの場合は従来通り（ホームディレクトリ、バックアップなし）
-                targetDir = os.homedir();
-                const aiMdPath = path.join(targetDir, aiMdFilename);
-                await fs.promises.writeFile(aiMdPath, combinedContent, 'utf8');
-                logger.debug(`${aiMdFilename} successfully written to:`, aiMdPath);
-                return { success: true, hadBackup: false };
-            }
+            // Claude系の場合は従来通り（ホームディレクトリ、バックアップなし）
+            const targetDir = os.homedir();
+            const aiMdPath = path.join(targetDir, aiMdFilename);
+            await fs.promises.writeFile(aiMdPath, combinedContent, 'utf8');
+            logger.debug(`${aiMdFilename} successfully written to:`, aiMdPath);
+            return { success: true, hadBackup: false };
         } catch (writeError) {
             logger.error(`Failed to write ${aiMdFilename} to home directory:`, writeError);
             return { success: false, hadBackup: false, error: writeError.message };
@@ -366,7 +330,7 @@ class ConfigManager {
         return false;
     }
 
-    // AIの.mdファイルをホームディレクトリから削除/復元
+    // AIの.mdファイルをホームディレクトリから削除
     async deleteAiMdFromHomeDir(aiType) {
         try {
             const { fs, path, os } = window.electronAPI;
@@ -375,31 +339,19 @@ class ConfigManager {
                 return { success: false, restored: false };
             }
 
-            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
+            const aiMdFilename = 'CLAUDE.md';
             
-            let targetDir;
-            if (aiType === 'gemini') {
-                targetDir = this.claudeWorkingDir; // Geminiの場合は作業ディレクトリ
-                if (!targetDir) {
-                    logger.error('Gemini MD delete: claudeWorkingDir is not set.');
-                    return { success: false, restored: false };
-                }
-                
-                // Geminiの場合はバックアップから復元
-                return await this.restoreAiMdFromBackup(aiType, targetDir);
-            } else {
-                // Claudeの場合は従来通り削除のみ
-                targetDir = os.homedir();
-                const aiMdPath = path.join(targetDir, aiMdFilename);
+            // Claude系の場合は従来通り削除のみ
+            const targetDir = os.homedir();
+            const aiMdPath = path.join(targetDir, aiMdFilename);
 
-                if (fs.existsSync(aiMdPath)) {
-                    await fs.promises.unlink(aiMdPath);
-                    logger.debug(`${aiMdFilename} successfully deleted from:`, aiMdPath);
-                    return { success: true, restored: false };
-                } else {
-                    logger.debug(`${aiMdFilename} not found at:`, aiMdPath, 'no deletion needed.');
-                    return { success: true, restored: false };
-                }
+            if (fs.existsSync(aiMdPath)) {
+                await fs.promises.unlink(aiMdPath);
+                logger.debug(`${aiMdFilename} successfully deleted from:`, aiMdPath);
+                return { success: true, restored: false };
+            } else {
+                logger.debug(`${aiMdFilename} not found at:`, aiMdPath, 'no deletion needed.');
+                return { success: true, restored: false };
             }
         } catch (deleteError) {
             logger.error(`Failed to delete ${aiMdFilename} from home directory:`, deleteError);
@@ -407,82 +359,6 @@ class ConfigManager {
         }
     }
 
-    // AIの.mdファイルをバックアップ付きで作成
-    async createAiMdWithBackup(aiType, content, targetDir) {
-        try {
-            const { fs, path } = window.electronAPI;
-            if (!fs || !path) {
-                logger.error('fs or path module not available via electronAPI.');
-                return false;
-            }
-
-            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
-            const aiMdPath = path.join(targetDir, aiMdFilename);
-            const backupPath = path.join(targetDir, aiMdFilename + '.backup');
-
-            // 既存ファイルのバックアップ作成
-            if (fs.existsSync(aiMdPath)) {
-                await fs.promises.copyFile(aiMdPath, backupPath);
-                this.backupState[aiType].hasBackup = true;
-                this.backupState[aiType].workingDir = targetDir;
-                logger.debug(`${aiMdFilename} backed up to:`, backupPath);
-            } else {
-                this.backupState[aiType].hasBackup = false;
-                logger.debug(`No existing ${aiMdFilename} found, no backup needed.`);
-            }
-
-            // 新しいファイル作成
-            await fs.promises.writeFile(aiMdPath, content, 'utf8');
-            logger.debug(`${aiMdFilename} created successfully at:`, aiMdPath);
-            
-            return {
-                success: true,
-                hadBackup: this.backupState[aiType].hasBackup
-            };
-        } catch (error) {
-            logger.error(`Failed to create ${aiType} MD with backup:`, error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    // AIの.mdファイルをバックアップから復元
-    async restoreAiMdFromBackup(aiType, targetDir) {
-        try {
-            const { fs, path } = window.electronAPI;
-            if (!fs || !path) {
-                logger.error('fs or path module not available via electronAPI.');
-                return { success: false, restored: false };
-            }
-
-            const aiMdFilename = aiType === 'claude' ? 'CLAUDE.md' : 'GEMINI.md';
-            const aiMdPath = path.join(targetDir, aiMdFilename);
-            const backupPath = path.join(targetDir, aiMdFilename + '.backup');
-
-            // 作成したファイルを削除
-            if (fs.existsSync(aiMdPath)) {
-                await fs.promises.unlink(aiMdPath);
-                logger.debug(`${aiMdFilename} deleted from:`, aiMdPath);
-            }
-
-            // バックアップから復元
-            if (this.backupState[aiType].hasBackup && fs.existsSync(backupPath)) {
-                await fs.promises.rename(backupPath, aiMdPath);
-                logger.debug(`${aiMdFilename} restored from backup:`, aiMdPath);
-                
-                // バックアップ状態をリセット
-                this.backupState[aiType].hasBackup = false;
-                this.backupState[aiType].workingDir = null;
-                
-                return { success: true, restored: true };
-            } else {
-                logger.debug(`No backup found for ${aiMdFilename}, file simply deleted.`);
-                return { success: true, restored: false };
-            }
-        } catch (error) {
-            logger.error(`Failed to restore ${aiType} MD from backup:`, error);
-            return { success: false, restored: false, error: error.message };
-        }
-    }
 
     // 利用可能なキャラクター一覧を取得
     getAvailableCharacters() {

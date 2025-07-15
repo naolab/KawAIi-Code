@@ -24,16 +24,6 @@ class AIConfigService {
                     'claude'
                 ].filter(p => p),
                 arguments: ['--dangerously-skip-permissions']
-            },
-            gemini: {
-                name: 'Gemini Code Assist',
-                possiblePaths: [
-                    process.env.GEMINI_PATH,
-                    '/opt/homebrew/bin/gemini',
-                    '/usr/local/bin/gemini',
-                    '/usr/bin/gemini',
-                    'gemini'
-                ].filter(p => p)
             }
         };
     }

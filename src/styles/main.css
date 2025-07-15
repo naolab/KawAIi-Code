@@ -445,6 +445,18 @@ body {
     margin-top: -70px;
     padding-top: 70px;
     z-index: 1;
+    transition: flex 0.3s ease;
+}
+
+/* ターミナル非表示時のキャラクターセクション全画面表示 */
+.main-content.terminal-hidden .character-section {
+    flex: 1;
+    padding-left: 20px;
+}
+
+/* ターミナル非表示時のレイアウト調整 */
+.main-content.terminal-hidden {
+    padding-left: 20px;
 }
 
 .character-main {
@@ -810,6 +822,88 @@ body {
 .stop-btn:hover::before {
     background: #FF6B35;
     box-shadow: 0 0 12px rgba(255, 140, 66, 0.8);
+}
+
+/* ターミナル切り替えボタン */
+.terminal-toggle-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(255, 140, 66, 0.6);
+    transition: all 0.3s ease;
+}
+
+.terminal-toggle-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(255, 140, 66, 0.8);
+    box-shadow: 0 5px 20px rgba(255, 140, 66, 0.4);
+}
+
+/* ターミナル表示時のアイコン（目を開いた状態） */
+/* 楕円の外枠（白目） */
+.terminal-toggle-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 12px;
+    border: 2px solid #ff6b35;
+    border-radius: 50%;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+/* 白い円（虹彩） - 楕円の短い辺と同じ直径 */
+.terminal-toggle-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: white;
+    border-radius: 50%;
+    border: 1.5px solid #ff6b35;
+    transition: all 0.2s ease;
+}
+
+/* 小さいオレンジの円（瞳孔） - 左上にずらす */
+.terminal-toggle-btn .pupil {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-70%, -70%);
+    width: 5px;
+    height: 5px;
+    background: #ff6b35;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    z-index: 3;
+}
+
+
+/* ターミナル非表示時のアイコン（目を閉じた状態） */
+.terminal-toggle-btn.terminal-hidden::before {
+    height: 2px;
+    border-radius: 2px;
+    border-top: none;
+    border-bottom: none;
+    border-color: #ff6b35;
+    background: #ff6b35;
+}
+
+.terminal-toggle-btn.terminal-hidden::after {
+    opacity: 0;
+}
+
+.terminal-toggle-btn.terminal-hidden .pupil {
+    opacity: 0;
+}
+
+.terminal-toggle-btn:hover::before,
+.terminal-toggle-btn:hover::after {
+    box-shadow: 0 0 8px rgba(255, 107, 53, 0.5);
 }
 
 /* ボタンが無効な状態 */

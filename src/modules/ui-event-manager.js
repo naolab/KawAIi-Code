@@ -31,6 +31,9 @@ class UIEventManager {
         // TerminalAppインスタンスへの参照
         this.app = terminalApp;
         
+        // ターミナル表示状態の管理
+        this.isTerminalVisible = true;
+        
         this.debugLog('UIEventManager initialized');
     }
 
@@ -46,6 +49,7 @@ class UIEventManager {
         // 初期UI状態を更新
         this.updateButtons();
         this.updateVoiceControls();
+        this.updateTerminalToggleButton();
         
         this.debugLog('All event listeners setup completed');
     }
@@ -68,7 +72,6 @@ class UIEventManager {
         const closeAiSelectBtn = document.getElementById('close-ai-select');
         const startClaudeBtn = document.getElementById('start-claude');
         const startClaudeDangerousBtn = document.getElementById('start-claude-dangerous');
-        const startGeminiBtn = document.getElementById('start-gemini');
 
         // デバッグ用：要素の取得状況をログ出力
         this.debugLog('Modal elements check:', {
@@ -84,7 +87,6 @@ class UIEventManager {
             closeAiSelectBtn: !!closeAiSelectBtn,
             startClaudeBtn: !!startClaudeBtn,
             startClaudeDangerousBtn: !!startClaudeDangerousBtn,
-            startGeminiBtn: !!startGeminiBtn
         });
 
         // ターミナル制御ボタン
@@ -94,6 +96,12 @@ class UIEventManager {
             });
         }
         if (stopBtn) stopBtn.addEventListener('click', () => this.handleStopButtonClick());
+        
+        // ターミナル切り替えボタン
+        const terminalToggleBtn = document.getElementById('terminal-toggle');
+        if (terminalToggleBtn) {
+            terminalToggleBtn.addEventListener('click', () => this.toggleTerminalVisibility());
+        }
 
         // AI選択モーダルのイベント
         if (closeAiSelectBtn && aiSelectModal) {
@@ -110,12 +118,6 @@ class UIEventManager {
         if (startClaudeDangerousBtn && aiSelectModal) {
             startClaudeDangerousBtn.addEventListener('click', () => {
                 this.app.startTerminal('claude-dangerous');
-                aiSelectModal.style.display = 'none';
-            });
-        }
-        if (startGeminiBtn && aiSelectModal) {
-            startGeminiBtn.addEventListener('click', () => {
-                this.app.startTerminal('gemini');
                 aiSelectModal.style.display = 'none';
             });
         }
@@ -482,6 +484,61 @@ class UIEventManager {
         if (helpModal) helpModal.style.display = 'none';
         
         this.debugLog('All modals closed');
+    }
+
+    /**
+     * ターミナル表示・非表示を切り替える
+     */
+    toggleTerminalVisibility() {
+        this.debugLog('Terminal visibility toggle requested');
+        
+        const terminalSection = document.querySelector('.terminal-section');
+        const mainContent = document.querySelector('.main-content');
+        const terminalToggleBtn = document.getElementById('terminal-toggle');
+        
+        if (!terminalSection || !mainContent || !terminalToggleBtn) {
+            this.debugError('Required elements not found for terminal toggle');
+            return;
+        }
+        
+        // 現在の状態を反転
+        this.isTerminalVisible = !this.isTerminalVisible;
+        
+        if (this.isTerminalVisible) {
+            // ターミナル表示状態
+            terminalSection.style.display = 'flex';
+            mainContent.classList.remove('terminal-hidden');
+            terminalToggleBtn.classList.remove('terminal-hidden');
+            this.debugLog('Terminal is now visible');
+        } else {
+            // ターミナル非表示状態
+            terminalSection.style.display = 'none';
+            mainContent.classList.add('terminal-hidden');
+            terminalToggleBtn.classList.add('terminal-hidden');
+            this.debugLog('Terminal is now hidden');
+        }
+        
+        // ボタンの状態を更新
+        this.updateTerminalToggleButton();
+    }
+
+    /**
+     * ターミナル切り替えボタンの状態を更新
+     */
+    updateTerminalToggleButton() {
+        const terminalToggleBtn = document.getElementById('terminal-toggle');
+        if (!terminalToggleBtn) return;
+        
+        // ツールチップテキストを更新
+        if (this.isTerminalVisible) {
+            terminalToggleBtn.setAttribute('aria-label', 'ターミナルを非表示');
+            terminalToggleBtn.setAttribute('title', 'ターミナルを非表示');
+        } else {
+            terminalToggleBtn.setAttribute('aria-label', 'ターミナルを表示');
+            terminalToggleBtn.setAttribute('title', 'ターミナルを表示');
+        }
+        
+        this.debugLog(`Terminal toggle button updated: ${this.isTerminalVisible ? 'show' : 'hide'} mode`);
     }
 }
 

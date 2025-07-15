@@ -32,22 +32,6 @@ async function cleanupAiMdFiles() {
       debugLog('CLAUDE.md deletion failed or file not found:', error.message);
     }
     
-    // GEMINI.mdを削除（現在の作業ディレクトリから）
-    try {
-      // 作業ディレクトリの取得（設定から）
-      let workingDir = await appConfig.get('claudeWorkingDir');
-      if (workingDir) {
-        const geminiMdPath = path.join(workingDir, 'GEMINI.md');
-        await fs.promises.unlink(geminiMdPath);
-        results.gemini = { success: true, path: geminiMdPath };
-        infoLog('GEMINI.md deleted from:', geminiMdPath);
-      } else {
-        results.gemini = { success: false, error: 'Working directory not set' };
-      }
-    } catch (error) {
-      results.gemini = { success: false, error: error.message };
-      debugLog('GEMINI.md deletion failed or file not found:', error.message);
-    }
     
     infoLog('AI MD files cleanup completed:', results);
     return results;
@@ -271,7 +255,7 @@ ipcMain.handle('terminal-start', async (event, aiType) => {
 以下の点を確認してください:
 - ${selectedAI.name} はインストールされていますか？
 - 環境変数PATHは正しく設定されていますか？
-- (必要であれば) CLAUDE_PATH または GEMINI_PATH 環境変数を設定してください。`;
+- (必要であれば) CLAUDE_PATH 環境変数を設定してください。`;
     
     errorLog('AI executable not found:', { aiType, possiblePaths: selectedAI.possiblePaths });
     dialog.showErrorBox('起動失敗', userMessage);
