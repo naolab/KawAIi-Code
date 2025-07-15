@@ -36,17 +36,19 @@ class VoiceHookService {
                 this.voiceEnabled = config.voiceEnabled !== false;
                 this.selectedSpeaker = config.defaultSpeakerId || 0;
                 this.useHooks = config.useHooks !== false; // デフォルトはtrue
-                // キャラクター設定は照れ屋のみに固定
+                this.voiceInterval = config.voiceInterval || 3; // 音声読み上げ間隔（デフォルト3秒）
             } else {
                 this.voiceEnabled = true;
                 this.selectedSpeaker = 0;
                 this.useHooks = true;
+                this.voiceInterval = 3;
             }
         } catch (error) {
             console.error('設定読み込みエラー:', error);
             this.voiceEnabled = true;
             this.selectedSpeaker = 0;
             this.useHooks = true;
+            this.voiceInterval = 3;
         }
     }
 
@@ -379,25 +381,41 @@ class VoiceHookService {
     }
 
 
-    // 音声合成テキスト処理（最新『』テキストのみ）
+    // 音声合成テキスト処理（全ての『』テキストを順番に）
     async processSpeechText(responseText) {
         console.log(`Claude応答解析開始: ${responseText.substring(0, 100)}...`);
 
-        // 1. 最新の『』テキストのみを抽出
-        const latestBracketText = this.extractLatestBracketText(responseText);
+        // 1. 全ての『』テキストを抽出
+        const bracketMatches = responseText.match(/『[^』]*』/g);
         
-        if (!latestBracketText) {
+        if (!bracketMatches || bracketMatches.length === 0) {
             console.log('『』テキストが見つかりません - 音声合成をスキップ');
             return;
         }
 
-        // 2. 重複チェック
-        if (this.isDuplicateText(latestBracketText)) {
-            return;
-        }
+        console.log(`${bracketMatches.length}個の『』テキストが見つかりました`);
 
-        // 3. 音声合成実行
-        await this.processVoiceSynthesis(latestBracketText);
+        // 2. 各『』テキストを順番に処理
+        for (let i = 0; i < bracketMatches.length; i++) {
+            const bracketText = bracketMatches[i];
+            console.log(`処理中 (${i + 1}/${bracketMatches.length}): ${bracketText}`);
+
+            // 重複チェック（最後の1つのみチェック）
+            if (i === bracketMatches.length - 1 && this.isDuplicateText(bracketText)) {
+                console.log('最後のテキストが重複のためスキップ');
+                continue;
+            }
+
+            // 音声合成実行
+            await this.processVoiceSynthesis(bracketText);
+
+            // 次のテキストまで間隔を開ける（最後以外）
+            if (i < bracketMatches.length - 1) {
+                const intervalMs = this.voiceInterval * 1000; // 秒をミリ秒に変換
+                console.log(`次の音声まで${this.voiceInterval}秒待機中...`);
+                await new Promise(resolve => setTimeout(resolve, intervalMs));
+            }
+        }
     }
 
     // 音声合成の実行
