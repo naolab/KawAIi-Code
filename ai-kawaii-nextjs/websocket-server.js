@@ -43,6 +43,7 @@ wss.on('connection', (ws) => {
         return;
       } else if (data.type === 'emotion') {
         debugLog('😊 感情データ受信:', data.emotion);
+        console.log('[WebSocket] 感情データ詳細:', JSON.stringify(data.emotion, null, 2));
         // VRMビューワーに感情データを送信
         ws.send(JSON.stringify({
           type: 'emotion',

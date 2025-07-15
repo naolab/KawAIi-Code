@@ -222,8 +222,9 @@ class VoiceHookService {
             fs.writeFileSync(filepath, Buffer.from(audioData));
             
             // 感情分析を実行
+            console.log('感情分析対象テキスト:', conversationText);
             const emotion = this.emotionAnalyzer.analyzeEmotion(conversationText);
-            console.log('感情分析結果:', emotion);
+            console.log('感情分析結果:', JSON.stringify(emotion, null, 2));
             
             // アプリに通知（音声再生+テキスト表示+感情）
             const notification = {

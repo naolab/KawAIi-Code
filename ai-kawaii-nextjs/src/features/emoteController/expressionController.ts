@@ -33,11 +33,15 @@ export class ExpressionController {
   }
 
   public playEmotion(preset: VRMExpressionPresetName, weight: number = 1) {
+    console.log(`[ExpressionController] playEmotion called:`, { preset, weight });
+    
     if (this._currentEmotion != "neutral") {
+      console.log(`[ExpressionController] Resetting current emotion: ${this._currentEmotion}`);
       this._expressionManager?.setValue(this._currentEmotion, 0);
     }
 
     if (preset == "neutral") {
+      console.log(`[ExpressionController] Setting neutral expression`);
       this._autoBlink?.setEnable(true);
       this._currentEmotion = preset;
       return;
@@ -45,15 +49,20 @@ export class ExpressionController {
 
     const t = this._autoBlink?.setEnable(false) || 0;
     this._currentEmotion = preset;
+    console.log(`[ExpressionController] Setting ${preset} expression with weight ${weight} after ${t}s`);
     setTimeout(() => {
+      console.log(`[ExpressionController] Applying ${preset} expression with weight ${weight}`);
       this._expressionManager?.setValue(preset, weight);
     }, t * 1000);
   }
   
   // 複合感情の処理（複数の表情を同時に適用）
   public playComplexEmotion(emotions: Array<{name: VRMExpressionPresetName, weight: number}>) {
+    console.log(`[ExpressionController] playComplexEmotion called:`, emotions);
+    
     // 現在の感情をリセット
     if (this._currentEmotion != "neutral") {
+      console.log(`[ExpressionController] Resetting current emotion: ${this._currentEmotion}`);
       this._expressionManager?.setValue(this._currentEmotion, 0);
     }
     
@@ -62,7 +71,9 @@ export class ExpressionController {
     
     // 複数の感情を同時に適用
     setTimeout(() => {
+      console.log(`[ExpressionController] Applying complex emotions:`, emotions);
       emotions.forEach(emotion => {
+        console.log(`[ExpressionController] Setting ${emotion.name} with weight ${emotion.weight}`);
         this._expressionManager?.setValue(emotion.name, emotion.weight);
       });
     }, t * 1000);

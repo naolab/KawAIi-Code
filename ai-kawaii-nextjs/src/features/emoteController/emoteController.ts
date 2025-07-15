@@ -14,10 +14,12 @@ export class EmoteController {
   }
 
   public playEmotion(preset: VRMExpressionPresetName, weight: number = 1) {
+    console.log(`[EmoteController] playEmotion called:`, { preset, weight });
     this._expressionController.playEmotion(preset, weight);
   }
   
   public playComplexEmotion(emotions: Array<{name: VRMExpressionPresetName, weight: number}>) {
+    console.log(`[EmoteController] playComplexEmotion called:`, emotions);
     this._expressionController.playComplexEmotion(emotions);
   }
 

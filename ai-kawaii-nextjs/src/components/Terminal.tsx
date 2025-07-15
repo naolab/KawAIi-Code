@@ -43,11 +43,15 @@ export default function Terminal({ className }: TerminalProps) {
               }
             } else if (data.type === 'emotion' && data.emotion) {
               // 感情データを受信してVRMの表情を変更
-              console.log('😊 感情データ受信:', data.emotion)
+              console.log('😊 [Terminal] 感情データ受信:', data.emotion);
+              console.log('😊 [Terminal] 感情データ詳細:', JSON.stringify(data.emotion, null, 2));
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               if ((window as any).setVRMEmotion) {
+                console.log('[Terminal] VRMに感情を適用中...');
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (window as any).setVRMEmotion(data.emotion)
+                (window as any).setVRMEmotion(data.emotion);
+              } else {
+                console.error('[Terminal] setVRMEmotion function not found');
               }
             } else if (data.message) {
               setOutput(prev => [...prev, data.message])

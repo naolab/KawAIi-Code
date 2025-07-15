@@ -265,6 +265,7 @@ class EmotionAnalyzer {
      */
     analyzeEmotion(text) {
         if (!text || typeof text !== 'string') {
+            logger.warn('感情分析: 無効なテキスト:', text);
             return this.defaultEmotion;
         }
         
@@ -276,8 +277,13 @@ class EmotionAnalyzer {
             if (pattern.patterns) {
                 for (const regex of pattern.patterns) {
                     if (regex.test(text)) {
-                        logger.info(`感情検出: ${pattern.name} (正規表現マッチ)`);
-                        return this.createEmotionResult(pattern);
+                        const result = this.createEmotionResult(pattern);
+                        logger.info(`感情検出: ${pattern.name} (正規表現マッチ)`, {
+                            pattern: pattern.name,
+                            regex: regex.toString(),
+                            result: result
+                        });
+                        return result;
                     }
                 }
             }
@@ -286,14 +292,19 @@ class EmotionAnalyzer {
             if (pattern.keywords) {
                 for (const keyword of pattern.keywords) {
                     if (text.includes(keyword)) {
-                        logger.info(`感情検出: ${pattern.name} (キーワード: ${keyword})`);
-                        return this.createEmotionResult(pattern);
+                        const result = this.createEmotionResult(pattern);
+                        logger.info(`感情検出: ${pattern.name} (キーワード: ${keyword})`, {
+                            pattern: pattern.name,
+                            keyword: keyword,
+                            result: result
+                        });
+                        return result;
                     }
                 }
             }
         }
         
-        logger.debug('感情検出なし、デフォルトを返却');
+        logger.debug('感情検出なし、デフォルトを返却:', text);
         return this.defaultEmotion;
     }
     
