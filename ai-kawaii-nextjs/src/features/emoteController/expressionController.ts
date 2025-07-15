@@ -22,6 +22,7 @@ export class ExpressionController {
     preset: VRMExpressionPresetName;
     value: number;
   } | null;
+  private _emotionTimer: NodeJS.Timeout | null = null;
   constructor(vrm: VRM, camera: THREE.Object3D) {
     this._autoLookAt = new AutoLookAt(vrm, camera);
     this._currentEmotion = "neutral";
@@ -32,8 +33,14 @@ export class ExpressionController {
     }
   }
 
-  public playEmotion(preset: VRMExpressionPresetName, weight: number = 1) {
-    console.log(`[ExpressionController] playEmotion called:`, { preset, weight });
+  public playEmotion(preset: VRMExpressionPresetName, weight: number = 1, duration: number = 2000) {
+    console.log(`[ExpressionController] playEmotion called:`, { preset, weight, duration });
+    
+    // 既存のタイマーをクリア
+    if (this._emotionTimer) {
+      clearTimeout(this._emotionTimer);
+      this._emotionTimer = null;
+    }
     
     if (this._currentEmotion != "neutral") {
       console.log(`[ExpressionController] Resetting current emotion: ${this._currentEmotion}`);
@@ -49,16 +56,32 @@ export class ExpressionController {
 
     const t = this._autoBlink?.setEnable(false) || 0;
     this._currentEmotion = preset;
-    console.log(`[ExpressionController] Setting ${preset} expression with weight ${weight} after ${t}s`);
+    console.log(`[ExpressionController] Setting ${preset} expression with weight ${weight} after ${t}s, duration ${duration}ms`);
+    
     setTimeout(() => {
       console.log(`[ExpressionController] Applying ${preset} expression with weight ${weight}`);
       this._expressionManager?.setValue(preset, weight);
+      
+      // 指定時間後にニュートラルに戻す
+      this._emotionTimer = setTimeout(() => {
+        console.log(`[ExpressionController] Returning to neutral after ${duration}ms`);
+        this._expressionManager?.setValue(preset, 0);
+        this._autoBlink?.setEnable(true);
+        this._currentEmotion = "neutral";
+        this._emotionTimer = null;
+      }, duration);
     }, t * 1000);
   }
   
   // 複合感情の処理（複数の表情を同時に適用）
-  public playComplexEmotion(emotions: Array<{name: VRMExpressionPresetName, weight: number}>) {
-    console.log(`[ExpressionController] playComplexEmotion called:`, emotions);
+  public playComplexEmotion(emotions: Array<{name: VRMExpressionPresetName, weight: number}>, duration: number = 2000) {
+    console.log(`[ExpressionController] playComplexEmotion called:`, emotions, `duration: ${duration}ms`);
+    
+    // 既存のタイマーをクリア
+    if (this._emotionTimer) {
+      clearTimeout(this._emotionTimer);
+      this._emotionTimer = null;
+    }
     
     // 現在の感情をリセット
     if (this._currentEmotion != "neutral") {
@@ -76,6 +99,17 @@ export class ExpressionController {
         console.log(`[ExpressionController] Setting ${emotion.name} with weight ${emotion.weight}`);
         this._expressionManager?.setValue(emotion.name, emotion.weight);
       });
+      
+      // 指定時間後にニュートラルに戻す
+      this._emotionTimer = setTimeout(() => {
+        console.log(`[ExpressionController] Returning complex emotions to neutral after ${duration}ms`);
+        emotions.forEach(emotion => {
+          this._expressionManager?.setValue(emotion.name, 0);
+        });
+        this._autoBlink?.setEnable(true);
+        this._currentEmotion = "neutral";
+        this._emotionTimer = null;
+      }, duration);
     }, t * 1000);
     
     // 現在の感情を複合感情の主要なものに設定

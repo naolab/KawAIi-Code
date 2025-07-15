@@ -13,14 +13,14 @@ export class EmoteController {
     this._expressionController = new ExpressionController(vrm, camera);
   }
 
-  public playEmotion(preset: VRMExpressionPresetName, weight: number = 1) {
-    console.log(`[EmoteController] playEmotion called:`, { preset, weight });
-    this._expressionController.playEmotion(preset, weight);
+  public playEmotion(preset: VRMExpressionPresetName, weight: number = 1, duration: number = 2000) {
+    console.log(`[EmoteController] playEmotion called:`, { preset, weight, duration });
+    this._expressionController.playEmotion(preset, weight, duration);
   }
   
-  public playComplexEmotion(emotions: Array<{name: VRMExpressionPresetName, weight: number}>) {
-    console.log(`[EmoteController] playComplexEmotion called:`, emotions);
-    this._expressionController.playComplexEmotion(emotions);
+  public playComplexEmotion(emotions: Array<{name: VRMExpressionPresetName, weight: number}>, duration: number = 2000) {
+    console.log(`[EmoteController] playComplexEmotion called:`, emotions, `duration: ${duration}ms`);
+    this._expressionController.playComplexEmotion(emotions, duration);
   }
 
   public lipSync(preset: VRMExpressionPresetName, value: number) {

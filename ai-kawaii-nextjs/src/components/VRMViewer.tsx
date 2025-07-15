@@ -501,12 +501,12 @@ export default function VRMViewer({ className }: VRMViewerProps) {
         if (emotion.isComplex && emotion.emotions) {
           // 複合感情の処理
           debugLog('複合感情検出:', emotion.emotions)
-          console.log('[VRMViewer] Playing complex emotion:', emotion.emotions)
-          emoteControllerRef.current.playComplexEmotion(emotion.emotions)
+          console.log('[VRMViewer] Playing complex emotion:', emotion.emotions, 'duration:', emotion.duration || 2000)
+          emoteControllerRef.current.playComplexEmotion(emotion.emotions, emotion.duration || 2000)
         } else if (emotion.emotion) {
           // 単一感情の処理
-          console.log('[VRMViewer] Playing single emotion:', emotion.emotion, emotion.weight || 1)
-          emoteControllerRef.current.playEmotion(emotion.emotion, emotion.weight || 1)
+          console.log('[VRMViewer] Playing single emotion:', emotion.emotion, emotion.weight || 1, 'duration:', emotion.duration || 2000)
+          emoteControllerRef.current.playEmotion(emotion.emotion, emotion.weight || 1, emotion.duration || 2000)
         } else {
           console.warn('[VRMViewer] Invalid emotion data:', emotion)
         }
