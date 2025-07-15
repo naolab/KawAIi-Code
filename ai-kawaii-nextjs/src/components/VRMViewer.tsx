@@ -488,6 +488,23 @@ export default function VRMViewer({ className }: VRMViewerProps) {
         await lipSyncRef.current.playFromArrayBuffer(audioData)
       }
     }
+    
+    // 感情変更メソッドをグローバルに公開
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).setVRMEmotion = (emotion: any) => {
+      if (emoteControllerRef.current) {
+        debugLog('😊 VRM感情変更:', emotion)
+        
+        if (emotion.isComplex && emotion.emotions) {
+          // 複合感情の処理
+          debugLog('複合感情検出:', emotion.emotions)
+          emoteControllerRef.current.playComplexEmotion(emotion.emotions)
+        } else if (emotion.emotion) {
+          // 単一感情の処理
+          emoteControllerRef.current.playEmotion(emotion.emotion, emotion.weight || 1)
+        }
+      }
+    }
 
     // postMessageでElectronから音声データを受信
     const handleMessage = (event: MessageEvent) => {

@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { app } = require('electron');
+const EmotionAnalyzer = require('../src/emotionAnalyzer');
 
 // プロジェクトパス（環境変数から取得）
 const PROJECT_PATH = process.env.KAWAII_PROJECT_PATH || '/Users/nao/Desktop/develop/AI-Kawaii-Project';
@@ -25,6 +26,9 @@ class VoiceHookService {
         if (!fs.existsSync(this.tempDir)) {
             fs.mkdirSync(this.tempDir, { recursive: true });
         }
+        
+        // 感情分析器を初期化
+        this.emotionAnalyzer = new EmotionAnalyzer();
     }
 
     // 設定を読み込み
@@ -217,14 +221,19 @@ class VoiceHookService {
             // 音声データをファイルに保存
             fs.writeFileSync(filepath, Buffer.from(audioData));
             
-            // アプリに通知（音声再生+テキスト表示）
+            // 感情分析を実行
+            const emotion = this.emotionAnalyzer.analyzeEmotion(conversationText);
+            console.log('感情分析結果:', emotion);
+            
+            // アプリに通知（音声再生+テキスト表示+感情）
             const notification = {
                 type: 'voice-synthesis-hook',
                 filepath: filepath,
                 text: conversationText,
                 timestamp: timestamp,
                 character: 'shy',
-                showInChat: true // チャット画面に表示
+                showInChat: true, // チャット画面に表示
+                emotion: emotion  // 感情データを追加
             };
             
             // 通知ファイルを作成（アプリが監視）

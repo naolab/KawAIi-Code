@@ -1,5 +1,6 @@
 const axios = require('axios');
 const Logger = require('./utils/logger');
+const EmotionAnalyzer = require('./emotionAnalyzer');
 
 const logger = Logger.create('VoiceService');
 
@@ -32,6 +33,9 @@ class VoiceService {
             SYNTHESIS: 'synthesis',
             UNKNOWN: 'unknown'
         };
+        
+        // 感情分析器
+        this.emotionAnalyzer = new EmotionAnalyzer();
     }
 
     async checkConnection() {
@@ -303,7 +307,15 @@ class VoiceService {
                         }
                         
                         logger.debug('抽出した会話を返却 (最適化済み):', finalText.substring(0, 50) + '...');
-                        return finalText;
+                        
+                        // 感情分析を実行
+                        const emotion = this.emotionAnalyzer.analyzeEmotion(finalText);
+                        logger.info('感情分析結果:', emotion);
+                        
+                        return {
+                            text: finalText,
+                            emotion: emotion
+                        };
                     }
                 }
                 
@@ -322,7 +334,15 @@ class VoiceService {
         
         if (hasJapanese && isLongEnough) {
             logger.debug('✅ 一般的な日本語テキストとして返却:', trimmed.substring(0, 50) + '...');
-            return trimmed;
+            
+            // 感情分析を実行
+            const emotion = this.emotionAnalyzer.analyzeEmotion(trimmed);
+            logger.info('感情分析結果:', emotion);
+            
+            return {
+                text: trimmed,
+                emotion: emotion
+            };
         }
 
         logger.debug('⚠️ 有効なコンテンツが見つからずスキップ');

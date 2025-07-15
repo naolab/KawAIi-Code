@@ -41,6 +41,14 @@ wss.on('connection', (ws) => {
           audioData: data.audioData
         }));
         return;
+      } else if (data.type === 'emotion') {
+        debugLog('😊 感情データ受信:', data.emotion);
+        // VRMビューワーに感情データを送信
+        ws.send(JSON.stringify({
+          type: 'emotion',
+          emotion: data.emotion
+        }));
+        return;
       } else if (data.type === 'command') {
         debugLog('📝 コマンド受信:', data.command);
         

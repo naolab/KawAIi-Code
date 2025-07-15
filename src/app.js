@@ -1,10 +1,10 @@
 // xtermライブラリはCDNから読み込み
 
 // デバッグログ制御（本番環境でも有効）
-const isDev = true; // 常にデバッグログを有効化
-const debugLog = console.log;
-const debugTrace = console.trace;
-const debugError = console.error;
+const isDev = false; // デバッグログを無効化
+const debugLog = () => {}; // 何もしない関数
+const debugTrace = () => {}; // 何もしない関数
+const debugError = console.error; // エラーは引き続き表示
 
 // 統一設定管理システム（グローバル参照）
 // unifiedConfigはunified-config-manager.jsで既にグローバルに定義済み

@@ -41,6 +41,14 @@ export default function Terminal({ className }: TerminalProps) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (window as any).playAudioWithLipSync(audioBuffer)
               }
+            } else if (data.type === 'emotion' && data.emotion) {
+              // 感情データを受信してVRMの表情を変更
+              console.log('😊 感情データ受信:', data.emotion)
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              if ((window as any).setVRMEmotion) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (window as any).setVRMEmotion(data.emotion)
+              }
             } else if (data.message) {
               setOutput(prev => [...prev, data.message])
             }

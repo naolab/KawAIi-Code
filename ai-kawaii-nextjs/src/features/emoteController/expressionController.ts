@@ -32,7 +32,7 @@ export class ExpressionController {
     }
   }
 
-  public playEmotion(preset: VRMExpressionPresetName) {
+  public playEmotion(preset: VRMExpressionPresetName, weight: number = 1) {
     if (this._currentEmotion != "neutral") {
       this._expressionManager?.setValue(this._currentEmotion, 0);
     }
@@ -46,8 +46,29 @@ export class ExpressionController {
     const t = this._autoBlink?.setEnable(false) || 0;
     this._currentEmotion = preset;
     setTimeout(() => {
-      this._expressionManager?.setValue(preset, 1);
+      this._expressionManager?.setValue(preset, weight);
     }, t * 1000);
+  }
+  
+  // 複合感情の処理（複数の表情を同時に適用）
+  public playComplexEmotion(emotions: Array<{name: VRMExpressionPresetName, weight: number}>) {
+    // 現在の感情をリセット
+    if (this._currentEmotion != "neutral") {
+      this._expressionManager?.setValue(this._currentEmotion, 0);
+    }
+    
+    // まばたきを無効化
+    const t = this._autoBlink?.setEnable(false) || 0;
+    
+    // 複数の感情を同時に適用
+    setTimeout(() => {
+      emotions.forEach(emotion => {
+        this._expressionManager?.setValue(emotion.name, emotion.weight);
+      });
+    }, t * 1000);
+    
+    // 現在の感情を複合感情の主要なものに設定
+    this._currentEmotion = emotions[0].name;
   }
 
   public lipSync(preset: VRMExpressionPresetName, value: number) {
