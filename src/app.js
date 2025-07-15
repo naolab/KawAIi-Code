@@ -187,6 +187,9 @@ class TerminalApp {
         this.voiceVolume = 50; // デフォルト音量50%
         this.audioQueue = []; // { audioData, timestamp } の配列
         this.maxAudioAge = AppConstants.AUDIO.MAX_AGE;
+        
+        // WebSocket接続
+        this.vrmWebSocket = null;
         this.maxQueueSize = AppConstants.AUDIO.MAX_QUEUE_SIZE;
         this.chatMessages = [];
         this.lastChatMessage = '';
@@ -278,6 +281,58 @@ class TerminalApp {
         // 設定管理の初期化
         // configManagerに現在のclaudeWorkingDirを渡す
         await this.configManager.initialize(this.claudeWorkingDir);
+        
+        // WebSocket接続を初期化（少し遅らせる）
+        // 一時的に無効化 - 感情データはIPCで送信
+        // setTimeout(() => {
+        //     this.initializeWebSocket();
+        // }, 3000); // 3秒後に接続開始
+    }
+
+    // WebSocket接続の初期化
+    initializeWebSocket() {
+        try {
+            debugLog('🌐 WebSocket接続を初期化中...');
+            this.vrmWebSocket = new WebSocket('ws://localhost:8080');
+            
+            this.vrmWebSocket.onopen = () => {
+                debugLog('🌐 WebSocket接続成功');
+            };
+            
+            this.vrmWebSocket.onclose = () => {
+                debugLog('🌐 WebSocket接続が閉じられました');
+                // 5秒後に再接続
+                setTimeout(() => this.initializeWebSocket(), 5000);
+            };
+            
+            this.vrmWebSocket.onerror = (error) => {
+                debugLog('❌ WebSocket接続エラー:', error);
+                // エラー時も5秒後に再接続を試す
+                setTimeout(() => this.initializeWebSocket(), 5000);
+            };
+        } catch (error) {
+            debugLog('❌ WebSocket初期化エラー:', error);
+            // 初期化エラー時も5秒後に再接続を試す
+            setTimeout(() => this.initializeWebSocket(), 5000);
+        }
+    }
+
+    // 感情データをWebSocketに送信
+    sendEmotionToWebSocket(emotionData) {
+        if (this.vrmWebSocket && this.vrmWebSocket.readyState === WebSocket.OPEN) {
+            try {
+                const message = JSON.stringify({
+                    type: 'emotion',
+                    emotion: emotionData
+                });
+                this.vrmWebSocket.send(message);
+                debugLog('😊 感情データをWebSocketに送信:', emotionData);
+            } catch (error) {
+                debugLog('❌ 感情データ送信エラー:', error);
+            }
+        } else {
+            debugLog('❌ WebSocket接続が利用できません');
+        }
     }
 
     // Claude Code Hooks用ファイル監視を開始
@@ -333,6 +388,14 @@ class TerminalApp {
         if (notification.type === 'voice-synthesis-hook' && notification.filepath) {
             // 音声ファイルを再生
             this.playHookVoiceFile(notification.filepath, notification.text);
+            
+            // 感情データが含まれている場合はIPCで送信
+            if (notification.emotion) {
+                debugLog('😊 感情データをIPCで送信:', notification.emotion);
+                // IPCを使って感情データを送信
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.send('emotion-data', notification.emotion);
+            }
         }
     }
 

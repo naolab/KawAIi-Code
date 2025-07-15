@@ -492,17 +492,26 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     // 感情変更メソッドをグローバルに公開
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).setVRMEmotion = (emotion: any) => {
+      console.log('[VRMViewer] setVRMEmotion called:', emotion)
+      console.log('[VRMViewer] emoteControllerRef.current:', emoteControllerRef.current)
+      
       if (emoteControllerRef.current) {
         debugLog('😊 VRM感情変更:', emotion)
         
         if (emotion.isComplex && emotion.emotions) {
           // 複合感情の処理
           debugLog('複合感情検出:', emotion.emotions)
+          console.log('[VRMViewer] Playing complex emotion:', emotion.emotions)
           emoteControllerRef.current.playComplexEmotion(emotion.emotions)
         } else if (emotion.emotion) {
           // 単一感情の処理
+          console.log('[VRMViewer] Playing single emotion:', emotion.emotion, emotion.weight || 1)
           emoteControllerRef.current.playEmotion(emotion.emotion, emotion.weight || 1)
+        } else {
+          console.warn('[VRMViewer] Invalid emotion data:', emotion)
         }
+      } else {
+        console.error('[VRMViewer] emoteControllerRef.current is null')
       }
     }
 
@@ -515,6 +524,23 @@ export default function VRMViewer({ className }: VRMViewerProps) {
         const audioBuffer = new Uint8Array(event.data.audioData).buffer
         if (lipSyncRef.current) {
           lipSyncRef.current.playFromArrayBuffer(audioBuffer)
+        }
+      }
+      
+      if (event.data.type === 'emotion' && event.data.emotion) {
+        console.log('🎭 postMessageで感情データ受信:', event.data.emotion)
+        if (emoteControllerRef.current) {
+          // setVRMEmotionを呼び出して表情を変更
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if ((window as any).setVRMEmotion) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).setVRMEmotion(event.data.emotion)
+            console.log('🎭 setVRMEmotion呼び出し完了')
+          } else {
+            console.error('🎭 setVRMEmotion関数が見つかりません')
+          }
+        } else {
+          console.error('🎭 emoteControllerRef.current is null')
         }
       }
     }

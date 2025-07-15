@@ -71,6 +71,34 @@ function createWindow() {
     mainWindow.show();
   });
 
+  // デベロッパーツールを開く（デバッグ用）
+  // パッケージ版でもデバッグできるように常に開く
+  mainWindow.webContents.openDevTools();
+  
+  // Next.jsアプリのコンソールログをメインプロセスに転送
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[NextJS Console] ${message}`);
+  });
+  
+  // メニューバーからdevToolsを開けるようにする
+  const { Menu } = require('electron');
+  const template = [
+    {
+      label: 'Debug',
+      submenu: [
+        {
+          label: 'Toggle DevTools',
+          accelerator: 'F12',
+          click: () => {
+            mainWindow.webContents.toggleDevTools();
+          }
+        }
+      ]
+    }
+  ];
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
     if (terminalProcess) {
@@ -109,6 +137,14 @@ async function startNextjsServer() {
       env: { 
         ...process.env
       }
+    });
+    
+    // WebSocketサーバーが起動するまで待機
+    await new Promise((resolve) => {
+      setTimeout(() => {
+        infoLog('WebSocketサーバー起動待機完了');
+        resolve();
+      }, 5000); // 5秒待機に延長
     });
 
     websocketProcess.stdout.on('data', (data) => {
@@ -472,6 +508,16 @@ ipcMain.handle('voice-stop', () => {
     return { success: true };
   }
   return { success: false, error: 'Main window not available' };
+});
+
+// 感情データの転送用IPCハンドラー
+ipcMain.on('emotion-data', (event, emotionData) => {
+  debugLog('😊 感情データを受信:', emotionData);
+  if (mainWindow) {
+    // Next.jsアプリに感情データを送信
+    mainWindow.webContents.send('emotion-data', emotionData);
+    debugLog('😊 感情データをNext.jsアプリに転送完了');
+  }
 });
 
 // Hook通知監視機能

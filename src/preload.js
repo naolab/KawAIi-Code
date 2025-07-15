@@ -53,11 +53,15 @@ window.electronAPI = {
     onShowHookConversation: (callback) => {
       ipcRenderer.on('show-hook-conversation', (event, data) => callback(data));
     },
+    onEmotionData: (callback) => {
+      ipcRenderer.on('emotion-data', (event, emotionData) => callback(emotionData));
+    },
     removeAllListeners: () => {
       ipcRenderer.removeAllListeners('voice-text-available');
       ipcRenderer.removeAllListeners('play-audio');
       ipcRenderer.removeAllListeners('stop-audio');
       ipcRenderer.removeAllListeners('show-hook-conversation');
+      ipcRenderer.removeAllListeners('emotion-data');
     }
   },
   vrm: {
