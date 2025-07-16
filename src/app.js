@@ -498,37 +498,22 @@ class TerminalApp {
     // 起動時音声ファイルクリーンアップ
     cleanupStartupAudioFiles() {
         try {
-            const fs = require('fs');
-            const path = require('path');
-            const tempDir = path.join(__dirname, '..', 'temp');
-            if (!fs.existsSync(tempDir)) {
-                return;
+            const AudioFileCleanup = require('./modules/audio-file-cleanup');
+            const cleanup = new AudioFileCleanup();
+            const result = cleanup.cleanupAllFiles();
+            
+            if (result.filesRemoved > 0) {
+                debugLog(`🧹 起動時音声ファイルクリーンアップ完了: ${result.filesRemoved}個のファイル削除`);
             }
             
-            // 音声ファイルとnotificationファイルを削除
-            const files = fs.readdirSync(tempDir);
-            const audioFiles = files.filter(f => 
-                f.startsWith('voice_') && f.endsWith('.wav') ||
-                f.startsWith('notification_') && f.endsWith('.json')
-            );
-            
-            if (audioFiles.length > 0) {
-                debugLog(`🧹 起動時音声ファイルクリーンアップ開始: ${audioFiles.length}個のファイル`);
-                
-                for (const file of audioFiles) {
-                    const filePath = path.join(tempDir, file);
-                    try {
-                        fs.unlinkSync(filePath);
-                        debugLog(`🗑️ 削除完了: ${file}`);
-                    } catch (error) {
-                        debugLog(`❌ ファイル削除失敗: ${file}`, error);
-                    }
-                }
-                
-                debugLog('✅ 起動時音声ファイルクリーンアップ完了');
+            if (!result.success && result.error) {
+                debugLog('❌ 起動時クリーンアップエラー:', result.error);
             }
+            
+            return result;
         } catch (error) {
             debugLog('❌ 起動時音声ファイルクリーンアップエラー:', error);
+            return { success: false, error: error.message };
         }
     }
 

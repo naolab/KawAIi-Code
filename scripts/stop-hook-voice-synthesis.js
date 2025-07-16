@@ -16,32 +16,21 @@ class VoiceStopService {
     // 音声ファイルとnotificationファイルを削除
     cleanupAudioFiles() {
         try {
-            if (!fs.existsSync(this.tempDir)) {
-                console.log('📁 Tempディレクトリが存在しません');
-                return { success: true, filesRemoved: 0 };
+            const AudioFileCleanup = require('../src/modules/audio-file-cleanup');
+            const cleanup = new AudioFileCleanup(this.tempDir);
+            const result = cleanup.cleanupAllFiles(); // 全ファイル削除
+            
+            if (result.filesRemoved > 0) {
+                console.log(`🗑️ 削除完了: ${result.filesRemoved}個のファイル`);
+            } else {
+                console.log('📁 削除対象ファイルなし');
             }
             
-            const files = fs.readdirSync(this.tempDir);
-            const audioFiles = files.filter(f => 
-                (f.startsWith('voice_') && f.endsWith('.wav')) ||
-                (f.startsWith('notification_') && f.endsWith('.json'))
-            );
-            
-            console.log(`🗑️  削除対象ファイル: ${audioFiles.length}個`);
-            
-            let removedCount = 0;
-            for (const file of audioFiles) {
-                const filePath = path.join(this.tempDir, file);
-                try {
-                    fs.unlinkSync(filePath);
-                    console.log(`✅ 削除完了: ${file}`);
-                    removedCount++;
-                } catch (error) {
-                    console.error(`❌ ファイル削除失敗: ${file}`, error.message);
-                }
+            if (!result.success && result.error) {
+                console.error('❌ クリーンアップエラー:', result.error);
             }
             
-            return { success: true, filesRemoved: removedCount };
+            return result;
         } catch (error) {
             console.error('❌ 音声ファイルクリーンアップエラー:', error.message);
             return { success: false, error: error.message };

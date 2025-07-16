@@ -182,47 +182,22 @@ class VoiceHookService {
     // 古いファイルを削除（最新1件以外）
     cleanupOldFiles() {
         try {
-            if (!fs.existsSync(this.tempDir)) {
-                return;
+            const AudioFileCleanup = require('../src/modules/audio-file-cleanup');
+            const cleanup = new AudioFileCleanup(this.tempDir);
+            const result = cleanup.cleanupOldFiles(1); // 最新1件を残す
+            
+            if (result.filesRemoved > 0) {
+                console.log(`🗑️ 古いファイル削除完了: ${result.filesRemoved}個`);
             }
             
-            const files = fs.readdirSync(this.tempDir);
-            const voiceFiles = files.filter(f => f.startsWith('voice_') && f.endsWith('.wav'));
-            const notificationFiles = files.filter(f => f.startsWith('notification_') && f.endsWith('.json'));
-            
-            // 最新以外のvoiceファイルを削除
-            if (voiceFiles.length > 1) {
-                const sortedVoiceFiles = voiceFiles.sort();
-                const filesToDelete = sortedVoiceFiles.slice(0, -1); // 最新1件以外
-                
-                for (const file of filesToDelete) {
-                    const filePath = path.join(this.tempDir, file);
-                    try {
-                        fs.unlinkSync(filePath);
-                        console.log(`🗑️ 古い音声ファイル削除: ${file}`);
-                    } catch (deleteError) {
-                        console.warn(`ファイル削除失敗: ${file}`, deleteError.message);
-                    }
-                }
+            if (!result.success && result.errors) {
+                result.errors.forEach(error => console.warn(error));
             }
             
-            // 最新以外のnotificationファイルを削除
-            if (notificationFiles.length > 1) {
-                const sortedNotificationFiles = notificationFiles.sort();
-                const filesToDelete = sortedNotificationFiles.slice(0, -1); // 最新1件以外
-                
-                for (const file of filesToDelete) {
-                    const filePath = path.join(this.tempDir, file);
-                    try {
-                        fs.unlinkSync(filePath);
-                        console.log(`🗑️ 古い通知ファイル削除: ${file}`);
-                    } catch (deleteError) {
-                        console.warn(`ファイル削除失敗: ${file}`, deleteError.message);
-                    }
-                }
-            }
+            return result;
         } catch (error) {
             console.error('古いファイル削除エラー:', error);
+            return { success: false, error: error.message };
         }
     }
 
