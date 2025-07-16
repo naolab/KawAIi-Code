@@ -369,7 +369,8 @@ class UnifiedConfigManager {
                         value = JSON.parse(item);
                     } catch (parseError) {
                         // パースに失敗した場合、生の文字列をそのまま使用
-                        UnifiedConfig_errorLog('Migration parse error, using raw value:', { key, item, parseError });
+                        // 文字列値の場合は正常なので、debugレベルでログ出力
+                        UnifiedConfig_debugLog('Migration: using raw string value', { key, item });
                         value = item;
                     }
                     

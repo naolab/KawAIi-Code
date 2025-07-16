@@ -257,7 +257,21 @@ class VoiceHookService {
             console.log('====== Hook処理開始 ======');
             console.log('実行時刻:', new Date().toISOString());
             
+            // 処理開始時に必ず設定を読み込み
+            if (!this.configLoaded) {
+                console.log('設定を読み込み中...');
+                await this.loadConfig();
+                this.configLoaded = true;
+            }
+            
             // 設定確認
+            console.log('設定確認:', { 
+                voiceEnabled: this.voiceEnabled, 
+                useHooks: this.useHooks,
+                configLoaded: this.configLoaded,
+                voiceInterval: this.voiceInterval
+            });
+            
             if (!this.voiceEnabled || !this.useHooks) {
                 console.log('音声合成またはフック機能が無効です');
                 return;
