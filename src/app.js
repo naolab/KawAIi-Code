@@ -212,17 +212,18 @@ class TerminalApp {
         this.connectionStatus = 'disconnected';
         this.isPlayingHookAudio = false; // Hook音声再生中フラグ
         this.speakers = [];
-        this.audioContext = null;
-        this.currentAudio = null;
-        this.isPlaying = false;
+        // 従来音声システムは削除（Hook音声のみ使用）
+        // this.audioContext = null; // 削除
+        // this.currentAudio = null; // 削除
+        // this.isPlaying = false; // 削除（Hook用のisPlayingHookAudioのみ使用）
         this.voiceIntervalSeconds = AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS;
         this.voiceVolume = 50; // デフォルト音量50%
-        this.audioQueue = []; // { audioData, timestamp } の配列
-        this.maxAudioAge = AppConstants.AUDIO.MAX_AGE;
+        // this.audioQueue = []; // 削除
+        // this.maxAudioAge = AppConstants.AUDIO.MAX_AGE; // 削除
         
         // WebSocket接続
         this.vrmWebSocket = null;
-        this.maxQueueSize = AppConstants.AUDIO.MAX_QUEUE_SIZE;
+        // this.maxQueueSize = AppConstants.AUDIO.MAX_QUEUE_SIZE; // 削除
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
@@ -734,13 +735,14 @@ class TerminalApp {
     // 音声再生完了を待機する関数
     async waitForAudioComplete() {
         return new Promise(resolve => {
-            if (!this.isPlaying && this.audioQueue.length === 0) {
+            // Hook音声再生中かチェック
+            if (!this.isPlayingHookAudio) {
                 resolve();
                 return;
             }
             
             const checkComplete = () => {
-                if (!this.isPlaying && this.audioQueue.length === 0) {
+                if (!this.isPlayingHookAudio) {
                     debugLog('🎵 音声再生完了を確認');
                     resolve();
                 } else {
@@ -1416,174 +1418,15 @@ class TerminalApp {
         }
     }
 
-    async playAudio(audioData) {
-        debugLog('🎵 playAudio called with data size:', audioData?.length || audioData?.byteLength || 'unknown');
-        
-        // 古い音声をクリーンアップ
-        this.cleanOldAudio();
-        
-        // 既に再生中の場合はキューに追加（タイムスタンプ付き）
-        if (this.isPlaying) {
-            // キューサイズ制限チェック
-            if (this.audioQueue.length >= this.maxQueueSize) {
-                // 古いアイテムを削除してスペースを確保
-                const removedItem = this.audioQueue.shift();
-                debugLog('🗑️ Queue full, removed oldest item. Queue length:', this.audioQueue.length);
-            }
-            
-            this.audioQueue.push({
-                audioData: audioData,
-                timestamp: Date.now()
-            });
-            debugLog('🎵 Audio queued, queue length:', this.audioQueue.length);
-            return;
-        }
 
-        try {
-            // Create audio context if not exists
-            if (!this.audioContext) {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                // Resume audio context if suspended
-                if (this.audioContext.state === 'suspended') {
-                    await this.audioContext.resume();
-                }
-            }
 
-            // ProcessingCacheによる最適化された音声データ処理
-            const { arrayBuffer, sharedBuffer } = this.processingCache.optimizedAudioProcessing(audioData);
 
-            // Decode audio data
-            debugLog('🎵 Decoding audio data, size:', arrayBuffer.byteLength);
-            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-            debugLog('🎵 Audio decoded successfully, duration:', audioBuffer.duration, 'seconds');
-            
-            const source = this.audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            
-            // 音量コントロールを追加
-            const gainNode = this.audioContext.createGain();
-            gainNode.gain.value = this.voiceVolume / 100; // 0-100を0.0-1.0に変換
-            
-            source.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
-            
-            source.onended = () => {
-                debugLog('🎵 Audio playback ended');
-                this.currentAudio = null;
-                this.isPlaying = false;
-                
-                // 音声終了をVRMビューワーに通知
-                this.notifyAudioStateToVRM('ended');
-                
-                // 音声再生完了時に間隔制御の基準時間を更新
-                this.lastSpeechTime = Date.now();
-                debugLog('🔇 Updated lastSpeechTime for cooldown control');
-                
-                // 次のキューを処理
-                this.processAudioQueue();
-            };
 
-            // VRMビューワーに音声データを送信（共有バッファを使用）
-            this.sendAudioToVRM(sharedBuffer);
-            
-            this.currentAudio = source;
-            this.isPlaying = true;
-            debugLog('🎵 Starting audio playback...');
-            
-            // 音声開始をVRMビューワーに通知
-            this.notifyAudioStateToVRM('started');
-            
-            source.start();
-        } catch (error) {
-            debugError('Failed to play audio:', error);
-            this.isPlaying = false;
-        }
-    }
-
-    // 古い音声をクリーンアップ
-    cleanOldAudio() {
-        const oldLength = this.audioQueue.length;
-        
-        // ResourceManagerによる時間ベース削除
-        const removedByAge = this.resourceManager.removeOldItems(
-            this.audioQueue, 
-            this.maxAudioAge, 
-            'timestamp'
-        );
-        
-        // ResourceManagerによるサイズ制限
-        const removedBySize = this.resourceManager.limitArraySize(
-            this.audioQueue, 
-            this.maxQueueSize, 
-            'audio items'
-        );
-        
-        const newLength = this.audioQueue.length;
-        if (oldLength !== newLength) {
-            debugLog('🧹 Cleaned audio queue:', {
-                removed: removedByAge + removedBySize,
-                remaining: newLength,
-                maxAge: this.maxAudioAge / 1000 + 's',
-                maxSize: this.maxQueueSize
-            });
-        }
-    }
-
-    processAudioQueue() {
-        // 処理前にもクリーンアップ
-        this.cleanOldAudio();
-        
-        if (this.audioQueue.length > 0 && !this.isPlaying) {
-            debugLog('🎵 Processing queue, items:', this.audioQueue.length);
-            
-            // 前の音声から設定可能間隔を確保
-            const timeSinceLastSpeech = Date.now() - this.lastSpeechTime;
-            const requiredInterval = (this.voiceIntervalSeconds || AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS) * 1000; // 設定可能間隔
-            
-            if (timeSinceLastSpeech < requiredInterval) {
-                const remainingWait = requiredInterval - timeSinceLastSpeech;
-                debugLog(`⏰ キュー処理待機: ${remainingWait}ms後に次の音声を再生`);
-                
-                setTimeout(() => {
-                    this.processAudioQueue();
-                }, remainingWait);
-                return;
-            }
-            
-            const nextItem = this.audioQueue.shift();
-            this.playAudio(nextItem.audioData);
-        }
-    }
-
-    stopAudio() {
-        if (this.currentAudio) {
-            this.currentAudio.stop();
-            this.currentAudio = null;
-            this.isPlaying = false;
-            // キューもクリア
-            const queueLength = this.audioQueue.length;
-            this.audioQueue = [];
-            debugLog('🛑 Audio stopped and queue cleared:', queueLength, 'items removed');
-        }
-        // lastSpeechTimeはリセットしない（間隔制御を維持）
-    }
-
-    // 🔧 追加機能: キューの状態を取得
-    getAudioQueueStatus() {
-        return {
-            length: this.audioQueue.length,
-            maxSize: this.maxQueueSize,
-            maxAge: this.maxAudioAge,
-            isPlaying: this.isPlaying,
-            oldestTimestamp: this.audioQueue.length > 0 ? this.audioQueue[0].timestamp : null
-        };
-    }
 
     async stopVoice() {
         if (window.electronAPI && window.electronAPI.voice) {
             try {
                 await window.electronAPI.voice.stop();
-                this.stopAudio();
             } catch (error) {
                 debugError('Failed to stop voice:', error);
             }
