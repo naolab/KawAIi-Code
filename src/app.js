@@ -34,9 +34,7 @@ function getSafeUnifiedConfig() {
                 console.error('LocalStorage保存エラー:', error);
             }
         },
-        async migrateFromLocalStorage() {
-            return 0; // フォールバック時は移行処理はスキップ
-        }
+        // マイグレーション機能は削除済み
     };
 }
 
@@ -221,8 +219,6 @@ class TerminalApp {
         // this.audioQueue = []; // 削除
         // this.maxAudioAge = AppConstants.AUDIO.MAX_AGE; // 削除
         
-        // WebSocket接続
-        this.vrmWebSocket = null;
         // this.maxQueueSize = AppConstants.AUDIO.MAX_QUEUE_SIZE; // 削除
         this.chatMessages = [];
         this.lastChatMessage = '';
@@ -230,7 +226,6 @@ class TerminalApp {
         this.currentRunningAI = null; // 現在起動しているAIの種類を保持
         
         // VRM口パク用通信（postMessage使用）
-        this.vrmWebSocket = null;
         
         // パフォーマンス最適化用（チャンク結合方式に変更）
         this.messageAccumulator = new MessageAccumulator();
@@ -315,58 +310,9 @@ class TerminalApp {
         // configManagerに現在のclaudeWorkingDirを渡す
         await this.configManager.initialize(this.claudeWorkingDir);
         
-        // WebSocket接続を初期化（少し遅らせる）
-        // 一時的に無効化 - 感情データはIPCで送信
-        // setTimeout(() => {
-        //     this.initializeWebSocket();
-        // }, 3000); // 3秒後に接続開始
     }
 
-    // WebSocket接続の初期化
-    initializeWebSocket() {
-        try {
-            debugLog('🌐 WebSocket接続を初期化中...');
-            this.vrmWebSocket = new WebSocket('ws://localhost:8080');
-            
-            this.vrmWebSocket.onopen = () => {
-                debugLog('🌐 WebSocket接続成功');
-            };
-            
-            this.vrmWebSocket.onclose = () => {
-                debugLog('🌐 WebSocket接続が閉じられました');
-                // 5秒後に再接続
-                setTimeout(() => this.initializeWebSocket(), 5000);
-            };
-            
-            this.vrmWebSocket.onerror = (error) => {
-                debugLog('❌ WebSocket接続エラー:', error);
-                // エラー時も5秒後に再接続を試す
-                setTimeout(() => this.initializeWebSocket(), 5000);
-            };
-        } catch (error) {
-            debugLog('❌ WebSocket初期化エラー:', error);
-            // 初期化エラー時も5秒後に再接続を試す
-            setTimeout(() => this.initializeWebSocket(), 5000);
-        }
-    }
 
-    // 感情データをWebSocketに送信
-    sendEmotionToWebSocket(emotionData) {
-        if (this.vrmWebSocket && this.vrmWebSocket.readyState === WebSocket.OPEN) {
-            try {
-                const message = JSON.stringify({
-                    type: 'emotion',
-                    emotion: emotionData
-                });
-                this.vrmWebSocket.send(message);
-                debugLog('😊 感情データをWebSocketに送信:', emotionData);
-            } catch (error) {
-                debugLog('❌ 感情データ送信エラー:', error);
-            }
-        } else {
-            debugLog('❌ WebSocket接続が利用できません');
-        }
-    }
 
     // Claude Code Hooks用ファイル監視を開始
     startHookFileWatcher() {
@@ -1096,12 +1042,7 @@ class TerminalApp {
             }
         }
 
-        // 既存データの自動マイグレーション実行
-        const config = getSafeUnifiedConfig();
-        const migratedCount = await config.migrateFromLocalStorage();
-        if (migratedCount > 0) {
-            debugLog(`Configuration migration completed: ${migratedCount} settings migrated`);
-        }
+        // マイグレーション機能は削除済み
 
         // 現在の設定を統一設定システムに保存（読み込みは初期化時のみ）
         await config.set('voiceEnabled', this.voiceEnabled);

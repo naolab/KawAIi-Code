@@ -348,51 +348,7 @@ class UnifiedConfigManager {
         return 'runtime';
     }
     
-    // 既存システムからの移行用メソッド
-    async migrateFromLocalStorage() {
-        await this.initialize();
-        
-        const localStorageKeys = [
-            'voiceEnabled', 'selectedSpeaker', 'claudeWorkingDir',
-            'selectedWallpaperChoice', 'wallpaperAnimationEnabled', 'lastUploadedWallpaper',
-            'speech_history'
-        ];
-        
-        let migratedCount = 0;
-        
-        for (const key of localStorageKeys) {
-            let value = null;
-            try {
-                const item = localStorage.getItem(key);
-                if (item !== null) {
-                    try {
-                        // JSONとしてパースを試みる
-                        value = JSON.parse(item);
-                    } catch (parseError) {
-                        // パースに失敗した場合、生の文字列をそのまま使用
-                        // 文字列値の場合は正常なので、debugレベルでログ出力
-                        UnifiedConfig_debugLog('Migration: using raw string value', { key, item });
-                        value = item;
-                    }
-                    
-                    // 既存の設定がない場合のみ移行
-                    if (!(await this.has(key))) {
-                        await this.set(key, value);
-                        migratedCount++;
-                        UnifiedConfig_infoLog('Migrated from localStorage', { key, value });
-                    }
-                }
-            } catch (error) {
-                UnifiedConfig_errorLog('Migration process error', { key, error });
-            }
-        }
-        
-        if (migratedCount > 0) {
-            UnifiedConfig_infoLog(`Migration completed: ${migratedCount} settings migrated`);
-        }
-        
-        return migratedCount;
-    }
+    // マイグレーション機能は削除済み
 
     // 全設定のクリア（開発・テスト用）
     async clearAllConfig() {
