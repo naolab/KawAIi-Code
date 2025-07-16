@@ -397,6 +397,12 @@ class TerminalApp {
                 ipcRenderer.send('emotion-data', notification.emotion);
             }
         }
+        
+        // 音声停止通知の処理
+        if (notification.type === 'stop-audio') {
+            debugLog('🛑 音声停止通知受信:', notification);
+            this.stopAudio();
+        }
     }
 
     // Hook音声ファイルを再生
