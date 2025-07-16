@@ -310,6 +310,37 @@ class TerminalApp {
         // configManagerに現在のclaudeWorkingDirを渡す
         await this.configManager.initialize(this.claudeWorkingDir);
         
+        // IPCからのHook通知受信設定
+        this.setupHookIPCListeners();
+    }
+
+    // IPCからのHook通知受信を設定
+    setupHookIPCListeners() {
+        const { ipcRenderer } = require('electron');
+        
+        // Hook音声再生通知を受信
+        ipcRenderer.on('hook-audio-play', (event, data) => {
+            debugLog('🎵 IPCからHook音声再生通知受信:', data.text?.substring(0, 30) + '...');
+            this.playHookVoiceFile(data.filepath, data.text);
+            
+            // 感情データがある場合は処理
+            if (data.emotion) {
+                debugLog('😊 Hook音声と共に感情データ受信:', data.emotion);
+                ipcRenderer.send('emotion-data', data.emotion);
+            }
+        });
+        
+        // Hook音声停止通知を受信
+        ipcRenderer.on('hook-audio-stop', () => {
+            debugLog('🛑 IPCからHook音声停止通知受信');
+            // Hook音声停止処理（必要に応じて実装）
+            if (this.isPlayingHookAudio) {
+                // 現在の音声を停止する処理をここに追加
+                debugLog('🛑 Hook音声停止実行');
+            }
+        });
+        
+        debugLog('🔔 Hook IPC listeners setup completed');
     }
 
 
@@ -327,10 +358,10 @@ class TerminalApp {
             fs.mkdirSync(tempDir, { recursive: true });
         }
         
-        // 定期的にnotificationファイルをチェック
+        // 定期的にnotificationファイルをチェック（IPCがメインなので頻度を下げる）
         this.resourceManager.setInterval(() => {
             this.checkForHookNotifications(tempDir);
-        }, 1000); // 1秒間隔
+        }, 5000); // 5秒間隔に変更（CPU負荷軽減）
     }
 
     // Hook通知ファイルをチェック

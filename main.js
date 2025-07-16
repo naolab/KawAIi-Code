@@ -520,6 +520,51 @@ ipcMain.on('emotion-data', (event, emotionData) => {
   }
 });
 
+// Hook通知の直接受信用IPCハンドラー（ファイルベース通知の代替）
+ipcMain.on('hook-notification', (event, notification) => {
+  debugLog('🔔 Hook通知をIPCで受信:', notification);
+  
+  if (notification.type === 'voice-synthesis-hook' && notification.filepath) {
+    try {
+      // 音声ファイルが存在することを確認
+      if (fs.existsSync(notification.filepath)) {
+        // 音声ファイルを読み込んでレンダラープロセスに送信
+        const audioData = fs.readFileSync(notification.filepath);
+        if (mainWindow) {
+          mainWindow.webContents.send('hook-audio-play', {
+            audioData: audioData,
+            filepath: notification.filepath,
+            text: notification.text,
+            emotion: notification.emotion
+          });
+          debugLog('🎵 Hook音声再生をIPCで送信:', notification.text?.substring(0, 30) + '...');
+          
+          // テキスト表示機能
+          if (notification.showInChat && notification.text) {
+            mainWindow.webContents.send('show-hook-conversation', {
+              text: notification.text,
+              character: notification.character || 'shy',
+              timestamp: notification.timestamp
+            });
+            debugLog('💬 Hook会話表示をIPCで送信:', notification.text);
+          }
+        }
+      } else {
+        errorLog('❌ Hook音声ファイルが見つかりません:', notification.filepath);
+      }
+    } catch (error) {
+      errorLog('❌ Hook音声処理エラー:', error);
+    }
+  }
+  
+  if (notification.type === 'stop-audio') {
+    debugLog('🛑 音声停止通知をIPCで受信');
+    if (mainWindow) {
+      mainWindow.webContents.send('hook-audio-stop');
+    }
+  }
+});
+
 // Hook通知監視機能
 let hookNotificationWatcher = null;
 
