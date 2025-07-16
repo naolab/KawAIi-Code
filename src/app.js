@@ -9,6 +9,37 @@ const debugError = console.error; // エラーは引き続き表示
 // 統一設定管理システム（グローバル参照）
 // unifiedConfigはunified-config-manager.jsで既にグローバルに定義済み
 
+// 統一設定システムへの安全なアクセス関数
+function getSafeUnifiedConfig() {
+    if (window.unifiedConfig) {
+        return window.unifiedConfig;
+    }
+    
+    // フォールバック: 統一設定システムが利用できない場合の簡易実装
+    console.warn('⚠️ 統一設定システムが利用できません - フォールバック機能を使用');
+    return {
+        async get(key, defaultValue) {
+            try {
+                const value = localStorage.getItem(key);
+                return value !== null ? JSON.parse(value) : defaultValue;
+            } catch (error) {
+                console.error('LocalStorage読み込みエラー:', error);
+                return defaultValue;
+            }
+        },
+        async set(key, value) {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (error) {
+                console.error('LocalStorage保存エラー:', error);
+            }
+        },
+        async migrateFromLocalStorage() {
+            return 0; // フォールバック時は移行処理はスキップ
+        }
+    };
+}
+
 // 読み上げ履歴管理クラス - modules/speech-history-manager.js に移動済み
 
 // メッセージチャンク結合クラス
@@ -268,8 +299,8 @@ class TerminalApp {
     // モジュール初期化
     async initializeModules() {
         // MessageAccumulatorのコールバック設定
-        this.messageAccumulator.setProcessCallback((data) => {
-            this.parseTerminalDataForChat(data);
+        this.messageAccumulator.setProcessCallback(async (data) => {
+            await this.parseTerminalDataForChat(data);
         });
         
         // 壁紙システムの初期化
@@ -429,7 +460,7 @@ class TerminalApp {
             
             // 音声ファイルを再生
             const audio = new Audio(filepath);
-            const volumeValue = unifiedConfig.get('voiceVolume', 50);
+            const volumeValue = await getSafeUnifiedConfig().get('voiceVolume', 50);
             const safeVolume = isNaN(volumeValue) ? 50 : volumeValue;
             audio.volume = Math.max(0, Math.min(1, safeVolume / 100));
             
@@ -508,10 +539,11 @@ class TerminalApp {
         this.cleanupStartupAudioFiles();
         
         // 統一設定システムから設定を読み込み（起動時のみ）
-        this.voiceEnabled = await unifiedConfig.get('voiceEnabled', this.voiceEnabled);
-        this.selectedSpeaker = await unifiedConfig.get('selectedSpeaker', this.selectedSpeaker);
-        this.voiceIntervalSeconds = await unifiedConfig.get('voiceIntervalSeconds', this.voiceIntervalSeconds);
-        this.voiceVolume = await unifiedConfig.get('voiceVolume', this.voiceVolume);
+        const config = getSafeUnifiedConfig();
+        this.voiceEnabled = await config.get('voiceEnabled', this.voiceEnabled);
+        this.selectedSpeaker = await config.get('selectedSpeaker', this.selectedSpeaker);
+        this.voiceIntervalSeconds = await config.get('voiceIntervalSeconds', this.voiceIntervalSeconds);
+        this.voiceVolume = await config.get('voiceVolume', this.voiceVolume);
         
         debugLog('Initial settings loaded:', {
             voiceEnabled: this.voiceEnabled,
@@ -635,12 +667,12 @@ class TerminalApp {
         return this.messageAccumulator.getStatus();
     }
 
-    parseTerminalDataForChat(data) {
+    async parseTerminalDataForChat(data) {
         try {
             debugLog('🔍 parseTerminalDataForChat 開始 - 入力データ長:', data.length);
             
             // Hook機能が有効な場合は従来の処理をスキップ
-            if (unifiedConfig.get('useHooks', false)) {
+            if (await getSafeUnifiedConfig().get('useHooks', false)) {
                 debugLog('🔄 Hook機能が有効なため、従来の音声合成処理をスキップ');
                 return;
             }
@@ -1046,19 +1078,20 @@ class TerminalApp {
         }
 
         // 既存データの自動マイグレーション実行
-        const migratedCount = await unifiedConfig.migrateFromLocalStorage();
+        const config = getSafeUnifiedConfig();
+        const migratedCount = await config.migrateFromLocalStorage();
         if (migratedCount > 0) {
             debugLog(`Configuration migration completed: ${migratedCount} settings migrated`);
         }
 
         // 現在の設定を統一設定システムに保存（読み込みは初期化時のみ）
-        await unifiedConfig.set('voiceEnabled', this.voiceEnabled);
-        await unifiedConfig.set('selectedSpeaker', this.selectedSpeaker);
+        await config.set('voiceEnabled', this.voiceEnabled);
+        await config.set('selectedSpeaker', this.selectedSpeaker);
 
         // 壁紙設定の復元は WallpaperSystem モジュールで処理
 
         if (this.claudeWorkingDir) {
-            await unifiedConfig.set('claudeWorkingDir', this.claudeWorkingDir);
+            await config.set('claudeWorkingDir', this.claudeWorkingDir);
         }
     }
 

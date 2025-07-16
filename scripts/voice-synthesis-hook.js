@@ -19,8 +19,8 @@ class VoiceHookService {
         // ファイルベース重複チェック用
         this.lastNotificationPath = null;
         
-        // 設定読み込み
-        this.loadConfig();
+        // 設定読み込み（非同期なので後で呼び出し）
+        this.configLoaded = false;
         
         // 一時ディレクトリ作成
         if (!fs.existsSync(this.tempDir)) {
@@ -31,28 +31,46 @@ class VoiceHookService {
         this.emotionAnalyzer = new EmotionAnalyzer();
     }
 
-    // 設定を読み込み
-    loadConfig() {
+    // 設定を読み込み（統一設定システム使用）
+    async loadConfig() {
         try {
-            const configPath = path.join(require('os').homedir(), '.kawaii-code-config', 'config.json');
-            if (fs.existsSync(configPath)) {
-                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                this.voiceEnabled = config.voiceEnabled !== false;
-                this.selectedSpeaker = config.defaultSpeakerId || 0;
-                this.useHooks = config.useHooks !== false; // デフォルトはtrue
-                this.voiceInterval = config.voiceInterval || 3; // 音声読み上げ間隔（デフォルト3秒）
-            } else {
+            // 統一設定システムから設定を読み込み（require文を修正）
+            const { unifiedConfig } = require('../src/modules/unified-config-manager');
+            
+            this.voiceEnabled = await unifiedConfig.get('voiceEnabled', true);
+            this.selectedSpeaker = await unifiedConfig.get('defaultSpeakerId', 0);
+            this.useHooks = await unifiedConfig.get('useHooks', true);
+            this.voiceInterval = await unifiedConfig.get('voiceIntervalSeconds', 3);
+            
+            console.log('統一設定から音声設定を読み込み成功:', {
+                voiceEnabled: this.voiceEnabled,
+                selectedSpeaker: this.selectedSpeaker,
+                useHooks: this.useHooks,
+                voiceInterval: this.voiceInterval
+            });
+        } catch (error) {
+            console.error('統一設定読み込みエラー - フォールバック処理:', error.message);
+            
+            // フォールバック: 従来のconfig.json読み込み
+            try {
+                const configPath = path.join(require('os').homedir(), '.kawaii-code-config', 'config.json');
+                if (fs.existsSync(configPath)) {
+                    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                    this.voiceEnabled = config.voiceEnabled !== false;
+                    this.selectedSpeaker = config.defaultSpeakerId || 0;
+                    this.useHooks = config.useHooks !== false;
+                    this.voiceInterval = config.voiceInterval || 3;
+                    console.log('フォールバック設定読み込み成功');
+                } else {
+                    throw new Error('設定ファイルが見つかりません');
+                }
+            } catch (fallbackError) {
+                console.error('フォールバック設定読み込みも失敗 - デフォルト値を使用:', fallbackError.message);
                 this.voiceEnabled = true;
                 this.selectedSpeaker = 0;
                 this.useHooks = true;
                 this.voiceInterval = 3;
             }
-        } catch (error) {
-            console.error('設定読み込みエラー:', error);
-            this.voiceEnabled = true;
-            this.selectedSpeaker = 0;
-            this.useHooks = true;
-            this.voiceInterval = 3;
         }
     }
 
@@ -256,7 +274,20 @@ class VoiceHookService {
             console.log('====== Hook処理開始 ======');
             console.log('実行時刻:', new Date().toISOString());
             
+            // 処理開始時に必ず設定を読み込み
+            if (!this.configLoaded) {
+                console.log('設定を読み込み中...');
+                await this.loadConfig();
+                this.configLoaded = true;
+            }
+            
             // 設定確認
+            console.log('設定確認:', { 
+                voiceEnabled: this.voiceEnabled, 
+                useHooks: this.useHooks,
+                configLoaded: this.configLoaded,
+                voiceInterval: this.voiceInterval
+            });
             
             if (!this.voiceEnabled || !this.useHooks) {
                 console.log('音声合成またはフック機能が無効です');
@@ -395,6 +426,12 @@ class VoiceHookService {
     // 音声合成テキスト処理（全ての『』テキストを順番に）
     async processSpeechText(responseText) {
         console.log(`Claude応答解析開始: ${responseText.substring(0, 100)}...`);
+
+        // 設定が未読み込みの場合は読み込み
+        if (!this.configLoaded) {
+            await this.loadConfig();
+            this.configLoaded = true;
+        }
 
 
         // 1. 全ての『』テキストを抽出
