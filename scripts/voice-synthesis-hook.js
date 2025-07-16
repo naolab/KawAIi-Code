@@ -19,8 +19,8 @@ class VoiceHookService {
         // ファイルベース重複チェック用
         this.lastNotificationPath = null;
         
-        // 設定読み込み
-        this.loadConfig();
+        // 設定読み込み（非同期なので後で呼び出し）
+        this.configLoaded = false;
         
         // 一時ディレクトリ作成
         if (!fs.existsSync(this.tempDir)) {
@@ -32,23 +32,24 @@ class VoiceHookService {
     }
 
     // 設定を読み込み
-    loadConfig() {
+    async loadConfig() {
         try {
-            const configPath = path.join(require('os').homedir(), '.kawaii-code-config', 'config.json');
-            if (fs.existsSync(configPath)) {
-                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                this.voiceEnabled = config.voiceEnabled !== false;
-                this.selectedSpeaker = config.defaultSpeakerId || 0;
-                this.useHooks = config.useHooks !== false; // デフォルトはtrue
-                this.voiceInterval = config.voiceInterval || 3; // 音声読み上げ間隔（デフォルト3秒）
-            } else {
-                this.voiceEnabled = true;
-                this.selectedSpeaker = 0;
-                this.useHooks = true;
-                this.voiceInterval = 3;
-            }
+            // 統一設定システムから設定を読み込み
+            const unifiedConfig = require('../src/modules/unified-config-manager');
+            
+            this.voiceEnabled = await unifiedConfig.get('voiceEnabled', true);
+            this.selectedSpeaker = await unifiedConfig.get('defaultSpeakerId', 0);
+            this.useHooks = await unifiedConfig.get('useHooks', true);
+            this.voiceInterval = await unifiedConfig.get('voiceIntervalSeconds', 3); // 統一設定から取得
+            
+            console.log('統一設定から音声設定を読み込み:', {
+                voiceEnabled: this.voiceEnabled,
+                selectedSpeaker: this.selectedSpeaker,
+                useHooks: this.useHooks,
+                voiceInterval: this.voiceInterval
+            });
         } catch (error) {
-            console.error('設定読み込みエラー:', error);
+            console.error('統一設定読み込みエラー - デフォルト値を使用:', error);
             this.voiceEnabled = true;
             this.selectedSpeaker = 0;
             this.useHooks = true;
@@ -394,6 +395,12 @@ class VoiceHookService {
     // 音声合成テキスト処理（全ての『』テキストを順番に）
     async processSpeechText(responseText) {
         console.log(`Claude応答解析開始: ${responseText.substring(0, 100)}...`);
+
+        // 設定が未読み込みの場合は読み込み
+        if (!this.configLoaded) {
+            await this.loadConfig();
+            this.configLoaded = true;
+        }
 
         // 1. 全ての『』テキストを抽出
         const bracketMatches = responseText.match(/『[^』]*』/g);

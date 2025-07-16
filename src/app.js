@@ -459,8 +459,48 @@ class TerminalApp {
         }
     }
 
+    // 起動時音声ファイルクリーンアップ
+    cleanupStartupAudioFiles() {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const tempDir = path.join(__dirname, '..', 'temp');
+            if (!fs.existsSync(tempDir)) {
+                return;
+            }
+            
+            // 音声ファイルとnotificationファイルを削除
+            const files = fs.readdirSync(tempDir);
+            const audioFiles = files.filter(f => 
+                f.startsWith('voice_') && f.endsWith('.wav') ||
+                f.startsWith('notification_') && f.endsWith('.json')
+            );
+            
+            if (audioFiles.length > 0) {
+                debugLog(`🧹 起動時音声ファイルクリーンアップ開始: ${audioFiles.length}個のファイル`);
+                
+                for (const file of audioFiles) {
+                    const filePath = path.join(tempDir, file);
+                    try {
+                        fs.unlinkSync(filePath);
+                        debugLog(`🗑️ 削除完了: ${file}`);
+                    } catch (error) {
+                        debugLog(`❌ ファイル削除失敗: ${file}`, error);
+                    }
+                }
+                
+                debugLog('✅ 起動時音声ファイルクリーンアップ完了');
+            }
+        } catch (error) {
+            debugLog('❌ 起動時音声ファイルクリーンアップエラー:', error);
+        }
+    }
+
     // 初期設定の読み込み（起動時のみ）
     async loadInitialSettings() {
+        // 起動時音声ファイルクリーンアップを実行
+        this.cleanupStartupAudioFiles();
+        
         // 統一設定システムから設定を読み込み（起動時のみ）
         this.voiceEnabled = await unifiedConfig.get('voiceEnabled', this.voiceEnabled);
         this.selectedSpeaker = await unifiedConfig.get('selectedSpeaker', this.selectedSpeaker);
@@ -1302,6 +1342,24 @@ class TerminalApp {
         }
     }
 
+    // 音声状態をVRMビューワーに通知
+    notifyAudioStateToVRM(state) {
+        try {
+            const iframe = document.getElementById('vrm-iframe');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'audioState',
+                    state: state // 'started' or 'ended'
+                }, '*');
+                debugLog(`🎭 Audio state "${state}" sent to VRM`);
+            } else {
+                debugLog('🎭 VRM iframe未発見');
+            }
+        } catch (error) {
+            debugError('🎭 VRM音声状態送信エラー:', error);
+        }
+    }
+
     async playAudio(audioData) {
         debugLog('🎵 playAudio called with data size:', audioData?.length || audioData?.byteLength || 'unknown');
         
@@ -1358,6 +1416,9 @@ class TerminalApp {
                 this.currentAudio = null;
                 this.isPlaying = false;
                 
+                // 音声終了をVRMビューワーに通知
+                this.notifyAudioStateToVRM('ended');
+                
                 // 音声再生完了時に間隔制御の基準時間を更新
                 this.lastSpeechTime = Date.now();
                 debugLog('🔇 Updated lastSpeechTime for cooldown control');
@@ -1372,6 +1433,9 @@ class TerminalApp {
             this.currentAudio = source;
             this.isPlaying = true;
             debugLog('🎵 Starting audio playback...');
+            
+            // 音声開始をVRMビューワーに通知
+            this.notifyAudioStateToVRM('started');
             
             source.start();
         } catch (error) {

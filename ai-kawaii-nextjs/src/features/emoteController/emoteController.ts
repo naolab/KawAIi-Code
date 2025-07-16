@@ -30,4 +30,9 @@ export class EmoteController {
   public update(delta: number) {
     this._expressionController.update(delta);
   }
+
+  // ExpressionControllerへのアクセサ
+  public get expressionController(): ExpressionController {
+    return this._expressionController;
+  }
 }
