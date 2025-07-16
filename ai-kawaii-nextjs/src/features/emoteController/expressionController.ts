@@ -129,9 +129,20 @@ export class ExpressionController {
   public resetToNeutral() {
     console.log(`[ExpressionController] Manually resetting to neutral`);
     
-    if (this._currentEmotion !== "neutral") {
-      this._expressionManager?.setValue(this._currentEmotion, 0);
-    }
+    // Step 1: 現在の感情をクリア（一時的に無効化）
+    // if (this._currentEmotion !== "neutral") {
+    //   console.log(`[ExpressionController] Clearing current emotion: ${this._currentEmotion}`);
+    //   this._expressionManager?.setValue(this._currentEmotion, 0);
+    // }
+    
+    // Step 2: 少し待ってから全表情をクリア（保険のみ使用）
+    setTimeout(() => {
+      console.log(`[ExpressionController] Force clearing all expressions (insurance only)`);
+      const allExpressions = ['happy', 'sad', 'angry', 'surprised', 'relaxed'];
+      allExpressions.forEach(expression => {
+        this._expressionManager?.setValue(expression as VRMExpressionPresetName, 0);
+      });
+    }, 100);
     
     this._autoBlink?.setEnable(true);
     this._currentEmotion = "neutral";
