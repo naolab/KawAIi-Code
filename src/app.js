@@ -210,6 +210,7 @@ class TerminalApp {
         this.voiceEnabled = true; // デフォルトで有効に
         this.selectedSpeaker = 0;
         this.connectionStatus = 'disconnected';
+        this.isPlayingHookAudio = false; // Hook音声再生中フラグ
         this.speakers = [];
         this.audioContext = null;
         this.currentAudio = null;
@@ -441,10 +442,19 @@ class TerminalApp {
         const fs = require('fs');
         
         try {
+            // Hook音声再生中の場合は待機
+            while (this.isPlayingHookAudio) {
+                debugLog('🔄 Hook音声再生中のため待機:', filepath);
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
             if (!fs.existsSync(filepath)) {
                 debugLog('❌ Hook音声ファイルが存在しません:', filepath);
                 return;
             }
+            
+            // Hook音声再生開始フラグ
+            this.isPlayingHookAudio = true;
             
             debugLog('🔊 Hook音声ファイル再生開始:', filepath);
             
@@ -469,6 +479,9 @@ class TerminalApp {
             audio.onended = () => {
                 debugLog('🔊 Hook音声再生完了');
                 
+                // Hook音声再生終了フラグ
+                this.isPlayingHookAudio = false;
+                
                 // 音声終了をVRMビューワーに通知（表情リセットのため）
                 this.notifyAudioStateToVRM('ended');
                 
@@ -486,6 +499,8 @@ class TerminalApp {
             
             audio.onerror = (error) => {
                 debugLog('❌ Hook音声再生エラー:', error);
+                // エラー時もフラグをリセット
+                this.isPlayingHookAudio = false;
             };
             
             await audio.play();
@@ -497,6 +512,8 @@ class TerminalApp {
             
         } catch (error) {
             debugLog('❌ Hook音声再生処理エラー:', error);
+            // エラー時もフラグをリセット
+            this.isPlayingHookAudio = false;
         }
     }
 
@@ -636,15 +653,15 @@ class TerminalApp {
             //     }
             // });
 
-            // Handle audio playback
-            window.electronAPI.voice.onPlayAudio((audioData) => {
-                this.playAudio(audioData);
-            });
+            // Handle audio playback - Hook機能常時有効のため無効化
+            // window.electronAPI.voice.onPlayAudio((audioData) => {
+            //     this.playAudio(audioData);
+            // });
 
-            // Handle audio stop
-            window.electronAPI.voice.onStopAudio(() => {
-                this.stopAudio();
-            });
+            // Handle audio stop - Hook機能常時有効のため無効化
+            // window.electronAPI.voice.onStopAudio(() => {
+            //     this.stopAudio();
+            // });
 
             // Handle Hook conversation display
             window.electronAPI.voice.onShowHookConversation((data) => {
@@ -673,13 +690,9 @@ class TerminalApp {
 
     async parseTerminalDataForChat(data) {
         try {
-            debugLog('🔍 parseTerminalDataForChat 開始 - 入力データ長:', data.length);
-            
-            // Hook機能が有効な場合は従来の処理をスキップ
-            if (await getSafeUnifiedConfig().get('useHooks', false)) {
-                debugLog('🔄 Hook機能が有効なため、従来の音声合成処理をスキップ');
-                return;
-            }
+            // Hook機能が常時有効なため、従来の音声合成処理は完全に無効化
+            debugLog('🔄 Hook機能が常時有効なため、従来の音声合成処理をスキップ');
+            return;
             
             // ProcessingCacheによる最適化されたテキストクリーニング
             const cleanData = this.processingCache.optimizedTextCleaning(data);
