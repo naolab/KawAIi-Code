@@ -468,6 +468,10 @@ class TerminalApp {
             
             audio.onended = () => {
                 debugLog('🔊 Hook音声再生完了');
+                
+                // 音声終了をVRMビューワーに通知（表情リセットのため）
+                this.notifyAudioStateToVRM('ended');
+                
                 // 再生完了後に音声ファイルを削除
                 try {
                     const fs = require('fs');

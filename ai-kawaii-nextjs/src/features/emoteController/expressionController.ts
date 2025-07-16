@@ -23,7 +23,7 @@ export class ExpressionController {
     value: number;
   } | null;
   private _emotionTimer: NodeJS.Timeout | null = null;
-  private _audioControlled: boolean = false;
+  private _audioControlled: boolean = true; // 常に音声制御モードを使用
   constructor(vrm: VRM, camera: THREE.Object3D) {
     this._autoLookAt = new AutoLookAt(vrm, camera);
     this._currentEmotion = "neutral";
@@ -63,16 +63,8 @@ export class ExpressionController {
       console.log(`[ExpressionController] Applying ${preset} expression with weight ${weight}`);
       this._expressionManager?.setValue(preset, weight);
       
-      // 音声制御モードでない場合のみ自動リセットタイマーを設定
-      if (!this._audioControlled) {
-        this._emotionTimer = setTimeout(() => {
-          console.log(`[ExpressionController] Returning to neutral after ${duration}ms`);
-          this._expressionManager?.setValue(preset, 0);
-          this._autoBlink?.setEnable(true);
-          this._currentEmotion = "neutral";
-          this._emotionTimer = null;
-        }, duration);
-      }
+      // 音声制御モード専用のため、自動リセットタイマーは使用しない
+      // 音声終了時にresetToNeutral()で手動リセットする
     }, t * 1000);
   }
   
@@ -103,18 +95,8 @@ export class ExpressionController {
         this._expressionManager?.setValue(emotion.name, emotion.weight);
       });
       
-      // 音声制御モードでない場合のみ自動リセットタイマーを設定
-      if (!this._audioControlled) {
-        this._emotionTimer = setTimeout(() => {
-          console.log(`[ExpressionController] Returning complex emotions to neutral after ${duration}ms`);
-          emotions.forEach(emotion => {
-            this._expressionManager?.setValue(emotion.name, 0);
-          });
-          this._autoBlink?.setEnable(true);
-          this._currentEmotion = "neutral";
-          this._emotionTimer = null;
-        }, duration);
-      }
+      // 音声制御モード専用のため、自動リセットタイマーは使用しない
+      // 音声終了時にresetToNeutral()で手動リセットする
     }, t * 1000);
     
     // 現在の感情を複合感情の主要なものに設定

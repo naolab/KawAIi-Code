@@ -530,8 +530,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       if (event.data.type === 'emotion' && event.data.emotion) {
         console.log('🎭 postMessageで感情データ受信:', event.data.emotion)
         if (emoteControllerRef.current) {
-          // 音声制御モードを有効にして表情の自動リセットを無効化
-          emoteControllerRef.current.expressionController.setAudioControlled(true)
+          // 音声制御モードは常時有効なので、そのまま表情を変更
           
           // setVRMEmotionを呼び出して表情を変更
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -551,9 +550,8 @@ export default function VRMViewer({ className }: VRMViewerProps) {
         console.log('🎭 postMessageで音声状態受信:', event.data.state)
         if (emoteControllerRef.current) {
           if (event.data.state === 'started') {
-            // 音声開始：表情の自動リセットを無効化
-            emoteControllerRef.current.expressionController.setAudioControlled(true)
-            console.log('🎭 音声開始：表情制御モード有効')
+            // 音声開始：音声制御モードは常時有効なので特別な処理不要
+            console.log('🎭 音声開始')
           } else if (event.data.state === 'ended') {
             // 音声終了：表情をニュートラルに戻す
             emoteControllerRef.current.expressionController.resetToNeutral()
