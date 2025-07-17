@@ -269,6 +269,9 @@ class UIEventManager {
                 const savedUseHooks = await unifiedConfig.get('useHooks', false);
                 useHooksToggle.checked = savedUseHooks;
                 this.debugLog('Hooks setting initialized:', savedUseHooks);
+                
+                // 初期設定でアプリにモード通知
+                this.app.switchVoiceMode(savedUseHooks);
             };
             initHooks();
             
@@ -279,6 +282,9 @@ class UIEventManager {
                 await unifiedConfig.set('useHooks', newValue);
                 
                 this.debugLog('Hooks usage changed:', newValue);
+                
+                // 即座にモード切り替え
+                this.app.switchVoiceMode(newValue);
                 
                 // 設定変更の通知
                 if (newValue) {
@@ -292,7 +298,7 @@ class UIEventManager {
                     // Hook無効時の通知
                     setTimeout(() => {
                         if (window.showTemporaryMessage) {
-                            window.showTemporaryMessage('Claude Code Hooks機能を無効にしました。従来の音声合成処理を使用します。', 'info');
+                            window.showTemporaryMessage('Claude Code Hooks機能を無効にしました。アプリ内監視モードを使用します。', 'info');
                         }
                     }, 100);
                 }

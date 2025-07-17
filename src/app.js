@@ -274,6 +274,7 @@ class TerminalApp {
         this.setupChatInterface();
         await this.initializeModules(); // モジュール初期化をawait
         await this.loadInitialSettings(); // 初期設定の読み込み
+        await this.initializeVoiceMode(); // 音声モード初期化を追加
         
         // アプリ起動時に両方のAI.mdファイルを生成
         await this.generateAiMdFiles();
@@ -392,8 +393,17 @@ class TerminalApp {
     }
 
     // Hook通知を処理
-    processHookNotification(notification) {
+    async processHookNotification(notification) {
         debugLog('🔔 Hook通知受信:', notification);
+        
+        // 設定チェック
+        const unifiedConfig = getSafeUnifiedConfig();
+        const useHooks = await unifiedConfig.get('useHooks', false);
+        
+        if (!useHooks) {
+            debugLog('🔇 Hook機能OFF - 通知処理をスキップ');
+            return;
+        }
         
         if (notification.type === 'voice-synthesis-hook' && notification.filepath) {
             // 音声ファイルを再生
@@ -591,8 +601,8 @@ class TerminalApp {
                 if (this.terminal) {
                     this.terminal.write(data);
                 }
-                // チャンク結合方式でメッセージ処理
-                this.messageAccumulator.addChunk(data);
+                // 統一処理システム
+                this.processTerminalData(data);
             });
 
             // Handle Claude Code exit
@@ -834,6 +844,80 @@ class TerminalApp {
         }
     }
 
+    async processTerminalData(data) {
+        const unifiedConfig = getSafeUnifiedConfig();
+        const useHooks = await unifiedConfig.get('useHooks', false);
+        
+        if (useHooks) {
+            // Hookモード: 既存のMessageAccumulatorを使用
+            this.messageAccumulator.addChunk(data);
+        } else {
+            // アプリ内監視モード: 即座に『』を抽出・処理
+            this.processAppInternalMode(data);
+        }
+    }
+
+    processAppInternalMode(data) {
+        // 『』で囲まれたテキストを抽出
+        const quotedTextRegex = /『([^』]+)』/g;
+        let match;
+        
+        while ((match = quotedTextRegex.exec(data)) !== null) {
+            const speechText = match[1];
+            
+            // 即座に音声読み上げ実行
+            this.executeSpeechForAppMode(speechText);
+        }
+    }
+
+    async executeSpeechForAppMode(text) {
+        try {
+            // 音声合成が有効かチェック
+            if (!this.voiceEnabled) {
+                debugLog('🔇 音声読み上げが無効のため、処理をスキップ');
+                return;
+            }
+
+            // ElectronAPI経由で音声読み上げ実行
+            if (window.electronAPI && window.electronAPI.voice) {
+                await window.electronAPI.voice.speak(text, this.selectedSpeaker);
+                
+                // 音声履歴に追加
+                if (this.speechHistory) {
+                    this.speechHistory.add(text, this.selectedSpeaker);
+                }
+                
+                debugLog('🎵 アプリ内監視モード音声読み上げ完了:', text);
+            } else {
+                debugLog('❌ ElectronAPI.voice が利用できません');
+            }
+        } catch (error) {
+            debugError('❌ アプリ内監視モード音声処理エラー:', error);
+        }
+    }
+
+    async initializeVoiceMode() {
+        const unifiedConfig = getSafeUnifiedConfig();
+        const useHooks = await unifiedConfig.get('useHooks', false);
+        
+        debugLog(`🎵 音声モード初期化: ${useHooks ? 'Hook音声モード' : 'アプリ内監視モード'}`);
+        
+        // 設定に応じて初期化処理を実行
+        if (useHooks) {
+            debugLog('🔄 Hook音声モードで初期化完了');
+        } else {
+            debugLog('🔄 アプリ内監視モードで初期化完了');
+        }
+    }
+
+    switchVoiceMode(useHooks) {
+        if (useHooks) {
+            debugLog('🔄 Hook音声モードに切り替え');
+        } else {
+            debugLog('🔄 アプリ内監視モードに切り替え');
+        }
+    }
+
     async startTerminal(aiType) {
         // タブシステムが有効な場合はアクティブタブでAIを起動
         if (this.tabManager && this.tabManager.activeTabId) {
@@ -1061,13 +1145,14 @@ class TerminalApp {
         // マイグレーション機能は削除済み
 
         // 現在の設定を統一設定システムに保存（読み込みは初期化時のみ）
-        await config.set('voiceEnabled', this.voiceEnabled);
-        await config.set('selectedSpeaker', this.selectedSpeaker);
+        const unifiedConfig = getSafeUnifiedConfig();
+        await unifiedConfig.set('voiceEnabled', this.voiceEnabled);
+        await unifiedConfig.set('selectedSpeaker', this.selectedSpeaker);
 
         // 壁紙設定の復元は WallpaperSystem モジュールで処理
 
         if (this.claudeWorkingDir) {
-            await config.set('claudeWorkingDir', this.claudeWorkingDir);
+            await unifiedConfig.set('claudeWorkingDir', this.claudeWorkingDir);
         }
     }
 

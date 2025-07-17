@@ -235,7 +235,7 @@ class UnifiedConfigManager {
             defaultSpeakerId: null,
             voiceCooldownSeconds: 1,
             voiceIntervalSeconds: 3,
-            useHooks: true, // Hook機能を常時有効に設定
+            useHooks: false, // デフォルトはアプリ内監視モード
             
             // UI設定
             voiceEnabled: true,
