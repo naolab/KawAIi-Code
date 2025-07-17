@@ -210,6 +210,7 @@ class TerminalApp {
         this.connectionStatus = 'disconnected';
         this.isPlayingHookAudio = false; // Hook音声再生中フラグ
         this.isResizing = false; // リサイズ中フラグ（音声処理制御用）
+        this.resizeTimer = null; // リサイズタイマー（デバウンス処理用）
         this.speakers = [];
         // 従来音声システムは削除（Hook音声のみ使用）
         // this.audioContext = null; // 削除
@@ -723,9 +724,8 @@ class TerminalApp {
 
         // Handle window resize (ResourceManager経由)
         this.resourceManager.addEventListener(window, 'resize', () => {
-            // リサイズ開始フラグを設定（音声処理を一時停止）
-            this.isResizing = true;
-            debugLog('🔄 リサイズ開始 - 音声処理を一時停止');
+            // デバウンス処理付きリサイズ制御
+            this.handleResize();
             
             if (this.fitAddon) {
                 this.fitAddon.fit();
@@ -736,12 +736,6 @@ class TerminalApp {
                     );
                 }
             }
-            
-            // リサイズ完了後にフラグを解除（短時間の遅延で安全に）
-            setTimeout(() => {
-                this.isResizing = false;
-                debugLog('🔄 リサイズ完了 - 音声処理を再開');
-            }, 100); // 100ms後にフラグ解除（短縮）
         });
 
         // Handle terminal data from backend
@@ -1010,6 +1004,25 @@ class TerminalApp {
         if (moodElement && moodElement.textContent !== mood) {
             moodElement.textContent = mood;
         }
+    }
+
+    // デバウンス処理付きリサイズ制御メソッド
+    handleResize() {
+        // 既存のリサイズタイマーをクリア
+        if (this.resizeTimer) {
+            clearTimeout(this.resizeTimer);
+        }
+        
+        // リサイズ中フラグを設定
+        this.isResizing = true;
+        debugLog('🔄 リサイズ開始 - 音声処理を一時停止（デバウンス処理）');
+        
+        // 新しいタイマーを設定（最後のリサイズから300ms後に解除）
+        this.resizeTimer = setTimeout(() => {
+            this.isResizing = false;
+            this.resizeTimer = null;
+            debugLog('🔄 リサイズ完了 - 音声処理を再開（デバウンス処理）');
+        }, 300);
     }
 
     async processTerminalData(data) {
@@ -1966,9 +1979,8 @@ class TabManager {
             
             // ターミナルサイズを適切に調整（AI起動後に実行）
             setTimeout(() => {
-                // リサイズフラグを設定してターミナルサイズ調整
-                this.isResizing = true;
-                debugLog('🔄 タブリサイズ開始 - 音声処理を一時停止');
+                // デバウンス処理付きリサイズ制御
+                this.terminalApp.handleResize();
                 
                 if (tab.fitAddon && tab.terminal) {
                     tab.fitAddon.fit();
@@ -1976,12 +1988,6 @@ class TabManager {
                     window.electronAPI.tab.resize(tabId, tab.terminal.cols, tab.terminal.rows);
                     debugLog(`Tab ${tabId} resized to ${tab.terminal.cols}x${tab.terminal.rows}`);
                 }
-                
-                // リサイズ完了後にフラグを解除
-                setTimeout(() => {
-                    this.isResizing = false;
-                    debugLog('🔄 タブリサイズ完了 - 音声処理を再開');
-                }, 100);
             }, 200); // Claude Codeの初期化完了を待つ
             
             // UI状態を更新
@@ -2072,9 +2078,8 @@ class TabManager {
         // ターミナルサイズを調整
         if (activeTab.fitAddon) {
             setTimeout(() => {
-                // リサイズフラグを設定してアクティブタブのサイズ調整
-                this.isResizing = true;
-                debugLog('🔄 アクティブタブリサイズ開始 - 音声処理を一時停止');
+                // デバウンス処理付きリサイズ制御
+                this.terminalApp.handleResize();
                 
                 activeTab.fitAddon.fit();
                 // AI起動中のタブの場合、バックエンドプロセスにもリサイズを通知
@@ -2082,12 +2087,6 @@ class TabManager {
                     window.electronAPI.tab.resize(tabId, activeTab.terminal.cols, activeTab.terminal.rows);
                     debugLog(`Active tab ${tabId} resized to ${activeTab.terminal.cols}x${activeTab.terminal.rows}`);
                 }
-                
-                // リサイズ完了後にフラグを解除
-                setTimeout(() => {
-                    this.isResizing = false;
-                    debugLog('🔄 アクティブタブリサイズ完了 - 音声処理を再開');
-                }, 100);
             }, 100); // Claude Codeの表示が落ち着くまで少し待つ
         }
         
