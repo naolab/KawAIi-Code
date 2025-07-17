@@ -487,11 +487,27 @@ ipcMain.handle('voice-speak', async (event, text, speaker) => {
   }
   
   try {
+    // 感情データを取得するためparseTerminalOutputを使用
+    const parsedResult = voiceService.parseTerminalOutput(text);
+    let emotionData = null;
+    
+    if (parsedResult && parsedResult.emotion) {
+      emotionData = parsedResult.emotion;
+      debugLog('😊 アプリ内監視モード感情データ取得:', emotionData);
+    }
+    
     const result = await voiceService.speakText(text, speaker);
     if (result.success) {
       // ArrayBufferをBufferに変換してからレンダラープロセスに送信
       const buffer = Buffer.from(result.audioData);
-      mainWindow.webContents.send('play-audio', buffer);
+      mainWindow.webContents.send('play-audio', { audioData: buffer, text: text });
+      
+      // 感情データがある場合はレンダラープロセスに送信
+      if (emotionData) {
+        mainWindow.webContents.send('emotion-data', emotionData);
+        debugLog('😊 アプリ内監視モード感情データ送信完了:', emotionData);
+      }
+      
       return { success: true };
     } else {
       return { success: false, error: 'Failed to synthesize' };

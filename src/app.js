@@ -1,9 +1,9 @@
 // xtermライブラリはCDNから読み込み
 
-// デバッグログ制御（本番環境でも有効）
-const isDev = false; // デバッグログを無効化
-const debugLog = () => {}; // 何もしない関数
-const debugTrace = () => {}; // 何もしない関数
+// デバッグログ制御（デバッグ用に一時的に有効化）
+const isDev = true; // デバッグログを有効化
+const debugLog = console.log; // デバッグログを表示
+const debugTrace = console.trace; // トレースを表示
 const debugError = console.error; // エラーは引き続き表示
 
 // 統一設定管理システム（グローバル参照）
@@ -296,9 +296,10 @@ class TerminalApp {
 
     // モジュール初期化
     async initializeModules() {
-        // MessageAccumulatorのコールバック設定
+        // MessageAccumulatorのコールバック設定（新しい統一処理システムを使用）
         this.messageAccumulator.setProcessCallback(async (data) => {
-            await this.parseTerminalDataForChat(data);
+            debugLog('📦 MessageAccumulator コールバック呼び出し');
+            await this.processTerminalData(data);
         });
         
         // 壁紙システムの初期化
@@ -505,6 +506,71 @@ class TerminalApp {
         }
     }
 
+    // アプリ内監視モード用の音声再生メソッド
+    async playAudio(audioData) {
+        try {
+            debugLog('🎵 アプリ内監視モード音声再生開始');
+            
+            // Bufferから音声データを再生するためBlobを作成
+            const audioBlob = new Blob([audioData], { type: 'audio/wav' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
+            // VRMリップシンク用に音声データを送信
+            try {
+                this.sendAudioToVRM(audioData);
+                debugLog('🎭 アプリ内監視音声データをVRMに送信完了');
+            } catch (vrmError) {
+                debugLog('❌ VRM音声データ送信エラー:', vrmError);
+                // エラーが発生しても音声再生は続行
+            }
+            
+            // 音声再生
+            const audio = new Audio(audioUrl);
+            const volumeValue = await getSafeUnifiedConfig().get('voiceVolume', 50);
+            const safeVolume = isNaN(volumeValue) ? 50 : volumeValue;
+            audio.volume = Math.max(0, Math.min(1, safeVolume / 100));
+            
+            debugLog('🔊 音量設定:', { volumeValue, safeVolume, finalVolume: audio.volume });
+            
+            audio.onended = () => {
+                debugLog('🔊 アプリ内監視音声再生完了');
+                
+                // 音声終了をVRMビューワーに通知
+                this.notifyAudioStateToVRM('ended');
+                
+                // URLオブジェクトを解放
+                URL.revokeObjectURL(audioUrl);
+            };
+            
+            audio.onerror = (error) => {
+                debugLog('❌ アプリ内監視音声再生エラー:', error);
+                URL.revokeObjectURL(audioUrl);
+            };
+            
+            await audio.play();
+            
+        } catch (error) {
+            debugLog('❌ アプリ内監視音声再生処理エラー:', error);
+        }
+    }
+
+    // アプリ内監視モード専用: テキストを表示しながら音声を再生
+    async playAudioWithText(audioData, text) {
+        try {
+            // 音声再生を実行
+            await this.playAudio(audioData);
+            
+            // チャットにテキストを表示
+            if (text) {
+                this.addVoiceMessage('shy', text);
+                debugLog('💬 アプリ内監視モードテキスト表示:', text);
+            }
+            
+        } catch (error) {
+            debugLog('❌ アプリ内監視音声+テキスト再生エラー:', error);
+        }
+    }
+
     // 起動時音声ファイルクリーンアップ
     cleanupStartupAudioFiles() {
         try {
@@ -598,6 +664,12 @@ class TerminalApp {
         // Handle terminal data from backend
         if (window.electronAPI && window.electronAPI.terminal) {
             window.electronAPI.terminal.onData((data) => {
+                debugLog('📡 ターミナルデータ受信:', {
+                    dataLength: data.length,
+                    hasTerminal: !!this.terminal,
+                    dataPreview: data.substring(0, 50)
+                });
+                
                 if (this.terminal) {
                     this.terminal.write(data);
                 }
@@ -626,10 +698,16 @@ class TerminalApp {
             //     }
             // });
 
-            // Handle audio playback - Hook機能常時有効のため無効化
-            // window.electronAPI.voice.onPlayAudio((audioData) => {
-            //     this.playAudio(audioData);
-            // });
+            // Handle audio playback - アプリ内監視モード用に復活
+            window.electronAPI.voice.onPlayAudio((data) => {
+                if (data.audioData) {
+                    // 新しい形式: { audioData: Buffer, text: string }
+                    this.playAudioWithText(data.audioData, data.text);
+                } else {
+                    // 旧形式: 直接Buffer
+                    this.playAudio(data);
+                }
+            });
 
             // Handle audio stop - Hook機能常時有効のため無効化
             // window.electronAPI.voice.onStopAudio(() => {
@@ -661,7 +739,13 @@ class TerminalApp {
         return this.messageAccumulator.getStatus();
     }
 
+    // 旧処理: 新しい統一処理システム（processTerminalData）に置き換え済み
     async parseTerminalDataForChat(data) {
+        debugLog('⚠️ 旧処理parseTerminalDataForChatが呼ばれました - 新しい統一処理システムを使用してください');
+        return;
+        
+        // 以下は無効化済み
+        /*
         try {
             // Hook機能が常時有効なため、従来の音声合成処理は完全に無効化
             debugLog('🔄 Hook機能が常時有効なため、従来の音声合成処理をスキップ');
@@ -702,6 +786,7 @@ class TerminalApp {
                 userMessage: 'チャットデータの解析中にエラーが発生しました'
             });
         }
+        */
     }
 
     // 音声再生完了を待機する関数
@@ -848,29 +933,63 @@ class TerminalApp {
         const unifiedConfig = getSafeUnifiedConfig();
         const useHooks = await unifiedConfig.get('useHooks', false);
         
+        debugLog('🔄 processTerminalData呼び出し:', {
+            useHooks,
+            dataLength: data.length,
+            dataPreview: data.substring(0, 100)
+        });
+        
         if (useHooks) {
             // Hookモード: 既存のMessageAccumulatorを使用
+            debugLog('📡 Hookモード: MessageAccumulatorに送信');
             this.messageAccumulator.addChunk(data);
         } else {
             // アプリ内監視モード: 即座に『』を抽出・処理
+            debugLog('📱 アプリ内監視モード: processAppInternalMode呼び出し');
             this.processAppInternalMode(data);
         }
     }
 
     processAppInternalMode(data) {
+        debugLog('🔍 processAppInternalMode開始:', {
+            dataLength: data.length,
+            dataContent: data
+        });
+        
         // 『』で囲まれたテキストを抽出
         const quotedTextRegex = /『([^』]+)』/g;
         let match;
+        let matchCount = 0;
         
         while ((match = quotedTextRegex.exec(data)) !== null) {
             const speechText = match[1];
+            matchCount++;
+            
+            debugLog('✨ 『』テキスト検出:', {
+                matchNumber: matchCount,
+                speechText: speechText,
+                fullMatch: match[0]
+            });
             
             // 即座に音声読み上げ実行
             this.executeSpeechForAppMode(speechText);
         }
+        
+        if (matchCount === 0) {
+            debugLog('❌ 『』テキストが見つかりませんでした');
+        } else {
+            debugLog('✅ 『』テキスト処理完了:', { totalMatches: matchCount });
+        }
     }
 
     async executeSpeechForAppMode(text) {
+        debugLog('🎤 executeSpeechForAppMode開始:', {
+            text: text,
+            textLength: text.length,
+            voiceEnabled: this.voiceEnabled,
+            selectedSpeaker: this.selectedSpeaker
+        });
+        
         try {
             // 音声合成が有効かチェック
             if (!this.voiceEnabled) {
@@ -880,16 +999,22 @@ class TerminalApp {
 
             // ElectronAPI経由で音声読み上げ実行
             if (window.electronAPI && window.electronAPI.voice) {
+                debugLog('📞 ElectronAPI.voice.speak呼び出し開始');
                 await window.electronAPI.voice.speak(text, this.selectedSpeaker);
+                debugLog('📞 ElectronAPI.voice.speak呼び出し完了');
                 
                 // 音声履歴に追加
                 if (this.speechHistory) {
-                    this.speechHistory.add(text, this.selectedSpeaker);
+                    this.speechHistory.addToHistory(text);
+                    debugLog('📝 音声履歴に追加完了');
                 }
                 
                 debugLog('🎵 アプリ内監視モード音声読み上げ完了:', text);
             } else {
-                debugLog('❌ ElectronAPI.voice が利用できません');
+                debugLog('❌ ElectronAPI.voice が利用できません:', {
+                    hasElectronAPI: !!window.electronAPI,
+                    hasVoice: !!(window.electronAPI && window.electronAPI.voice)
+                });
             }
         } catch (error) {
             debugError('❌ アプリ内監視モード音声処理エラー:', error);
@@ -900,7 +1025,11 @@ class TerminalApp {
         const unifiedConfig = getSafeUnifiedConfig();
         const useHooks = await unifiedConfig.get('useHooks', false);
         
-        debugLog(`🎵 音声モード初期化: ${useHooks ? 'Hook音声モード' : 'アプリ内監視モード'}`);
+        debugLog(`🎵 音声モード初期化: ${useHooks ? 'Hook音声モード' : 'アプリ内監視モード'}`, {
+            useHooks: useHooks,
+            voiceEnabled: this.voiceEnabled,
+            selectedSpeaker: this.selectedSpeaker
+        });
         
         // 設定に応じて初期化処理を実行
         if (useHooks) {
@@ -911,6 +1040,12 @@ class TerminalApp {
     }
 
     switchVoiceMode(useHooks) {
+        debugLog('🔄 switchVoiceMode呼び出し:', {
+            useHooks: useHooks,
+            voiceEnabled: this.voiceEnabled,
+            selectedSpeaker: this.selectedSpeaker
+        });
+        
         if (useHooks) {
             debugLog('🔄 Hook音声モードに切り替え');
         } else {
