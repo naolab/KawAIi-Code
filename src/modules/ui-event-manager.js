@@ -264,11 +264,13 @@ class UIEventManager {
         // Hook使用切り替えスイッチ
         const useHooksToggle = document.getElementById('use-hooks-toggle');
         if (useHooksToggle) {
-            // 初期値を設定から読み込み
+            // 初期値を設定から読み込み（強制的にfalseに設定）
             const initHooks = async () => {
-                const savedUseHooks = await unifiedConfig.get('useHooks', false);
+                // デフォルトは必ずfalse（アプリ内監視モード）
+                const savedUseHooks = false;
+                await unifiedConfig.set('useHooks', false); // 強制的に設定を保存
                 useHooksToggle.checked = savedUseHooks;
-                this.debugLog('Hooks setting initialized:', savedUseHooks);
+                this.debugLog('Hooks setting initialized (forced false):', savedUseHooks);
                 
                 // 初期設定でアプリにモード通知
                 this.app.switchVoiceMode(savedUseHooks);

@@ -511,9 +511,30 @@ class TerminalApp {
         try {
             debugLog('🎵 アプリ内監視モード音声再生開始');
             
+            // 音声データの形式を検証
+            if (!audioData || audioData.length === 0) {
+                debugLog('❌ 音声データが無効です');
+                return;
+            }
+            
             // Bufferから音声データを再生するためBlobを作成
-            const audioBlob = new Blob([audioData], { type: 'audio/wav' });
+            // ArrayBufferに変換してから処理
+            const arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength);
+            
+            // 音声データの形式を検証
+            const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            if (audioBlob.size === 0) {
+                debugLog('❌ 音声Blobが空です');
+                return;
+            }
+            
             const audioUrl = URL.createObjectURL(audioBlob);
+            
+            debugLog('🎵 音声Blob作成完了:', {
+                bufferSize: audioData.length,
+                blobSize: audioBlob.size,
+                blobType: audioBlob.type
+            });
             
             // VRMリップシンク用に音声データを送信
             try {
@@ -525,13 +546,14 @@ class TerminalApp {
             }
             
             // 音声再生
-            const audio = new Audio(audioUrl);
+            const audio = new Audio();
             const volumeValue = await getSafeUnifiedConfig().get('voiceVolume', 50);
             const safeVolume = isNaN(volumeValue) ? 50 : volumeValue;
             audio.volume = Math.max(0, Math.min(1, safeVolume / 100));
             
             debugLog('🔊 音量設定:', { volumeValue, safeVolume, finalVolume: audio.volume });
             
+            // イベントハンドラーを先に設定
             audio.onended = () => {
                 debugLog('🔊 アプリ内監視音声再生完了');
                 
@@ -544,13 +566,63 @@ class TerminalApp {
             
             audio.onerror = (error) => {
                 debugLog('❌ アプリ内監視音声再生エラー:', error);
+                debugLog('❌ エラー詳細:', {
+                    error: error,
+                    audioSrc: audio.src,
+                    audioReadyState: audio.readyState,
+                    audioNetworkState: audio.networkState
+                });
                 URL.revokeObjectURL(audioUrl);
+                
+                // フォールバック処理: 音声再生に失敗した場合でもVRMには通知
+                this.notifyAudioStateToVRM('error');
             };
             
-            await audio.play();
+            audio.onloadeddata = () => {
+                debugLog('🎵 音声データロード完了');
+            };
+            
+            audio.oncanplay = () => {
+                debugLog('🎵 音声再生準備完了');
+            };
+            
+            // 音声データを設定
+            audio.src = audioUrl;
+            
+            debugLog('🎵 音声再生開始:', {
+                src: audioUrl,
+                volume: audio.volume,
+                duration: audio.duration
+            });
+            
+            // 音声再生を試行し、失敗した場合はフォールバック処理
+            try {
+                await audio.play();
+            } catch (playError) {
+                debugLog('❌ 音声再生play()エラー:', playError);
+                URL.revokeObjectURL(audioUrl);
+                this.notifyAudioStateToVRM('error');
+                
+                // 再試行機能: 一度だけ再試行
+                setTimeout(async () => {
+                    try {
+                        debugLog('🔄 音声再生再試行');
+                        const retryAudio = new Audio(audioUrl);
+                        retryAudio.volume = audio.volume;
+                        retryAudio.onended = audio.onended;
+                        retryAudio.onerror = audio.onerror;
+                        await retryAudio.play();
+                    } catch (retryError) {
+                        debugLog('❌ 音声再生再試行も失敗:', retryError);
+                        URL.revokeObjectURL(audioUrl);
+                    }
+                }, 500);
+            }
             
         } catch (error) {
             debugLog('❌ アプリ内監視音声再生処理エラー:', error);
+            // エラー発生時もVRMに通知
+            this.notifyAudioStateToVRM('error');
         }
     }
 
@@ -1561,17 +1633,42 @@ class TerminalApp {
     sendAudioToVRM(audioData) {
         try {
             const iframe = document.getElementById('vrm-iframe');
-            if (iframe && iframe.contentWindow) {
-                // ArrayBufferを直接Arrayに変換（すでにコピー済み）
-                const audioArray = Array.from(new Uint8Array(audioData));
-                iframe.contentWindow.postMessage({
-                    type: 'lipSync',
-                    audioData: audioArray
-                }, '*');
-                debugLog('🎭 iframeにpostMessage送信, サイズ:', audioArray.length);
-            } else {
+            if (!iframe || !iframe.contentWindow) {
                 debugLog('🎭 VRM iframe未発見');
+                return;
             }
+            
+            // audioDataの形式を検証
+            if (!audioData || audioData.length === 0) {
+                debugLog('🎭 音声データが無効です');
+                return;
+            }
+            
+            // ArrayBufferを直接Arrayに変換（すでにコピー済み）
+            let audioArray;
+            try {
+                audioArray = Array.from(new Uint8Array(audioData));
+            } catch (conversionError) {
+                debugLog('🎭 音声データ変換エラー:', conversionError);
+                return;
+            }
+            
+            // 音声データの妥当性チェック
+            if (audioArray.length === 0) {
+                debugLog('🎭 変換後の音声データが空です');
+                return;
+            }
+            
+            // VRMViewerに音声データを送信
+            iframe.contentWindow.postMessage({
+                type: 'lipSync',
+                audioData: audioArray,
+                format: 'wav',
+                timestamp: Date.now()
+            }, '*');
+            
+            debugLog('🎭 iframeにpostMessage送信, サイズ:', audioArray.length);
+            
         } catch (error) {
             debugError('🎭 VRM音声データ送信エラー:', error);
         }
@@ -1581,15 +1678,26 @@ class TerminalApp {
     notifyAudioStateToVRM(state) {
         try {
             const iframe = document.getElementById('vrm-iframe');
-            if (iframe && iframe.contentWindow) {
-                iframe.contentWindow.postMessage({
-                    type: 'audioState',
-                    state: state // 'started' or 'ended'
-                }, '*');
-                debugLog(`🎭 Audio state "${state}" sent to VRM`);
-            } else {
+            if (!iframe || !iframe.contentWindow) {
                 debugLog('🎭 VRM iframe未発見');
+                return;
             }
+            
+            // 有効な状態かチェック
+            const validStates = ['started', 'ended', 'error', 'paused', 'resumed'];
+            if (!validStates.includes(state)) {
+                debugLog('🎭 無効な音声状態:', state);
+                return;
+            }
+            
+            iframe.contentWindow.postMessage({
+                type: 'audioState',
+                state: state,
+                timestamp: Date.now()
+            }, '*');
+            
+            debugLog(`🎭 Audio state "${state}" sent to VRM`);
+            
         } catch (error) {
             debugError('🎭 VRM音声状態送信エラー:', error);
         }
