@@ -211,6 +211,14 @@ class TerminalApp {
         this.isPlayingHookAudio = false; // Hook音声再生中フラグ
         this.isResizing = false; // リサイズ中フラグ（音声処理制御用）
         this.resizeTimer = null; // リサイズタイマー（デバウンス処理用）
+        
+        // 音声再生状態の統一管理
+        this.voicePlayingState = {
+            isPlaying: false,
+            currentAudio: null,
+            queue: []
+        };
+        
         this.speakers = [];
         // 従来音声システムは削除（Hook音声のみ使用）
         // this.audioContext = null; // 削除
@@ -236,6 +244,9 @@ class TerminalApp {
         
         // 読み上げ履歴管理
         this.speechHistory = new SpeechHistoryManager(200);
+        
+        // 音声キューイングシステム
+        this.voiceQueue = new VoiceQueue(this);
         
         // モジュールインスタンス
         this.wallpaperSystem = new WallpaperSystem();
@@ -887,8 +898,12 @@ class TerminalApp {
         });
     }
 
-    // カッコ内のテキストを一個ずつ順次処理
+    // カッコ内のテキストを一個ずつ順次処理（音声キューイングシステム使用）
     async processQuotedTexts(quotedTextMatches) {
+        debugLog('🎵 processQuotedTexts開始:', { matchCount: quotedTextMatches.length });
+        
+        // 既存の音声キューをクリア（新しい音声セッション開始）
+        this.voiceQueue.clear();
         
         for (let i = 0; i < quotedTextMatches.length; i++) {
             let quotedText = quotedTextMatches[i].replace(/[『』]/g, '').trim();
@@ -901,24 +916,16 @@ class TerminalApp {
                 continue;
             }
             
-            // DOM操作を最小化
-            requestAnimationFrame(() => {
-                this.addVoiceMessage('ニコ', quotedText);
-                this.updateCharacterMood('おしゃべり中✨');
-            });
-            
-            // 音声読み上げ実行
-            if (this.voiceEnabled) {
-                await this.speakText(quotedText);
-                // 音声再生完了まで待機（順序保証）
-                await this.waitForAudioComplete();
-            }
+            // 音声キューに追加（順次処理）
+            await this.voiceQueue.addToQueue(quotedText);
         }
         
-        // キャラクターの気分をリセット
+        // キャラクターの気分をリセット（音声キュー処理完了後）
         setTimeout(() => {
             this.updateCharacterMood('待機中💕');
         }, AppConstants.MESSAGE.COMPLETION_TIMEOUT);
+        
+        debugLog('🎵 processQuotedTexts完了');
     }
 
     // Hook経由の会話表示
@@ -1753,6 +1760,107 @@ class TerminalApp {
     }
 
 
+}
+
+// 音声キューイングシステム
+class VoiceQueue {
+    constructor(terminalApp) {
+        this.terminalApp = terminalApp;
+        this.queue = [];
+        this.isProcessing = false;
+        this.debugLog = debugLog;
+    }
+    
+    // キューに音声テキストを追加
+    async addToQueue(text) {
+        this.queue.push(text);
+        this.debugLog('🎵 音声キューに追加:', { text: text.substring(0, 30) + '...', queueLength: this.queue.length });
+        
+        if (!this.isProcessing) {
+            await this.processQueue();
+        }
+    }
+    
+    // キューを順次処理
+    async processQueue() {
+        this.isProcessing = true;
+        this.debugLog('🎵 音声キュー処理開始:', { queueLength: this.queue.length });
+        
+        while (this.queue.length > 0) {
+            const text = this.queue.shift();
+            await this.speakTextSequentially(text);
+        }
+        
+        this.isProcessing = false;
+        this.debugLog('🎵 音声キュー処理完了');
+    }
+    
+    // 順次音声再生
+    async speakTextSequentially(text) {
+        try {
+            this.debugLog('🎵 順次音声再生開始:', text.substring(0, 30) + '...');
+            
+            // DOM操作（チャット表示とキャラクター気分更新）
+            requestAnimationFrame(() => {
+                this.terminalApp.addVoiceMessage('ニコ', text);
+                this.terminalApp.updateCharacterMood('おしゃべり中✨');
+            });
+            
+            // 音声読み上げ実行
+            if (this.terminalApp.voiceEnabled) {
+                // 音声再生状態を設定
+                this.terminalApp.voicePlayingState.isPlaying = true;
+                
+                await this.terminalApp.speakText(text);
+                
+                // 音声再生完了まで待機
+                await this.waitForVoiceComplete();
+            }
+            
+            this.debugLog('🎵 順次音声再生完了:', text.substring(0, 30) + '...');
+            
+        } catch (error) {
+            this.debugLog('❌ 順次音声再生エラー:', error);
+        } finally {
+            // 音声再生状態をリセット
+            this.terminalApp.voicePlayingState.isPlaying = false;
+        }
+    }
+    
+    // 音声完了待機（統一管理版）
+    async waitForVoiceComplete() {
+        return new Promise(resolve => {
+            const checkComplete = () => {
+                // Hook音声とアプリ内監視音声の両方をチェック
+                const isHookPlaying = this.terminalApp.isPlayingHookAudio;
+                const isAppInternalPlaying = this.terminalApp.voicePlayingState.isPlaying;
+                
+                if (!isHookPlaying && !isAppInternalPlaying) {
+                    this.debugLog('🎵 音声再生完了を確認');
+                    resolve();
+                } else {
+                    setTimeout(checkComplete, 100);
+                }
+            };
+            checkComplete();
+        });
+    }
+    
+    // キューをクリア
+    clear() {
+        this.queue = [];
+        this.isProcessing = false;
+        this.debugLog('🎵 音声キューをクリア');
+    }
+    
+    // キューの状態を取得
+    getStatus() {
+        return {
+            queueLength: this.queue.length,
+            isProcessing: this.isProcessing,
+            voicePlayingState: this.terminalApp.voicePlayingState
+        };
+    }
 }
 
 // タブ管理クラス
