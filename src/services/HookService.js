@@ -302,6 +302,47 @@ class HookService {
             this.debugLog('🎣 Hook音声再生を停止');
         }
     }
+
+    // Hook経由の会話表示
+    displayHookConversation(data) {
+        try {
+            
+            // チャット画面に表示
+            this.terminalApp.addVoiceMessage('ニコ', data.text);
+            
+            // キャラクターの気分更新
+            this.terminalApp.updateCharacterMood('おしゃべり中✨');
+            
+            // 一定時間後に気分をリセット
+            setTimeout(() => {
+                this.terminalApp.updateCharacterMood('待機中💕');
+            }, 3000);
+            
+        } catch (error) {
+            this.debugError('Hook会話表示エラー:', error);
+        }
+    }
+
+    // 音声再生完了を待機する関数
+    async waitForAudioComplete() {
+        return new Promise(resolve => {
+            // Hook音声再生中かチェック
+            if (!this.isPlayingHookAudio) {
+                resolve();
+                return;
+            }
+            
+            const checkComplete = () => {
+                if (!this.isPlayingHookAudio) {
+                    this.debugLog('🎵 音声再生完了を確認');
+                    resolve();
+                } else {
+                    setTimeout(checkComplete, 250);
+                }
+            };
+            checkComplete();
+        });
+    }
 }
 
 // ブラウザ環境での利用

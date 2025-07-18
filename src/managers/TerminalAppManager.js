@@ -222,7 +222,7 @@ class TerminalAppManager {
         debugLog('⚙️ 初期設定読み込み開始');
         
         // 起動時音声ファイルクリーンアップを実行
-        this.terminalApp.cleanupStartupAudioFiles();
+        this.cleanupStartupAudioFiles();
         
         // 統一設定システムから設定を読み込み
         const config = getSafeUnifiedConfig();
@@ -239,6 +239,30 @@ class TerminalAppManager {
         });
         
         debugLog('✅ 初期設定読み込み完了');
+    }
+
+    /**
+     * 起動時音声ファイルクリーンアップ
+     */
+    cleanupStartupAudioFiles() {
+        try {
+            const AudioFileCleanup = require('./modules/audio-file-cleanup');
+            const cleanup = new AudioFileCleanup();
+            const result = cleanup.cleanupAllFiles();
+            
+            if (result.filesRemoved > 0) {
+                debugLog(`🧹 起動時音声ファイルクリーンアップ完了: ${result.filesRemoved}個のファイル削除`);
+            }
+            
+            if (!result.success && result.error) {
+                debugLog('❌ 起動時クリーンアップエラー:', result.error);
+            }
+            
+            return result;
+        } catch (error) {
+            debugLog('❌ 起動時音声ファイルクリーンアップエラー:', error);
+            return { success: false, error: error.message };
+        }
     }
 
     /**

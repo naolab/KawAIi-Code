@@ -577,6 +577,48 @@ class UIEventManager {
     }
 
     /**
+     * チャットメッセージを追加
+     */
+    addChatMessage(type, sender, text) {
+        const chatMessages = document.getElementById('chat-messages');
+        if (!chatMessages) return;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.textContent = type === 'assistant' ? 'こ' : 'あ';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+
+        const messageText = document.createElement('p');
+        messageText.className = 'message-text';
+        messageText.textContent = text;
+
+        const timeSpan = document.createElement('div');
+        timeSpan.className = 'message-time';
+        timeSpan.textContent = new Date().toLocaleTimeString('ja-JP', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+
+        bubble.appendChild(messageText);
+        bubble.appendChild(timeSpan);
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(bubble);
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // メッセージ履歴に追加
+        if (this.app.chatMessages) {
+            this.app.chatMessages.push({ type, sender, text, timestamp: new Date() });
+        }
+    }
+
+    /**
      * 音声メッセージを追加
      */
     addVoiceMessage(speaker, text) {
@@ -811,6 +853,16 @@ class UIEventManager {
     }
 
     /**
+     * チャットインターフェースの設定
+     */
+    setupChatInterface() {
+        // チャット入力エリアは削除済み
+
+        // 初期メッセージを追加（音声読み上げ用）
+        this.addVoiceMessage('ニコ', 'こんにちは〜！何をお手伝いしましょうか？');
+    }
+
+    /**
      * 設定をモーダルに同期
      */
     async syncSettingsToModal() {
@@ -822,8 +874,12 @@ class UIEventManager {
 
         if (voiceToggleModal) voiceToggleModal.checked = this.app.voiceEnabled;
         
+        // 話者選択の更新をAudioServiceに委譲
+        if (this.app.audioService) {
+            await this.app.audioService.updateSpeakerSelect();
+        }
         
-        await this.app.updateSpeakerSelect();
+        // 接続状態の更新
         this.app.updateConnectionStatus(this.app.connectionStatus === 'connected' ? '接続済み' : '未接続', this.app.connectionStatus);
 
         // 壁紙設定の同期は WallpaperSystem モジュールで処理
