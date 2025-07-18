@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { VRM } from '@pixiv/three-vrm'
@@ -10,7 +10,7 @@ const isProduction = process.env.NODE_ENV === 'production'
 const debugLog = isProduction ? () => {} : console.log
 
 interface UseThreeSceneProps {
-  canvasRef: React.RefObject<HTMLCanvasElement>
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
   sceneRef: React.RefObject<THREE.Scene | null>
   rendererRef: React.RefObject<THREE.WebGLRenderer | null>
   cameraRef: React.RefObject<THREE.PerspectiveCamera | null>
@@ -284,5 +284,5 @@ export const useThreeScene = ({
         rendererRef.current.dispose()
       }
     }
-  }, [cameraRef, cameraControlsRef, emoteControllerRef, lipSyncRef, mixerRef, rendererRef, sceneRef, vrmRef, loadVRMFile, loadDefaultVRM, setVrmInfo])
+  }, [cameraRef, cameraControlsRef, emoteControllerRef, lipSyncRef, mixerRef, rendererRef, sceneRef, vrmRef, loadVRMFile, loadDefaultVRM, setVrmInfo, canvasRef, clockRef, animationIdRef, audioContextRef])
 }

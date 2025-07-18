@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import * as THREE from 'three'
 import { VRM } from '@pixiv/three-vrm'
 import { loadVRMAnimation } from '@/lib/loadVRMAnimation'

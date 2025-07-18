@@ -1,9 +1,8 @@
 'use client'
 
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useRef } from 'react'
 import * as THREE from 'three'
-import { VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { VRM } from '@pixiv/three-vrm'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { EmoteController } from '@/features/emoteController/emoteController'
 import { LipSync } from '@/features/lipSync/lipSync'
@@ -12,23 +11,12 @@ import { useAnimation } from '@/features/vrm/hooks/useAnimation'
 import { useCamera } from '@/features/vrm/hooks/useCamera'
 import { useThreeScene } from '@/features/vrm/hooks/useThreeScene'
 
-// ログレベル制御（本番環境では詳細ログを無効化）
-const isProduction = process.env.NODE_ENV === 'production'
-const debugLog = isProduction ? () => {} : console.log
-const infoLog = console.log // 重要な情報は常に出力
-// const errorLog = console.error // エラーは常に出力（未使用のためコメントアウト）
-
 interface VRMViewerProps {
   className?: string
 }
 
 export default function VRMViewer({ className }: VRMViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  // VRMローダーの状態（フックから取得）
-  const loading = vrmLoader.loading
-  const error = vrmLoader.error
-  const vrmInfo = vrmLoader.vrmInfo
-  const setVrmInfo = vrmLoader.setVrmInfo
   
   // Three.jsの基本要素
   const sceneRef = useRef<THREE.Scene | null>(null)
@@ -65,6 +53,12 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     loadIdleAnimation,
     resetCamera
   })
+
+  // VRMローダーの状態（フックから取得）
+  const loading = vrmLoader.loading
+  const error = vrmLoader.error
+  const vrmInfo = vrmLoader.vrmInfo
+  const setVrmInfo = vrmLoader.setVrmInfo
 
   // VRMファイルを読み込む（フックから取得）
   const loadVRMFile = vrmLoader.loadVRMFile

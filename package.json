@@ -6,9 +6,15 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "build": "node build.js build",
+    "build:nextjs": "cd ai-kawaii-nextjs && npm run build",
+    "build:electron": "electron-builder",
+    "build:simple": "npm run build:nextjs && npm run build:electron",
+    "pack": "node build.js pack",
+    "dist": "node build.js build",
+    "quick-build": "npm run build:nextjs && electron-builder --dir",
+    "clean": "rm -rf dist/ && rm -rf ai-kawaii-nextjs/out/ && rm -rf ai-kawaii-nextjs/.next/",
+    "clean-build": "npm run clean && npm run build"
   },
   "author": "",
   "license": "MIT",
@@ -32,6 +38,9 @@
     "directories": {
       "output": "dist"
     },
+    "publish": null,
+    "generateUpdatesFilesForAllChannels": false,
+    "buildDependenciesFromSource": false,
     "files": [
       "main.js",
       "src/**/*",
@@ -43,17 +52,7 @@
       "!ai-kawaii-nextjs/.next/**/*",
       "!ai-kawaii-nextjs/package*.json",
       "!ai-kawaii-nextjs/tsconfig*",
-      "!ai-kawaii-nextjs/server.log",
-      "node_modules/@xterm/**/*",
-      "node_modules/axios/**/*",
-      "node_modules/form-data/**/*",
-      "node_modules/node-pty/**/*",
-      "!node_modules/**/test/**",
-      "!node_modules/**/tests/**",
-      "!node_modules/**/*.md",
-      "!node_modules/**/README*",
-      "!node_modules/**/CHANGELOG*",
-      "!node_modules/**/.git*"
+      "!ai-kawaii-nextjs/server.log"
     ],
     "asarUnpack": [
       "node_modules/node-pty/**/*"
@@ -72,13 +71,6 @@
             "arm64",
             "x64"
           ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
         }
       ]
     },
@@ -87,12 +79,6 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
           "arch": [
             "x64"
           ]
