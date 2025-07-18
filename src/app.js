@@ -1140,13 +1140,52 @@ class TerminalApp {
             isResizing: this.isResizing
         });
         
-        if (useHooks) {
-            // Hookモード: 既存のMessageAccumulatorを使用
+        if (useHooks && !this.isAppTerminalData(data)) {
+            // Hookモード（外部ターミナルのみ）: MessageAccumulatorを使用
+            debugLog('📡 外部ターミナル（Hookモード）: MessageAccumulator使用');
             this.messageAccumulator.addChunk(data);
         } else {
-            // アプリ内監視モード: 即座に『』を抽出・処理
-            debugLog('📱 アプリ内監視モード: processAppInternalMode呼び出し');
+            // アプリ内ターミナル または フックモードOFF: 直接処理
+            debugLog(useHooks ? 
+                '📱 アプリ内ターミナル（Hookモード無視）: processAppInternalMode呼び出し' : 
+                '📱 アプリ内監視モード: processAppInternalMode呼び出し');
             this.processAppInternalMode(data);
+        }
+    }
+
+    // アプリ内ターミナルのデータかどうかを判定
+    isAppTerminalData(data) {
+        // フリーズ問題を回避するため、当面は以下の戦略を取る：
+        // 1. Hookモードでアプリ内ターミナルを使用する場合は直接処理
+        // 2. Hook通知ファイルが存在する場合は外部ターミナルと判定
+        
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Hook通知ファイルの存在確認
+            const tempDir = path.join(this.claudeWorkingDir, 'temp');
+            if (fs.existsSync(tempDir)) {
+                const files = fs.readdirSync(tempDir);
+                const hasHookNotification = files.some(file => 
+                    file.startsWith('notification_') && file.endsWith('.json')
+                );
+                
+                if (hasHookNotification) {
+                    // Hook通知ファイルがある = 外部ターミナル
+                    debugLog('🔍 Hook通知ファイル検出 - 外部ターミナルと判定');
+                    return false;
+                }
+            }
+            
+            // Hook通知ファイルがない = アプリ内ターミナル
+            debugLog('🔍 Hook通知ファイルなし - アプリ内ターミナルと判定');
+            return true;
+            
+        } catch (error) {
+            // エラー時は安全のためアプリ内ターミナルとして扱う
+            debugLog('🔍 データソース判定エラー - アプリ内ターミナルとして処理:', error);
+            return true;
         }
     }
 
