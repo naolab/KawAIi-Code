@@ -58,7 +58,7 @@ class VoiceHookService {
                     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
                     this.voiceEnabled = config.voiceEnabled !== false;
                     this.selectedSpeaker = config.defaultSpeakerId || 0;
-                    this.useHooks = config.useHooks !== false;
+                    this.useHooks = true; // Hook機能を強制的に有効
                     this.voiceInterval = config.voiceInterval || 3;
                     console.log('フォールバック設定読み込み成功');
                 } else {
@@ -68,7 +68,7 @@ class VoiceHookService {
                 console.error('フォールバック設定読み込みも失敗 - デフォルト値を使用:', fallbackError.message);
                 this.voiceEnabled = true;
                 this.selectedSpeaker = 0;
-                this.useHooks = true;
+                this.useHooks = true; // Hook機能を強制的に有効
                 this.voiceInterval = 3;
             }
         }

@@ -304,7 +304,9 @@ class TerminalApp {
         }, 120000); // 2分間隔
         
         // Claude Code Hooks監視を開始
+        debugLog('🚀 init()メソッド最終段階 - startHookFileWatcher()を呼び出し');
         this.startHookFileWatcher();
+        debugLog('🚀 init()メソッド完了');
     }
 
     // モジュール初期化
@@ -362,6 +364,9 @@ class TerminalApp {
 
     // Claude Code Hooks用ファイル監視を開始
     startHookFileWatcher() {
+        debugLog('🚀 startHookFileWatcher呼び出し開始');
+        debugLog('🚀 claudeWorkingDir:', this.claudeWorkingDir);
+        
         const fs = require('fs');
         const path = require('path');
         const tempDir = path.join(this.claudeWorkingDir, 'temp');
