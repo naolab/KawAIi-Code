@@ -575,6 +575,300 @@ class UIEventManager {
         
         this.debugLog(`Terminal toggle button updated: ${this.isTerminalVisible ? 'show' : 'hide'} mode`);
     }
+
+    /**
+     * 音声メッセージを追加
+     */
+    addVoiceMessage(speaker, text) {
+        const chatMessages = document.getElementById('chat-messages');
+        if (!chatMessages) return;
+
+        // セキュアなDOM操作でメッセージを追加
+        this.addVoiceMessageElement(speaker, text, chatMessages);
+        
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    /**
+     * 音声メッセージ要素を追加
+     */
+    addVoiceMessageElement(speaker, text, parentElement) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'voice-message';
+        
+        const speakerDiv = document.createElement('div');
+        speakerDiv.className = 'voice-speaker';
+        speakerDiv.textContent = speaker;
+        
+        const textP = document.createElement('p');
+        textP.className = 'voice-text';
+        textP.textContent = text;
+        
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'voice-time';
+        timeDiv.textContent = new Date().toLocaleTimeString('ja-JP', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        
+        messageDiv.appendChild(speakerDiv);
+        messageDiv.appendChild(textP);
+        messageDiv.appendChild(timeDiv);
+        
+        parentElement.appendChild(messageDiv);
+        
+        return messageDiv;
+    }
+
+    /**
+     * 話者選択オプションを更新
+     */
+    updateSpeakerSelectOptions(selectElement, speakers, selectedSpeakerId = null) {
+        if (!selectElement || !Array.isArray(speakers)) return;
+        
+        // 既存のオプションをクリア
+        selectElement.innerHTML = '';
+        
+        // 新しいオプションを追加
+        speakers.forEach(speaker => {
+            speaker.styles.forEach(style => {
+                const option = document.createElement('option');
+                option.value = style.id.toString();
+                option.textContent = `${speaker.name} (${style.name})`;
+                selectElement.appendChild(option);
+            });
+        });
+        
+        // 選択状態を設定
+        if (selectedSpeakerId !== null) {
+            selectElement.value = selectedSpeakerId.toString();
+        }
+    }
+
+    /**
+     * キャラクター気分を更新
+     */
+    updateCharacterMood(mood) {
+        const moodElement = document.querySelector('.character-mood');
+        if (moodElement && moodElement.textContent !== mood) {
+            moodElement.textContent = mood;
+        }
+    }
+
+    /**
+     * ステータスを更新
+     */
+    updateStatus(message) {
+        const statusElement = document.getElementById('status');
+        if (statusElement) {
+            statusElement.textContent = message;
+        }
+    }
+
+    /**
+     * 通知を表示
+     */
+    showNotification(message, type = 'info') {
+        // 既存の通知を削除
+        const existingNotification = document.querySelector('.voice-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        // 新しい通知を作成
+        const notification = document.createElement('div');
+        notification.className = `voice-notification voice-notification-${type}`;
+        notification.textContent = message;
+        
+        // 通知のスタイルを設定
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'error' ? '#ff4444' : '#4CAF50'};
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 300px;
+            word-wrap: break-word;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // 5秒後に自動削除
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    /**
+     * 音声エラーを表示
+     */
+    showVoiceError(error) {
+        const errorMessage = this.getVoiceErrorMessage(error);
+        
+        // エラー通知を画面に表示
+        this.showNotification(errorMessage, 'error');
+        
+        // 音声関連のUIを更新
+        this.updateVoiceErrorIndicator(error);
+    }
+
+    /**
+     * 音声エラーメッセージを生成
+     */
+    getVoiceErrorMessage(error) {
+        if (error.errorType) {
+            switch (error.errorType) {
+                case 'network':
+                    return '音声エンジンに接続できません。AivisSpeechが起動しているか確認してください。';
+                case 'timeout':
+                    return '音声生成に時間がかかりすぎています。しばらく待ってから再試行してください。';
+                case 'server':
+                    return '音声エンジンでエラーが発生しました。エンジンの再起動を試してください。';
+                case 'synthesis':
+                    return 'テキストの音声変換に失敗しました。内容を確認してください。';
+                default:
+                    return '音声読み上げエラーが発生しました。';
+            }
+        }
+        
+        return `音声読み上げエラー: ${error.message || 'Unknown error'}`;
+    }
+
+    /**
+     * 音声エラーインジケーターを更新
+     */
+    updateVoiceErrorIndicator(error) {
+        const statusElement = document.getElementById('connection-status-modal');
+        if (statusElement) {
+            statusElement.textContent = 'エラー発生';
+            statusElement.className = 'status-error';
+            
+            // 10秒後にステータスを復元
+            setTimeout(() => {
+                if (this.app && this.app.checkVoiceConnection) {
+                    this.app.checkVoiceConnection();
+                }
+            }, 10000);
+        }
+    }
+
+    /**
+     * 作業ディレクトリ選択処理
+     */
+    async handleSelectClaudeCwd() {
+        const claudeCwdDisplay = document.getElementById('claude-cwd-display');
+        const claudeCwdMessage = document.getElementById('claude-cwd-message');
+
+        if (claudeCwdMessage) {
+            claudeCwdMessage.textContent = ''; // 古いメッセージをクリア
+            claudeCwdMessage.style.color = '';
+        }
+
+        try {
+            const result = await window.electronAPI.openDirectoryDialog();
+            if (result.success && result.path) {
+                this.app.claudeWorkingDir = result.path; // クラス変数を更新
+                if (claudeCwdDisplay) claudeCwdDisplay.textContent = this.app.claudeWorkingDir;
+                if (claudeCwdMessage) {
+                    claudeCwdMessage.textContent = `作業ディレクトリを\'${result.path}\'に設定しました。`;
+                    claudeCwdMessage.style.color = 'green';
+                }
+                
+                // ConfigManagerにも作業ディレクトリを同期
+                if (this.app.configManager) {
+                    this.app.configManager.setWorkingDirectory(this.app.claudeWorkingDir);
+                }
+                
+                // 作業ディレクトリ設定時に両方のAI.mdファイルを再生成
+                await this.app.generateAiMdFiles();
+
+            } else if (result.success && !result.path) {
+                if (claudeCwdMessage) {
+                    claudeCwdMessage.textContent = '作業ディレクトリの選択がキャンセルされました。';
+                    claudeCwdMessage.style.color = 'orange';
+                }
+            } else {
+                if (claudeCwdMessage) {
+                    claudeCwdMessage.textContent = `エラー: ${result.error}`;
+                    claudeCwdMessage.style.color = 'red';
+                }
+            }
+        } catch (error) {
+            console.error('Electron APIの呼び出し中にエラーが発生しました:', error);
+            if (claudeCwdMessage) {
+                claudeCwdMessage.textContent = '作業ディレクトリの設定中にエラーが発生しました。';
+                claudeCwdMessage.style.color = 'red';
+            }
+        }
+    }
+
+    /**
+     * 設定をモーダルに同期
+     */
+    async syncSettingsToModal() {
+        // 音声読み上げ設定の同期
+        const voiceToggleModal = document.getElementById('voice-toggle-modal');
+        const speakerSelectModal = document.getElementById('speaker-select-modal');
+        const cooldownInputModal = document.getElementById('voice-cooldown-modal');
+        const connectionStatusModal = document.getElementById('connection-status-modal');
+
+        if (voiceToggleModal) voiceToggleModal.checked = this.app.voiceEnabled;
+        
+        
+        await this.app.updateSpeakerSelect();
+        this.app.updateConnectionStatus(this.app.connectionStatus === 'connected' ? '接続済み' : '未接続', this.app.connectionStatus);
+
+        // 壁紙設定の同期は WallpaperSystem モジュールで処理
+
+        // Claude Code 作業ディレクトリ設定の同期
+        const claudeCwdDisplay = document.getElementById('claude-cwd-display');
+        const claudeCwdMessage = document.getElementById('claude-cwd-message');
+
+        try {
+            const result = await window.electronAPI.getClaudeCwd();
+            if (result.success) {
+                this.app.claudeWorkingDir = result.cwd; // クラス変数に保存
+                if (claudeCwdDisplay) claudeCwdDisplay.textContent = this.app.claudeWorkingDir;
+            } else {
+                console.error('現在の作業ディレクトリの取得に失敗しました:', result.error);
+                if (claudeCwdDisplay) claudeCwdDisplay.textContent = '取得失敗';
+                if (claudeCwdMessage) {
+                    claudeCwdMessage.textContent = `エラー: ${result.error}`;
+                    claudeCwdMessage.style.color = 'red';
+                }
+            }
+        } catch (error) {
+            console.error('Electron APIの呼び出し中にエラーが発生しました:', error);
+            if (claudeCwdDisplay) claudeCwdDisplay.textContent = 'エラー';
+            if (claudeCwdMessage) {
+                claudeCwdMessage.textContent = '作業ディレクトリの取得中にエラーが発生しました。';
+                claudeCwdMessage.style.color = 'red';
+            }
+        }
+
+        // マイグレーション機能は削除済み
+
+        // 現在の設定を統一設定システムに保存（読み込みは初期化時のみ）
+        if (window.getSafeUnifiedConfig) {
+            const unifiedConfig = window.getSafeUnifiedConfig();
+            await unifiedConfig.set('voiceEnabled', this.app.voiceEnabled);
+            await unifiedConfig.set('selectedSpeaker', this.app.selectedSpeaker);
+
+            // 壁紙設定の復元は WallpaperSystem モジュールで処理
+
+            if (this.app.claudeWorkingDir) {
+                await unifiedConfig.set('claudeWorkingDir', this.app.claudeWorkingDir);
+            }
+        }
+    }
 }
 
 // グローバルに公開（モジュールシステム対応）
