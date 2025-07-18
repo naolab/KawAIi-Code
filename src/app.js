@@ -520,15 +520,12 @@ class TerminalApp {
         this.chatMessages.push({ type, sender, text, timestamp: new Date() });
     }
 
+    // 音声メッセージ追加 - UIEventManagerに委譲
     addVoiceMessage(speaker, text) {
-        const chatMessages = document.getElementById('chat-messages');
-        if (!chatMessages) return;
-
-        // セキュアなDOM操作でメッセージを追加
-        this.addVoiceMessageElement(speaker, text, chatMessages);
+        if (this.uiEventManager) {
+            this.uiEventManager.addVoiceMessage(speaker, text);
+        }
         
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-
         // メモリ最適化：履歴を制限
         this.chatMessages.push({ type: 'voice', speaker, text, timestamp: Date.now() });
         if (this.chatMessages.length > 50) {
@@ -536,71 +533,32 @@ class TerminalApp {
         }
     }
 
-    // セキュアな音声メッセージ要素追加（DOMUpdaterの代替）
+    // 音声メッセージ要素追加 - UIEventManagerに委譲
     addVoiceMessageElement(speaker, text, parentElement) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'voice-message';
-        
-        const speakerDiv = document.createElement('div');
-        speakerDiv.className = 'voice-speaker';
-        speakerDiv.textContent = speaker;
-        
-        const textP = document.createElement('p');
-        textP.className = 'voice-text';
-        textP.textContent = text;
-        
-        const timeDiv = document.createElement('div');
-        timeDiv.className = 'voice-time';
-        timeDiv.textContent = new Date().toLocaleTimeString('ja-JP', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            second: '2-digit'
-        });
-        
-        messageDiv.appendChild(speakerDiv);
-        messageDiv.appendChild(textP);
-        messageDiv.appendChild(timeDiv);
-        
-        parentElement.appendChild(messageDiv);
-        
-        return messageDiv;
+        if (this.uiEventManager) {
+            return this.uiEventManager.addVoiceMessageElement(speaker, text, parentElement);
+        }
     }
 
-    // 話者選択オプションの更新（DOMUpdaterの代替）
+    // 話者選択オプション更新 - UIEventManagerに委譲
     updateSpeakerSelectOptions(selectElement, speakers, selectedSpeakerId = null) {
-        if (!selectElement || !Array.isArray(speakers)) return;
-        
-        // 既存のオプションをクリア
-        selectElement.innerHTML = '';
-        
-        // 新しいオプションを追加
-        speakers.forEach(speaker => {
-            speaker.styles.forEach(style => {
-                const option = document.createElement('option');
-                option.value = style.id.toString();
-                option.textContent = `${speaker.name} (${style.name})`;
-                selectElement.appendChild(option);
-            });
-        });
-        
-        // 選択状態を設定
-        if (selectedSpeakerId !== null) {
-            selectElement.value = selectedSpeakerId.toString();
+        if (this.uiEventManager) {
+            return this.uiEventManager.updateSpeakerSelectOptions(selectElement, speakers, selectedSpeakerId);
         }
     }
 
+    // キャラクター気分更新 - UIEventManagerに委譲
     updateCharacterMood(mood) {
-        const moodElement = document.querySelector('.character-mood');
-        if (moodElement && moodElement.textContent !== mood) {
-            moodElement.textContent = mood;
+        if (this.uiEventManager) {
+            this.uiEventManager.updateCharacterMood(mood);
         }
     }
 
 
+    // ステータス更新 - UIEventManagerに委譲
     updateStatus(message) {
-        const statusElement = document.getElementById('status');
-        if (statusElement) {
-            statusElement.textContent = message;
+        if (this.uiEventManager) {
+            this.uiEventManager.updateStatus(message);
         }
     }
 
@@ -609,7 +567,7 @@ class TerminalApp {
         return await this.appManager.generateAiMdFiles();
     }
 
-    // アプリ終了時にAI.mdファイルを削除
+    // AI.mdファイルクリーンアップ - ConfigManagerに委譲
     async cleanupAiMdFiles() {
         try {
             const result = await this.configManager.deleteBothAiMdFiles();
@@ -689,48 +647,10 @@ class TerminalApp {
         }
     }
 
+    // 作業ディレクトリ選択 - UIEventManagerに委譲
     async handleSelectClaudeCwd() {
-        const claudeCwdDisplay = document.getElementById('claude-cwd-display');
-        const claudeCwdMessage = document.getElementById('claude-cwd-message');
-
-        if (claudeCwdMessage) {
-            claudeCwdMessage.textContent = ''; // 古いメッセージをクリア
-            claudeCwdMessage.style.color = '';
-        }
-
-        try {
-            const result = await window.electronAPI.openDirectoryDialog();
-            if (result.success && result.path) {
-                this.claudeWorkingDir = result.path; // クラス変数を更新
-                if (claudeCwdDisplay) claudeCwdDisplay.textContent = this.claudeWorkingDir;
-                if (claudeCwdMessage) {
-                    claudeCwdMessage.textContent = `作業ディレクトリを\'${result.path}\'に設定しました。`;
-                    claudeCwdMessage.style.color = 'green';
-                }
-                
-                // ConfigManagerにも作業ディレクトリを同期
-                this.configManager.setWorkingDirectory(this.claudeWorkingDir);
-                
-                // 作業ディレクトリ設定時に両方のAI.mdファイルを再生成
-                await this.generateAiMdFiles();
-
-            } else if (result.success && !result.path) {
-                if (claudeCwdMessage) {
-                    claudeCwdMessage.textContent = '作業ディレクトリの選択がキャンセルされました。';
-                    claudeCwdMessage.style.color = 'orange';
-                }
-            } else {
-                if (claudeCwdMessage) {
-                    claudeCwdMessage.textContent = `エラー: ${result.error}`;
-                    claudeCwdMessage.style.color = 'red';
-                }
-            }
-        } catch (error) {
-            console.error('Electron APIの呼び出し中にエラーが発生しました:', error);
-            if (claudeCwdMessage) {
-                claudeCwdMessage.textContent = '作業ディレクトリの設定中にエラーが発生しました。';
-                claudeCwdMessage.style.color = 'red';
-            }
+        if (this.uiEventManager) {
+            return await this.uiEventManager.handleSelectClaudeCwd();
         }
     }
 
@@ -810,54 +730,16 @@ class TerminalApp {
         }
     }
 
+    // 音声読み上げ - AudioServiceに委譲
     async speakText(text) {
-        
-        // 前提条件チェック
-        if (!window.electronAPI || !window.electronAPI.voice) {
-            debugLog('⚠️ electronAPIまたはvoice APIが利用不可');
+        if (!this.audioService) {
+            debugError('AudioService not initialized');
             return;
         }
-        
-        if (!this.voiceEnabled) {
-            debugLog('🔇 音声機能が無効のためスキップ');
-            return;
-        }
-        
-        if (this.connectionStatus !== 'connected') {
-            debugLog(`⚠️ 音声エンジン未接続のためスキップ (現在のステータス: ${this.connectionStatus})`);
-            return;
-        }
-
-        // 重複チェックを実行
-        if (this.speechHistory.isDuplicate(text)) {
-            debugLog('🔄 重複テキストをスキップ:', text.substring(0, 30) + '...');
-            // 重複スキップ時も間隔制御のためlastSpeechTimeを更新
-            this.lastSpeechTime = Date.now();
-            return;
-        }
-
-        try {
-            // 読み上げ履歴に追加
-            this.speechHistory.addToHistory(text);
-            
-            await window.electronAPI.voice.speak(text, this.selectedSpeaker);
-            
-        } catch (error) {
-            debugError(`❌ 音声合成エラー:`, {
-                message: error.message,
-                textLength: text.length,
-                speaker: this.selectedSpeaker,
-                connectionStatus: this.connectionStatus,
-                voiceEnabled: this.voiceEnabled
-            });
-            
-            // エラー通知をユーザーに表示
-            this.showVoiceError(error);
-        }
+        return await this.audioService.speakText(text);
     }
     
-    // 音声合成のみ（再生なし）- VoiceQueue用
-    // 音声合成のみ実行（再生は別途）- AudioServiceに委譲
+    // 音声合成のみ - AudioServiceに委譲
     async synthesizeTextOnly(text) {
         if (!this.audioService) {
             debugError('AudioService not initialized');
@@ -866,87 +748,24 @@ class TerminalApp {
         return await this.audioService.synthesizeTextOnly(text);
     }
     
-    // ユーザー向けエラー通知
+    // エラー通知 - UIEventManagerに委譲
     showVoiceError(error) {
-        const errorMessage = this.getVoiceErrorMessage(error);
-        
-        // エラー通知を画面に表示
-        this.showNotification(errorMessage, 'error');
-        
-        // 音声関連のUIを更新
-        this.updateVoiceErrorIndicator(error);
-    }
-    
-    // エラーメッセージの生成
-    getVoiceErrorMessage(error) {
-        if (error.errorType) {
-            switch (error.errorType) {
-                case 'network':
-                    return '音声エンジンに接続できません。AivisSpeechが起動しているか確認してください。';
-                case 'timeout':
-                    return '音声生成に時間がかかりすぎています。しばらく待ってから再試行してください。';
-                case 'server':
-                    return '音声エンジンでエラーが発生しました。エンジンの再起動を試してください。';
-                case 'synthesis':
-                    return 'テキストの音声変換に失敗しました。内容を確認してください。';
-                default:
-                    return '音声読み上げエラーが発生しました。';
-            }
+        if (this.uiEventManager) {
+            this.uiEventManager.showVoiceError(error);
         }
-        
-        return `音声読み上げエラー: ${error.message || 'Unknown error'}`;
     }
     
-    // 通知の表示
+    // 通知の表示 - UIEventManagerに委譲
     showNotification(message, type = 'info') {
-        // 既存の通知を削除
-        const existingNotification = document.querySelector('.voice-notification');
-        if (existingNotification) {
-            existingNotification.remove();
+        if (this.uiEventManager) {
+            this.uiEventManager.showNotification(message, type);
         }
-        
-        // 新しい通知を作成
-        const notification = document.createElement('div');
-        notification.className = `voice-notification voice-notification-${type}`;
-        notification.textContent = message;
-        
-        // 通知のスタイルを設定
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${type === 'error' ? '#ff4444' : '#4CAF50'};
-            color: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: ${AppConstants.UI.Z_INDEX_HIGH};
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            max-width: 300px;
-            word-wrap: break-word;
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // 5秒後に自動削除
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 5000);
     }
     
-    // 音声エラーインジケーターの更新
+    // 音声エラーインジケーターの更新 - UIEventManagerに委譲
     updateVoiceErrorIndicator(error) {
-        const statusElement = document.getElementById('connection-status-modal');
-        if (statusElement) {
-            statusElement.textContent = 'エラー発生';
-            statusElement.className = 'status-error';
-            
-            // 10秒後にステータスを復元
-            setTimeout(() => {
-                this.checkVoiceConnection();
-            }, AppConstants.UI.CLEANUP_DELAY);
+        if (this.uiEventManager) {
+            this.uiEventManager.updateVoiceErrorIndicator(error);
         }
     }
 
@@ -957,13 +776,10 @@ class TerminalApp {
 
 
 
+    // 音声停止 - AudioServiceに委譲
     async stopVoice() {
-        if (window.electronAPI && window.electronAPI.voice) {
-            try {
-                await window.electronAPI.voice.stop();
-            } catch (error) {
-                debugError('Failed to stop voice:', error);
-            }
+        if (this.audioService) {
+            return await this.audioService.stopVoice();
         }
     }
 
