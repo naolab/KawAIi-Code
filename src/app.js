@@ -530,6 +530,29 @@ class TerminalApp {
                 arrayBuffer = audioData;
             }
             
+            // VRMリップシンク用に音声データを送信
+            try {
+                this.sendAudioToVRM(arrayBuffer);
+                debugLog('🎭 アプリ内音声データをVRMに送信完了');
+            } catch (vrmError) {
+                debugLog('❌ VRM音声データ送信エラー:', vrmError);
+                // エラーが発生しても音声再生は続行
+            }
+            
+            // 感情データを抽出・送信（Hook処理と同じ）
+            try {
+                if (text) {
+                    const emotionResult = await window.electronAPI.voice.getEmotion(text);
+                    if (emotionResult.success && emotionResult.emotion) {
+                        this.sendEmotionToVRM(emotionResult.emotion);
+                        debugLog('😊 アプリ内音声感情データをVRMに送信完了:', emotionResult.emotion);
+                    }
+                }
+            } catch (emotionError) {
+                debugLog('❌ 感情データ送信エラー:', emotionError);
+                // エラーが発生しても音声再生は続行
+            }
+            
             // Blobを作成して音声ファイルとして再生
             const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
             const audioUrl = URL.createObjectURL(audioBlob);
@@ -544,6 +567,8 @@ class TerminalApp {
                 debugLog('🎵 アプリ内音声再生完了:', text?.substring(0, 30) + '...');
                 // VoiceQueueの完了待機用に状態を更新
                 this.voicePlayingState.isPlaying = false;
+                // 音声終了をVRMビューワーに通知（表情リセットのため）
+                this.notifyAudioStateToVRM('ended');
                 URL.revokeObjectURL(audioUrl);
             };
             
@@ -552,6 +577,9 @@ class TerminalApp {
                 this.voicePlayingState.isPlaying = false;
                 URL.revokeObjectURL(audioUrl);
             };
+            
+            // 音声再生開始をVRMビューワーに通知
+            this.notifyAudioStateToVRM('playing');
             
             await audio.play();
             

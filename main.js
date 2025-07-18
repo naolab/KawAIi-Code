@@ -526,6 +526,26 @@ ipcMain.handle('voice-stop', () => {
   return { success: false, error: 'Main window not available' };
 });
 
+ipcMain.handle('voice-get-emotion', async (event, text) => {
+  if (!voiceService) {
+    return { success: false, error: 'Voice service not initialized' };
+  }
+  
+  try {
+    // Hook処理と同じ感情データ抽出
+    const parsedResult = voiceService.parseTerminalOutput(text);
+    if (parsedResult && parsedResult.emotion) {
+      debugLog('😊 感情データ抽出完了:', parsedResult.emotion);
+      return { success: true, emotion: parsedResult.emotion };
+    } else {
+      return { success: true, emotion: null };
+    }
+  } catch (error) {
+    console.error('Voice emotion extraction error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // 感情データの転送用IPCハンドラー
 ipcMain.on('emotion-data', (event, emotionData) => {
   debugLog('😊 感情データを受信:', emotionData);

@@ -41,6 +41,7 @@ window.electronAPI = {
     synthesize: (text, speaker) => ipcRenderer.invoke('voice-synthesize', text, speaker),
     speak: (text, speaker) => ipcRenderer.invoke('voice-speak', text, speaker),
     stop: () => ipcRenderer.invoke('voice-stop'),
+    getEmotion: (text) => ipcRenderer.invoke('voice-get-emotion', text),
     onTextAvailable: (callback) => {
       ipcRenderer.on('voice-text-available', (event, text) => callback(text));
     },
