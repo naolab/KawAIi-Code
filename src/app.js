@@ -310,9 +310,10 @@ class TerminalApp {
 
     // モジュール初期化
     async initializeModules() {
-        // MessageAccumulatorのコールバック設定（新しい統一処理システムを使用）
+        // MessageAccumulatorのコールバック設定（Hook専用処理）
         this.messageAccumulator.setProcessCallback(async (data) => {
-            await this.processTerminalData(data);
+            // Hook専用処理 - アプリ内音声処理は実行しない
+            await this.processHookOnlyData(data);
         });
         
         // 壁紙システムの初期化
@@ -1153,6 +1154,31 @@ class TerminalApp {
         }
     }
 
+    // Hook専用データ処理（音声再生なし）
+    async processHookOnlyData(data) {
+        debugLog('🎣 Hook専用データ処理開始:', {
+            dataLength: data.length,
+            dataPreview: data.substring(0, 100)
+        });
+        
+        // 『』で囲まれたテキストを抽出
+        const quotedTextRegex = /『([^』]+)』/g;
+        const matches = [];
+        let match;
+        
+        while ((match = quotedTextRegex.exec(data)) !== null) {
+            matches.push(match[1]);
+        }
+        
+        if (matches.length > 0) {
+            debugLog('🎣 Hook専用: テキスト検出 - Hook音声処理待機中:', matches);
+            // Hook処理は外部のHook通知システムに委ねる
+            // ここでは音声処理は実行しない
+        } else {
+            debugLog('🎣 Hook専用: 『』テキストなし');
+        }
+    }
+
     // アプリ内ターミナルのデータかどうかを判定
     isAppTerminalData(data) {
         // フリーズ問題を回避するため、当面は以下の戦略を取る：
@@ -1707,6 +1733,40 @@ class TerminalApp {
         }
     }
     
+    // 音声合成のみ（再生なし）- VoiceQueue用
+    async synthesizeTextOnly(text) {
+        // 前提条件チェック
+        if (!window.electronAPI || !window.electronAPI.voice) {
+            debugLog('⚠️ electronAPIまたはvoice APIが利用不可');
+            return null;
+        }
+        
+        if (!this.voiceEnabled) {
+            debugLog('🔇 音声機能が無効のためスキップ');
+            return null;
+        }
+        
+        if (this.connectionStatus !== 'connected') {
+            debugLog(`⚠️ 音声エンジン未接続のためスキップ (現在のステータス: ${this.connectionStatus})`);
+            return null;
+        }
+
+        try {
+            // 音声合成（再生なし）
+            const result = await window.electronAPI.voice.synthesize(text, this.selectedSpeaker);
+            if (result.success) {
+                debugLog('🎵 音声合成のみ完了:', text.substring(0, 30) + '...');
+                return result.audioData;
+            } else {
+                debugLog('❌ 音声合成失敗:', result.error);
+                return null;
+            }
+        } catch (error) {
+            debugLog('❌ 音声合成エラー:', error);
+            return null;
+        }
+    }
+    
     // ユーザー向けエラー通知
     showVoiceError(error) {
         const errorMessage = this.getVoiceErrorMessage(error);
@@ -1957,15 +2017,32 @@ class VoiceQueue {
                 this.terminalApp.updateCharacterMood('おしゃべり中✨');
             });
             
-            // 音声読み上げ実行
+            // 音声読み上げ実行（ハイブリッドシステム）
             if (this.terminalApp.voiceEnabled) {
                 // 音声再生状態を設定
                 this.terminalApp.voicePlayingState.isPlaying = true;
                 
-                await this.terminalApp.speakText(text);
+                // 音声合成のみ（再生なし）
+                const audioData = await this.terminalApp.synthesizeTextOnly(text);
                 
-                // 音声再生完了まで待機
-                await this.waitForVoiceComplete();
+                if (audioData) {
+                    // 合成した音声をplayAppInternalAudioで再生
+                    await this.terminalApp.playAppInternalAudio(audioData, text);
+                    
+                    // 音声再生完了まで待機
+                    await this.waitForVoiceComplete();
+                    
+                    // 読み上げ間隔制御
+                    const intervalSeconds = await getSafeUnifiedConfig().get('voiceIntervalSeconds', 1);
+                    const intervalMs = intervalSeconds * 1000;
+                    
+                    if (intervalMs > 0) {
+                        this.debugLog(`⏱️ 読み上げ間隔待機: ${intervalSeconds}秒`);
+                        await new Promise(resolve => setTimeout(resolve, intervalMs));
+                    }
+                } else {
+                    this.debugLog('❌ 音声合成に失敗しました');
+                }
             }
             
             this.debugLog('🎵 順次音声再生完了:', text.substring(0, 30) + '...');
