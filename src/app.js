@@ -44,9 +44,26 @@ function getSafeUnifiedConfig() {
 
 class TerminalApp {
     constructor() {
-        this.terminal = null;
-        this.fitAddon = null;
-        this.isTerminalRunning = false;
+        this.voiceEnabled = true; // デフォルトで有効に
+        this.selectedSpeaker = 0;
+        this.connectionStatus = 'disconnected';
+        
+        // 音声再生状態の統一管理
+        this.voicePlayingState = {
+            isPlaying: false,
+            currentAudio: null,
+            queue: []
+        };
+        
+        this.speakers = [];
+        this.voiceIntervalSeconds = AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS;
+        this.voiceVolume = 50; // デフォルト音量50%
+        
+        this.chatMessages = [];
+        this.lastChatMessage = '';
+        this.lastChatTime = 0;
+        this.claudeWorkingDir = ''; // Claude Code作業ディレクトリの初期値
+        this.speakerInitialized = false; // 話者選択初期化フラグ
         
         // リソース管理システム
         this.resourceManager = new ResourceManager('TerminalApp');
@@ -58,47 +75,11 @@ class TerminalApp {
             maxPoolSize: 5
         });
         
-        // タブ管理システム
-        this.tabManager = null;
-        this.voiceEnabled = true; // デフォルトで有効に
-        this.selectedSpeaker = 0;
-        this.connectionStatus = 'disconnected';
-        // Hook音声再生中フラグはHookServiceで管理
-        this.isResizing = false; // リサイズ中フラグ（音声処理制御用）
-        this.resizeTimer = null; // リサイズタイマー（デバウンス処理用）
-        
-        // 音声再生状態の統一管理
-        this.voicePlayingState = {
-            isPlaying: false,
-            currentAudio: null,
-            queue: []
-        };
-        
-        this.speakers = [];
-        // 従来音声システムは削除（Hook音声のみ使用）
-        // this.audioContext = null; // 削除
-        // this.currentAudio = null; // 削除
-        // this.isPlaying = false; // 削除（Hook用のisPlayingHookAudioのみ使用）
-        this.voiceIntervalSeconds = AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS;
-        this.voiceVolume = 50; // デフォルト音量50%
-        // this.audioQueue = []; // 削除
-        // this.maxAudioAge = AppConstants.AUDIO.MAX_AGE; // 削除
-        
-        // this.maxQueueSize = AppConstants.AUDIO.MAX_QUEUE_SIZE; // 削除
-        this.chatMessages = [];
-        this.lastChatMessage = '';
-        this.lastChatTime = 0;
-        this.currentRunningAI = null; // 現在起動しているAIの種類を保持
-        
-        // VRM口パク用通信（postMessage使用）
+        // 読み上げ履歴管理
+        this.speechHistory = new SpeechHistoryManager(200);
         
         // パフォーマンス最適化用（チャンク結合方式に変更）
         this.messageAccumulator = new MessageAccumulator();
-        this.claudeWorkingDir = ''; // Claude Code作業ディレクトリの初期値
-        this.speakerInitialized = false; // 話者選択初期化フラグ
-        
-        // 読み上げ履歴管理
-        this.speechHistory = new SpeechHistoryManager(200);
         
         // 音声キューイングシステム
         this.voiceQueue = new VoiceQueue(this);
@@ -114,6 +95,12 @@ class TerminalApp {
         
         // VRMIntegrationServiceをグローバルに設定
         window.vrmIntegrationService = this.vrmIntegrationService;
+        
+        // ターミナルサービス
+        this.terminalService = new TerminalService(this);
+        
+        // タブ管理システム
+        this.tabManager = null;
         
         // モジュールインスタンス
         this.wallpaperSystem = new WallpaperSystem();
@@ -148,13 +135,13 @@ class TerminalApp {
             debugError('Error calling getClaudeCwd during init:', error);
         }
 
-        this.setupTerminal();
+        this.terminalService.setupTerminal();
         this.initializeTabManager(); // タブ管理システム初期化
         this.initializeUIEventManager(); // UI制御初期化
         this.setupChatInterface();
         await this.initializeModules(); // モジュール初期化をawait
         await this.loadInitialSettings(); // 初期設定の読み込み
-        await this.initializeVoiceMode(); // 音声モード初期化を追加
+        await this.terminalService.initializeVoiceMode(); // 音声モード初期化を追加
         
         // アプリ起動時に両方のAI.mdファイルを生成
         await this.generateAiMdFiles();
@@ -179,7 +166,7 @@ class TerminalApp {
     async initializeModules() {
         // MessageAccumulatorのコールバック設定（統一処理システム）
         this.messageAccumulator.setProcessCallback(async (data) => {
-            await this.processTerminalData(data);
+            await this.terminalService.processTerminalData(data);
         });
         
         // 壁紙システムの初期化
@@ -432,6 +419,26 @@ class TerminalApp {
         this.tabManager = new TabManager(this.tabManagerDependencies);
         this.tabManager.initialize();
     }
+    
+    // ターミナル関連の参照を取得（TabManagerDependenciesで必要）
+    get terminal() { return this.terminalService.terminal; }
+    get fitAddon() { return this.terminalService.fitAddon; }
+    get isTerminalRunning() { return this.terminalService.isTerminalRunning; }
+    get currentRunningAI() { return this.terminalService.currentRunningAI; }
+    
+    // リサイズ処理の委譲
+    handleResize() {
+        return this.terminalService.handleResize();
+    }
+    
+    // ターミナル制御メソッドの委譲
+    async startTerminal(aiType) {
+        return await this.terminalService.startTerminal(aiType);
+    }
+    
+    async stopTerminal() {
+        return await this.terminalService.stopTerminal();
+    }
 
     // UIEventManager初期化
     initializeUIEventManager() {
@@ -439,104 +446,6 @@ class TerminalApp {
         this.uiEventManager.setupEventListeners();
     }
 
-    setupTerminal() {
-        this.terminal = new Terminal(TerminalFactory.createConfig());
-        
-        // ErrorHandlerはすでにinitで初期化済み
-
-        this.fitAddon = new FitAddon.FitAddon();
-        this.terminal.loadAddon(this.fitAddon);
-        this.terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
-
-        const terminalElement = document.getElementById('terminal');
-        if (terminalElement) {
-            this.terminal.open(terminalElement);
-        }
-        
-        this.fitAddon.fit();
-
-        // Handle terminal input
-        this.terminal.onData((data) => {
-            if (this.isTerminalRunning) {
-                window.electronAPI.terminal.write(data);
-            }
-        });
-
-        // Handle window resize (ResourceManager経由)
-        this.resourceManager.addEventListener(window, 'resize', () => {
-            // デバウンス処理付きリサイズ制御
-            this.handleResize();
-            
-            if (this.fitAddon) {
-                this.fitAddon.fit();
-                if (this.isTerminalRunning) {
-                    window.electronAPI.terminal.resize(
-                        this.terminal.cols,
-                        this.terminal.rows
-                    );
-                }
-            }
-        });
-
-        // Handle terminal data from backend
-        if (window.electronAPI && window.electronAPI.terminal) {
-            window.electronAPI.terminal.onData((data) => {
-                debugLog('📡 ターミナルデータ受信:', {
-                    dataLength: data.length,
-                    hasTerminal: !!this.terminal,
-                    dataPreview: data.substring(0, 50)
-                });
-                
-                if (this.terminal) {
-                    this.terminal.write(data);
-                }
-                // MessageAccumulatorに送信（二重処理を防ぐため、直接processTerminalDataは呼び出さない）
-                this.messageAccumulator.addChunk(data);
-            });
-
-            // Handle Claude Code exit
-            window.electronAPI.terminal.onExit((exitCode) => {
-                this.terminal.write(`\r\n\x1b[91mClaude Code exited with code: ${exitCode}\x1b[0m\r\n`);
-                this.isTerminalRunning = false;
-                this.updateStatus('Claude Code stopped');
-                this.updateButtons();
-            });
-        } else {
-            debugError('electronAPI not available');
-            this.updateStatus('ElectronAPI not available');
-        }
-
-
-        // Handle voice text available - DISABLED for bracket-only mode
-        if (window.electronAPI && window.electronAPI.voice) {
-            // window.electronAPI.voice.onTextAvailable((text) => {
-            //     if (this.voiceEnabled) {
-            //         this.speakText(text);
-            //     }
-            // });
-
-            // Handle audio playback - VoiceQueueシステムを使用するため無効化
-            // window.electronAPI.voice.onPlayAudio((data) => {
-            //     if (data.audioData) {
-            //         // 新しい形式: { audioData: Buffer, text: string }
-            //         this.playAudioWithText(data.audioData, data.text);
-            //     } else {
-            //         // 旧形式: 直接Buffer
-            //         this.playAudio(data);
-            //     }
-            // });
-
-            // Handle audio stop - Hook機能常時有効のため無効化
-            // window.electronAPI.voice.onStopAudio(() => {
-            //     this.stopAudio();
-            // });
-
-            // Handle Hook conversation display
-            window.electronAPI.voice.onShowHookConversation((data) => {
-                this.displayHookConversation(data);
-            });
-        }
-    }
 
     // setupEventListeners() - modules/ui-event-manager.js に移動済み
 
@@ -556,58 +465,11 @@ class TerminalApp {
         return this.messageAccumulator.getStatus();
     }
 
-    // 新しい統一処理システム: アプリ内監視モードとHookモードを統合
-    async processTerminalData(data) {
-        try {
-            // 統一設定から現在のモードを取得
-            const unifiedConfig = getSafeUnifiedConfig();
-            const useHooks = await unifiedConfig.get('useHooks', false);
-            
-            if (useHooks) {
-                // Hookモード: 外部ターミナルの音声処理はHook側で処理されるため、ここでは何もしない
-                return;
-            }
-            
-            // アプリ内監視モード: ターミナルデータから音声を抽出して処理
-            debugLog('🔍 アプリ内監視モード - ターミナルデータ処理開始');
-            
-            // ProcessingCacheによる最適化されたテキストクリーニング
-            const cleanData = this.processingCache.optimizedTextCleaning(data);
-            
-            // Claude Code (⏺) のマーカーを検索
-            let markerIndex = cleanData.indexOf('⏺');
-            
-            if (markerIndex === -1) {
-                return;
-            }
-            
-            let afterMarker = cleanData.substring(markerIndex + 1).trim();
-            
-            // カッコ内のテキストを抽出（キャッシュ化された正規表現処理）
-            const quotedTextMatches = this.processingCache.cachedRegexProcess(
-                afterMarker, 
-                /『([^』]+)』/gs
-            );
-            
-            if (quotedTextMatches && quotedTextMatches.length > 0) {
-                // カギカッコ内のテキストを一個ずつ処理
-                await this.processQuotedTexts(quotedTextMatches);
-            }
-            
-        } catch (error) {
-            this.errorHandler.handle(error, {
-                severity: ErrorHandler.SEVERITY.LOW,
-                category: ErrorHandler.CATEGORY.PROCESS,
-                operation: 'process-terminal-data',
-                userMessage: 'ターミナルデータの処理中にエラーが発生しました'
-            });
-        }
-    }
     
     // 旧処理: 互換性のために残す
     async parseTerminalDataForChat(data) {
-        debugLog('⚠️ 旧処理parseTerminalDataForChatが呼ばれました - processTerminalDataに委譲');
-        return await this.processTerminalData(data);
+        debugLog('⚠️ 旧処理parseTerminalDataForChatが呼ばれました - TerminalServiceに委譲');
+        return await this.terminalService.processTerminalData(data);
         
         // 以下は無効化済み
         /*
@@ -674,35 +536,6 @@ class TerminalApp {
         });
     }
 
-    // カッコ内のテキストを一個ずつ順次処理（音声キューイングシステム使用）
-    async processQuotedTexts(quotedTextMatches) {
-        debugLog('🎵 processQuotedTexts開始:', { matchCount: quotedTextMatches.length });
-        
-        // 既存の音声キューをクリア（新しい音声セッション開始）
-        this.voiceQueue.clear();
-        
-        for (let i = 0; i < quotedTextMatches.length; i++) {
-            let quotedText = quotedTextMatches[i].replace(/[『』]/g, '').trim();
-            
-            // 改行と余分な空白を除去
-            quotedText = quotedText.replace(/\r?\n\s*/g, '').replace(/\s+/g, ' ').trim();
-            
-            // 空のテキストはスキップ
-            if (quotedText.length === 0) {
-                continue;
-            }
-            
-            // 音声キューに追加（順次処理）
-            await this.voiceQueue.addToQueue(quotedText);
-        }
-        
-        // キャラクターの気分をリセット（音声キュー処理完了後）
-        setTimeout(() => {
-            this.updateCharacterMood('待機中💕');
-        }, AppConstants.MESSAGE.COMPLETION_TIMEOUT);
-        
-        debugLog('🎵 processQuotedTexts完了');
-    }
 
     // Hook経由の会話表示
     displayHookConversation(data) {
@@ -841,292 +674,6 @@ class TerminalApp {
         }
     }
 
-    // デバウンス処理付きリサイズ制御メソッド
-    handleResize() {
-        // 既存のリサイズタイマーをクリア
-        if (this.resizeTimer) {
-            clearTimeout(this.resizeTimer);
-        }
-        
-        // リサイズ中フラグを設定
-        this.isResizing = true;
-        debugLog('🔄 リサイズ開始 - 音声処理を一時停止（デバウンス処理）');
-        
-        // 新しいタイマーを設定（最後のリサイズから300ms後に解除）
-        this.resizeTimer = setTimeout(() => {
-            this.isResizing = false;
-            this.resizeTimer = null;
-            debugLog('🔄 リサイズ完了 - 音声処理を再開（デバウンス処理）');
-        }, 300);
-    }
-
-    async processTerminalData(data) {
-        // リサイズ中は音声処理をスキップ（但し、新しいコンテンツは処理）
-        if (this.isResizing) {
-            debugLog('🔄 リサイズ中のため音声処理をスキップ:', {
-                dataLength: data.length,
-                dataPreview: data.substring(0, 50)
-            });
-            return;
-        }
-        
-        const unifiedConfig = getSafeUnifiedConfig();
-        const useHooks = await unifiedConfig.get('useHooks', false);
-        
-        debugLog('🔄 processTerminalData呼び出し:', {
-            useHooks,
-            dataLength: data.length,
-            dataPreview: data.substring(0, 100),
-            isResizing: this.isResizing
-        });
-        
-        if (useHooks) {
-            // Hookモード: 外部ターミナルのみ処理、アプリ内ターミナルは音声処理なし
-            if (!this.hookService.isAppTerminalData(data)) {
-                debugLog('📡 外部ターミナル（Hookモード）: Hook専用処理');
-                await this.hookService.processHookOnlyData(data);
-            } else {
-                debugLog('📱 アプリ内ターミナル（Hookモード）: 音声処理スキップ');
-                // アプリ内ターミナルでは音声処理を行わない
-            }
-        } else {
-            // フックモードOFF: 全てのターミナルをアプリ内で処理
-            debugLog('📱 アプリ内監視モード: processAppInternalMode呼び出し');
-            this.processAppInternalMode(data);
-        }
-    }
-
-
-    processAppInternalMode(data) {
-        debugLog('🔍 processAppInternalMode開始 - VoiceQueue使用版:', {
-            dataLength: data.length,
-            dataContent: data.substring(0, 100) + '...'
-        });
-        
-        // 『』で囲まれたテキストを全て抽出
-        const quotedTextMatches = [];
-        const quotedTextRegex = /『([^』]+)』/g;
-        let match;
-        
-        while ((match = quotedTextRegex.exec(data)) !== null) {
-            quotedTextMatches.push(match[0]); // 『』付きで保存
-            debugLog('✨ 『』テキスト検出:', {
-                matchNumber: quotedTextMatches.length,
-                fullMatch: match[0],
-                textContent: match[1]
-            });
-        }
-        
-        if (quotedTextMatches.length > 0) {
-            debugLog('✅ アプリ内モード: VoiceQueueで順次処理開始:', {
-                totalMatches: quotedTextMatches.length,
-                texts: quotedTextMatches
-            });
-            // 既存のprocessQuotedTexts（VoiceQueue使用）を使用
-            this.processQuotedTexts(quotedTextMatches);
-        } else {
-            debugLog('❌ 『』テキストが見つかりませんでした');
-        }
-    }
-
-    // 旧処理: アプリ内モード個別音声実行（VoiceQueue使用のため無効化）
-    /*
-    async executeSpeechForAppMode(text) {
-        debugLog('🎤 executeSpeechForAppMode開始:', {
-            text: text,
-            textLength: text.length,
-            voiceEnabled: this.voiceEnabled,
-            selectedSpeaker: this.selectedSpeaker
-        });
-        
-        try {
-            // 音声合成が有効かチェック
-            if (!this.voiceEnabled) {
-                debugLog('🔇 音声読み上げが無効のため、処理をスキップ');
-                return;
-            }
-
-            // ElectronAPI経由で音声読み上げ実行
-            if (window.electronAPI && window.electronAPI.voice) {
-                debugLog('📞 ElectronAPI.voice.speak呼び出し開始');
-                await window.electronAPI.voice.speak(text, this.selectedSpeaker);
-                debugLog('📞 ElectronAPI.voice.speak呼び出し完了');
-                
-                // 音声履歴に追加
-                if (this.speechHistory) {
-                    this.speechHistory.addToHistory(text);
-                    debugLog('📝 音声履歴に追加完了');
-                }
-                
-                debugLog('🎵 アプリ内監視モード音声読み上げ完了:', text);
-            } else {
-                debugLog('❌ ElectronAPI.voice が利用できません:', {
-                    hasElectronAPI: !!window.electronAPI,
-                    hasVoice: !!(window.electronAPI && window.electronAPI.voice)
-                });
-            }
-        } catch (error) {
-            debugError('❌ アプリ内監視モード音声処理エラー:', error);
-        }
-    }
-    */
-
-    async initializeVoiceMode() {
-        const unifiedConfig = getSafeUnifiedConfig();
-        const useHooks = await unifiedConfig.get('useHooks', false);
-        
-        // 設定に応じて初期化処理を実行
-        if (useHooks) {
-            // Hook音声モードで初期化完了
-        } else {
-            debugLog('🔄 アプリ内監視モードで初期化完了');
-        }
-    }
-
-    switchVoiceMode(useHooks) {
-        debugLog('🔄 switchVoiceMode呼び出し:', {
-            useHooks: useHooks,
-            voiceEnabled: this.voiceEnabled,
-            selectedSpeaker: this.selectedSpeaker
-        });
-        
-        if (useHooks) {
-        } else {
-            debugLog('🔄 アプリ内監視モードに切り替え');
-        }
-    }
-
-    async startTerminal(aiType) {
-        // タブシステムが有効な場合はアクティブタブでAIを起動
-        if (this.tabManager && this.tabManager.activeTabId) {
-            return await this.startTerminalForActiveTab(aiType);
-        }
-        
-        // 従来のメインターミナル起動（後方互換性）
-        try {
-            if (!window.electronAPI || !window.electronAPI.terminal) {
-                this.updateStatus('ElectronAPI not available');
-                return;
-            }
-
-            const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
-            
-            this.updateStatus(`Starting ${aiName}...`);
-            const result = await window.electronAPI.terminal.start(aiType);
-            
-            if (result.success) {
-                this.isTerminalRunning = true;
-                this.currentRunningAI = aiType; // 起動したAIの種類を保存
-                this.updateStatus(`${aiName} running - Type your message and press Enter`);
-                this.terminal.focus();
-                
-                this.terminal.writeln(`\x1b[90m🎀 KawAIi Code Integration Started! 🎀\x1b[0m`);
-                this.terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
-                
-                this.addVoiceMessage('ニコ', `${aiName}が起動したよ〜！`);
-
-                setTimeout(() => {
-                    this.fitAddon.fit();
-                    window.electronAPI.terminal.resize(
-                        this.terminal.cols,
-                        this.terminal.rows
-                    );
-                }, 100);
-            } else {
-                // 失敗した場合、メインプロセスからの詳細なエラーメッセージを表示
-                const errorMessage = result.error || `Failed to start ${aiName}`;
-                this.updateStatus(errorMessage);
-                debugError(`Failed to start ${aiName}:`, errorMessage);
-            }
-        } catch (error) {
-            const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
-            debugError(`Error starting ${aiName}:`, error);
-            this.updateStatus(`Error starting ${aiName}: ${error.message}`);
-        }
-        
-        this.updateButtons();
-    }
-    
-    async startTerminalForActiveTab(aiType) {
-        if (!this.tabManager || !this.tabManager.activeTabId) {
-            debugError('No active tab available');
-            return;
-        }
-        
-        const activeTab = this.tabManager.tabs[this.tabManager.activeTabId];
-        if (!activeTab) {
-            debugError('Active tab not found');
-            return;
-        }
-        
-        // 既にAIが起動している場合は停止してから新しいAIを起動
-        if (activeTab.isRunning) {
-            await this.tabManager.stopAIForTab(this.tabManager.activeTabId);
-        }
-        
-        const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
-        this.updateStatus(`Starting ${aiName} in active tab...`);
-        
-        try {
-            const success = await this.tabManager.startAIForTab(this.tabManager.activeTabId, aiType);
-            if (success) {
-                // タブ情報を更新
-                activeTab.aiType = aiType;
-                activeTab.isRunning = true;
-                activeTab.name = `${aiType === 'claude' ? 'Claude' : 'Claude-D'} #${activeTab.id.split('-')[1]}`;
-                
-                this.updateStatus(`${aiName} running in tab - Type your message and press Enter`);
-                this.addVoiceMessage('ニコ', `${aiName}をタブで起動したよ〜！`);
-                
-                // タブUIを更新
-                this.tabManager.renderTabs();
-            } else {
-                this.updateStatus(`Failed to start ${aiName} in tab`);
-            }
-        } catch (error) {
-            debugError(`Error starting ${aiName} in tab:`, error);
-            this.updateStatus(`Error starting ${aiName} in tab: ${error.message}`);
-        }
-        
-        this.updateButtons();
-    }
-
-    async stopTerminal() {
-        try {
-            if (!window.electronAPI || !window.electronAPI.terminal) {
-                this.updateStatus('ElectronAPI not available');
-                return;
-            }
-            
-            this.updateStatus('Stopping AI assistant...');
-            const result = await window.electronAPI.terminal.stop();
-            
-            if (result.success) {
-                this.isTerminalRunning = false;
-                this.updateStatus('AI assistant stopped');
-                this.terminal.clear();
-
-                // CLAUDE.mdファイルを削除
-                if (this.currentRunningAI) { // 念のためnullチェック
-                    const deleteResult = await this.configManager.deleteAiMdFromHomeDir(this.currentRunningAI);
-                    
-                    if (deleteResult.success) {
-                        this.addVoiceMessage('ニコ', `CLAUDE.mdを削除したよ！`);
-                    } else {
-                        this.addVoiceMessage('ニコ', `CLAUDE.mdの処理に失敗しちゃった...`);
-                    }
-                }
-                this.currentRunningAI = null; // 停止したのでクリア
-            } else {
-                this.updateStatus(`Failed to stop AI assistant: ${result.error || 'Unknown error'}`);
-            }
-        } catch (error) {
-            debugError('Error stopping AI assistant:', error);
-            this.updateStatus(`Error stopping AI assistant: ${error.message}`);
-        }
-        
-        this.updateButtons();
-    }
 
     updateStatus(message) {
         const statusElement = document.getElementById('status');
