@@ -1009,7 +1009,7 @@ class TerminalApp {
                     debugLog('🎵 音声再生完了を確認');
                     resolve();
                 } else {
-                    setTimeout(checkComplete, 100);
+                    setTimeout(checkComplete, 250);
                 }
             };
             checkComplete();
@@ -2099,7 +2099,7 @@ class VoiceQueue {
                     this.debugLog('🎵 音声再生完了を確認');
                     resolve();
                 } else {
-                    setTimeout(checkComplete, 100);
+                    setTimeout(checkComplete, 250);
                 }
             };
             checkComplete();
