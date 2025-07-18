@@ -376,33 +376,53 @@ class TerminalApp {
         // 定期的にnotificationファイルをチェック（IPCがメインなので頻度を下げる）
         this.resourceManager.setInterval(() => {
             this.checkForHookNotifications(tempDir);
-        }, 5000); // 5秒間隔に変更（CPU負荷軽減）
+        }, 500); // 0.5秒間隔に変更（Hook応答性向上）
     }
 
     // Hook通知ファイルをチェック
-    checkForHookNotifications(tempDir) {
+    async checkForHookNotifications(tempDir) {
         const fs = require('fs');
         const path = require('path');
+        
+        // Hook機能が有効かチェック
+        const unifiedConfig = getSafeUnifiedConfig();
+        const useHooks = await unifiedConfig.get('useHooks', false);
+        
+        if (!useHooks) {
+            // Hookモードが無効の場合は処理をスキップ
+            return;
+        }
         
         try {
             const files = fs.readdirSync(tempDir);
             const notificationFiles = files.filter(file => file.startsWith('notification_') && file.endsWith('.json'));
             
+            if (notificationFiles.length > 0) {
+                debugLog(`🔔 Hook通知ファイル検出: ${notificationFiles.length}個`);
+            }
+            
             for (const file of notificationFiles) {
                 const filePath = path.join(tempDir, file);
                 try {
                     const notification = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                    this.processHookNotification(notification);
+                    await this.processHookNotification(notification);
                     
                     // 処理済みの通知ファイルを削除
                     fs.unlinkSync(filePath);
                     debugLog('🔔 Hook通知処理完了:', file);
                 } catch (error) {
                     debugLog('❌ Hook通知処理エラー:', error);
+                    // エラーが発生したファイルも削除（破損ファイル対策）
+                    try {
+                        fs.unlinkSync(filePath);
+                    } catch (deleteError) {
+                        debugLog('❌ 破損ファイル削除エラー:', deleteError);
+                    }
                 }
             }
         } catch (error) {
             // tempディレクトリが存在しない場合は何もしない
+            debugLog('⚠️ Hook通知チェックエラー（tempディレクトリ未作成の可能性）:', error.message);
         }
     }
 
@@ -410,18 +430,9 @@ class TerminalApp {
     async processHookNotification(notification) {
         debugLog('🔔 Hook通知受信:', notification);
         
-        // 設定チェック
-        const unifiedConfig = getSafeUnifiedConfig();
-        const useHooks = await unifiedConfig.get('useHooks', false);
-        
-        if (!useHooks) {
-            debugLog('🔇 Hook機能OFF - 通知処理をスキップ');
-            return;
-        }
-        
         if (notification.type === 'voice-synthesis-hook' && notification.filepath) {
             // 音声ファイルを再生
-            this.playHookVoiceFile(notification.filepath, notification.text);
+            await this.playHookVoiceFile(notification.filepath, notification.text);
             
             // 感情データが含まれている場合はIPCで送信
             if (notification.emotion) {
@@ -827,10 +838,59 @@ class TerminalApp {
         return this.messageAccumulator.getStatus();
     }
 
-    // 旧処理: 新しい統一処理システム（processTerminalData）に置き換え済み
+    // 新しい統一処理システム: アプリ内監視モードとHookモードを統合
+    async processTerminalData(data) {
+        try {
+            // 統一設定から現在のモードを取得
+            const unifiedConfig = getSafeUnifiedConfig();
+            const useHooks = await unifiedConfig.get('useHooks', false);
+            
+            if (useHooks) {
+                // Hookモード: 外部ターミナルの音声処理はHook側で処理されるため、ここでは何もしない
+                debugLog('🔄 Hookモード - ターミナルデータ処理をスキップ（Hook側で処理）');
+                return;
+            }
+            
+            // アプリ内監視モード: ターミナルデータから音声を抽出して処理
+            debugLog('🔍 アプリ内監視モード - ターミナルデータ処理開始');
+            
+            // ProcessingCacheによる最適化されたテキストクリーニング
+            const cleanData = this.processingCache.optimizedTextCleaning(data);
+            
+            // Claude Code (⏺) のマーカーを検索
+            let markerIndex = cleanData.indexOf('⏺');
+            
+            if (markerIndex === -1) {
+                return;
+            }
+            
+            let afterMarker = cleanData.substring(markerIndex + 1).trim();
+            
+            // カッコ内のテキストを抽出（キャッシュ化された正規表現処理）
+            const quotedTextMatches = this.processingCache.cachedRegexProcess(
+                afterMarker, 
+                /『([^』]+)』/gs
+            );
+            
+            if (quotedTextMatches && quotedTextMatches.length > 0) {
+                // カギカッコ内のテキストを一個ずつ処理
+                await this.processQuotedTexts(quotedTextMatches);
+            }
+            
+        } catch (error) {
+            this.errorHandler.handle(error, {
+                severity: ErrorHandler.SEVERITY.LOW,
+                category: ErrorHandler.CATEGORY.PROCESS,
+                operation: 'process-terminal-data',
+                userMessage: 'ターミナルデータの処理中にエラーが発生しました'
+            });
+        }
+    }
+    
+    // 旧処理: 互換性のために残す
     async parseTerminalDataForChat(data) {
-        debugLog('⚠️ 旧処理parseTerminalDataForChatが呼ばれました - 新しい統一処理システムを使用してください');
-        return;
+        debugLog('⚠️ 旧処理parseTerminalDataForChatが呼ばれました - processTerminalDataに委譲');
+        return await this.processTerminalData(data);
         
         // 以下は無効化済み
         /*
