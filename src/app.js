@@ -109,6 +109,12 @@ class TerminalApp {
         // Hook監視サービス
         this.hookService = new HookService(this);
         
+        // VRM連携サービス
+        this.vrmIntegrationService = new VRMIntegrationService(this);
+        
+        // VRMIntegrationServiceをグローバルに設定
+        window.vrmIntegrationService = this.vrmIntegrationService;
+        
         // モジュールインスタンス
         this.wallpaperSystem = new WallpaperSystem();
         this.configManager = new ConfigManager();
@@ -202,26 +208,20 @@ class TerminalApp {
         
         try {
             // VRMリップシンク用に音声データを送信
-            try {
-                let arrayBuffer;
-                if (audioData.buffer) {
-                    arrayBuffer = audioData.buffer;
-                } else {
-                    arrayBuffer = audioData;
-                }
-                this.sendAudioToVRM(arrayBuffer);
-                debugLog('🎭 アプリ内音声データをVRMに送信完了');
-            } catch (vrmError) {
-                debugLog('❌ VRM音声データ送信エラー:', vrmError);
-                // エラーが発生しても音声再生は続行
+            let arrayBuffer;
+            if (audioData.buffer) {
+                arrayBuffer = audioData.buffer;
+            } else {
+                arrayBuffer = audioData;
             }
+            this.vrmIntegrationService.sendAudioToVRM(arrayBuffer);
             
             // 感情データを抽出・送信（Hook処理と同じ）
             try {
                 if (text) {
                     const emotionResult = await window.electronAPI.voice.getEmotion(text);
                     if (emotionResult.success && emotionResult.emotion) {
-                        this.sendEmotionToVRM(emotionResult.emotion);
+                        this.vrmIntegrationService.sendEmotionToVRM(emotionResult.emotion);
                         debugLog('😊 アプリ内音声感情データをVRMに送信完了:', emotionResult.emotion);
                     }
                 }
@@ -231,13 +231,13 @@ class TerminalApp {
             }
             
             // 音声再生開始をVRMビューワーに通知
-            this.notifyAudioStateToVRM('playing');
+            this.vrmIntegrationService.notifyAudioStateToVRM('playing');
             
             // AudioServiceに音声再生を委譲
             await this.audioService.playAppInternalAudio(audioData, text);
             
             // 音声終了をVRMビューワーに通知（表情リセットのため）
-            this.notifyAudioStateToVRM('ended');
+            this.vrmIntegrationService.notifyAudioStateToVRM('ended');
             
         } catch (error) {
             debugLog('❌ アプリ内音声再生処理エラー:', error);
@@ -276,13 +276,7 @@ class TerminalApp {
             });
             
             // VRMリップシンク用に音声データを送信
-            try {
-                this.sendAudioToVRM(audioData);
-                debugLog('🎭 アプリ内監視音声データをVRMに送信完了');
-            } catch (vrmError) {
-                debugLog('❌ VRM音声データ送信エラー:', vrmError);
-                // エラーが発生しても音声再生は続行
-            }
+            this.vrmIntegrationService.sendAudioToVRM(audioData);
             
             // 音声再生
             const audio = new Audio();
@@ -297,7 +291,7 @@ class TerminalApp {
                 debugLog('🔊 アプリ内監視音声再生完了');
                 
                 // 音声終了をVRMビューワーに通知
-                this.notifyAudioStateToVRM('ended');
+                this.vrmIntegrationService.notifyAudioStateToVRM('ended');
                 
                 // URLオブジェクトを解放
                 URL.revokeObjectURL(audioUrl);
@@ -314,7 +308,7 @@ class TerminalApp {
                 URL.revokeObjectURL(audioUrl);
                 
                 // フォールバック処理: 音声再生に失敗した場合でもVRMには通知
-                this.notifyAudioStateToVRM('error');
+                this.vrmIntegrationService.notifyAudioStateToVRM('error');
             };
             
             audio.onloadeddata = () => {
@@ -340,7 +334,7 @@ class TerminalApp {
             } catch (playError) {
                 debugLog('❌ 音声再生play()エラー:', playError);
                 URL.revokeObjectURL(audioUrl);
-                this.notifyAudioStateToVRM('error');
+                this.vrmIntegrationService.notifyAudioStateToVRM('error');
                 
                 // 再試行機能: 一度だけ再試行
                 setTimeout(async () => {
@@ -361,7 +355,7 @@ class TerminalApp {
         } catch (error) {
             debugLog('❌ アプリ内監視音声再生処理エラー:', error);
             // エラー発生時もVRMに通知
-            this.notifyAudioStateToVRM('error');
+            this.vrmIntegrationService.notifyAudioStateToVRM('error');
         }
     }
 
@@ -1512,108 +1506,6 @@ class TerminalApp {
     }
 
 
-    // VRMビューワーに音声データを送信
-    sendAudioToVRM(audioData) {
-        try {
-            const iframe = document.getElementById('vrm-iframe');
-            if (!iframe || !iframe.contentWindow) {
-                debugLog('🎭 VRM iframe未発見');
-                return;
-            }
-            
-            // audioDataの形式を検証
-            if (!audioData || audioData.length === 0) {
-                debugLog('🎭 音声データが無効です');
-                return;
-            }
-            
-            // ArrayBufferを直接Arrayに変換（すでにコピー済み）
-            let audioArray;
-            try {
-                audioArray = Array.from(new Uint8Array(audioData));
-            } catch (conversionError) {
-                debugLog('🎭 音声データ変換エラー:', conversionError);
-                return;
-            }
-            
-            // 音声データの妥当性チェック
-            if (audioArray.length === 0) {
-                debugLog('🎭 変換後の音声データが空です');
-                return;
-            }
-            
-            // VRMViewerに音声データを送信
-            iframe.contentWindow.postMessage({
-                type: 'lipSync',
-                audioData: audioArray,
-                format: 'wav',
-                timestamp: Date.now()
-            }, '*');
-            
-            debugLog('🎭 iframeにpostMessage送信, サイズ:', audioArray.length);
-            
-        } catch (error) {
-            debugError('🎭 VRM音声データ送信エラー:', error);
-        }
-    }
-
-    // 感情データをVRMビューワーに送信
-    sendEmotionToVRM(emotion) {
-        try {
-            const iframe = document.getElementById('vrm-iframe');
-            if (!iframe || !iframe.contentWindow) {
-                debugLog('🎭 VRM iframe未発見');
-                return;
-            }
-            
-            // 感情データの妥当性チェック
-            if (!emotion) {
-                debugLog('🎭 感情データが無効です');
-                return;
-            }
-            
-            // VRMViewerに感情データを送信
-            iframe.contentWindow.postMessage({
-                type: 'emotion',
-                emotion: emotion,
-                timestamp: Date.now()
-            }, '*');
-            
-            debugLog('🎭 感情データをVRMに送信:', emotion);
-            
-        } catch (error) {
-            debugError('🎭 VRM感情データ送信エラー:', error);
-        }
-    }
-
-    // 音声状態をVRMビューワーに通知
-    notifyAudioStateToVRM(state) {
-        try {
-            const iframe = document.getElementById('vrm-iframe');
-            if (!iframe || !iframe.contentWindow) {
-                debugLog('🎭 VRM iframe未発見');
-                return;
-            }
-            
-            // 有効な状態かチェック
-            const validStates = ['started', 'ended', 'error', 'paused', 'resumed'];
-            if (!validStates.includes(state)) {
-                debugLog('🎭 無効な音声状態:', state);
-                return;
-            }
-            
-            iframe.contentWindow.postMessage({
-                type: 'audioState',
-                state: state,
-                timestamp: Date.now()
-            }, '*');
-            
-            debugLog(`🎭 Audio state "${state}" sent to VRM`);
-            
-        } catch (error) {
-            debugError('🎭 VRM音声状態送信エラー:', error);
-        }
-    }
 
 
 
