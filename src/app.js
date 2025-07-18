@@ -372,22 +372,22 @@ class TerminalApp {
         }
     }
 
-    // アプリ内音声再生（VoiceQueue用）
+    // アプリ内音声再生（VoiceQueue用）- AudioServiceに委譲
     async playAppInternalAudio(audioData, text) {
+        if (!this.audioService) {
+            debugError('AudioService not initialized');
+            return;
+        }
         
         try {
-            debugLog('🎵 アプリ内音声再生開始:', text?.substring(0, 30) + '...');
-            
-            // audioDataをArrayBufferに変換
-            let arrayBuffer;
-            if (audioData.buffer) {
-                arrayBuffer = audioData.buffer;
-            } else {
-                arrayBuffer = audioData;
-            }
-            
             // VRMリップシンク用に音声データを送信
             try {
+                let arrayBuffer;
+                if (audioData.buffer) {
+                    arrayBuffer = audioData.buffer;
+                } else {
+                    arrayBuffer = audioData;
+                }
                 this.sendAudioToVRM(arrayBuffer);
                 debugLog('🎭 アプリ内音声データをVRMに送信完了');
             } catch (vrmError) {
@@ -409,35 +409,14 @@ class TerminalApp {
                 // エラーが発生しても音声再生は続行
             }
             
-            // Blobを作成して音声ファイルとして再生
-            const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            
-            const audio = new Audio(audioUrl);
-            const volumeValue = await getSafeUnifiedConfig().get('voiceVolume', 50);
-            const safeVolume = isNaN(volumeValue) ? 50 : volumeValue;
-            audio.volume = Math.max(0, Math.min(1, safeVolume / 100));
-            
-            // 音声再生完了時の処理
-            audio.onended = () => {
-                debugLog('🎵 アプリ内音声再生完了:', text?.substring(0, 30) + '...');
-                // VoiceQueueの完了待機用に状態を更新
-                this.voicePlayingState.isPlaying = false;
-                // 音声終了をVRMビューワーに通知（表情リセットのため）
-                this.notifyAudioStateToVRM('ended');
-                URL.revokeObjectURL(audioUrl);
-            };
-            
-            audio.onerror = (error) => {
-                debugLog('❌ アプリ内音声再生エラー:', error);
-                this.voicePlayingState.isPlaying = false;
-                URL.revokeObjectURL(audioUrl);
-            };
-            
             // 音声再生開始をVRMビューワーに通知
             this.notifyAudioStateToVRM('playing');
             
-            await audio.play();
+            // AudioServiceに音声再生を委譲
+            await this.audioService.playAppInternalAudio(audioData, text);
+            
+            // 音声終了をVRMビューワーに通知（表情リセットのため）
+            this.notifyAudioStateToVRM('ended');
             
         } catch (error) {
             debugLog('❌ アプリ内音声再生処理エラー:', error);
@@ -1537,39 +1516,44 @@ class TerminalApp {
     }
 
     async checkVoiceConnection() {
-        if (window.electronAPI && window.electronAPI.voice) {
-            try {
-                const result = await window.electronAPI.voice.checkConnection();
-                if (result.success) {
-                    this.connectionStatus = 'connected';
-                    this.updateConnectionStatus('接続済み', 'connected');
-                    await this.loadSpeakers();
-                } else {
-                    this.connectionStatus = 'disconnected';
-                    this.updateConnectionStatus('未接続', 'disconnected');
-                }
-            } catch (error) {
-                this.connectionStatus = 'error';
-                this.updateConnectionStatus('エラー', 'error');
-                debugError('Voice connection check failed:', error);
-            }
-            this.updateVoiceControls();
+        if (!this.audioService) {
+            debugError('AudioService not initialized');
+            return;
         }
+        
+        try {
+            const result = await this.audioService.testConnection();
+            if (result.success) {
+                this.connectionStatus = 'connected';
+                this.updateConnectionStatus('接続済み', 'connected');
+                await this.loadSpeakers();
+            } else {
+                this.connectionStatus = 'disconnected';
+                this.updateConnectionStatus('未接続', 'disconnected');
+            }
+        } catch (error) {
+            this.connectionStatus = 'error';
+            this.updateConnectionStatus('エラー', 'error');
+            debugError('Voice connection check failed:', error);
+        }
+        this.updateVoiceControls();
     }
 
+    // 話者リストを読み込み - AudioServiceに委譲
     async loadSpeakers() {
-        if (window.electronAPI && window.electronAPI.voice) {
-            try {
-                const result = await window.electronAPI.voice.getSpeakers();
-                if (result.success) {
-                    this.speakers = result.speakers;
-                    debugLog('Loaded speakers:', this.speakers);
-                    await this.updateSpeakerSelect();
-                }
-            } catch (error) {
-                debugError('Failed to load speakers:', error);
-            }
+        if (!this.audioService) {
+            debugError('AudioService not initialized');
+            return { success: false, error: 'AudioService not initialized' };
         }
+        
+        const result = await this.audioService.loadSpeakers();
+        
+        if (result.success) {
+            this.speakers = result.speakers;
+            await this.updateSpeakerSelect();
+        }
+        
+        return result;
     }
 
     async updateSpeakerSelect() {
@@ -1673,38 +1657,13 @@ class TerminalApp {
     }
     
     // 音声合成のみ（再生なし）- VoiceQueue用
+    // 音声合成のみ実行（再生は別途）- AudioServiceに委譲
     async synthesizeTextOnly(text) {
-        
-        // 前提条件チェック
-        if (!window.electronAPI || !window.electronAPI.voice) {
-            debugLog('⚠️ electronAPIまたはvoice APIが利用不可');
+        if (!this.audioService) {
+            debugError('AudioService not initialized');
             return null;
         }
-        
-        if (!this.voiceEnabled) {
-            debugLog('🔇 音声機能が無効のためスキップ');
-            return null;
-        }
-        
-        if (this.connectionStatus !== 'connected') {
-            debugLog(`⚠️ 音声エンジン未接続のためスキップ (現在のステータス: ${this.connectionStatus})`);
-            return null;
-        }
-
-        try {
-            // 音声合成（再生なし）
-            const result = await window.electronAPI.voice.synthesize(text, this.selectedSpeaker);
-            if (result.success) {
-                debugLog('🎵 音声合成のみ完了:', text.substring(0, 30) + '...');
-                return result.audioData;
-            } else {
-                debugLog('❌ 音声合成失敗:', result.error);
-                return null;
-            }
-        } catch (error) {
-            debugLog('❌ 音声合成エラー:', error);
-            return null;
-        }
+        return await this.audioService.synthesizeTextOnly(text);
     }
     
     // ユーザー向けエラー通知
