@@ -346,10 +346,10 @@ class TerminalApp {
             }
         });
         
-        // アプリ内音声再生通知を受信
-        ipcRenderer.on('play-audio', (event, data) => {
-            this.playAppInternalAudio(data.audioData, data.text);
-        });
+        // アプリ内音声再生通知を受信（現在は使用しない - VoiceQueueシステムを使用）
+        // ipcRenderer.on('play-audio', (event, data) => {
+        //     this.playAppInternalAudio(data.audioData, data.text);
+        // });
         
     }
 
@@ -519,6 +519,7 @@ class TerminalApp {
 
     // アプリ内音声再生（VoiceQueue用）
     async playAppInternalAudio(audioData, text) {
+        
         try {
             debugLog('🎵 アプリ内音声再生開始:', text?.substring(0, 30) + '...');
             
@@ -831,8 +832,8 @@ class TerminalApp {
                 if (this.terminal) {
                     this.terminal.write(data);
                 }
-                // 統一処理システム
-                this.processTerminalData(data);
+                // MessageAccumulatorに送信（二重処理を防ぐため、直接processTerminalDataは呼び出さない）
+                this.messageAccumulator.addChunk(data);
             });
 
             // Handle Claude Code exit
@@ -856,16 +857,16 @@ class TerminalApp {
             //     }
             // });
 
-            // Handle audio playback - アプリ内監視モード用に復活
-            window.electronAPI.voice.onPlayAudio((data) => {
-                if (data.audioData) {
-                    // 新しい形式: { audioData: Buffer, text: string }
-                    this.playAudioWithText(data.audioData, data.text);
-                } else {
-                    // 旧形式: 直接Buffer
-                    this.playAudio(data);
-                }
-            });
+            // Handle audio playback - VoiceQueueシステムを使用するため無効化
+            // window.electronAPI.voice.onPlayAudio((data) => {
+            //     if (data.audioData) {
+            //         // 新しい形式: { audioData: Buffer, text: string }
+            //         this.playAudioWithText(data.audioData, data.text);
+            //     } else {
+            //         // 旧形式: 直接Buffer
+            //         this.playAudio(data);
+            //     }
+            // });
 
             // Handle audio stop - Hook機能常時有効のため無効化
             // window.electronAPI.voice.onStopAudio(() => {
@@ -1168,15 +1169,18 @@ class TerminalApp {
             isResizing: this.isResizing
         });
         
-        if (useHooks && !this.isAppTerminalData(data)) {
-            // Hookモード（外部ターミナルのみ）: Hook専用処理
-            debugLog('📡 外部ターミナル（Hookモード）: Hook専用処理');
-            await this.processHookOnlyData(data);
+        if (useHooks) {
+            // Hookモード: 外部ターミナルのみ処理、アプリ内ターミナルは音声処理なし
+            if (!this.isAppTerminalData(data)) {
+                debugLog('📡 外部ターミナル（Hookモード）: Hook専用処理');
+                await this.processHookOnlyData(data);
+            } else {
+                debugLog('📱 アプリ内ターミナル（Hookモード）: 音声処理スキップ');
+                // アプリ内ターミナルでは音声処理を行わない
+            }
         } else {
-            // アプリ内ターミナル または フックモードOFF: 直接処理
-            debugLog(useHooks ? 
-                '📱 アプリ内ターミナル（Hookモード無視）: processAppInternalMode呼び出し' : 
-                '📱 アプリ内監視モード: processAppInternalMode呼び出し');
+            // フックモードOFF: 全てのターミナルをアプリ内で処理
+            debugLog('📱 アプリ内監視モード: processAppInternalMode呼び出し');
             this.processAppInternalMode(data);
         }
     }
@@ -1762,6 +1766,7 @@ class TerminalApp {
     
     // 音声合成のみ（再生なし）- VoiceQueue用
     async synthesizeTextOnly(text) {
+        
         // 前提条件チェック
         if (!window.electronAPI || !window.electronAPI.voice) {
             debugLog('⚠️ electronAPIまたはvoice APIが利用不可');
