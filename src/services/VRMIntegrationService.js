@@ -15,6 +15,7 @@ class VRMIntegrationService {
         // VRMビューワーの状態管理
         this.vrmViewerReady = false;
         this.vrmIframeElement = null;
+        this.retryCount = 0;
         
         // 通信タイムアウト設定
         this.messageTimeout = 5000; // 5秒
@@ -36,27 +37,46 @@ class VRMIntegrationService {
     checkVRMViewerReady() {
         const iframe = document.getElementById('vrm-iframe');
         if (iframe && iframe.contentWindow) {
-            this.vrmIframeElement = iframe;
-            this.vrmViewerReady = true;
-            this.debugLog('🎭 VRMビューワー準備完了');
+            // 既に準備完了している場合は重複ログを避ける
+            if (!this.vrmViewerReady) {
+                this.vrmIframeElement = iframe;
+                this.vrmViewerReady = true;
+                this.debugLog('🎭 VRMビューワー準備完了');
+            }
         } else {
             this.vrmViewerReady = false;
             this.vrmIframeElement = null;
-            // 1秒後に再チェック
-            setTimeout(() => this.checkVRMViewerReady(), 1000);
+            // 再チェック回数を制限
+            if (!this.retryCount) this.retryCount = 0;
+            if (this.retryCount < 5) {
+                this.retryCount++;
+                setTimeout(() => this.checkVRMViewerReady(), 1000);
+            }
         }
     }
 
     // iframe要素の監視を設定
     setupIframeWatcher() {
+        // MutationObserverのデバウンス処理
+        let mutationTimeout;
+        
         // DOMの変更を監視
         const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'childList') {
-                    // iframe要素の追加/削除を検知
-                    this.checkVRMViewerReady();
-                }
-            });
+            // 既に準備完了している場合は監視を停止
+            if (this.vrmViewerReady) {
+                return;
+            }
+            
+            // デバウンス処理（100ms以内の連続呼び出しを制限）
+            clearTimeout(mutationTimeout);
+            mutationTimeout = setTimeout(() => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList') {
+                        // iframe要素の追加/削除を検知
+                        this.checkVRMViewerReady();
+                    }
+                });
+            }, 100);
         });
 
         // document全体を監視

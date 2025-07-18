@@ -218,7 +218,7 @@ class AudioService {
             }
         } catch (error) {
             this.connectionStatus = 'error';
-            this.debugError('音声合成サービス接続エラー:', error);
+            this.debugLog('音声合成サービス接続エラー:', error.message);
             return { success: false, error: error.message };
         }
     }

@@ -26,31 +26,59 @@ class ConfigManager {
             const { fs, path, os } = window.electronAPI;
             if (!fs || !path || !os) {
                 logger.error('fs, path, or os module not available via electronAPI.');
+                this.useDefaultCharacterSettings();
                 return;
             }
             
-            // アプリのsrcディレクトリへの直接パスを構築（パッケージ化対応）
-            const appPath = window.process && window.process.resourcesPath 
-                ? path.join(window.process.resourcesPath, 'app.asar')
-                : path.join(__dirname, '..');
-            const srcPath = path.join(appPath, 'src');
+            // キャラクター設定のフォールバック読み込み
+            let shySettings = null;
             
-            // 照れ屋キャラクター設定を読み込み（基本設定含む）
-            const shySettingsPath = path.join(srcPath, 'character_settings', 'shy.md');
-            const shySettings = await fs.promises.readFile(shySettingsPath, 'utf8');
+            // 1. 開発環境での読み込みを試行
+            try {
+                const devPath = path.join(__dirname, '..', 'character_settings', 'shy.md');
+                shySettings = await fs.promises.readFile(devPath, 'utf8');
+                logger.debug('Character settings loaded from development path');
+            } catch (devError) {
+                // 2. パッケージ化環境での読み込みを試行
+                try {
+                    const appPath = window.process && window.process.resourcesPath 
+                        ? path.join(window.process.resourcesPath, 'app.asar')
+                        : path.join(__dirname, '..');
+                    const srcPath = path.join(appPath, 'src');
+                    const shySettingsPath = path.join(srcPath, 'character_settings', 'shy.md');
+                    shySettings = await fs.promises.readFile(shySettingsPath, 'utf8');
+                    logger.debug('Character settings loaded from packaged path');
+                } catch (packageError) {
+                    logger.debug('Failed to load character settings from both paths, using default');
+                    this.useDefaultCharacterSettings();
+                    return;
+                }
+            }
             
             // 照れ屋設定を使用
             this.aiBaseContent = shySettings;
-            
-            // CLAUDE.mdのファイル書き込みは、Claude Code起動時にのみ行うため、ここでは行わない
-            // 内容はthis.claudeMdContentに保持される
-            
             logger.debug('Character settings loaded successfully (shy character fixed)');
         } catch (error) {
             logger.error('Failed to load character settings:', error);
-            // フォールバック: 簡単なデフォルト設定
-            this.claudeMdContent = `# AIアシスタント設定\n\n必ず日本語で回答してください。\n\n## デフォルトキャラクター\n照れ屋キャラクターとして応答してください。`;
+            this.useDefaultCharacterSettings();
         }
+    }
+
+    // デフォルトキャラクター設定を使用
+    useDefaultCharacterSettings() {
+        this.aiBaseContent = `# AIアシスタント設定
+
+必ず日本語で回答してください。
+
+## デフォルトキャラクター
+照れ屋キャラクターとして応答してください。
+
+## 基本運用ルール
+- 一人称は「私」、二人称は「お前」を使用
+- 常体（だ・である体）で話す
+- 褒められると動揺し、吃音になることがある
+- 自己評価が低く、謙遜する性格
+- プログラミングスキルは高いが「普通だろ」と言いがち`;
     }
 
     // キャラクター変更機能は削除（照れ屋固定のため）
