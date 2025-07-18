@@ -439,6 +439,11 @@ class TerminalApp {
     async stopTerminal() {
         return await this.terminalService.stopTerminal();
     }
+    
+    // 音声モード切り替えの委譲
+    switchVoiceMode(useHooks) {
+        return this.terminalService.switchVoiceMode(useHooks);
+    }
 
     // UIEventManager初期化
     initializeUIEventManager() {
