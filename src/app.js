@@ -304,7 +304,6 @@ class TerminalApp {
         }, 120000); // 2分間隔
         
         // Claude Code Hooks監視を開始
-        debugLog('🚀 init()メソッド最終段階 - startHookFileWatcher()を呼び出し');
         this.startHookFileWatcher();
         debugLog('🚀 init()メソッド完了');
     }
@@ -313,7 +312,6 @@ class TerminalApp {
     async initializeModules() {
         // MessageAccumulatorのコールバック設定（新しい統一処理システムを使用）
         this.messageAccumulator.setProcessCallback(async (data) => {
-            debugLog('📦 MessageAccumulator コールバック呼び出し');
             await this.processTerminalData(data);
         });
         
@@ -337,41 +335,29 @@ class TerminalApp {
         
         // Hook音声再生通知を受信
         ipcRenderer.on('hook-audio-play', (event, data) => {
-            debugLog('🎵 IPCからHook音声再生通知受信:', data.text?.substring(0, 30) + '...');
-            this.playHookVoiceFile(data.filepath, data.text);
-            
-            // 感情データがある場合は処理
-            if (data.emotion) {
-                debugLog('😊 Hook音声と共に感情データ受信:', data.emotion);
-                ipcRenderer.send('emotion-data', data.emotion);
-            }
+            this.playHookVoiceFile(data.filepath, data.text, data.emotion);
         });
         
         // Hook音声停止通知を受信
         ipcRenderer.on('hook-audio-stop', () => {
-            debugLog('🛑 IPCからHook音声停止通知受信');
             // Hook音声停止処理（必要に応じて実装）
             if (this.isPlayingHookAudio) {
                 // 現在の音声を停止する処理をここに追加
-                debugLog('🛑 Hook音声停止実行');
             }
         });
         
-        debugLog('🔔 Hook IPC listeners setup completed');
     }
 
 
 
     // Claude Code Hooks用ファイル監視を開始
     startHookFileWatcher() {
-        debugLog('🚀 startHookFileWatcher呼び出し開始');
         debugLog('🚀 claudeWorkingDir:', this.claudeWorkingDir);
         
         const fs = require('fs');
         const path = require('path');
         const tempDir = path.join(this.claudeWorkingDir, 'temp');
         
-        debugLog('🔍 Hook file watcher開始:', tempDir);
         
         // tempディレクトリが存在しない場合は作成
         if (!fs.existsSync(tempDir)) {
@@ -403,7 +389,6 @@ class TerminalApp {
             const notificationFiles = files.filter(file => file.startsWith('notification_') && file.endsWith('.json'));
             
             if (notificationFiles.length > 0) {
-                debugLog(`🔔 Hook通知ファイル検出: ${notificationFiles.length}個`);
             }
             
             for (const file of notificationFiles) {
@@ -414,9 +399,7 @@ class TerminalApp {
                     
                     // 処理済みの通知ファイルを削除
                     fs.unlinkSync(filePath);
-                    debugLog('🔔 Hook通知処理完了:', file);
                 } catch (error) {
-                    debugLog('❌ Hook通知処理エラー:', error);
                     // エラーが発生したファイルも削除（破損ファイル対策）
                     try {
                         fs.unlinkSync(filePath);
@@ -427,13 +410,11 @@ class TerminalApp {
             }
         } catch (error) {
             // tempディレクトリが存在しない場合は何もしない
-            debugLog('⚠️ Hook通知チェックエラー（tempディレクトリ未作成の可能性）:', error.message);
         }
     }
 
     // Hook通知を処理
     async processHookNotification(notification) {
-        debugLog('🔔 Hook通知受信:', notification);
         
         if (notification.type === 'voice-synthesis-hook' && notification.filepath) {
             // 音声ファイルを再生
@@ -456,34 +437,35 @@ class TerminalApp {
     }
 
     // Hook音声ファイルを再生
-    async playHookVoiceFile(filepath, text) {
+    async playHookVoiceFile(filepath, text, emotion) {
         const fs = require('fs');
         
         try {
             // Hook音声再生中の場合は待機
             while (this.isPlayingHookAudio) {
-                debugLog('🔄 Hook音声再生中のため待機:', filepath);
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
             
             if (!fs.existsSync(filepath)) {
-                debugLog('❌ Hook音声ファイルが存在しません:', filepath);
                 return;
             }
             
             // Hook音声再生開始フラグ
             this.isPlayingHookAudio = true;
             
-            debugLog('🔊 Hook音声ファイル再生開始:', filepath);
             
             // 音声ファイルを読み込んでVRMリップシンク用に送信
             try {
                 const audioBuffer = fs.readFileSync(filepath);
                 this.sendAudioToVRM(audioBuffer);
-                debugLog('🎭 Hook音声データをVRMに送信完了');
             } catch (vrmError) {
                 debugLog('❌ VRM音声データ送信エラー:', vrmError);
                 // エラーが発生しても音声再生は続行
+            }
+
+            // 感情データをVRMに送信
+            if (emotion) {
+                this.sendEmotionToVRM(emotion);
             }
             
             // 音声ファイルを再生
@@ -495,7 +477,6 @@ class TerminalApp {
             debugLog('🔊 音量設定:', { volumeValue, safeVolume, finalVolume: audio.volume });
             
             audio.onended = () => {
-                debugLog('🔊 Hook音声再生完了');
                 
                 // Hook音声再生終了フラグ
                 this.isPlayingHookAudio = false;
@@ -508,15 +489,12 @@ class TerminalApp {
                     const fs = require('fs');
                     if (fs.existsSync(filepath)) {
                         fs.unlinkSync(filepath);
-                        debugLog('🗑️ Hook音声ファイル削除完了:', filepath);
                     }
                 } catch (error) {
-                    debugLog('❌ Hook音声ファイル削除エラー:', error);
                 }
             };
             
             audio.onerror = (error) => {
-                debugLog('❌ Hook音声再生エラー:', error);
                 // エラー時もフラグをリセット
                 this.isPlayingHookAudio = false;
             };
@@ -529,7 +507,6 @@ class TerminalApp {
             }
             
         } catch (error) {
-            debugLog('❌ Hook音声再生処理エラー:', error);
             // エラー時もフラグをリセット
             this.isPlayingHookAudio = false;
         }
@@ -852,7 +829,6 @@ class TerminalApp {
             
             if (useHooks) {
                 // Hookモード: 外部ターミナルの音声処理はHook側で処理されるため、ここでは何もしない
-                debugLog('🔄 Hookモード - ターミナルデータ処理をスキップ（Hook側で処理）');
                 return;
             }
             
@@ -901,7 +877,6 @@ class TerminalApp {
         /*
         try {
             // Hook機能が常時有効なため、従来の音声合成処理は完全に無効化
-            debugLog('🔄 Hook機能が常時有効なため、従来の音声合成処理をスキップ');
             return;
             
             // ProcessingCacheによる最適化されたテキストクリーニング
@@ -996,7 +971,6 @@ class TerminalApp {
     // Hook経由の会話表示
     displayHookConversation(data) {
         try {
-            debugLog('🎭 Hook会話表示:', data);
             
             // チャット画面に表示
             this.addVoiceMessage('ニコ', data.text);
@@ -1119,7 +1093,6 @@ class TerminalApp {
         
         if (useHooks) {
             // Hookモード: 既存のMessageAccumulatorを使用
-            debugLog('📡 Hookモード: MessageAccumulatorに送信');
             this.messageAccumulator.addChunk(data);
         } else {
             // アプリ内監視モード: 即座に『』を抽出・処理
@@ -1203,15 +1176,9 @@ class TerminalApp {
         const unifiedConfig = getSafeUnifiedConfig();
         const useHooks = await unifiedConfig.get('useHooks', false);
         
-        debugLog(`🎵 音声モード初期化: ${useHooks ? 'Hook音声モード' : 'アプリ内監視モード'}`, {
-            useHooks: useHooks,
-            voiceEnabled: this.voiceEnabled,
-            selectedSpeaker: this.selectedSpeaker
-        });
-        
         // 設定に応じて初期化処理を実行
         if (useHooks) {
-            debugLog('🔄 Hook音声モードで初期化完了');
+            // Hook音声モードで初期化完了
         } else {
             debugLog('🔄 アプリ内監視モードで初期化完了');
         }
@@ -1225,7 +1192,6 @@ class TerminalApp {
         });
         
         if (useHooks) {
-            debugLog('🔄 Hook音声モードに切り替え');
         } else {
             debugLog('🔄 アプリ内監視モードに切り替え');
         }
@@ -1777,6 +1743,35 @@ class TerminalApp {
             
         } catch (error) {
             debugError('🎭 VRM音声データ送信エラー:', error);
+        }
+    }
+
+    // 感情データをVRMビューワーに送信
+    sendEmotionToVRM(emotion) {
+        try {
+            const iframe = document.getElementById('vrm-iframe');
+            if (!iframe || !iframe.contentWindow) {
+                debugLog('🎭 VRM iframe未発見');
+                return;
+            }
+            
+            // 感情データの妥当性チェック
+            if (!emotion) {
+                debugLog('🎭 感情データが無効です');
+                return;
+            }
+            
+            // VRMViewerに感情データを送信
+            iframe.contentWindow.postMessage({
+                type: 'emotion',
+                emotion: emotion,
+                timestamp: Date.now()
+            }, '*');
+            
+            debugLog('🎭 感情データをVRMに送信:', emotion);
+            
+        } catch (error) {
+            debugError('🎭 VRM感情データ送信エラー:', error);
         }
     }
 

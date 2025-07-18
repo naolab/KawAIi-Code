@@ -268,7 +268,6 @@ class UIEventManager {
             const initHooks = async () => {
                 const savedUseHooks = await unifiedConfig.get('useHooks', false);
                 useHooksToggle.checked = savedUseHooks;
-                this.debugLog('Hooks setting initialized:', savedUseHooks);
                 
                 // 初期設定でアプリにモード通知
                 this.app.switchVoiceMode(savedUseHooks);
@@ -281,7 +280,6 @@ class UIEventManager {
                 // 統一設定システムに保存
                 await unifiedConfig.set('useHooks', newValue);
                 
-                this.debugLog('Hooks usage changed:', newValue);
                 
                 // 即座にモード切り替え
                 this.app.switchVoiceMode(newValue);

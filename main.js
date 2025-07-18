@@ -538,7 +538,6 @@ ipcMain.on('emotion-data', (event, emotionData) => {
 
 // Hook通知の直接受信用IPCハンドラー（ファイルベース通知の代替）
 ipcMain.on('hook-notification', (event, notification) => {
-  debugLog('🔔 Hook通知をIPCで受信:', notification);
   
   if (notification.type === 'voice-synthesis-hook' && notification.filepath) {
     try {
@@ -553,7 +552,6 @@ ipcMain.on('hook-notification', (event, notification) => {
             text: notification.text,
             emotion: notification.emotion
           });
-          debugLog('🎵 Hook音声再生をIPCで送信:', notification.text?.substring(0, 30) + '...');
           
           // テキスト表示機能
           if (notification.showInChat && notification.text) {
@@ -562,7 +560,6 @@ ipcMain.on('hook-notification', (event, notification) => {
               character: notification.character || 'shy',
               timestamp: notification.timestamp
             });
-            debugLog('💬 Hook会話表示をIPCで送信:', notification.text);
           }
         }
       } else {
@@ -608,7 +605,6 @@ function startHookNotificationWatcher() {
               const audioData = fs.readFileSync(notification.filepath);
               if (mainWindow) {
                 mainWindow.webContents.send('play-audio', audioData);
-                debugLog('Hook音声再生:', notification.text.substring(0, 30) + '...');
                 
                 // テキスト表示機能
                 if (notification.showInChat && notification.text) {
@@ -617,7 +613,6 @@ function startHookNotificationWatcher() {
                     character: notification.character || 'shy',
                     timestamp: notification.timestamp
                   });
-                  debugLog('Hook会話表示:', notification.text);
                 }
               }
               
@@ -639,14 +634,12 @@ function startHookNotificationWatcher() {
     }
   });
   
-  debugLog('Hook通知監視開始:', tempDir);
 }
 
 function stopHookNotificationWatcher() {
   if (hookNotificationWatcher) {
     hookNotificationWatcher.close();
     hookNotificationWatcher = null;
-    debugLog('Hook通知監視停止');
   }
 }
 

@@ -246,23 +246,13 @@ class VoiceHookService {
     // メイン処理
     async processClaudeResponse() {
         try {
-            console.log('====== Hook処理開始 ======');
-            console.log('実行時刻:', new Date().toISOString());
             
             // 処理開始時に必ず設定を読み込み
             if (!this.configLoaded) {
-                console.log('設定を読み込み中...');
                 await this.loadConfig();
                 this.configLoaded = true;
             }
             
-            // 設定確認
-            console.log('設定確認:', { 
-                voiceEnabled: this.voiceEnabled, 
-                useHooks: this.useHooks,
-                configLoaded: this.configLoaded,
-                voiceInterval: this.voiceInterval
-            });
             
             if (!this.voiceEnabled || !this.useHooks) {
                 console.log('音声合成またはフック機能が無効です');
@@ -283,11 +273,9 @@ class VoiceHookService {
 
             stdin.on('end', async () => {
                 try {
-                    console.log('受信データ:', inputData);
                     
                     // JSONとして解析
                     const hookData = JSON.parse(inputData);
-                    console.log('Hook JSON データ:', hookData);
                     
                     // transcript_pathからClaude応答を取得
                     if (hookData.transcript_path && fs.existsSync(hookData.transcript_path)) {
