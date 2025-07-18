@@ -346,6 +346,11 @@ class TerminalApp {
             }
         });
         
+        // アプリ内音声再生通知を受信
+        ipcRenderer.on('play-audio', (event, data) => {
+            this.playAppInternalAudio(data.audioData, data.text);
+        });
+        
     }
 
 
@@ -509,6 +514,50 @@ class TerminalApp {
         } catch (error) {
             // エラー時もフラグをリセット
             this.isPlayingHookAudio = false;
+        }
+    }
+
+    // アプリ内音声再生（VoiceQueue用）
+    async playAppInternalAudio(audioData, text) {
+        try {
+            debugLog('🎵 アプリ内音声再生開始:', text?.substring(0, 30) + '...');
+            
+            // audioDataをArrayBufferに変換
+            let arrayBuffer;
+            if (audioData.buffer) {
+                arrayBuffer = audioData.buffer;
+            } else {
+                arrayBuffer = audioData;
+            }
+            
+            // Blobを作成して音声ファイルとして再生
+            const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
+            const audio = new Audio(audioUrl);
+            const volumeValue = await getSafeUnifiedConfig().get('voiceVolume', 50);
+            const safeVolume = isNaN(volumeValue) ? 50 : volumeValue;
+            audio.volume = Math.max(0, Math.min(1, safeVolume / 100));
+            
+            // 音声再生完了時の処理
+            audio.onended = () => {
+                debugLog('🎵 アプリ内音声再生完了:', text?.substring(0, 30) + '...');
+                // VoiceQueueの完了待機用に状態を更新
+                this.voicePlayingState.isPlaying = false;
+                URL.revokeObjectURL(audioUrl);
+            };
+            
+            audio.onerror = (error) => {
+                debugLog('❌ アプリ内音声再生エラー:', error);
+                this.voicePlayingState.isPlaying = false;
+                URL.revokeObjectURL(audioUrl);
+            };
+            
+            await audio.play();
+            
+        } catch (error) {
+            debugLog('❌ アプリ内音声再生処理エラー:', error);
+            this.voicePlayingState.isPlaying = false;
         }
     }
 
@@ -1102,37 +1151,39 @@ class TerminalApp {
     }
 
     processAppInternalMode(data) {
-        debugLog('🔍 processAppInternalMode開始:', {
+        debugLog('🔍 processAppInternalMode開始 - VoiceQueue使用版:', {
             dataLength: data.length,
-            dataContent: data
+            dataContent: data.substring(0, 100) + '...'
         });
         
-        // 『』で囲まれたテキストを抽出
+        // 『』で囲まれたテキストを全て抽出
+        const quotedTextMatches = [];
         const quotedTextRegex = /『([^』]+)』/g;
         let match;
-        let matchCount = 0;
         
         while ((match = quotedTextRegex.exec(data)) !== null) {
-            const speechText = match[1];
-            matchCount++;
-            
+            quotedTextMatches.push(match[0]); // 『』付きで保存
             debugLog('✨ 『』テキスト検出:', {
-                matchNumber: matchCount,
-                speechText: speechText,
-                fullMatch: match[0]
+                matchNumber: quotedTextMatches.length,
+                fullMatch: match[0],
+                textContent: match[1]
             });
-            
-            // 即座に音声読み上げ実行
-            this.executeSpeechForAppMode(speechText);
         }
         
-        if (matchCount === 0) {
-            debugLog('❌ 『』テキストが見つかりませんでした');
+        if (quotedTextMatches.length > 0) {
+            debugLog('✅ アプリ内モード: VoiceQueueで順次処理開始:', {
+                totalMatches: quotedTextMatches.length,
+                texts: quotedTextMatches
+            });
+            // 既存のprocessQuotedTexts（VoiceQueue使用）を使用
+            this.processQuotedTexts(quotedTextMatches);
         } else {
-            debugLog('✅ 『』テキスト処理完了:', { totalMatches: matchCount });
+            debugLog('❌ 『』テキストが見つかりませんでした');
         }
     }
 
+    // 旧処理: アプリ内モード個別音声実行（VoiceQueue使用のため無効化）
+    /*
     async executeSpeechForAppMode(text) {
         debugLog('🎤 executeSpeechForAppMode開始:', {
             text: text,
@@ -1171,6 +1222,7 @@ class TerminalApp {
             debugError('❌ アプリ内監視モード音声処理エラー:', error);
         }
     }
+    */
 
     async initializeVoiceMode() {
         const unifiedConfig = getSafeUnifiedConfig();
