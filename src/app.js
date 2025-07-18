@@ -1111,8 +1111,8 @@ class TerminalApp {
         const chatMessages = document.getElementById('chat-messages');
         if (!chatMessages) return;
 
-        // DOMUpdaterを使用してセキュアで高速な更新
-        DOMUpdater.addVoiceMessage(speaker, text, chatMessages);
+        // セキュアなDOM操作でメッセージを追加
+        this.addVoiceMessageElement(speaker, text, chatMessages);
         
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -1120,6 +1120,59 @@ class TerminalApp {
         this.chatMessages.push({ type: 'voice', speaker, text, timestamp: Date.now() });
         if (this.chatMessages.length > 50) {
             this.chatMessages.shift();
+        }
+    }
+
+    // セキュアな音声メッセージ要素追加（DOMUpdaterの代替）
+    addVoiceMessageElement(speaker, text, parentElement) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'voice-message';
+        
+        const speakerDiv = document.createElement('div');
+        speakerDiv.className = 'voice-speaker';
+        speakerDiv.textContent = speaker;
+        
+        const textP = document.createElement('p');
+        textP.className = 'voice-text';
+        textP.textContent = text;
+        
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'voice-time';
+        timeDiv.textContent = new Date().toLocaleTimeString('ja-JP', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        
+        messageDiv.appendChild(speakerDiv);
+        messageDiv.appendChild(textP);
+        messageDiv.appendChild(timeDiv);
+        
+        parentElement.appendChild(messageDiv);
+        
+        return messageDiv;
+    }
+
+    // 話者選択オプションの更新（DOMUpdaterの代替）
+    updateSpeakerSelectOptions(selectElement, speakers, selectedSpeakerId = null) {
+        if (!selectElement || !Array.isArray(speakers)) return;
+        
+        // 既存のオプションをクリア
+        selectElement.innerHTML = '';
+        
+        // 新しいオプションを追加
+        speakers.forEach(speaker => {
+            speaker.styles.forEach(style => {
+                const option = document.createElement('option');
+                option.value = style.id.toString();
+                option.textContent = `${speaker.name} (${style.name})`;
+                selectElement.appendChild(option);
+            });
+        });
+        
+        // 選択状態を設定
+        if (selectedSpeakerId !== null) {
+            selectElement.value = selectedSpeakerId.toString();
         }
     }
 
@@ -1667,8 +1720,8 @@ class TerminalApp {
     async updateSpeakerSelect() {
         const speakerSelectModal = document.getElementById('speaker-select-modal');
         if (speakerSelectModal && this.speakers.length > 0) {
-            // DOMUpdaterを使用して差分更新
-            DOMUpdater.updateSpeakerOptions(speakerSelectModal, this.speakers, this.selectedSpeaker);
+            // 話者選択の更新
+            this.updateSpeakerSelectOptions(speakerSelectModal, this.speakers, this.selectedSpeaker);
             
             // 現在選択中の話者IDを保持（リセットしない）
             let targetSpeakerId = this.selectedSpeaker;
@@ -2562,14 +2615,28 @@ class TabManager {
         const tabBar = document.getElementById('tab-bar');
         if (!tabBar) return;
         
-        // DOMUpdaterを使用して差分更新
-        DOMUpdater.updateTabList(
-            tabBar, 
-            this.tabs, 
-            this.tabOrder, 
-            this.activeTabId,
-            (tabData) => this.createTabElement(tabData)
-        );
+        // タブリストの更新
+        this.updateTabListElements(tabBar, this.tabs, this.tabOrder, this.activeTabId);
+    }
+
+    // タブリストの更新（DOMUpdaterの代替）
+    updateTabListElements(tabBarElement, tabs, tabOrder, activeTabId) {
+        if (!tabBarElement || !Array.isArray(tabOrder)) return;
+        
+        // 新規タブボタンを除く既存のタブ要素を削除
+        const existingTabs = Array.from(tabBarElement.querySelectorAll('.tab'));
+        existingTabs.forEach(tab => tab.remove());
+        
+        // 新規タブボタンを取得
+        const newTabButton = document.getElementById('new-tab-button');
+        
+        // 新しいタブを順序通りに追加
+        tabOrder.forEach(tabId => {
+            if (tabs[tabId]) {
+                const tabElement = this.createTabElement(tabs[tabId]);
+                tabBarElement.insertBefore(tabElement, newTabButton);
+            }
+        });
     }
 
     createTabElement(tabData) {
