@@ -66,6 +66,8 @@ class UIEventManager {
         const helpBtn = document.getElementById('help-btn');
         const closeHelpBtn = document.getElementById('close-help');
         const helpModal = document.getElementById('help-modal');
+        const hooksGuideModal = document.getElementById('hooks-guide-modal');
+        const closeHooksGuideBtn = document.getElementById('close-hooks-guide');
 
         // AI選択モーダル用の要素を取得
         const aiSelectModal = document.getElementById('ai-select-modal');
@@ -176,11 +178,29 @@ class UIEventManager {
                 }
             });
         }
+        
+        // Hooksガイドモーダルの閉じるボタンとクリック外し
+        if (closeHooksGuideBtn && hooksGuideModal) {
+            closeHooksGuideBtn.addEventListener('click', () => {
+                hooksGuideModal.style.display = 'none';
+            });
+        }
+        
+        if (hooksGuideModal) {
+            hooksGuideModal.addEventListener('click', (e) => {
+                if (e.target === hooksGuideModal) {
+                    hooksGuideModal.style.display = 'none';
+                }
+            });
+        }
 
         // Claude Code Hooks情報ボタンのイベント
         if (hooksInfoBtn) {
             hooksInfoBtn.addEventListener('click', () => {
-                alert('Claude Code Hooksで読み上げ機能について\n\nこの設定では、音声読み上げの範囲を2つから選べます：\n\n📱 アプリ内のみで読み上げ（OFF）\n・このアプリのターミナルでClaude Codeを起動して作業する時\n・このアプリだけで音声が流れる（他に影響しない）\n・より確実で安定した動作\n\n🔧 Claude Code Hooksで読み上げ（ON）\n・このアプリを起動しつつ、他のエディターや別のターミナルでClaude Codeを使いたい時\n・どこでClaude Codeを起動しても音声読み上げが働く\n・高度な感情分析で表情がより自然に変化\n・複数のターミナルで同時に音声が流れることがある\n\n🎯 おすすめの使い方\n・このアプリで作業: アプリ内のみ（OFF）がおすすめ\n・外部ターミナルも使いたい: Claude Code Hooks（ON）がおすすめ');
+                const hooksGuideModal = document.getElementById('hooks-guide-modal');
+                if (hooksGuideModal) {
+                    hooksGuideModal.style.display = 'flex';
+                }
             });
         }
 
