@@ -420,7 +420,16 @@ class TerminalApp {
 
     // タブ管理システム初期化
     initializeTabManager() {
-        this.tabManager = new TabManager(this);
+        // 依存関係オブジェクトを作成
+        this.tabManagerDependencies = new TabManagerDependencies(this);
+        
+        // 依存関係の健全性チェック
+        if (!this.tabManagerDependencies.isValid()) {
+            debugError('TabManagerDependencies is not valid');
+            return;
+        }
+        
+        this.tabManager = new TabManager(this.tabManagerDependencies);
         this.tabManager.initialize();
     }
 
@@ -1529,8 +1538,8 @@ class TerminalApp {
 
 // タブ管理クラス
 class TabManager {
-    constructor(terminalApp) {
-        this.terminalApp = terminalApp;
+    constructor(dependencies) {
+        this.deps = dependencies;
         this.tabs = {};
         this.activeTabId = null;
         this.parentTabId = null;
@@ -1582,8 +1591,8 @@ class TabManager {
         }
         
         // 親タブの場合のみ音声処理
-        if (tab.isParent && this.terminalApp.messageAccumulator) {
-            this.terminalApp.messageAccumulator.addChunk(data);
+        if (tab.isParent && this.deps.messageAccumulator) {
+            this.deps.messageAccumulator.addChunk(data);
         }
     }
     
@@ -1624,8 +1633,8 @@ class TabManager {
             isParent: true,
             isActive: true,
             isRunning: false, // 初期状態はAI未起動
-            terminal: this.terminalApp.terminal,
-            fitAddon: this.terminalApp.fitAddon,
+            terminal: this.deps.mainTerminal,
+            fitAddon: this.deps.mainFitAddon,
             element: existingTerminal, // リネーム後の要素を参照
             createdAt: Date.now()
         };
@@ -1752,7 +1761,7 @@ class TabManager {
             // ターミナルサイズを適切に調整（AI起動後に実行）
             setTimeout(() => {
                 // デバウンス処理付きリサイズ制御
-                this.terminalApp.handleResize();
+                this.deps.handleResize();
                 
                 if (tab.fitAddon && tab.terminal) {
                     tab.fitAddon.fit();
@@ -1764,8 +1773,8 @@ class TabManager {
             
             // UI状態を更新
             this.updateTabUI();
-            if (this.terminalApp && this.terminalApp.updateButtons) {
-                this.terminalApp.updateButtons();
+            if (this.deps && this.deps.updateButtons) {
+                this.deps.updateButtons();
             }
             
             debugLog(`Tab ${tabId} AI startup completed`);
@@ -1815,8 +1824,8 @@ class TabManager {
             
             // UI状態を更新
             this.updateTabUI();
-            if (this.terminalApp && this.terminalApp.updateButtons) {
-                this.terminalApp.updateButtons();
+            if (this.deps && this.deps.updateButtons) {
+                this.deps.updateButtons();
             }
 
             return true;
@@ -1851,7 +1860,7 @@ class TabManager {
         if (activeTab.fitAddon) {
             setTimeout(() => {
                 // デバウンス処理付きリサイズ制御
-                this.terminalApp.handleResize();
+                this.deps.handleResize();
                 
                 activeTab.fitAddon.fit();
                 // AI起動中のタブの場合、バックエンドプロセスにもリサイズを通知
@@ -1997,17 +2006,17 @@ class TabManager {
         
         // ドラッグ&ドロップ機能を追加（ResourceManager経由）
         tab.draggable = true;
-        this.terminalApp.resourceManager.addEventListener(tab, 'dragstart', (e) => this.handleDragStart(e, tabData.id));
-        this.terminalApp.resourceManager.addEventListener(tab, 'dragover', (e) => this.handleDragOver(e));
-        this.terminalApp.resourceManager.addEventListener(tab, 'dragleave', (e) => this.handleDragLeave(e));
-        this.terminalApp.resourceManager.addEventListener(tab, 'drop', (e) => this.handleDrop(e, tabData.id));
-        this.terminalApp.resourceManager.addEventListener(tab, 'dragend', (e) => this.handleDragEnd(e));
+        this.deps.resourceManager.addEventListener(tab, 'dragstart', (e) => this.handleDragStart(e, tabData.id));
+        this.deps.resourceManager.addEventListener(tab, 'dragover', (e) => this.handleDragOver(e));
+        this.deps.resourceManager.addEventListener(tab, 'dragleave', (e) => this.handleDragLeave(e));
+        this.deps.resourceManager.addEventListener(tab, 'drop', (e) => this.handleDrop(e, tabData.id));
+        this.deps.resourceManager.addEventListener(tab, 'dragend', (e) => this.handleDragEnd(e));
         
         // 星マーク
         const star = document.createElement('span');
         star.className = `parent-star ${tabData.isParent ? 'active' : 'inactive'}`;
         star.textContent = tabData.isParent ? '★' : '☆';
-        this.terminalApp.resourceManager.addEventListener(star, 'click', (e) => {
+        this.deps.resourceManager.addEventListener(star, 'click', (e) => {
             e.stopPropagation();
             this.setParentTab(tabData.id);
         });
@@ -2021,13 +2030,13 @@ class TabManager {
         const closeBtn = document.createElement('button');
         closeBtn.className = 'close-button';
         closeBtn.textContent = '×';
-        this.terminalApp.resourceManager.addEventListener(closeBtn, 'click', async (e) => {
+        this.deps.resourceManager.addEventListener(closeBtn, 'click', async (e) => {
             e.stopPropagation();
             await this.deleteTab(tabData.id);
         });
         
         // タブクリックイベント（ResourceManager経由）
-        this.terminalApp.resourceManager.addEventListener(tab, 'click', () => {
+        this.deps.resourceManager.addEventListener(tab, 'click', () => {
             this.switchTab(tabData.id);
         });
         
