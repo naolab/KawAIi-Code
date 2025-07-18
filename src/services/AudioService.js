@@ -27,7 +27,7 @@ class AudioService {
     // 話者リストを読み込み
     async loadSpeakers() {
         try {
-            const response = await fetch('http://localhost:50021/speakers');
+            const response = await fetch('http://localhost:10101/speakers');
             const speakersData = await response.json();
             this.speakers = speakersData;
             this.debugLog('話者リスト読み込み成功:', speakersData.length + '人');
@@ -59,7 +59,7 @@ class AudioService {
             });
 
             // 音声クエリを生成
-            const queryResponse = await fetch(`http://localhost:50021/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, {
+            const queryResponse = await fetch(`http://localhost:10101/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -77,7 +77,7 @@ class AudioService {
             audioQuery.speedScale = speed;
 
             // 音声を合成
-            const synthesisResponse = await fetch(`http://localhost:50021/synthesis?speaker=${speakerId}`, {
+            const synthesisResponse = await fetch(`http://localhost:10101/synthesis?speaker=${speakerId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -339,7 +339,7 @@ class AudioService {
     // 音声合成サービスとの接続テスト
     async testConnection() {
         try {
-            const response = await fetch('http://localhost:50021/version');
+            const response = await fetch('http://localhost:10101/version');
             if (response.ok) {
                 this.connectionStatus = 'connected';
                 this.debugLog('音声合成サービス接続成功');
