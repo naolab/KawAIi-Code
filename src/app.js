@@ -44,9 +44,14 @@ function getSafeUnifiedConfig() {
 
 class TerminalApp {
     constructor() {
-        this.voiceEnabled = true; // デフォルトで有効に
+        // 基本設定
+        this.voiceEnabled = true;
         this.selectedSpeaker = 0;
         this.connectionStatus = 'disconnected';
+        this.voiceIntervalSeconds = AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS;
+        this.voiceVolume = 50;
+        this.claudeWorkingDir = '';
+        this.speakerInitialized = false;
         
         // 音声再生状態の統一管理
         this.voicePlayingState = {
@@ -56,55 +61,12 @@ class TerminalApp {
         };
         
         this.speakers = [];
-        this.voiceIntervalSeconds = AppConstants.AUDIO.DEFAULT_INTERVAL_SECONDS;
-        this.voiceVolume = 50; // デフォルト音量50%
-        
         this.chatMessages = [];
         this.lastChatMessage = '';
         this.lastChatTime = 0;
-        this.claudeWorkingDir = ''; // Claude Code作業ディレクトリの初期値
-        this.speakerInitialized = false; // 話者選択初期化フラグ
         
-        // リソース管理システム
-        this.resourceManager = new ResourceManager('TerminalApp');
-        
-        // 処理最適化システム
-        this.processingCache = new ProcessingCache({
-            maxCacheSize: 50,
-            maxAge: 300000, // 5分
-            maxPoolSize: 5
-        });
-        
-        // 読み上げ履歴管理
-        this.speechHistory = new SpeechHistoryManager(200);
-        
-        // パフォーマンス最適化用（チャンク結合方式に変更）
-        this.messageAccumulator = new MessageAccumulator();
-        
-        // 音声キューイングシステム
-        this.voiceQueue = new VoiceQueue(this);
-        
-        // 音声処理サービス
-        this.audioService = new AudioService(this);
-        
-        // Hook監視サービス
-        this.hookService = new HookService(this);
-        
-        // VRM連携サービス
-        this.vrmIntegrationService = new VRMIntegrationService(this);
-        
-        // VRMIntegrationServiceをグローバルに設定
-        window.vrmIntegrationService = this.vrmIntegrationService;
-        
-        // ターミナルサービス
-        this.terminalService = new TerminalService(this);
-        
-        // タブ管理システム
-        this.tabManager = null;
-        
-        // モジュールインスタンス
-        this.wallpaperSystem = new WallpaperSystem();
-        this.configManager = new ConfigManager();
+        // サービスマネージャーの初期化
+        this.appManager = new TerminalAppManager(this);
         
         this.init();
     }
@@ -117,69 +79,49 @@ class TerminalApp {
             return;
         }
         
-        // ErrorHandlerを初期化
-        this.errorHandler = new ErrorHandler('TerminalApp');
-        
         // Claude Codeの作業ディレクトリを初期化時に取得
+        await this.initializeWorkingDirectory();
+        
+        // サービスマネージャーで全サービスを初期化
+        await this.appManager.initializeAllServices();
+        
+        // チャットインターフェースを設定
+        this.setupChatInterface();
+        
+        // 初期設定の読み込み
+        await this.appManager.loadInitialSettings();
+        
+        // 音声モード初期化
+        await this.appManager.initializeVoiceMode();
+        
+        // AI.mdファイルの生成
+        await this.appManager.generateAiMdFiles();
+        
+        // ステータスを更新
+        this.updateStatus('Ready');
+        
+        // 音声接続チェック
+        await this.appManager.checkVoiceConnection();
+        
+        // 定期タスクの開始
+        this.appManager.startPeriodicTasks();
+        
+        debugLog('🚀 TerminalApp初期化完了');
+    }
+
+    // 作業ディレクトリの初期化
+    async initializeWorkingDirectory() {
         try {
             const result = await window.electronAPI.getClaudeCwd();
             if (result.success) {
                 this.claudeWorkingDir = result.cwd;
                 debugLog('Initial Claude CWD set to:', this.claudeWorkingDir);
-                // ConfigManagerにも作業ディレクトリを同期
-                this.configManager.setWorkingDirectory(this.claudeWorkingDir);
             } else {
                 debugError('Failed to get initial Claude CWD:', result.error);
             }
         } catch (error) {
             debugError('Error calling getClaudeCwd during init:', error);
         }
-
-        this.terminalService.setupTerminal();
-        this.initializeTabManager(); // タブ管理システム初期化
-        this.initializeUIEventManager(); // UI制御初期化
-        this.setupChatInterface();
-        await this.initializeModules(); // モジュール初期化をawait
-        await this.loadInitialSettings(); // 初期設定の読み込み
-        await this.terminalService.initializeVoiceMode(); // 音声モード初期化を追加
-        
-        // アプリ起動時に両方のAI.mdファイルを生成
-        await this.generateAiMdFiles();
-        
-        this.updateStatus('Ready');
-        this.checkVoiceConnection();
-        
-        // リソース管理：定期クリーンアップ開始
-        this.resourceManager.startPeriodicCleanup(AppConstants.AUDIO.DEFAULT_INTERVAL * 20); // 60秒間隔
-        
-        // 処理キャッシュ：定期クリーンアップ開始
-        this.resourceManager.setInterval(() => {
-            this.processingCache.cleanupExpiredEntries();
-        }, 120000); // 2分間隔
-        
-        // Hook監視サービスを開始
-        this.hookService.startHookWatcher();
-        debugLog('🚀 init()メソッド完了');
-    }
-
-    // モジュール初期化
-    async initializeModules() {
-        // MessageAccumulatorのコールバック設定（統一処理システム）
-        this.messageAccumulator.setProcessCallback(async (data) => {
-            await this.terminalService.processTerminalData(data);
-        });
-        
-        // 壁紙システムの初期化
-        this.wallpaperSystem.setMessageCallback((character, message) => {
-            this.addVoiceMessage(character, message);
-        });
-        this.wallpaperSystem.setupWallpaperSystem();
-        
-        // 設定管理の初期化
-        // configManagerに現在のclaudeWorkingDirを渡す
-        await this.configManager.initialize(this.claudeWorkingDir);
-        
-        // Hook監視サービスでIPCも管理
     }
 
 
@@ -385,39 +327,14 @@ class TerminalApp {
         }
     }
 
-    // 初期設定の読み込み（起動時のみ）
+    // 初期設定の読み込み（起動時のみ）- TerminalAppManagerに移動
     async loadInitialSettings() {
-        // 起動時音声ファイルクリーンアップを実行
-        this.cleanupStartupAudioFiles();
-        
-        // 統一設定システムから設定を読み込み（起動時のみ）
-        const config = getSafeUnifiedConfig();
-        this.voiceEnabled = await config.get('voiceEnabled', this.voiceEnabled);
-        this.selectedSpeaker = await config.get('selectedSpeaker', this.selectedSpeaker);
-        this.voiceIntervalSeconds = await config.get('voiceIntervalSeconds', this.voiceIntervalSeconds);
-        this.voiceVolume = await config.get('voiceVolume', this.voiceVolume);
-        
-        debugLog('Initial settings loaded:', {
-            voiceEnabled: this.voiceEnabled,
-            selectedSpeaker: this.selectedSpeaker,
-            voiceIntervalSeconds: this.voiceIntervalSeconds,
-            voiceVolume: this.voiceVolume
-        });
+        return await this.appManager.loadInitialSettings();
     }
 
-    // タブ管理システム初期化
+    // タブ管理システム初期化 - TerminalAppManagerに移動
     initializeTabManager() {
-        // 依存関係オブジェクトを作成
-        this.tabManagerDependencies = new TabManagerDependencies(this);
-        
-        // 依存関係の健全性チェック
-        if (!this.tabManagerDependencies.isValid()) {
-            debugError('TabManagerDependencies is not valid');
-            return;
-        }
-        
-        this.tabManager = new TabManager(this.tabManagerDependencies);
-        this.tabManager.initialize();
+        return this.appManager.initializeTabManager();
     }
     
     // ターミナル関連の参照を取得（TabManagerDependenciesで必要）
@@ -445,10 +362,10 @@ class TerminalApp {
         return this.terminalService.switchVoiceMode(useHooks);
     }
 
-    // UIEventManager初期化
+    // UIEventManager初期化 - TerminalAppManagerに移動
     initializeUIEventManager() {
-        this.uiEventManager = new UIEventManager(this);
-        this.uiEventManager.setupEventListeners();
+        // UIEventManagerの初期化はTerminalAppManagerで行われる
+        return this.uiEventManager;
     }
 
 
@@ -687,23 +604,9 @@ class TerminalApp {
         }
     }
 
-    // 両方のAI.mdファイルを生成
+    // 両方のAI.mdファイルを生成 - TerminalAppManagerに委譲
     async generateAiMdFiles() {
-        try {
-            const result = await this.configManager.generateBothAiMdFiles();
-            if (result.success) {
-                this.addVoiceMessage('ニコ', 'CLAUDE.mdを準備したよ！');
-                debugLog('AI MD files generated successfully');
-            } else {
-                this.addVoiceMessage('ニコ', 'AI設定ファイルの生成に失敗しちゃった...');
-                debugError('Failed to generate AI MD files:', result);
-            }
-            return result;
-        } catch (error) {
-            debugError('Error generating AI MD files:', error);
-            this.addVoiceMessage('ニコ', 'AI設定ファイルの生成でエラーが発生したよ...');
-            return { success: false, error: error.message };
-        }
+        return await this.appManager.generateAiMdFiles();
     }
 
     // アプリ終了時にAI.mdファイルを削除
@@ -831,28 +734,9 @@ class TerminalApp {
         }
     }
 
+    // 音声接続チェック - TerminalAppManagerに委譲
     async checkVoiceConnection() {
-        if (!this.audioService) {
-            debugError('AudioService not initialized');
-            return;
-        }
-        
-        try {
-            const result = await this.audioService.testConnection();
-            if (result.success) {
-                this.connectionStatus = 'connected';
-                this.updateConnectionStatus('接続済み', 'connected');
-                await this.loadSpeakers();
-            } else {
-                this.connectionStatus = 'disconnected';
-                this.updateConnectionStatus('未接続', 'disconnected');
-            }
-        } catch (error) {
-            this.connectionStatus = 'error';
-            this.updateConnectionStatus('エラー', 'error');
-            debugError('Voice connection check failed:', error);
-        }
-        this.updateVoiceControls();
+        return await this.appManager.checkVoiceConnection();
     }
 
     // 話者リストを読み込み - AudioServiceに委譲
