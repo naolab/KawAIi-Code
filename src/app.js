@@ -63,7 +63,7 @@ class TerminalApp {
         this.voiceEnabled = true; // デフォルトで有効に
         this.selectedSpeaker = 0;
         this.connectionStatus = 'disconnected';
-        this.isPlayingHookAudio = false; // Hook音声再生中フラグ
+        // Hook音声再生中フラグはHookServiceで管理
         this.isResizing = false; // リサイズ中フラグ（音声処理制御用）
         this.resizeTimer = null; // リサイズタイマー（デバウンス処理用）
         
@@ -102,6 +102,12 @@ class TerminalApp {
         
         // 音声キューイングシステム
         this.voiceQueue = new VoiceQueue(this);
+        
+        // 音声処理サービス
+        this.audioService = new AudioService(this);
+        
+        // Hook監視サービス
+        this.hookService = new HookService(this);
         
         // モジュールインスタンス
         this.wallpaperSystem = new WallpaperSystem();
@@ -158,8 +164,8 @@ class TerminalApp {
             this.processingCache.cleanupExpiredEntries();
         }, 120000); // 2分間隔
         
-        // Claude Code Hooks監視を開始
-        this.startHookFileWatcher();
+        // Hook監視サービスを開始
+        this.hookService.startHookWatcher();
         debugLog('🚀 init()メソッド完了');
     }
 
@@ -180,197 +186,12 @@ class TerminalApp {
         // configManagerに現在のclaudeWorkingDirを渡す
         await this.configManager.initialize(this.claudeWorkingDir);
         
-        // IPCからのHook通知受信設定
-        this.setupHookIPCListeners();
-    }
-
-    // IPCからのHook通知受信を設定
-    setupHookIPCListeners() {
-        const { ipcRenderer } = require('electron');
-        
-        // Hook音声再生通知を受信
-        ipcRenderer.on('hook-audio-play', (event, data) => {
-            this.playHookVoiceFile(data.filepath, data.text, data.emotion);
-        });
-        
-        // Hook音声停止通知を受信
-        ipcRenderer.on('hook-audio-stop', () => {
-            // Hook音声停止処理（必要に応じて実装）
-            if (this.isPlayingHookAudio) {
-                // 現在の音声を停止する処理をここに追加
-            }
-        });
-        
-        // アプリ内音声再生通知を受信（現在は使用しない - VoiceQueueシステムを使用）
-        // ipcRenderer.on('play-audio', (event, data) => {
-        //     this.playAppInternalAudio(data.audioData, data.text);
-        // });
-        
+        // Hook監視サービスでIPCも管理
     }
 
 
 
-    // Claude Code Hooks用ファイル監視を開始
-    startHookFileWatcher() {
-        debugLog('🚀 claudeWorkingDir:', this.claudeWorkingDir);
-        
-        const fs = require('fs');
-        const path = require('path');
-        const tempDir = path.join(this.claudeWorkingDir, 'temp');
-        
-        
-        // tempディレクトリが存在しない場合は作成
-        if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true });
-        }
-        
-        // 定期的にnotificationファイルをチェック（IPCがメインなので頻度を下げる）
-        this.resourceManager.setInterval(() => {
-            this.checkForHookNotifications(tempDir);
-        }, 500); // 0.5秒間隔に変更（Hook応答性向上）
-    }
 
-    // Hook通知ファイルをチェック
-    async checkForHookNotifications(tempDir) {
-        const fs = require('fs');
-        const path = require('path');
-        
-        // Hook機能が有効かチェック
-        const unifiedConfig = getSafeUnifiedConfig();
-        const useHooks = await unifiedConfig.get('useHooks', false);
-        
-        if (!useHooks) {
-            // Hookモードが無効の場合は処理をスキップ
-            return;
-        }
-        
-        try {
-            const files = fs.readdirSync(tempDir);
-            const notificationFiles = files.filter(file => file.startsWith('notification_') && file.endsWith('.json'));
-            
-            if (notificationFiles.length > 0) {
-            }
-            
-            for (const file of notificationFiles) {
-                const filePath = path.join(tempDir, file);
-                try {
-                    const notification = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                    await this.processHookNotification(notification);
-                    
-                    // 処理済みの通知ファイルを削除
-                    fs.unlinkSync(filePath);
-                } catch (error) {
-                    // エラーが発生したファイルも削除（破損ファイル対策）
-                    try {
-                        fs.unlinkSync(filePath);
-                    } catch (deleteError) {
-                        debugLog('❌ 破損ファイル削除エラー:', deleteError);
-                    }
-                }
-            }
-        } catch (error) {
-            // tempディレクトリが存在しない場合は何もしない
-        }
-    }
-
-    // Hook通知を処理
-    async processHookNotification(notification) {
-        
-        if (notification.type === 'voice-synthesis-hook' && notification.filepath) {
-            // 音声ファイルを再生
-            await this.playHookVoiceFile(notification.filepath, notification.text);
-            
-            // 感情データが含まれている場合はIPCで送信
-            if (notification.emotion) {
-                debugLog('😊 感情データをIPCで送信:', notification.emotion);
-                // IPCを使って感情データを送信
-                const { ipcRenderer } = require('electron');
-                ipcRenderer.send('emotion-data', notification.emotion);
-            }
-        }
-        
-        // 音声停止通知の処理
-        if (notification.type === 'stop-audio') {
-            debugLog('🛑 音声停止通知受信:', notification);
-            this.stopAudio();
-        }
-    }
-
-    // Hook音声ファイルを再生
-    async playHookVoiceFile(filepath, text, emotion) {
-        const fs = require('fs');
-        
-        try {
-            // Hook音声再生中の場合は待機
-            while (this.isPlayingHookAudio) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-            
-            if (!fs.existsSync(filepath)) {
-                return;
-            }
-            
-            // Hook音声再生開始フラグ
-            this.isPlayingHookAudio = true;
-            
-            
-            // 音声ファイルを読み込んでVRMリップシンク用に送信
-            try {
-                const audioBuffer = fs.readFileSync(filepath);
-                this.sendAudioToVRM(audioBuffer);
-            } catch (vrmError) {
-                debugLog('❌ VRM音声データ送信エラー:', vrmError);
-                // エラーが発生しても音声再生は続行
-            }
-
-            // 感情データをVRMに送信
-            if (emotion) {
-                this.sendEmotionToVRM(emotion);
-            }
-            
-            // 音声ファイルを再生
-            const audio = new Audio(filepath);
-            const volumeValue = await getSafeUnifiedConfig().get('voiceVolume', 50);
-            const safeVolume = isNaN(volumeValue) ? 50 : volumeValue;
-            audio.volume = Math.max(0, Math.min(1, safeVolume / 100));
-            
-            debugLog('🔊 音量設定:', { volumeValue, safeVolume, finalVolume: audio.volume });
-            
-            audio.onended = () => {
-                
-                // Hook音声再生終了フラグ
-                this.isPlayingHookAudio = false;
-                
-                // 音声終了をVRMビューワーに通知（表情リセットのため）
-                this.notifyAudioStateToVRM('ended');
-                
-                // 再生完了後に音声ファイルを削除
-                try {
-                    const fs = require('fs');
-                    if (fs.existsSync(filepath)) {
-                        fs.unlinkSync(filepath);
-                    }
-                } catch (error) {
-                }
-            };
-            
-            audio.onerror = (error) => {
-                // エラー時もフラグをリセット
-                this.isPlayingHookAudio = false;
-            };
-            
-            await audio.play();
-            
-            // チャットにテキストを表示
-            if (text) {
-                this.addVoiceMessage('shy', text);
-            }
-            
-        } catch (error) {
-            // エラー時もフラグをリセット
-            this.isPlayingHookAudio = false;
-        }
-    }
 
     // アプリ内音声再生（VoiceQueue用）- AudioServiceに委譲
     async playAppInternalAudio(audioData, text) {
@@ -1058,9 +879,9 @@ class TerminalApp {
         
         if (useHooks) {
             // Hookモード: 外部ターミナルのみ処理、アプリ内ターミナルは音声処理なし
-            if (!this.isAppTerminalData(data)) {
+            if (!this.hookService.isAppTerminalData(data)) {
                 debugLog('📡 外部ターミナル（Hookモード）: Hook専用処理');
-                await this.processHookOnlyData(data);
+                await this.hookService.processHookOnlyData(data);
             } else {
                 debugLog('📱 アプリ内ターミナル（Hookモード）: 音声処理スキップ');
                 // アプリ内ターミナルでは音声処理を行わない
@@ -1072,66 +893,6 @@ class TerminalApp {
         }
     }
 
-    // Hook専用データ処理（音声再生なし）
-    async processHookOnlyData(data) {
-        debugLog('🎣 Hook専用データ処理開始:', {
-            dataLength: data.length,
-            dataPreview: data.substring(0, 100)
-        });
-        
-        // 『』で囲まれたテキストを抽出
-        const quotedTextRegex = /『([^』]+)』/g;
-        const matches = [];
-        let match;
-        
-        while ((match = quotedTextRegex.exec(data)) !== null) {
-            matches.push(match[1]);
-        }
-        
-        if (matches.length > 0) {
-            debugLog('🎣 Hook専用: テキスト検出 - Hook音声処理待機中:', matches);
-            // Hook処理は外部のHook通知システムに委ねる
-            // ここでは音声処理は実行しない
-        } else {
-            debugLog('🎣 Hook専用: 『』テキストなし');
-        }
-    }
-
-    // アプリ内ターミナルのデータかどうかを判定
-    isAppTerminalData(data) {
-        // フリーズ問題を回避するため、当面は以下の戦略を取る：
-        // 1. Hookモードでアプリ内ターミナルを使用する場合は直接処理
-        // 2. Hook通知ファイルが存在する場合は外部ターミナルと判定
-        
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            
-            // Hook通知ファイルの存在確認
-            const tempDir = path.join(this.claudeWorkingDir, 'temp');
-            if (fs.existsSync(tempDir)) {
-                const files = fs.readdirSync(tempDir);
-                const hasHookNotification = files.some(file => 
-                    file.startsWith('notification_') && file.endsWith('.json')
-                );
-                
-                if (hasHookNotification) {
-                    // Hook通知ファイルがある = 外部ターミナル
-                    debugLog('🔍 Hook通知ファイル検出 - 外部ターミナルと判定');
-                    return false;
-                }
-            }
-            
-            // Hook通知ファイルがない = アプリ内ターミナル
-            debugLog('🔍 Hook通知ファイルなし - アプリ内ターミナルと判定');
-            return true;
-            
-        } catch (error) {
-            // エラー時は安全のためアプリ内ターミナルとして扱う
-            debugLog('🔍 データソース判定エラー - アプリ内ターミナルとして処理:', error);
-            return true;
-        }
-    }
 
     processAppInternalMode(data) {
         debugLog('🔍 processAppInternalMode開始 - VoiceQueue使用版:', {
