@@ -310,10 +310,9 @@ class TerminalApp {
 
     // モジュール初期化
     async initializeModules() {
-        // MessageAccumulatorのコールバック設定（Hook専用処理）
+        // MessageAccumulatorのコールバック設定（統一処理システム）
         this.messageAccumulator.setProcessCallback(async (data) => {
-            // Hook専用処理 - アプリ内音声処理は実行しない
-            await this.processHookOnlyData(data);
+            await this.processTerminalData(data);
         });
         
         // 壁紙システムの初期化
@@ -1142,9 +1141,9 @@ class TerminalApp {
         });
         
         if (useHooks && !this.isAppTerminalData(data)) {
-            // Hookモード（外部ターミナルのみ）: MessageAccumulatorを使用
-            debugLog('📡 外部ターミナル（Hookモード）: MessageAccumulator使用');
-            this.messageAccumulator.addChunk(data);
+            // Hookモード（外部ターミナルのみ）: Hook専用処理
+            debugLog('📡 外部ターミナル（Hookモード）: Hook専用処理');
+            await this.processHookOnlyData(data);
         } else {
             // アプリ内ターミナル または フックモードOFF: 直接処理
             debugLog(useHooks ? 
