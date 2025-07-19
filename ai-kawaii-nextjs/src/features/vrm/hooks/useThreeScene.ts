@@ -197,8 +197,10 @@ export const useThreeScene = ({
     // 感情変更メソッドをグローバルに公開
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).setVRMEmotion = (emotion: any) => {
-      console.log('[VRMViewer] setVRMEmotion called:', emotion)
-      console.log('[VRMViewer] emoteControllerRef.current:', emoteControllerRef.current)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[VRMViewer] setVRMEmotion called:', emotion)
+        console.log('[VRMViewer] emoteControllerRef.current:', emoteControllerRef.current)
+      }
       
       if (emoteControllerRef.current) {
         debugLog('😊 VRM感情変更:', emotion)
@@ -206,11 +208,15 @@ export const useThreeScene = ({
         if (emotion.isComplex && emotion.emotions) {
           // 複合感情の処理
           debugLog('複合感情検出:', emotion.emotions)
-          console.log('[VRMViewer] Playing complex emotion:', emotion.emotions, 'duration:', emotion.duration || 2000)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[VRMViewer] Playing complex emotion:', emotion.emotions, 'duration:', emotion.duration || 2000)
+          }
           emoteControllerRef.current.playComplexEmotion(emotion.emotions, emotion.duration || 2000)
         } else if (emotion.emotion) {
           // 単一感情の処理
-          console.log('[VRMViewer] Playing single emotion:', emotion.emotion, emotion.weight || 1, 'duration:', emotion.duration || 2000)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[VRMViewer] Playing single emotion:', emotion.emotion, emotion.weight || 1, 'duration:', emotion.duration || 2000)
+          }
           emoteControllerRef.current.playEmotion(emotion.emotion, emotion.weight || 1, emotion.duration || 2000)
         } else {
           console.warn('[VRMViewer] Invalid emotion data:', emotion)
@@ -233,7 +239,9 @@ export const useThreeScene = ({
       }
       
       if (event.data.type === 'emotion' && event.data.emotion) {
-        console.log('🎭 postMessageで感情データ受信:', event.data.emotion)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('🎭 postMessageで感情データ受信:', event.data.emotion)
+        }
         if (emoteControllerRef.current) {
           // 音声制御モードは常時有効なので、そのまま表情を変更
           
@@ -242,7 +250,9 @@ export const useThreeScene = ({
           if ((window as any).setVRMEmotion) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (window as any).setVRMEmotion(event.data.emotion)
-            console.log('🎭 setVRMEmotion呼び出し完了')
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('🎭 setVRMEmotion呼び出し完了')
+            }
           } else {
             console.error('🎭 setVRMEmotion関数が見つかりません')
           }
@@ -252,15 +262,21 @@ export const useThreeScene = ({
       }
       
       if (event.data.type === 'audioState') {
-        console.log('🎭 postMessageで音声状態受信:', event.data.state)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('🎭 postMessageで音声状態受信:', event.data.state)
+        }
         if (emoteControllerRef.current) {
           if (event.data.state === 'started') {
             // 音声開始：音声制御モードは常時有効なので特別な処理不要
-            console.log('🎭 音声開始')
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('🎭 音声開始')
+            }
           } else if (event.data.state === 'ended') {
             // 音声終了：表情をニュートラルに戻す
             emoteControllerRef.current.expressionController.resetToNeutral()
-            console.log('🎭 音声終了：表情をニュートラルにリセット')
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('🎭 音声終了：表情をニュートラルにリセット')
+            }
           }
         } else {
           console.error('🎭 emoteControllerRef.current is null')

@@ -94,7 +94,10 @@ export default function VRMViewer({ className }: VRMViewerProps) {
       
       // デフォルトVRMが未ロードの場合のみ読み込み
       if (!vrmRef.current && !loading) {
-        console.log('🤖 アプリ起動時にデフォルトVRMを自動読み込み開始')
+        // デバッグログは開発時のみ表示
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('🤖 アプリ起動時にデフォルトVRMを自動読み込み開始')
+        }
         await loadDefaultVRM()
       }
     }
