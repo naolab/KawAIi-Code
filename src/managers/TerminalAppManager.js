@@ -297,34 +297,53 @@ class TerminalAppManager {
     }
 
     /**
-     * 音声接続チェック
+     * 音声接続チェック（リトライ機能付き）
      */
-    async checkVoiceConnection() {
-        debugLog('🔊 音声接続チェック開始');
+    async checkVoiceConnection(retryCount = 3, delayMs = 2000) {
+        debugLog('🔊 音声接続チェック開始', { retryCount });
         
         if (!this.terminalApp.audioService) {
             debugError('AudioService not initialized');
             return;
         }
         
-        try {
-            const result = await this.terminalApp.audioService.testConnection();
-            if (result.success) {
-                this.terminalApp.connectionStatus = 'connected';
-                this.terminalApp.updateConnectionStatus('接続済み', 'connected');
-                await this.terminalApp.loadSpeakers();
-            } else {
-                this.terminalApp.connectionStatus = 'disconnected';
-                this.terminalApp.updateConnectionStatus('未接続', 'disconnected');
+        // 音声エンジンの起動待機（最大3回リトライ）
+        for (let attempt = 1; attempt <= retryCount; attempt++) {
+            try {
+                const result = await this.terminalApp.audioService.testConnection();
+                if (result.success) {
+                    // AudioService.testConnection()で既に状態は更新済み
+                    this.terminalApp.updateConnectionStatus('接続済み', 'connected');
+                    await this.terminalApp.loadSpeakers();
+                    debugLog('✅ 音声接続チェック完了（成功）', { attempt });
+                    break;
+                } else {
+                    debugLog(`🔄 音声接続失敗 (${attempt}/${retryCount}):`, result.error);
+                    
+                    if (attempt === retryCount) {
+                        // 最終試行で失敗した場合
+                        this.terminalApp.updateConnectionStatus('未接続', 'disconnected');
+                        debugLog('❌ 音声接続チェック完了（最終的に失敗）');
+                    } else {
+                        // リトライ前の待機
+                        await new Promise(resolve => setTimeout(resolve, delayMs));
+                    }
+                }
+            } catch (error) {
+                debugLog(`🔄 音声接続エラー (${attempt}/${retryCount}):`, error.message);
+                
+                if (attempt === retryCount) {
+                    // 最終試行でエラーの場合
+                    this.terminalApp.updateConnectionStatus('エラー', 'error');
+                    debugError('Voice connection check failed after all retries:', error);
+                } else {
+                    // リトライ前の待機
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                }
             }
-        } catch (error) {
-            this.terminalApp.connectionStatus = 'error';
-            this.terminalApp.updateConnectionStatus('エラー', 'error');
-            debugError('Voice connection check failed:', error);
         }
-        this.terminalApp.updateVoiceControls();
         
-        debugLog('✅ 音声接続チェック完了');
+        this.terminalApp.updateVoiceControls();
     }
 
     /**

@@ -346,15 +346,19 @@ class AudioService {
         try {
             const response = await fetch('http://localhost:10101/version');
             if (response.ok) {
+                // 統一された状態管理: AudioServiceとTerminalApp両方を更新
                 this.connectionStatus = 'connected';
+                this.terminalApp.connectionStatus = 'connected';
                 this.debugLog('音声合成サービス接続成功');
                 return { success: true };
             } else {
                 this.connectionStatus = 'disconnected';
+                this.terminalApp.connectionStatus = 'disconnected';
                 return { success: false, error: 'サービスが応答しません' };
             }
         } catch (error) {
             this.connectionStatus = 'error';
+            this.terminalApp.connectionStatus = 'error';
             this.debugLog('音声合成サービス接続エラー:', error.message);
             return { success: false, error: error.message };
         }
