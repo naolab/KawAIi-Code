@@ -72,10 +72,10 @@ function createWindow() {
     mainWindow.show();
   });
 
-  // デベロッパーツールを開く（開発環境のみ）
-  if (!isProduction) {
-    mainWindow.webContents.openDevTools();
-  }
+  // デベロッパーツールを無効化（開発時も非表示）
+  // if (!isProduction) {
+  //   mainWindow.webContents.openDevTools();
+  // }
   
   // Next.jsアプリのコンソールログをメインプロセスに転送（開発環境のみ）
   if (!isProduction) {
