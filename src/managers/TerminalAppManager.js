@@ -302,7 +302,7 @@ class TerminalAppManager {
     /**
      * 音声接続チェック（リトライ機能付き）
      */
-    async checkVoiceConnection(retryCount = 3, delayMs = 2000) {
+    async checkVoiceConnection(retryCount = 3, delayMs = 2000, skipLoadSpeakers = false) {
         debugLog('🔊 音声接続チェック開始', { retryCount });
         
         if (!this.terminalApp.audioService) {
@@ -323,8 +323,13 @@ class TerminalAppManager {
                 if (result.success) {
                     // AudioService.testConnection()で既に状態は更新済み
                     this.terminalApp.updateConnectionStatus('接続済み', 'connected');
-                    await this.terminalApp.loadSpeakers();
-                    debugLog('✅ 音声接続チェック完了（成功）', { attempt });
+                    
+                    // 軽量チェック時は話者読み込みをスキップ（パフォーマンス最適化）
+                    if (!skipLoadSpeakers) {
+                        await this.terminalApp.loadSpeakers();
+                    }
+                    
+                    debugLog('✅ 音声接続チェック完了（成功）', { attempt, skipLoadSpeakers });
                     break;
                 } else {
                     debugLog(`🔄 音声接続失敗 (${attempt}/${retryCount}):`, result.error);
@@ -378,8 +383,8 @@ class TerminalAppManager {
                 return;
             }
             
-            // 軽量な接続チェック（リトライなし）
-            await this.checkVoiceConnection(1, 0);
+            // 軽量な接続チェック（リトライなし、話者読み込みスキップ）
+            await this.checkVoiceConnection(1, 0, true);
         }, 3000); // 3秒間隔
         
         debugLog('✅ リアルタイム音声接続監視開始完了');
