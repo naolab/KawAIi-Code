@@ -225,6 +225,13 @@ class UIEventManager {
         if (voiceToggleModal) {
             voiceToggleModal.addEventListener('change', (e) => {
                 this.app.voiceEnabled = e.target.checked;
+                
+                // 音声オフに切り替えた場合は音声キューをクリア
+                if (!this.app.voiceEnabled && this.app.voiceQueue) {
+                    this.app.voiceQueue.clear();
+                    this.debugLog('音声オフ切り替えによりキューをクリア');
+                }
+                
                 this.updateVoiceControls();
                 this.debugLog('Voice enabled changed:', this.app.voiceEnabled);
             });

@@ -29,6 +29,14 @@ class VoiceQueue {
         this.debugLog('🎵 音声キュー処理開始:', { queueLength: this.queue.length });
         
         while (this.queue.length > 0) {
+            // 音声無効時はキュー全体をクリア（効率化）
+            if (!this.terminalApp.voiceEnabled) {
+                const clearedCount = this.queue.length;
+                this.queue = [];
+                this.debugLog('🎵 音声無効のためキューをクリア:', { clearedCount });
+                break;
+            }
+            
             const text = this.queue.shift();
             await this.speakTextSequentially(text);
         }
