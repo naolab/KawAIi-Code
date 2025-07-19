@@ -80,7 +80,7 @@ class AppConfig {
 
 const appConfig = new AppConfig();
 
-// アプリケーション起動時に設定をロード
-appConfig.loadConfig();
+// 注意: 自動初期化は削除しました
+// main.jsで明示的に初期化を行うことで、重複初期化とウィンドウ重複起動を回避
 
 module.exports = appConfig; 

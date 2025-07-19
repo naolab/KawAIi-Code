@@ -424,8 +424,7 @@ ipcMain.handle('open-directory-dialog', async () => {
 // ★ 新しいIPCハンドラ: 現在の作業ディレクトリの取得
 ipcMain.handle('get-claude-cwd', async () => {
   try {
-    // まず統一設定システム（appConfig）から取得を試行
-    await appConfig.loadConfig();
+    // 既に初期化済みのappConfigから取得（重複読み込み回避）
     const savedDir = appConfig.config.claudeWorkingDir;
     if (savedDir) {
       debugLog('Claude working directory from appConfig:', savedDir);
@@ -779,7 +778,7 @@ ipcMain.handle('get-user-data-path', () => {
 // 統一設定管理システムのIPCハンドラー
 ipcMain.handle('get-app-config', async () => {
   try {
-    await appConfig.loadConfig();
+    // 既に初期化済みのappConfigを返す（重複読み込み回避）
     return appConfig.config;
   } catch (error) {
     errorLog('get-app-config error:', error);
