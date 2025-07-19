@@ -345,8 +345,8 @@ class TabManager {
         this.updateTabUI();
         
         // ボタン状態を更新（アクティブタブ変更時）
-        if (this.terminalApp && this.terminalApp.updateButtons) {
-            this.terminalApp.updateButtons();
+        if (this.deps && this.deps.updateButtons) {
+            this.deps.updateButtons();
         }
     }
 
