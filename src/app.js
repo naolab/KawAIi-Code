@@ -560,10 +560,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     }, 1000); // 1秒間ローディング画面を表示
     
-    // 強制接続チェック（フォールバック）
+    // 初回強制接続チェック（フォールバック）
     setTimeout(() => {
         forcedConnectionCheck();
     }, 3000); // 3秒後に強制実行
+    
+    // 継続的な接続監視を開始（リアルタイム監視のフォールバック）
+    startContinuousConnectionMonitoring();
 });
 
 // 強制的な接続状態チェック（フォールバック機能）
@@ -591,11 +594,75 @@ async function forcedConnectionCheck() {
                 debugLog('❌ 強制接続チェック失敗');
             }
         } catch (error) {
-            statusElement.textContent = 'エラー';
-            statusElement.className = 'status-error';
+            statusElement.textContent = '未接続';
+            statusElement.className = 'status-disconnected';
             debugError('❌ 強制接続チェックエラー:', error);
         }
     } else {
         debugLog('🟢 既に接続状態が更新済み:', statusElement.textContent);
     }
 }
+
+// 継続的な接続監視（3秒間隔）
+let continuousMonitoringInterval = null;
+
+function startContinuousConnectionMonitoring() {
+    debugLog('🔄 継続的な接続監視開始');
+    
+    // 既存の監視があれば停止
+    if (continuousMonitoringInterval) {
+        clearInterval(continuousMonitoringInterval);
+    }
+    
+    // 6秒後から開始（初回チェックと重複回避）
+    setTimeout(() => {
+        continuousMonitoringInterval = setInterval(async () => {
+            await continuousConnectionCheck();
+        }, 3000); // 3秒間隔
+        
+        debugLog('✅ 継続的な接続監視間隔設定完了');
+    }, 6000);
+}
+
+// 継続的な接続チェック（軽量版）
+async function continuousConnectionCheck() {
+    const statusElement = document.getElementById('connection-status-modal');
+    if (!statusElement) {
+        debugLog('❌ connection-status-modal要素が見つかりません（継続チェック）');
+        return;
+    }
+    
+    try {
+        const response = await fetch('http://localhost:10101/version');
+        if (response.ok) {
+            // 接続成功
+            if (statusElement.textContent !== '接続済み') {
+                statusElement.textContent = '接続済み';
+                statusElement.className = 'status-connected';
+                debugLog('🔄 継続チェック: 接続復旧を検出');
+            }
+        } else {
+            // 接続失敗
+            if (statusElement.textContent !== '未接続') {
+                statusElement.textContent = '未接続';
+                statusElement.className = 'status-disconnected';
+                debugLog('🔄 継続チェック: 接続断を検出');
+            }
+        }
+    } catch (error) {
+        // 接続エラー
+        if (statusElement.textContent !== '未接続') {
+            statusElement.textContent = '未接続';
+            statusElement.className = 'status-disconnected';
+            debugLog('🔄 継続チェック: 接続エラーを検出');
+        }
+    }
+}
+
+// アプリ終了時の監視停止
+window.addEventListener('beforeunload', () => {
+    if (continuousMonitoringInterval) {
+        clearInterval(continuousMonitoringInterval);
+        debugLog('🛑 継続的な接続監視を停止');
+    }
+});
