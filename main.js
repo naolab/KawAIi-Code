@@ -57,10 +57,10 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
       preload: path.join(__dirname, 'src', 'preload.js'),
-      webSecurity: false
+      webSecurity: true
     },
     titleBarStyle: 'hiddenInset',
     show: false
@@ -84,24 +84,45 @@ function createWindow() {
     });
   }
   
-  // メニューバーからdevToolsを開けるようにする
-  const { Menu } = require('electron');
-  const template = [
-    {
-      label: 'Debug',
-      submenu: [
-        {
-          label: 'Toggle DevTools',
-          accelerator: 'F12',
-          click: () => {
-            mainWindow.webContents.toggleDevTools();
+  // メニューバーとDevToolsアクセスを配布版では無効化
+  if (!isProduction) {
+    const { Menu } = require('electron');
+    const template = [
+      {
+        label: 'Debug',
+        submenu: [
+          {
+            label: 'Toggle DevTools',
+            accelerator: 'F12',
+            click: () => {
+              mainWindow.webContents.toggleDevTools();
+            }
           }
-        }
-      ]
-    }
-  ];
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
+        ]
+      }
+    ];
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+  } else {
+    // 配布版では全メニューを無効化
+    const { Menu } = require('electron');
+    Menu.setApplicationMenu(null);
+    
+    // DevToolsの無効化
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      // F12、Cmd+Option+I、Ctrl+Shift+Iを無効化
+      if (input.key === 'F12' || 
+          (input.meta && input.alt && input.key === 'i') || 
+          (input.control && input.shift && input.key === 'I')) {
+        event.preventDefault();
+      }
+    });
+    
+    // 右クリックメニューも無効化
+    mainWindow.webContents.on('context-menu', (event) => {
+      event.preventDefault();
+    });
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
