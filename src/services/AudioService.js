@@ -446,6 +446,31 @@ class AudioService {
             return { success: false, error: error.message };
         }
     }
+
+    /**
+     * テキストを音声合成して再生（UIEventManager用）
+     */
+    async speakText(text) {
+        if (!text || text.trim() === '') {
+            this.debugLog('音声読み上げスキップ: 空のテキスト');
+            return { success: false, error: 'Empty text' };
+        }
+
+        try {
+            // 音声合成
+            const audioData = await this.synthesizeTextOnly(text);
+            if (!audioData) {
+                return { success: false, error: 'Synthesis failed' };
+            }
+
+            // 音声再生
+            await this.playAppInternalAudio(audioData, text);
+            return { success: true };
+        } catch (error) {
+            this.debugError('音声読み上げエラー:', error);
+            return { success: false, error: error.message };
+        }
+    }
 }
 
 // ブラウザ環境での利用

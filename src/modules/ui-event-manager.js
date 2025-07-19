@@ -864,6 +864,28 @@ class UIEventManager {
             }
         }
     }
+
+    /**
+     * 音声メッセージを追加（音声読み上げ用）
+     */
+    addVoiceMessage(speaker, text) {
+        if (!text) return;
+        
+        // 音声読み上げが有効の場合のみ処理
+        if (this.app && this.app.voiceEnabled) {
+            // app.jsのspeakTextメソッドを使用
+            this.app.speakText(text);
+        }
+    }
+
+    /**
+     * 音声メッセージ要素を追加（UI表示用、現在は未使用）
+     */
+    addVoiceMessageElement(speaker, text, parentElement) {
+        // 現在はチャット機能が削除されているため、何もしない
+        // 将来的にチャット機能を復活させる場合に実装
+        return null;
+    }
 }
 
 // グローバルに公開（モジュールシステム対応）
