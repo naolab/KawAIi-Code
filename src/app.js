@@ -458,12 +458,6 @@ class TerminalApp {
 
 
 
-    // 音声停止 - AudioServiceに委譲
-    async stopVoice() {
-        if (this.audioService) {
-            return await this.audioService.stopVoice();
-        }
-    }
 
 
 }

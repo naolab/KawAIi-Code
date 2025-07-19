@@ -214,13 +214,11 @@ class UIEventManager {
     setupVoiceControlEventListeners() {
         const voiceToggleModal = document.getElementById('voice-toggle-modal');
         const speakerSelectModal = document.getElementById('speaker-select-modal');
-        const stopVoiceBtnModal = document.getElementById('stop-voice-modal');
         const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
 
         this.debugLog('Voice control elements check:', {
             voiceToggleModal: !!voiceToggleModal,
             speakerSelectModal: !!speakerSelectModal,
-            stopVoiceBtnModal: !!stopVoiceBtnModal,
             refreshConnectionBtnModal: !!refreshConnectionBtnModal
         });
 
@@ -242,10 +240,6 @@ class UIEventManager {
                 }
                 this.debugLog('Speaker setting updated:', this.app.selectedSpeaker);
             });
-        }
-
-        if (stopVoiceBtnModal) {
-            stopVoiceBtnModal.addEventListener('click', () => this.app.stopVoice());
         }
 
         if (refreshConnectionBtnModal) {
@@ -436,7 +430,6 @@ class UIEventManager {
      */
     updateVoiceControls() {
         const speakerSelectModal = document.getElementById('speaker-select-modal');
-        const stopVoiceBtnModal = document.getElementById('stop-voice-modal');
         const voiceToggleModal = document.getElementById('voice-toggle-modal');
         const cooldownInputModal = document.getElementById('voice-cooldown-modal');
         const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
@@ -448,9 +441,6 @@ class UIEventManager {
         }
         if (speakerSelectModal) {
             speakerSelectModal.disabled = !this.app.voiceEnabled || !canUseVoice;
-        }
-        if (stopVoiceBtnModal) {
-            stopVoiceBtnModal.disabled = !this.app.voiceEnabled || !canUseVoice;
         }
         if (refreshConnectionBtnModal) {
             refreshConnectionBtnModal.disabled = false;
