@@ -8,8 +8,8 @@ const VoiceService = require('./src/voiceService');
 const appConfig = require('./src/appConfig');
 const AIConfigService = require('./src/services/ai-config-service');
 // ログレベル制御（配布版では詳細ログを無効化）
-// 配布版設定: 常にproductionモードとして扱う
-const isProduction = true; // 配布版では常にtrue
+// 開発時は環境変数またはfalseで開発モードに切り替え
+const isProduction = process.env.NODE_ENV === 'production' || false; // 開発時はfalse
 const debugLog = isProduction ? () => {} : console.log;
 const infoLog = isProduction ? () => {} : console.log; // 配布版では無効化
 const errorLog = console.error; // エラーは常に出力
@@ -57,10 +57,10 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
+      nodeIntegration: true,
+      contextIsolation: false,
       preload: path.join(__dirname, 'src', 'preload.js'),
-      webSecurity: true
+      webSecurity: false
     },
     titleBarStyle: 'hiddenInset',
     show: false

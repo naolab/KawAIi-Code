@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// contextIsolation: true なので、contextBridgeを使用
-contextBridge.exposeInMainWorld('electronAPI', {
+// contextIsolation: false なので、直接windowオブジェクトに設定
+window.electronAPI = {
   terminal: {
     start: (aiType) => ipcRenderer.invoke('terminal-start', aiType),
     write: (data) => ipcRenderer.invoke('terminal-write', data),
@@ -96,12 +96,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeAppConfig: (key) => ipcRenderer.invoke('remove-app-config', key),
   clearAppConfig: () => ipcRenderer.invoke('clear-app-config'),
 
-  // セキュリティのため、Node.jsモジュールの直接公開を削除
-  // 必要な機能は個別のIPCハンドラーで提供
-});
-
-// セキュリティメッセージ
-console.log('🔒 セキュアなpreload.js環境が設定されました');
-console.log('✅ contextIsolation: true');
-console.log('✅ nodeIntegration: false');
-console.log('✅ webSecurity: true');
+  fs: require('fs'), // fsモジュールを公開
+  path: require('path'), // pathモジュールを公開
+  os: require('os') // osモジュールを公開
+};
