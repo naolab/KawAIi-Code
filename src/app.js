@@ -106,13 +106,41 @@ class TerminalApp {
         // ステータスを更新
         this.updateStatus('Ready');
         
+        // DOM要素の準備完了を待機
+        await this.waitForDOMElements();
+        
         // 音声接続チェック
+        debugLog('🔊 初期化: 音声接続チェック開始');
         await this.appManager.checkVoiceConnection();
+        debugLog('🔊 初期化: 音声接続チェック完了');
         
         // 定期タスクの開始
         this.appManager.startPeriodicTasks();
         
         debugLog('🚀 TerminalApp初期化完了');
+    }
+
+    // DOM要素の準備完了を待機
+    async waitForDOMElements() {
+        debugLog('⏳ DOM要素の準備完了を待機中...');
+        return new Promise(resolve => {
+            const checkElements = () => {
+                const statusElement = document.getElementById('connection-status-modal');
+                const settingsModal = document.getElementById('settings-modal');
+                
+                if (statusElement && settingsModal) {
+                    debugLog('✅ DOM要素の準備完了');
+                    resolve();
+                } else {
+                    debugLog('🔄 DOM要素待機中...', { 
+                        statusElement: !!statusElement, 
+                        settingsModal: !!settingsModal 
+                    });
+                    setTimeout(checkElements, 100);
+                }
+            };
+            checkElements();
+        });
     }
 
     // 作業ディレクトリの初期化
@@ -447,10 +475,14 @@ class TerminalApp {
     }
 
     updateConnectionStatus(text, status) {
+        debugLog('🔧 updateConnectionStatus呼び出し:', { text, status });
         const statusElementModal = document.getElementById('connection-status-modal');
         if (statusElementModal) {
             statusElementModal.textContent = text;
             statusElementModal.className = `status-${status}`;
+            debugLog('✅ UI更新成功:', { text, status, element: statusElementModal });
+        } else {
+            debugError('❌ UI要素が見つかりません: connection-status-modal');
         }
     }
 
@@ -514,11 +546,56 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // アプリ初期化処理
     setTimeout(() => {
-        new TerminalApp();
+        try {
+            new TerminalApp();
+        } catch (error) {
+            debugError('TerminalApp初期化エラー:', error);
+            // エラーが発生しても強制的に接続状態をチェック
+            forcedConnectionCheck();
+        }
         
         // 初期化完了後にローディング画面を非表示
         setTimeout(() => {
             loadingScreen.hide();
         }, 500);
     }, 1000); // 1秒間ローディング画面を表示
+    
+    // 強制接続チェック（フォールバック）
+    setTimeout(() => {
+        forcedConnectionCheck();
+    }, 3000); // 3秒後に強制実行
 });
+
+// 強制的な接続状態チェック（フォールバック機能）
+async function forcedConnectionCheck() {
+    debugLog('🔧 強制接続チェック実行');
+    
+    const statusElement = document.getElementById('connection-status-modal');
+    if (!statusElement) {
+        debugError('❌ connection-status-modal要素が見つかりません');
+        return;
+    }
+    
+    if (statusElement.textContent === '接続確認中...') {
+        debugLog('🔄 接続確認中状態を検出、手動チェック実行');
+        
+        try {
+            const response = await fetch('http://localhost:10101/version');
+            if (response.ok) {
+                statusElement.textContent = '接続済み';
+                statusElement.className = 'status-connected';
+                debugLog('✅ 強制接続チェック成功');
+            } else {
+                statusElement.textContent = '未接続';
+                statusElement.className = 'status-disconnected';
+                debugLog('❌ 強制接続チェック失敗');
+            }
+        } catch (error) {
+            statusElement.textContent = 'エラー';
+            statusElement.className = 'status-error';
+            debugError('❌ 強制接続チェックエラー:', error);
+        }
+    } else {
+        debugLog('🟢 既に接続状態が更新済み:', statusElement.textContent);
+    }
+}
