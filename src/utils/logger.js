@@ -1,13 +1,15 @@
 class Logger {
     static create(moduleName = 'App') {
-        const isProduction = typeof process !== 'undefined' ? process.env.NODE_ENV === 'production' : false;
+        // 配布版判定（Electronパッケージ版では常にproduction扱い）
+        const isProduction = (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') ||
+                             (typeof window !== 'undefined' && window.location.protocol === 'file:');
         const isDev = !isProduction;
         
         return {
             debug: isDev ? console.log.bind(console, `[${moduleName}]`) : () => {},
-            info: console.log.bind(console, `[${moduleName}]`),
+            info: isDev ? console.log.bind(console, `[${moduleName}]`) : () => {},  // 配布版では無効化
             error: console.error.bind(console, `[${moduleName}]`),
-            warn: console.warn.bind(console, `[${moduleName}]`),
+            warn: isDev ? console.warn.bind(console, `[${moduleName}]`) : () => {},  // 配布版では無効化
             trace: isDev ? console.trace.bind(console, `[${moduleName}]`) : () => {}
         };
     }

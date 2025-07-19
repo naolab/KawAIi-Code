@@ -1,9 +1,10 @@
 // xtermライブラリはCDNから読み込み
 
-// デバッグログ制御（デバッグ用に一時的に有効化）
-const isDev = true; // デバッグログを有効化
-const debugLog = console.log; // デバッグログを表示
-const debugTrace = console.trace; // トレースを表示
+// デバッグログ制御（配布版では無効化）
+const isDev = window.location.protocol !== 'file:' && 
+             (typeof process === 'undefined' || process.env.NODE_ENV !== 'production');
+const debugLog = isDev ? console.log : () => {}; // 配布版では無効化
+const debugTrace = isDev ? console.trace : () => {}; // 配布版では無効化
 const debugError = console.error; // エラーは引き続き表示
 
 // 統一設定管理システム（グローバル参照）

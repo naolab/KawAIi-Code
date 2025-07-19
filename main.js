@@ -7,10 +7,11 @@ const { spawn } = require('child_process');
 const VoiceService = require('./src/voiceService');
 const appConfig = require('./src/appConfig');
 const AIConfigService = require('./src/services/ai-config-service');
-// ログレベル制御（本番環境では詳細ログを無効化）
-const isProduction = process.env.NODE_ENV === 'production' || app.isPackaged;
+// ログレベル制御（配布版では詳細ログを無効化）
+// 配布版設定: 常にproductionモードとして扱う
+const isProduction = true; // 配布版では常にtrue
 const debugLog = isProduction ? () => {} : console.log;
-const infoLog = console.log; // 重要な情報は常に出力
+const infoLog = isProduction ? () => {} : console.log; // 配布版では無効化
 const errorLog = console.error; // エラーは常に出力
 
 // サービス初期化
@@ -71,14 +72,17 @@ function createWindow() {
     mainWindow.show();
   });
 
-  // デベロッパーツールを開く（デバッグ用）
-  // パッケージ版でもデバッグできるように常に開く
-  mainWindow.webContents.openDevTools();
+  // デベロッパーツールを開く（開発環境のみ）
+  if (!isProduction) {
+    mainWindow.webContents.openDevTools();
+  }
   
-  // Next.jsアプリのコンソールログをメインプロセスに転送
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`[NextJS Console] ${message}`);
-  });
+  // Next.jsアプリのコンソールログをメインプロセスに転送（開発環境のみ）
+  if (!isProduction) {
+    mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      console.log(`[NextJS Console] ${message}`);
+    });
+  }
   
   // メニューバーからdevToolsを開けるようにする
   const { Menu } = require('electron');

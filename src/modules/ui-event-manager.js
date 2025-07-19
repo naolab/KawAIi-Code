@@ -8,10 +8,11 @@
  * - ボタンやコントロールの有効・無効化
  */
 
-// デバッグログ制御（本番環境では無効化）
+// デバッグログ制御（配布版では無効化）
 // UIEventManager専用のログ関数を作成（グローバル競合を回避）
 (function() {
-    const isDevMode = !window.location.protocol.startsWith('file:') || process.env.NODE_ENV === 'development';
+    const isDevMode = window.location.protocol !== 'file:' && 
+                     (typeof process === 'undefined' || process.env.NODE_ENV !== 'production');
     
     // UIEventManager専用のログ関数をグローバルに設定
     if (typeof window.uiEventManagerLog === 'undefined') {
