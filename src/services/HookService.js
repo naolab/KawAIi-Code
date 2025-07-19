@@ -176,26 +176,19 @@ class HookService {
             // 音声ファイルを読み込み
             const audioData = fs.readFileSync(filepath);
             
-            // VRMに音声データを送信（リップシンク用）
-            try {
-                this.terminalApp.sendAudioToVRM(audioData.buffer);
-                this.debugLog('🎭 Hook音声データをVRMに送信完了');
-            } catch (vrmError) {
-                this.debugError('❌ VRM音声データ送信エラー:', vrmError);
-            }
-            
-            // 感情データをVRMに送信
+            // 統一感情処理メソッドを使用（既存の感情データがある場合はそれを使用、ない場合はテキストから分析）
             if (emotion) {
-                try {
-                    this.terminalApp.sendEmotionToVRM(emotion);
-                    this.debugLog('😊 Hook感情データをVRMに送信完了:', emotion);
-                } catch (emotionError) {
-                    this.debugError('❌ Hook感情データ送信エラー:', emotionError);
-                }
+                // 既存の感情データを使用
+                this.terminalApp.vrmIntegrationService.sendAudioToVRM(audioData.buffer);
+                this.terminalApp.vrmIntegrationService.sendEmotionToVRM(emotion);
+                this.debugLog('🎭 Hook既存感情データを使用:', emotion);
+            } else {
+                // 統一感情処理メソッドでテキストから感情分析
+                await this.terminalApp.processEmotionForVRM(text, audioData.buffer);
             }
             
             // 音声再生開始をVRMに通知
-            this.terminalApp.notifyAudioStateToVRM('playing');
+            this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('playing');
             
             // 音声をAudioオブジェクトで再生
             const audioBlob = new Blob([audioData], { type: 'audio/wav' });
@@ -213,8 +206,17 @@ class HookService {
                     this.debugLog('🎣 Hook音声再生完了');
                     this.terminalApp.voicePlayingState.isPlayingHook = false;
                     
-                    // 音声終了をVRMに通知
-                    this.terminalApp.notifyAudioStateToVRM('ended');
+                    // 音声終了をVRMに通知（表情リセット）
+                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('ended');
+                    
+                    // 表情を中性に戻す（明示的リセット）
+                    setTimeout(() => {
+                        this.terminalApp.vrmIntegrationService.sendEmotionToVRM({ 
+                            emotion: 'neutral', 
+                            weight: 0 
+                        });
+                        this.debugLog('🎭 Hook表情を中性にリセット完了');
+                    }, 100); // 100ms後にリセット
                     
                     // リソースをクリーンアップ
                     URL.revokeObjectURL(audioUrl);
@@ -275,26 +277,12 @@ class HookService {
                     continue;
                 }
                 
+                // 統一感情処理メソッドを使用（二重処理を回避）
+                await this.terminalApp.processEmotionForVRM(text, audioData);
+                
                 // 音声再生（AudioService経由）
                 await this.terminalApp.audioService.playAudio(audioData, text);
                 this.debugLog('🎣 Hook音声再生完了');
-                
-                // 感情分析を実行
-                try {
-                    const emotionResult = await window.electronAPI.voice.getEmotion(text);
-                    if (emotionResult.success && emotionResult.emotion) {
-                        this.debugLog('😊 Hook感情分析成功:', emotionResult.emotion);
-                        
-                        // 感情データをVRMに送信
-                        if (this.vrmIntegrationService) {
-                            this.vrmIntegrationService.sendEmotionToVRM(emotionResult.emotion);
-                        } else {
-                            this.debugLog('⚠️ VRMIntegrationServiceが初期化されていません');
-                        }
-                    }
-                } catch (emotionError) {
-                    this.debugError('❌ Hook感情分析エラー:', emotionError);
-                }
                 
             } catch (error) {
                 this.debugError('❌ Hook音声処理エラー:', error);

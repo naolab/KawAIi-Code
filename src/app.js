@@ -134,6 +134,41 @@ class TerminalApp {
 
 
 
+    // 統一感情処理メソッド（全音声で使用）
+    async processEmotionForVRM(text, audioData) {
+        try {
+            debugLog('🎭 統一感情処理開始:', text ? text.substring(0, 30) + '...' : '');
+            
+            // 1. VRMに音声データを送信（リップシンク用）
+            if (audioData) {
+                let arrayBuffer;
+                if (audioData.buffer) {
+                    arrayBuffer = audioData.buffer;
+                } else {
+                    arrayBuffer = audioData;
+                }
+                this.vrmIntegrationService.sendAudioToVRM(arrayBuffer);
+                debugLog('🎭 VRMリップシンク用音声データ送信完了');
+            }
+            
+            // 2. 感情分析を実行
+            if (text) {
+                const emotionResult = await window.electronAPI.voice.getEmotion(text);
+                if (emotionResult.success && emotionResult.emotion) {
+                    // 3. VRMに感情データを送信
+                    this.vrmIntegrationService.sendEmotionToVRM(emotionResult.emotion);
+                    debugLog('😊 統一感情処理完了:', emotionResult.emotion);
+                    return emotionResult.emotion;
+                } else {
+                    debugLog('⚠️ 感情分析結果が無効:', emotionResult);
+                }
+            }
+        } catch (error) {
+            debugLog('❌ 統一感情処理エラー:', error);
+        }
+        return null;
+    }
+
     // アプリ内音声再生（VoiceQueue用）- AudioServiceに委譲
     async playAppInternalAudio(audioData, text) {
         if (!this.audioService) {
@@ -142,28 +177,8 @@ class TerminalApp {
         }
         
         try {
-            // VRMリップシンク用に音声データを送信
-            let arrayBuffer;
-            if (audioData.buffer) {
-                arrayBuffer = audioData.buffer;
-            } else {
-                arrayBuffer = audioData;
-            }
-            this.vrmIntegrationService.sendAudioToVRM(arrayBuffer);
-            
-            // 感情データを抽出・送信（Hook処理と同じ）
-            try {
-                if (text) {
-                    const emotionResult = await window.electronAPI.voice.getEmotion(text);
-                    if (emotionResult.success && emotionResult.emotion) {
-                        this.vrmIntegrationService.sendEmotionToVRM(emotionResult.emotion);
-                        debugLog('😊 アプリ内音声感情データをVRMに送信完了:', emotionResult.emotion);
-                    }
-                }
-            } catch (emotionError) {
-                debugLog('❌ 感情データ送信エラー:', emotionError);
-                // エラーが発生しても音声再生は続行
-            }
+            // 統一感情処理メソッドを使用
+            await this.processEmotionForVRM(text, audioData);
             
             // 音声再生開始をVRMビューワーに通知
             this.vrmIntegrationService.notifyAudioStateToVRM('playing');
@@ -173,6 +188,15 @@ class TerminalApp {
             
             // 音声終了をVRMビューワーに通知（表情リセットのため）
             this.vrmIntegrationService.notifyAudioStateToVRM('ended');
+            
+            // 表情を中性に戻す（明示的リセット）
+            setTimeout(() => {
+                this.vrmIntegrationService.sendEmotionToVRM({ 
+                    emotion: 'neutral', 
+                    weight: 0 
+                });
+                debugLog('🎭 表情を中性にリセット完了');
+            }, 100); // 100ms後にリセット
             
         } catch (error) {
             debugLog('❌ アプリ内音声再生処理エラー:', error);

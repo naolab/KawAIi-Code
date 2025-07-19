@@ -131,7 +131,7 @@ class VRMIntegrationService {
 
         try {
             const message = {
-                type: 'emotion-data',
+                type: 'emotion',
                 emotion: emotion,
                 timestamp: Date.now()
             };
