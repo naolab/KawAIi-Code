@@ -137,8 +137,6 @@ class TerminalService {
                 
                 this.terminal.writeln(`\x1b[90m🎀 KawAIi Code Integration Started! 🎀\x1b[0m`);
                 this.terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
-                
-                this.terminalApp.addVoiceMessage('ニコ', `${aiName}が起動したよ〜！`);
 
                 setTimeout(() => {
                     this.fitAddon.fit();
@@ -191,7 +189,6 @@ class TerminalService {
                 activeTab.name = `${aiType === 'claude' ? 'Claude' : 'Claude-D'} #${activeTab.id.split('-')[1]}`;
                 
                 this.terminalApp.updateStatus(`${aiName} running in tab - Type your message and press Enter`);
-                this.terminalApp.addVoiceMessage('ニコ', `${aiName}をタブで起動したよ〜！`);
                 
                 // タブUIを更新
                 this.terminalApp.tabManager.renderTabs();
@@ -225,11 +222,7 @@ class TerminalService {
                 if (this.currentRunningAI) { // 念のためnullチェック
                     const deleteResult = await this.configManager.deleteAiMdFromHomeDir(this.currentRunningAI);
                     
-                    if (deleteResult.success) {
-                        this.terminalApp.addVoiceMessage('ニコ', `CLAUDE.mdを削除したよ！`);
-                    } else {
-                        this.terminalApp.addVoiceMessage('ニコ', `CLAUDE.mdの処理に失敗しちゃった...`);
-                    }
+                    // CLAUDE.md削除処理完了（メッセージ表示は削除済み）
                 }
                 this.currentRunningAI = null; // 停止したのでクリア
             } else {
@@ -355,10 +348,7 @@ class TerminalService {
             await this.voiceQueue.addToQueue(quotedText);
         }
         
-        // キャラクターの気分をリセット（音声キュー処理完了後）
-        setTimeout(() => {
-            this.terminalApp.updateCharacterMood('待機中💕');
-        }, AppConstants.MESSAGE.COMPLETION_TIMEOUT);
+        // 音声キュー処理完了（気分表示は削除済み）
         
         debugLog('🎵 processQuotedTexts完了');
     }

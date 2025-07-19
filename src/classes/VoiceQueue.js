@@ -42,11 +42,7 @@ class VoiceQueue {
         try {
             this.debugLog('🎵 順次音声再生開始:', text.substring(0, 30) + '...');
             
-            // DOM操作（チャット表示とキャラクター気分更新）
-            requestAnimationFrame(() => {
-                this.terminalApp.addVoiceMessage('ニコ', text);
-                this.terminalApp.updateCharacterMood('おしゃべり中✨');
-            });
+            // VRM表情連動のためテキストは保持（表示は行わない）
             
             // 音声読み上げ実行（ハイブリッドシステム）
             if (this.terminalApp.voiceEnabled) {

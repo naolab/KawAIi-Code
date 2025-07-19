@@ -343,16 +343,7 @@ class HookService {
     displayHookConversation(data) {
         try {
             
-            // チャット画面に表示
-            this.terminalApp.addVoiceMessage('ニコ', data.text);
-            
-            // キャラクターの気分更新
-            this.terminalApp.updateCharacterMood('おしゃべり中✨');
-            
-            // 一定時間後に気分をリセット
-            setTimeout(() => {
-                this.terminalApp.updateCharacterMood('待機中💕');
-            }, 3000);
+            // Hook音声処理（表示機能は削除済み）
             
         } catch (error) {
             this.debugError('Hook会話表示エラー:', error);

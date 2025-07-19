@@ -190,7 +190,7 @@ class TerminalAppManager {
         
         // 壁紙システムの初期化
         this.terminalApp.wallpaperSystem.setMessageCallback((character, message) => {
-            this.terminalApp.addVoiceMessage(character, message);
+            // メッセージ表示機能は削除済み
         });
         this.terminalApp.wallpaperSystem.setupWallpaperSystem();
         
@@ -336,17 +336,14 @@ class TerminalAppManager {
         try {
             const result = await this.terminalApp.configManager.generateBothAiMdFiles();
             if (result.success) {
-                this.terminalApp.addVoiceMessage('ニコ', 'CLAUDE.mdを準備したよ！');
                 debugLog('AI MD files generated successfully');
             } else {
-                this.terminalApp.addVoiceMessage('ニコ', 'AI設定ファイルの生成に失敗しちゃった...');
                 debugError('Failed to generate AI MD files:', result);
             }
             debugLog('✅ AI.mdファイル生成完了');
             return result;
         } catch (error) {
             debugError('Error generating AI MD files:', error);
-            this.terminalApp.addVoiceMessage('ニコ', 'AI設定ファイルの生成でエラーが発生したよ...');
             debugLog('❌ AI.mdファイル生成エラー完了');
             return { success: false, error: error.message };
         }

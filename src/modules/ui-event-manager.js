@@ -587,50 +587,8 @@ class UIEventManager {
         }
     }
 
-    /**
-     * 音声メッセージを追加
-     */
-    addVoiceMessage(speaker, text) {
-        const chatMessages = document.getElementById('chat-messages');
-        if (!chatMessages) return;
+    // 音声メッセージ機能は削除済み
 
-        // セキュアなDOM操作でメッセージを追加
-        this.addVoiceMessageElement(speaker, text, chatMessages);
-        
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    /**
-     * 音声メッセージ要素を追加
-     */
-    addVoiceMessageElement(speaker, text, parentElement) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'voice-message';
-        
-        const speakerDiv = document.createElement('div');
-        speakerDiv.className = 'voice-speaker';
-        speakerDiv.textContent = speaker;
-        
-        const textP = document.createElement('p');
-        textP.className = 'voice-text';
-        textP.textContent = text;
-        
-        const timeDiv = document.createElement('div');
-        timeDiv.className = 'voice-time';
-        timeDiv.textContent = new Date().toLocaleTimeString('ja-JP', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            second: '2-digit'
-        });
-        
-        messageDiv.appendChild(speakerDiv);
-        messageDiv.appendChild(textP);
-        messageDiv.appendChild(timeDiv);
-        
-        parentElement.appendChild(messageDiv);
-        
-        return messageDiv;
-    }
 
     /**
      * 話者選択オプションを更新
@@ -657,15 +615,7 @@ class UIEventManager {
         }
     }
 
-    /**
-     * キャラクター気分を更新
-     */
-    updateCharacterMood(mood) {
-        const moodElement = document.querySelector('.character-mood');
-        if (moodElement && moodElement.textContent !== mood) {
-            moodElement.textContent = mood;
-        }
-    }
+    // キャラクター気分機能は削除済み
 
     /**
      * ステータスを更新
