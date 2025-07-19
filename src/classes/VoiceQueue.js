@@ -86,11 +86,10 @@ class VoiceQueue {
     async waitForVoiceComplete() {
         return new Promise(resolve => {
             const checkComplete = () => {
-                // Hook音声とアプリ内監視音声の両方をチェック
-                const isHookPlaying = this.terminalApp.isPlayingHookAudio;
-                const isAppInternalPlaying = this.terminalApp.voicePlayingState.isPlaying;
+                // 統一された音声状態管理システムで全音声をチェック
+                const isAnyPlaying = this.terminalApp.voicePlayingState.isAnyPlaying();
                 
-                if (!isHookPlaying && !isAppInternalPlaying) {
+                if (!isAnyPlaying) {
                     this.debugLog('🎵 音声再生完了を確認');
                     resolve();
                 } else {

@@ -10,7 +10,7 @@ class HookService {
     constructor(terminalApp, vrmIntegrationService) {
         this.terminalApp = terminalApp;
         this.vrmIntegrationService = vrmIntegrationService;
-        this.isPlayingHookAudio = false; // Hook音声再生中フラグ
+        // Hook音声再生状態は統一管理システムを使用
         this.hookWatcherInterval = null;
         this.debugLog = debugLog;
         this.debugError = debugError;
@@ -58,9 +58,9 @@ class HookService {
         // Hook音声停止通知を受信
         ipcRenderer.on('hook-audio-stop', () => {
             // Hook音声停止処理（必要に応じて実装）
-            if (this.isPlayingHookAudio) {
+            if (this.terminalApp.voicePlayingState.isPlayingHook) {
                 this.debugLog('🎣 Hook音声停止通知を受信');
-                this.isPlayingHookAudio = false;
+                this.terminalApp.voicePlayingState.isPlayingHook = false;
             }
         });
     }
@@ -156,11 +156,11 @@ class HookService {
         
         try {
             // Hook音声再生中の場合は待機
-            while (this.isPlayingHookAudio) {
+            while (this.terminalApp.voicePlayingState.isPlayingHook) {
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
             
-            this.isPlayingHookAudio = true;
+            this.terminalApp.voicePlayingState.isPlayingHook = true;
             this.debugLog('🎣 Hook音声再生開始:', {
                 filepath,
                 text: text?.substring(0, 50) + '...',
@@ -211,7 +211,7 @@ class HookService {
             await new Promise((resolve, reject) => {
                 audio.onended = () => {
                     this.debugLog('🎣 Hook音声再生完了');
-                    this.isPlayingHookAudio = false;
+                    this.terminalApp.voicePlayingState.isPlayingHook = false;
                     
                     // 音声終了をVRMに通知
                     this.terminalApp.notifyAudioStateToVRM('ended');
@@ -224,7 +224,7 @@ class HookService {
                 
                 audio.onerror = (error) => {
                     this.debugError('❌ Hook音声再生エラー:', error);
-                    this.isPlayingHookAudio = false;
+                    this.terminalApp.voicePlayingState.isPlayingHook = false;
                     URL.revokeObjectURL(audioUrl);
                     reject(error);
                 };
@@ -242,7 +242,7 @@ class HookService {
             
         } catch (error) {
             this.debugError('❌ Hook音声再生エラー:', error);
-            this.isPlayingHookAudio = false;
+            this.terminalApp.voicePlayingState.isPlayingHook = false;
         }
     }
 
@@ -326,15 +326,15 @@ class HookService {
     getStatus() {
         return {
             hookWatcherEnabled: this.hookWatcherEnabled,
-            isPlayingHookAudio: this.isPlayingHookAudio,
+            isPlayingHookAudio: this.terminalApp.voicePlayingState.isPlayingHook,
             hookWatcherIntervalMs: this.hookWatcherIntervalMs
         };
     }
 
     // Hook音声再生を停止
     stopHookAudio() {
-        if (this.isPlayingHookAudio) {
-            this.isPlayingHookAudio = false;
+        if (this.terminalApp.voicePlayingState.isPlayingHook) {
+            this.terminalApp.voicePlayingState.isPlayingHook = false;
             this.debugLog('🎣 Hook音声再生を停止');
         }
     }
@@ -354,13 +354,13 @@ class HookService {
     async waitForAudioComplete() {
         return new Promise(resolve => {
             // Hook音声再生中かチェック
-            if (!this.isPlayingHookAudio) {
+            if (!this.terminalApp.voicePlayingState.isPlayingHook) {
                 resolve();
                 return;
             }
             
             const checkComplete = () => {
-                if (!this.isPlayingHookAudio) {
+                if (!this.terminalApp.voicePlayingState.isPlayingHook) {
                     this.debugLog('🎵 音声再生完了を確認');
                     resolve();
                 } else {

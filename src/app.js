@@ -54,11 +54,16 @@ class TerminalApp {
         this.claudeWorkingDir = '';
         this.speakerInitialized = false;
         
-        // 音声再生状態の統一管理
+        // 音声再生状態の統一管理（全サービス共通）
         this.voicePlayingState = {
-            isPlaying: false,
-            currentAudio: null,
-            queue: []
+            isPlaying: false,           // アプリ内音声再生中フラグ
+            isPlayingHook: false,       // Hook音声再生中フラグ
+            currentAudio: null,         // 現在再生中の音声オブジェクト
+            queue: [],                  // 音声キュー
+            // 統一状態チェック関数
+            isAnyPlaying: function() {
+                return this.isPlaying || this.isPlayingHook;
+            }
         };
         
         this.speakers = [];
@@ -171,6 +176,7 @@ class TerminalApp {
             
         } catch (error) {
             debugLog('❌ アプリ内音声再生処理エラー:', error);
+            // エラー時は統一管理システムで状態をリセット
             this.voicePlayingState.isPlaying = false;
         }
     }

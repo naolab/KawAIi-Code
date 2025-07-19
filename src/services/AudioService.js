@@ -16,12 +16,7 @@ class AudioService {
         this.debugLog = debugLog;
         this.debugError = debugError;
         
-        // 音声再生状態の管理
-        this.voicePlayingState = {
-            isPlaying: false,
-            currentAudio: null,
-            queue: []
-        };
+        // 音声再生状態は統一管理システムを使用（app.js）
     }
 
     // 話者リストを読み込み
@@ -111,9 +106,9 @@ class AudioService {
             this.debugLog('アプリ内音声再生開始:', text ? text.substring(0, 30) + '...' : '');
 
             // 既存の音声が再生中の場合は停止
-            if (this.voicePlayingState.currentAudio) {
-                this.voicePlayingState.currentAudio.pause();
-                this.voicePlayingState.currentAudio = null;
+            if (this.terminalApp.voicePlayingState.currentAudio) {
+                this.terminalApp.voicePlayingState.currentAudio.pause();
+                this.terminalApp.voicePlayingState.currentAudio = null;
             }
 
             // Blobを作成してAudioオブジェクトで再生
@@ -122,8 +117,8 @@ class AudioService {
             const audio = new Audio(audioUrl);
             
             // 音声再生状態を更新
-            this.voicePlayingState.isPlaying = true;
-            this.voicePlayingState.currentAudio = audio;
+            this.terminalApp.voicePlayingState.isPlaying = true;
+            this.terminalApp.voicePlayingState.currentAudio = audio;
 
             // 音声を再生
             await audio.play();
@@ -133,16 +128,16 @@ class AudioService {
             await new Promise((resolve) => {
                 audio.addEventListener('ended', () => {
                     this.debugLog('アプリ内音声再生完了');
-                    this.voicePlayingState.isPlaying = false;
-                    this.voicePlayingState.currentAudio = null;
+                    this.terminalApp.voicePlayingState.isPlaying = false;
+                    this.terminalApp.voicePlayingState.currentAudio = null;
                     URL.revokeObjectURL(audioUrl);
                     resolve();
                 });
 
                 audio.addEventListener('error', (error) => {
                     this.debugError('アプリ内音声再生エラー:', error);
-                    this.voicePlayingState.isPlaying = false;
-                    this.voicePlayingState.currentAudio = null;
+                    this.terminalApp.voicePlayingState.isPlaying = false;
+                    this.terminalApp.voicePlayingState.currentAudio = null;
                     URL.revokeObjectURL(audioUrl);
                     resolve();
                 });
@@ -150,8 +145,8 @@ class AudioService {
 
         } catch (error) {
             this.debugError('アプリ内音声再生エラー:', error);
-            this.voicePlayingState.isPlaying = false;
-            this.voicePlayingState.currentAudio = null;
+            this.terminalApp.voicePlayingState.isPlaying = false;
+            this.terminalApp.voicePlayingState.currentAudio = null;
         }
     }
 
@@ -159,7 +154,7 @@ class AudioService {
     async waitForPlaybackComplete() {
         return new Promise(resolve => {
             const checkComplete = () => {
-                if (!this.voicePlayingState.isPlaying) {
+                if (!this.terminalApp.voicePlayingState.isPlaying) {
                     this.debugLog('🎵 音声再生完了を確認');
                     resolve();
                 } else {
@@ -342,7 +337,7 @@ class AudioService {
             selectedSpeaker: this.selectedSpeaker,
             connectionStatus: this.connectionStatus,
             voiceVolume: this.voiceVolume,
-            voicePlayingState: this.voicePlayingState
+            voicePlayingState: this.terminalApp.voicePlayingState
         };
     }
 
@@ -367,10 +362,10 @@ class AudioService {
 
     // 音声再生を停止
     stopAudio() {
-        if (this.voicePlayingState.currentAudio) {
-            this.voicePlayingState.currentAudio.pause();
-            this.voicePlayingState.currentAudio = null;
-            this.voicePlayingState.isPlaying = false;
+        if (this.terminalApp.voicePlayingState.currentAudio) {
+            this.terminalApp.voicePlayingState.currentAudio.pause();
+            this.terminalApp.voicePlayingState.currentAudio = null;
+            this.terminalApp.voicePlayingState.isPlaying = false;
             this.debugLog('音声再生を停止');
         }
     }
@@ -431,14 +426,14 @@ class AudioService {
     async stopVoice() {
         try {
             // 現在再生中の音声を停止
-            if (this.voicePlayingState.currentAudio) {
-                this.voicePlayingState.currentAudio.pause();
-                this.voicePlayingState.currentAudio = null;
+            if (this.terminalApp.voicePlayingState.currentAudio) {
+                this.terminalApp.voicePlayingState.currentAudio.pause();
+                this.terminalApp.voicePlayingState.currentAudio = null;
             }
             
             // 再生状態をリセット
-            this.voicePlayingState.isPlaying = false;
-            this.voicePlayingState.queue = [];
+            this.terminalApp.voicePlayingState.isPlaying = false;
+            this.terminalApp.voicePlayingState.queue = [];
             
             this.debugLog('音声停止完了');
             return { success: true };
