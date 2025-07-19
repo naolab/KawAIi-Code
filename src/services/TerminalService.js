@@ -94,7 +94,8 @@ class TerminalService {
             window.electronAPI.terminal.onExit((exitCode) => {
                 this.terminal.write(`\r\n\x1b[91mClaude Code exited with code: ${exitCode}\x1b[0m\r\n`);
                 this.isTerminalRunning = false;
-                this.terminalApp.updateStatus('Claude Code stopped');
+                // 停止時のステータスメッセージを削除（シンプル化）
+                // this.terminalApp.updateStatus('Claude Code stopped');
                 this.terminalApp.updateButtons();
             });
         } else {
@@ -135,8 +136,7 @@ class TerminalService {
                 this.terminalApp.updateStatus(`${aiName} running - Type your message and press Enter`);
                 this.terminal.focus();
                 
-                this.terminal.writeln(`\x1b[90m🎀 KawAIi Code Integration Started! 🎀\x1b[0m`);
-                this.terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
+                this.terminal.writeln(`\x1b[90m${aiName} ready.\x1b[0m`);
 
                 setTimeout(() => {
                     this.fitAddon.fit();
@@ -215,7 +215,8 @@ class TerminalService {
             
             if (result.success) {
                 this.isTerminalRunning = false;
-                this.terminalApp.updateStatus('AI assistant stopped');
+                // 停止時のステータスメッセージを削除（シンプル化）
+                // this.terminalApp.updateStatus('AI assistant stopped');
                 this.terminal.clear();
 
                 // CLAUDE.mdファイルを削除

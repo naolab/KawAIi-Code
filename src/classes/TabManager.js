@@ -74,13 +74,14 @@ class TabManager {
         
         debugLog(`Tab ${tabId} process exited with code: ${exitCode}`);
         
-        if (tab.terminal) {
-            if (exitCode === 0) {
-                tab.terminal.writeln('\r\n\x1b[90m[プロセス正常終了] 新しいタブを作成してください\x1b[0m');
-            } else {
-                tab.terminal.writeln(`\r\n\x1b[31m[プロセス異常終了: ${exitCode}] 新しいタブを作成してください\x1b[0m`);
-            }
-        }
+        // 停止時のメッセージを削除（シンプル化）
+        // if (tab.terminal) {
+        //     if (exitCode === 0) {
+        //         tab.terminal.writeln('\r\n\x1b[90m[プロセス正常終了] 新しいタブを作成してください\x1b[0m');
+        //     } else {
+        //         tab.terminal.writeln(`\r\n\x1b[31m[プロセス異常終了: ${exitCode}] 新しいタブを作成してください\x1b[0m`);
+        //     }
+        // }
     }
 
     createInitialTab() {
@@ -144,8 +145,8 @@ class TabManager {
             fitAddon.fit();
         }, 50);
         
-        // 初期メッセージを表示（アプリ起動時と同じ状態）
-        terminal.writeln(`\x1b[90m🎀 KawAIi Code - New Tab 🎀\x1b[0m`);
+        // 初期メッセージを削除（シンプル化）
+        // terminal.writeln(`\x1b[90m🎀 KawAIi Code - New Tab 🎀\x1b[0m`);
         
         // タブデータを作成（AIは未起動状態）
         this.tabs[tabId] = {
@@ -212,8 +213,7 @@ class TabManager {
             const terminal = tab.terminal;
             
             // 初期化メッセージ
-            terminal.writeln(`\x1b[90m🎀 KawAIi Code Tab Integration Started! 🎀\x1b[0m`);
-            terminal.writeln(`\x1b[90m${aiName} is starting up...\x1b[0m`);
+            terminal.writeln(`\x1b[90m${aiName} ready.\x1b[0m`);
             
             // ユーザー入力をプロセスに送信（重複防止）
             const onDataListener = terminal.onData((data) => {
@@ -285,10 +285,11 @@ class TabManager {
             tab.isRunning = false;
             tab.name = `Tab #${tabId.split('-')[1]}`;
 
-            // ターミナルをクリア
+            // ターミナルをクリア（メッセージなし）
             if (tab.terminal) {
                 tab.terminal.clear();
-                tab.terminal.writeln(`\x1b[90m🎀 KawAIi Code - Tab Ready 🎀\x1b[0m`);
+                // 冗長メッセージを削除（シンプル化）
+                // tab.terminal.writeln(`\x1b[90m🎀 KawAIi Code - Tab Ready 🎀\x1b[0m`);
             }
             
             // UI状態を更新

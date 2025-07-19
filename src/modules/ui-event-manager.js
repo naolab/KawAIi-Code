@@ -387,7 +387,8 @@ class UIEventManager {
                     // タブ表示も更新
                     this.app.tabManager.renderTabs();
                     
-                    this.app.updateStatus('AI stopped - Tab ready for new session');
+                    // 停止時のステータスメッセージを削除（シンプル化）
+                    // this.app.updateStatus('AI stopped - Tab ready for new session');
                     return;
                 }
             }
@@ -797,8 +798,8 @@ class UIEventManager {
     setupChatInterface() {
         // チャット入力エリアは削除済み
 
-        // 初期メッセージを追加（音声読み上げ用）
-        this.addVoiceMessage('ニコ', 'こんにちは〜！何をお手伝いしましょうか？');
+        // 初期メッセージを削除（シンプルな起動のため）
+        // this.addVoiceMessage('ニコ', 'こんにちは〜！何をお手伝いしましょうか？');
     }
 
     /**
