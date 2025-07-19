@@ -7,8 +7,9 @@
  */
 
 class HookService {
-    constructor(terminalApp) {
+    constructor(terminalApp, vrmIntegrationService) {
         this.terminalApp = terminalApp;
+        this.vrmIntegrationService = vrmIntegrationService;
         this.isPlayingHookAudio = false; // Hook音声再生中フラグ
         this.hookWatcherInterval = null;
         this.debugLog = debugLog;
@@ -245,24 +246,59 @@ class HookService {
         }
     }
 
-    // Hook専用データ処理（音声再生なし）
+    // Hook専用データ処理（音声再生あり）
     async processHookOnlyData(data) {
         this.debugLog('🎣 Hook専用データ処理開始:', {
             dataLength: data.length,
-            dataPreview: data.substring(0, 100)
+            dataPreview: data.substring(0, 300),
+            fullData: data // 全データも表示
         });
         
-        // 感情分析を実行
-        try {
-            const emotionResult = await window.electronAPI.voice.getEmotion(data);
-            if (emotionResult.success && emotionResult.emotion) {
-                this.debugLog('😊 Hook感情分析成功:', emotionResult.emotion);
+        // 『』で囲まれたテキストを抽出
+        const matches = data.match(/『([^』]+)』/g);
+        if (!matches || matches.length === 0) {
+            this.debugLog('🎣 Hook: 『』で囲まれたテキストが見つかりません');
+            this.debugLog('🎣 Hookデータ内容:', data);
+            return;
+        }
+        
+        // 各マッチを処理
+        for (const match of matches) {
+            const text = match.slice(1, -1); // 『』を除去
+            this.debugLog('🎣 Hook音声合成開始:', text);
+            
+            try {
+                // 音声合成を実行
+                const audioData = await this.terminalApp.audioService.synthesizeTextOnly(text);
+                if (!audioData) {
+                    this.debugLog('⚠️ Hook音声合成失敗');
+                    continue;
+                }
                 
-                // 感情データをVRMに送信
-                this.terminalApp.sendEmotionToVRM(emotionResult.emotion);
+                // 音声再生（AudioService経由）
+                await this.terminalApp.audioService.playAudio(audioData, text);
+                this.debugLog('🎣 Hook音声再生完了');
+                
+                // 感情分析を実行
+                try {
+                    const emotionResult = await window.electronAPI.voice.getEmotion(text);
+                    if (emotionResult.success && emotionResult.emotion) {
+                        this.debugLog('😊 Hook感情分析成功:', emotionResult.emotion);
+                        
+                        // 感情データをVRMに送信
+                        if (this.vrmIntegrationService) {
+                            this.vrmIntegrationService.sendEmotionToVRM(emotionResult.emotion);
+                        } else {
+                            this.debugLog('⚠️ VRMIntegrationServiceが初期化されていません');
+                        }
+                    }
+                } catch (emotionError) {
+                    this.debugError('❌ Hook感情分析エラー:', emotionError);
+                }
+                
+            } catch (error) {
+                this.debugError('❌ Hook音声処理エラー:', error);
             }
-        } catch (error) {
-            this.debugError('❌ Hook感情分析エラー:', error);
         }
         
         this.debugLog('🎣 Hook専用データ処理完了');

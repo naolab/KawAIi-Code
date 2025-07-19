@@ -110,13 +110,13 @@ class TerminalAppManager {
         this.terminalApp.audioService = new AudioService(this.terminalApp);
         this.services.audioService = this.terminalApp.audioService;
         
-        // HookService
-        this.terminalApp.hookService = new HookService(this.terminalApp);
-        this.services.hookService = this.terminalApp.hookService;
-        
-        // VRMIntegrationService
+        // VRMIntegrationService（HookServiceより先に初期化）
         this.terminalApp.vrmIntegrationService = new VRMIntegrationService(this.terminalApp);
         this.services.vrmIntegrationService = this.terminalApp.vrmIntegrationService;
+        
+        // HookService（VRMIntegrationServiceを渡す）
+        this.terminalApp.hookService = new HookService(this.terminalApp, this.terminalApp.vrmIntegrationService);
+        this.services.hookService = this.terminalApp.hookService;
         
         // VRMIntegrationServiceをグローバルに設定
         window.vrmIntegrationService = this.terminalApp.vrmIntegrationService;

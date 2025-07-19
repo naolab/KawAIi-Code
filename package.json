@@ -64,6 +64,7 @@
       "entitlements": "entitlements.plist",
       "entitlementsInherit": "entitlements.plist",
       "identity": "NAO TSUYOSHI (R5829GY53J)",
+      "notarize": false,
       "target": [
         {
           "target": "dmg",

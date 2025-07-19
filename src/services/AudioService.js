@@ -196,7 +196,17 @@ class AudioService {
             
             // Bufferから音声データを再生するためBlobを作成
             // ArrayBufferに変換してから処理
-            const arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength);
+            let arrayBuffer;
+            if (audioData.buffer) {
+                // BufferやTypedArrayの場合
+                arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength);
+            } else if (audioData instanceof ArrayBuffer) {
+                // 既にArrayBufferの場合
+                arrayBuffer = audioData;
+            } else {
+                // その他の場合はそのまま使用
+                arrayBuffer = audioData;
+            }
             
             // 音声データの形式を検証
             const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
