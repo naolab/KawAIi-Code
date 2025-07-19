@@ -37,13 +37,13 @@ try {
   let electronCommand;
   switch (mode) {
     case 'build':
-      electronCommand = 'electron-builder';
+      electronCommand = 'npx electron-builder';
       break;
     case 'pack':
-      electronCommand = 'electron-builder --dir';
+      electronCommand = 'npx electron-builder --dir';
       break;
     case 'dev-build':
-      electronCommand = 'electron-builder --dir';
+      electronCommand = 'npx electron-builder --dir';
       break;
     default:
       throw new Error('Unknown build mode: ' + mode);
