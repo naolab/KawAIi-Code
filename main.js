@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -84,29 +84,78 @@ function createWindow() {
     });
   }
   
-  // メニューバーとDevToolsアクセスを配布版では無効化
+  // メニューバーを設定（開発・配布版共通）
+  const { Menu } = require('electron');
+  const template = [];
+  
+  // macOS用のアプリメニュー
+  if (process.platform === 'darwin') {
+    template.push({
+      label: app.getName(),
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideothers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    });
+  }
+  
+  // 編集メニュー（コピー・ペースト等）
+  template.push({
+    label: 'Edit',
+    submenu: [
+      { role: 'undo' },
+      { role: 'redo' },
+      { type: 'separator' },
+      { role: 'cut' },
+      { role: 'copy' },
+      { role: 'paste' },
+      { role: 'selectall' }
+    ]
+  });
+  
+  // 表示メニュー
+  template.push({
+    label: 'View',
+    submenu: [
+      { role: 'reload' },
+      { role: 'forceReload' },
+      { type: 'separator' },
+      { role: 'resetzoom' },
+      { role: 'zoomin' },
+      { role: 'zoomout' },
+      { type: 'separator' },
+      { role: 'togglefullscreen' }
+    ]
+  });
+  
+  // 開発環境のみデバッグメニューを追加
   if (!isProduction) {
-    const { Menu } = require('electron');
-    const template = [
-      {
-        label: 'Debug',
-        submenu: [
-          {
-            label: 'Toggle DevTools',
-            accelerator: 'F12',
-            click: () => {
-              mainWindow.webContents.toggleDevTools();
-            }
+    template.push({
+      label: 'Debug',
+      submenu: [
+        {
+          label: 'Toggle DevTools',
+          accelerator: 'F12',
+          click: () => {
+            mainWindow.webContents.toggleDevTools();
           }
-        ]
-      }
-    ];
-    const menu = Menu.buildFromTemplate(template);
-    Menu.setApplicationMenu(menu);
-  } else {
-    // 配布版では全メニューを無効化
-    const { Menu } = require('electron');
-    Menu.setApplicationMenu(null);
+        }
+      ]
+    });
+  }
+  
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+  
+  // 配布版でのDevTools無効化処理は維持
+  if (isProduction) {
     
     // DevToolsの無効化
     mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -118,11 +167,50 @@ function createWindow() {
       }
     });
     
-    // 右クリックメニューも無効化
-    mainWindow.webContents.on('context-menu', (event) => {
-      event.preventDefault();
-    });
+    // 配布版でも右クリックメニューは有効にする（ユーザビリティ向上）
   }
+  
+  // 右クリックメニュー（コンテキストメニュー）の設定
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    const { selectionText, isEditable } = params;
+    const menuItems = [];
+    
+    // テキストが選択されている場合
+    if (selectionText && selectionText.trim() !== '') {
+      menuItems.push(
+        { role: 'copy' }
+      );
+    }
+    
+    // 編集可能な要素の場合
+    if (isEditable) {
+      menuItems.push(
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { type: 'separator' },
+        { role: 'selectall' }
+      );
+    } else if (selectionText) {
+      // 編集不可だが選択されている場合
+      menuItems.push(
+        { role: 'copy' },
+        { type: 'separator' },
+        { role: 'selectall' }
+      );
+    } else {
+      // 何も選択されていない場合
+      menuItems.push(
+        { role: 'selectall' }
+      );
+    }
+    
+    // メニューが空でない場合のみ表示
+    if (menuItems.length > 0) {
+      const contextMenu = Menu.buildFromTemplate(menuItems);
+      contextMenu.popup({ window: mainWindow });
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
