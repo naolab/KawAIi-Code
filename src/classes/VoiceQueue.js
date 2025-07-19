@@ -40,9 +40,13 @@ class VoiceQueue {
     // 順次音声再生
     async speakTextSequentially(text) {
         try {
-            this.debugLog('🎵 順次音声再生開始:', text.substring(0, 30) + '...');
+            // 音声無効時は全処理をスキップ（パフォーマンス最適化）
+            if (!this.terminalApp.voiceEnabled) {
+                this.debugLog('🎵 音声無効のため全処理をスキップ:', text.substring(0, 30) + '...');
+                return;
+            }
             
-            // VRM表情連動のためテキストは保持（表示は行わない）
+            this.debugLog('🎵 順次音声再生開始:', text.substring(0, 30) + '...');
             
             // 音声読み上げ実行（ハイブリッドシステム）
             if (this.terminalApp.voiceEnabled) {

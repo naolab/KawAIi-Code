@@ -152,6 +152,12 @@ class HookService {
 
     // Hook音声ファイルを再生
     async playHookVoiceFile(filepath, text, emotion) {
+        // 音声無効時はHook音声再生もスキップ（パフォーマンス最適化）
+        if (!this.terminalApp.voiceEnabled) {
+            this.debugLog('🎣 音声無効のためHook音声再生をスキップ:', filepath);
+            return;
+        }
+        
         const fs = require('fs');
         
         try {
@@ -250,6 +256,12 @@ class HookService {
 
     // Hook専用データ処理（音声再生あり）
     async processHookOnlyData(data) {
+        // 音声無効時はHook処理もスキップ（パフォーマンス最適化）
+        if (!this.terminalApp.voiceEnabled) {
+            this.debugLog('🎣 音声無効のためHook処理をスキップ:', data.substring(0, 50) + '...');
+            return;
+        }
+        
         this.debugLog('🎣 Hook専用データ処理開始:', {
             dataLength: data.length,
             dataPreview: data.substring(0, 300),

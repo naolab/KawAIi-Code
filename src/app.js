@@ -137,6 +137,12 @@ class TerminalApp {
     // 統一感情処理メソッド（全音声で使用）
     async processEmotionForVRM(text, audioData) {
         try {
+            // 音声無効時は感情処理もスキップ（パフォーマンス最適化）
+            if (!this.voiceEnabled) {
+                debugLog('🎭 音声無効のため感情処理をスキップ:', text ? text.substring(0, 30) + '...' : '');
+                return null;
+            }
+            
             debugLog('🎭 統一感情処理開始:', text ? text.substring(0, 30) + '...' : '');
             
             // 1. VRMに音声データを送信（リップシンク用）
@@ -171,6 +177,12 @@ class TerminalApp {
 
     // アプリ内音声再生（VoiceQueue用）- AudioServiceに委譲
     async playAppInternalAudio(audioData, text) {
+        // 音声無効時は全処理をスキップ（パフォーマンス最適化）
+        if (!this.voiceEnabled) {
+            debugLog('🎵 音声無効のためplayAppInternalAudioをスキップ:', text ? text.substring(0, 30) + '...' : '');
+            return;
+        }
+        
         if (!this.audioService) {
             debugError('AudioService not initialized');
             return;
