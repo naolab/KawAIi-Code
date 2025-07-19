@@ -818,8 +818,8 @@ class UIEventManager {
             await this.app.audioService.updateSpeakerSelect();
         }
         
-        // 接続状態の更新
-        this.app.updateConnectionStatus(this.app.connectionStatus === 'connected' ? '接続済み' : '未接続', this.app.connectionStatus);
+        // 接続状態の更新はリアルタイム監視に任せる（競合回避）
+        // this.app.updateConnectionStatus(this.app.connectionStatus === 'connected' ? '接続済み' : '未接続', this.app.connectionStatus);
 
         // 壁紙設定の同期は WallpaperSystem モジュールで処理
 
