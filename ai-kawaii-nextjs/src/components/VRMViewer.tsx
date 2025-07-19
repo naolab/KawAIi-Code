@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef } from 'react'
+import React, { useRef, useEffect } from 'react'
 import * as THREE from 'three'
 import { VRM } from '@pixiv/three-vrm'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
@@ -84,6 +84,23 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     loadDefaultVRM,
     setVrmInfo
   })
+
+  // アプリ起動時にデフォルトVRMを自動読み込み
+  useEffect(() => {
+    // シーンが初期化された後にデフォルトVRMを読み込む
+    const autoLoadDefaultVRM = async () => {
+      // シーンの初期化を待つ
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // デフォルトVRMが未ロードの場合のみ読み込み
+      if (!vrmRef.current && !loading) {
+        console.log('🤖 アプリ起動時にデフォルトVRMを自動読み込み開始')
+        await loadDefaultVRM()
+      }
+    }
+
+    autoLoadDefaultVRM()
+  }, [loadDefaultVRM, loading]) // loadingを依存配列に追加してフックの状態変化を監視
 
   return (
     <div 
