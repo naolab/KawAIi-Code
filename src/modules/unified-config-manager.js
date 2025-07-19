@@ -236,6 +236,7 @@ class UnifiedConfigManager {
             voiceCooldownSeconds: 1,
             voiceIntervalSeconds: 1,
             useHooks: false, // デフォルトはアプリ内監視モード
+            claudeMdAutoGenerate: true, // CLAUDE.md自動生成（デフォルトON）
             
             // UI設定
             voiceEnabled: true,
@@ -335,7 +336,7 @@ class UnifiedConfigManager {
     
     _determineLevel(key) {
         // システム設定
-        if (['claudeWorkingDir', 'voiceSynthesisEnabled', 'defaultSpeakerId', 'voiceCooldownSeconds', 'voiceIntervalSeconds'].includes(key)) {
+        if (['claudeWorkingDir', 'voiceSynthesisEnabled', 'defaultSpeakerId', 'voiceCooldownSeconds', 'voiceIntervalSeconds', 'claudeMdAutoGenerate'].includes(key)) {
             return 'user';
         }
         

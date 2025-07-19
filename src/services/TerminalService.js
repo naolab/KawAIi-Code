@@ -138,6 +138,9 @@ class TerminalService {
                 
                 this.terminal.writeln(`\x1b[90m${aiName} ready.\x1b[0m`);
 
+                // CLAUDE.md自動生成チェック
+                await this.handleAutoGenerateClaudeMd(aiType);
+
                 setTimeout(() => {
                     this.fitAddon.fit();
                     window.electronAPI.terminal.resize(
@@ -190,6 +193,9 @@ class TerminalService {
                 
                 this.terminalApp.updateStatus(`${aiName} running in tab - Type your message and press Enter`);
                 
+                // CLAUDE.md自動生成チェック
+                await this.handleAutoGenerateClaudeMd(aiType);
+                
                 // タブUIを更新
                 this.terminalApp.tabManager.renderTabs();
             } else {
@@ -201,6 +207,34 @@ class TerminalService {
         }
         
         this.terminalApp.updateButtons();
+    }
+
+    /**
+     * CLAUDE.md自動生成の処理
+     */
+    async handleAutoGenerateClaudeMd(aiType) {
+        try {
+            // 統一設定システムから自動生成設定を取得
+            const config = getSafeUnifiedConfig();
+            const autoGenerate = await config.get('claudeMdAutoGenerate', true); // デフォルトはtrue
+            
+            debugLog('CLAUDE.md自動生成設定チェック:', { autoGenerate, aiType });
+            
+            if (autoGenerate) {
+                debugLog('CLAUDE.md自動生成を実行中...');
+                const result = await this.terminalApp.generateAiMdFiles();
+                
+                if (result && result.success) {
+                    debugLog('CLAUDE.md自動生成成功');
+                } else {
+                    debugError('CLAUDE.md自動生成失敗:', result);
+                }
+            } else {
+                debugLog('CLAUDE.md自動生成は無効化されています');
+            }
+        } catch (error) {
+            debugError('CLAUDE.md自動生成処理エラー:', error);
+        }
     }
 
     async stopTerminal() {

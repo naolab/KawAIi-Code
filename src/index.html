@@ -139,6 +139,26 @@
                         </div>
                     </div>
                     
+                    <!-- CLAUDE.md設定セクション -->
+                    <div class="setting-group">
+                        <label>CLAUDE.md設定</label>
+                        
+                        <!-- 自動生成スイッチ -->
+                        <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                            <label for="claude-md-auto-toggle">自動生成</label>
+                            <div class="setting-switch">
+                                <input type="checkbox" id="claude-md-auto-toggle" checked>
+                                <label for="claude-md-auto-toggle" class="switch-label"></label>
+                            </div>
+                        </div>
+                        
+                        <!-- ボタン群 -->
+                        <div style="display: flex; gap: 10px; margin-top: 8px;">
+                            <button id="claude-md-manual-btn" class="simple-btn" style="width: auto; min-width: 80px;">手動生成</button>
+                            <button id="claude-md-info-btn" class="simple-btn" style="width: auto; min-width: 120px;">この機能について</button>
+                        </div>
+                    </div>
+                    
                     <!-- 壁紙設定セクション -->
                     <div class="setting-group">
                         <label>壁紙設定</label>
@@ -354,6 +374,96 @@
                         <div class="help-item">
                             <span class="help-icon">🔧</span>
                             <strong>設定切り替え:</strong> モード切り替えは設定画面からいつでも変更可能です。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CLAUDE.md設定ガイド -->
+        <div id="claude-md-guide-modal" class="help-modal" style="display: none;">
+            <div class="help-content">
+                <div class="help-header">
+                    <h3>CLAUDE.md設定について</h3>
+                    <button id="close-claude-md-guide" class="close-btn">×</button>
+                </div>
+                <div class="help-body">
+                    <div class="help-section">
+                        <h4>📝 CLAUDE.md設定とは</h4>
+                        <div class="help-item">
+                            <span class="help-icon">🤖</span>
+                            <strong>プロジェクト設定ファイル:</strong> AIアシスタント（ニコ）のキャラクター設定やプロジェクト固有の指示を含むファイルを自動生成します。
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">🎯</span>
+                            <strong>一貫した対話:</strong> プロジェクトや作業内容に応じて、AIが適切な文脈で応答できるようになります。
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">📋</span>
+                            <strong>自動管理:</strong> AI起動時に作成され、停止時に自動削除されるため、手動管理が不要です。
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>⚙️ 自動生成 vs 手動生成</h4>
+                        <div class="help-item">
+                            <span class="help-icon">🔄</span>
+                            <strong>自動生成（ON）:</strong>
+                            <ul>
+                                <li>AI起動時に自動でCLAUDE.mdとAI.mdを生成</li>
+                                <li>常に最新の設定が反映される</li>
+                                <li>手間いらずで一貫した対話を実現</li>
+                            </ul>
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">✋</span>
+                            <strong>自動生成（OFF）:</strong>
+                            <ul>
+                                <li>手動で必要な時のみファイルを生成</li>
+                                <li>カスタマイズしたCLAUDE.mdを保持できる</li>
+                                <li>上級ユーザー向けの運用方法</li>
+                            </ul>
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">🖱️</span>
+                            <strong>手動生成ボタン:</strong>
+                            <ul>
+                                <li>設定変更後にファイルを即座に再生成</li>
+                                <li>プロジェクト変更時の設定更新に便利</li>
+                                <li>自動生成がOFFでも利用可能</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>📂 生成されるファイル</h4>
+                        <div class="help-item">
+                            <span class="help-icon">📄</span>
+                            <strong>CLAUDE.md:</strong> キャラクター設定（ニコ）とプロジェクト共通の指示が含まれます。
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">📄</span>
+                            <strong>AI.md:</strong> 現在の作業ディレクトリに固有の情報やプロジェクト詳細が含まれます。
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">🗑️</span>
+                            <strong>自動削除:</strong> AI停止時に両ファイルとも自動的に削除されるため、作業ディレクトリが汚れません。
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>💡 おすすめの使い方</h4>
+                        <div class="help-item">
+                            <span class="help-icon">✅</span>
+                            <strong>初心者:</strong> 自動生成をONにして、手間なく一貫した対話を楽しむ。
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">⚡</span>
+                            <strong>上級者:</strong> 自動生成をOFFにして、カスタマイズしたCLAUDE.mdで細かい設定を管理。
+                        </div>
+                        <div class="help-item">
+                            <span class="help-icon">🔧</span>
+                            <strong>設定変更時:</strong> 作業ディレクトリやキャラクター設定を変更した後は手動生成で即座に反映。
                         </div>
                     </div>
                 </div>

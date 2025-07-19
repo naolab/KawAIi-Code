@@ -205,6 +205,9 @@ class UIEventManager {
             });
         }
 
+        // CLAUDE.md設定関連のイベントリスナー
+        this.setupClaudeMdEventListeners();
+
         this.debugLog('Modal event listeners setup completed');
     }
 
@@ -400,6 +403,120 @@ class UIEventManager {
         } catch (error) {
             this.debugError('Error in stop button handler:', error);
             this.app.updateStatus('Error stopping AI');
+        }
+    }
+
+    /**
+     * CLAUDE.md設定関連のイベントリスナー設定
+     */
+    setupClaudeMdEventListeners() {
+        const claudeMdAutoToggle = document.getElementById('claude-md-auto-toggle');
+        const claudeMdManualBtn = document.getElementById('claude-md-manual-btn');
+        const claudeMdInfoBtn = document.getElementById('claude-md-info-btn');
+        const claudeMdGuideModal = document.getElementById('claude-md-guide-modal');
+        const closeClaludeMdGuideBtn = document.getElementById('close-claude-md-guide');
+
+        this.debugLog('CLAUDE.md control elements check:', {
+            claudeMdAutoToggle: !!claudeMdAutoToggle,
+            claudeMdManualBtn: !!claudeMdManualBtn,
+            claudeMdInfoBtn: !!claudeMdInfoBtn,
+            claudeMdGuideModal: !!claudeMdGuideModal,
+            closeClaludeMdGuideBtn: !!closeClaludeMdGuideBtn
+        });
+
+        // 自動生成トグルのイベント
+        if (claudeMdAutoToggle) {
+            claudeMdAutoToggle.addEventListener('change', async (e) => {
+                try {
+                    const config = getSafeUnifiedConfig();
+                    await config.set('claudeMdAutoGenerate', e.target.checked);
+                    this.debugLog('CLAUDE.md自動生成設定更新:', e.target.checked);
+                } catch (error) {
+                    this.debugError('CLAUDE.md自動生成設定エラー:', error);
+                    this.showVoiceError('設定の保存に失敗しました');
+                    // エラー時は元の状態に戻す
+                    e.target.checked = !e.target.checked;
+                }
+            });
+        }
+
+        // 手動生成ボタンのイベント
+        if (claudeMdManualBtn) {
+            claudeMdManualBtn.addEventListener('click', async () => {
+                try {
+                    // ボタンを一時的に無効化
+                    claudeMdManualBtn.disabled = true;
+                    claudeMdManualBtn.textContent = '生成中...';
+                    
+                    this.debugLog('手動CLAUDE.md生成開始');
+                    
+                    // TerminalAppManagerのgenerateAiMdFilesメソッドを呼び出し
+                    const result = await this.app.generateAiMdFiles();
+                    
+                    if (result && result.success) {
+                        this.showNotification('CLAUDE.mdファイルを生成しました', 'success');
+                        this.debugLog('手動CLAUDE.md生成成功');
+                    } else {
+                        this.showVoiceError('CLAUDE.mdファイルの生成に失敗しました');
+                        this.debugError('手動CLAUDE.md生成失敗:', result);
+                    }
+                } catch (error) {
+                    this.debugError('手動CLAUDE.md生成エラー:', error);
+                    this.showVoiceError('CLAUDE.mdファイルの生成中にエラーが発生しました');
+                } finally {
+                    // ボタンを元に戻す
+                    claudeMdManualBtn.disabled = false;
+                    claudeMdManualBtn.textContent = '手動生成';
+                }
+            });
+        }
+
+        // 情報ボタンのイベント
+        if (claudeMdInfoBtn && claudeMdGuideModal) {
+            claudeMdInfoBtn.addEventListener('click', () => {
+                claudeMdGuideModal.style.display = 'flex';
+                this.debugLog('CLAUDE.md設定ガイドモーダル表示');
+            });
+        }
+
+        // ガイドモーダルの閉じるボタン
+        if (closeClaludeMdGuideBtn && claudeMdGuideModal) {
+            closeClaludeMdGuideBtn.addEventListener('click', () => {
+                claudeMdGuideModal.style.display = 'none';
+                this.debugLog('CLAUDE.md設定ガイドモーダル非表示');
+            });
+        }
+
+        // ガイドモーダルの外クリック
+        if (claudeMdGuideModal) {
+            claudeMdGuideModal.addEventListener('click', (e) => {
+                if (e.target === claudeMdGuideModal) {
+                    claudeMdGuideModal.style.display = 'none';
+                    this.debugLog('CLAUDE.md設定ガイドモーダル非表示（外クリック）');
+                }
+            });
+        }
+
+        this.debugLog('CLAUDE.md event listeners setup completed');
+    }
+
+    /**
+     * CLAUDE.md設定をモーダルに同期
+     */
+    async syncClaudeMdSettings() {
+        const claudeMdAutoToggle = document.getElementById('claude-md-auto-toggle');
+        
+        if (claudeMdAutoToggle) {
+            try {
+                const config = getSafeUnifiedConfig();
+                const autoGenerate = await config.get('claudeMdAutoGenerate', true); // デフォルトはtrue
+                claudeMdAutoToggle.checked = autoGenerate;
+                this.debugLog('CLAUDE.md自動生成設定同期:', autoGenerate);
+            } catch (error) {
+                this.debugError('CLAUDE.md設定同期エラー:', error);
+                // エラー時はデフォルト値を設定
+                claudeMdAutoToggle.checked = true;
+            }
         }
     }
 
@@ -823,6 +940,9 @@ class UIEventManager {
         // this.app.updateConnectionStatus(this.app.connectionStatus === 'connected' ? '接続済み' : '未接続', this.app.connectionStatus);
 
         // 壁紙設定の同期は WallpaperSystem モジュールで処理
+
+        // CLAUDE.md設定の同期
+        await this.syncClaudeMdSettings();
 
         // Claude Code 作業ディレクトリ設定の同期
         const claudeCwdDisplay = document.getElementById('claude-cwd-display');
