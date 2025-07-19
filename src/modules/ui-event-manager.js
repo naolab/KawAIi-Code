@@ -292,46 +292,24 @@ class UIEventManager {
             });
         }
 
-        // Hook使用切り替えスイッチ
+        // Hook使用切り替えスイッチ（配布版では無効化）
         const useHooksToggle = document.getElementById('use-hooks-toggle');
         if (useHooksToggle) {
-            // 初期値を設定から読み込み
-            const initHooks = async () => {
-                const savedUseHooks = await unifiedConfig.get('useHooks', false);
-                useHooksToggle.checked = savedUseHooks;
-                
-                // 初期設定でアプリにモード通知
-                this.app.switchVoiceMode(savedUseHooks);
-            };
-            initHooks();
+            // 配布版では常時オフに固定し、スイッチを無効化
+            useHooksToggle.checked = false;
+            useHooksToggle.disabled = true;
             
-            useHooksToggle.addEventListener('change', async (e) => {
-                const newValue = e.target.checked;
-                
-                // 統一設定システムに保存
-                await unifiedConfig.set('useHooks', newValue);
-                
-                
-                // 即座にモード切り替え
-                this.app.switchVoiceMode(newValue);
-                
-                // 設定変更の通知
-                if (newValue) {
-                    // Hook有効時の通知
-                    setTimeout(() => {
-                        if (window.showTemporaryMessage) {
-                            window.showTemporaryMessage('Claude Code Hooks機能を有効にしました。音声合成がHookで処理されます。', 'info');
-                        }
-                    }, 100);
-                } else {
-                    // Hook無効時の通知
-                    setTimeout(() => {
-                        if (window.showTemporaryMessage) {
-                            window.showTemporaryMessage('Claude Code Hooks機能を無効にしました。アプリ内監視モードを使用します。', 'info');
-                        }
-                    }, 100);
-                }
-            });
+            // 親要素にもスタイルを適用（グレーアウト効果）
+            const switchContainer = useHooksToggle.parentElement;
+            if (switchContainer && switchContainer.classList.contains('setting-switch')) {
+                switchContainer.style.opacity = '0.5';
+                switchContainer.style.pointerEvents = 'none';
+            }
+            
+            // 強制的にアプリ内監視モードに設定
+            this.app.switchVoiceMode(false);
+            
+            this.debugLog('Hooks mode disabled for distribution version');
         }
 
         this.debugLog('Voice control event listeners setup completed');

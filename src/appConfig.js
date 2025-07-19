@@ -62,7 +62,7 @@ class AppConfig {
             selectedSpeaker: 0,
             voiceVolume: 50,
             voiceIntervalSeconds: 1,
-            useHooks: false, // デフォルトはfalse（従来機能使用）
+            useHooks: false, // 配布版では常時無効
             currentCharacter: 'shy', // 照れ屋キャラクターに固定
             // その他のデフォルト設定
         };
