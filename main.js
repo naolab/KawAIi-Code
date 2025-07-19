@@ -254,7 +254,17 @@ app.whenReady().then(async () => {
   startHookNotificationWatcher();
 });
 
-app.on('window-all-closed', async () => {
+// 共通のクリーンアップ処理
+let isCleanupExecuted = false;
+async function performCleanup() {
+  if (isCleanupExecuted) {
+    debugLog('クリーンアップは既に実行済み');
+    return;
+  }
+  
+  isCleanupExecuted = true;
+  debugLog('アプリ終了時のクリーンアップを開始');
+  
   // AI.mdファイルのクリーンアップを直接実行
   await cleanupAiMdFiles();
   
@@ -273,8 +283,41 @@ app.on('window-all-closed', async () => {
     websocketProcess = null;
   }
   
+  debugLog('アプリ終了時のクリーンアップ完了');
+}
+
+// before-quit: Dockアイコン長押し→終了、Cmd+Q で発火
+app.on('before-quit', async (event) => {
+  debugLog('before-quit イベント発火');
+  event.preventDefault(); // 一旦終了を阻止
+  
+  await performCleanup();
+  
+  // クリーンアップ完了後に実際に終了
+  app.exit(0);
+});
+
+// window-all-closed: ×ボタンで閉じる で発火
+app.on('window-all-closed', async () => {
+  debugLog('window-all-closed イベント発火');
+  
+  await performCleanup();
+  
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+// will-quit: アプリが終了する直前に発火（フォールバック）
+app.on('will-quit', async (event) => {
+  debugLog('will-quit イベント発火');
+  if (!isCleanupExecuted) {
+    event.preventDefault(); // 一旦終了を阻止
+    
+    await performCleanup();
+    
+    // クリーンアップ完了後に実際に終了
+    app.exit(0);
   }
 });
 
