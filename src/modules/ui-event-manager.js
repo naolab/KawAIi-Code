@@ -250,7 +250,20 @@ class UIEventManager {
         }
 
         if (refreshConnectionBtnModal) {
-            refreshConnectionBtnModal.addEventListener('click', () => this.app.checkVoiceConnection());
+            refreshConnectionBtnModal.addEventListener('click', async () => {
+                // ボタンを無効化してフィードバックを提供
+                refreshConnectionBtnModal.disabled = true;
+                refreshConnectionBtnModal.textContent = '接続中...';
+                
+                try {
+                    // 手動チェック（フルリトライ）を実行
+                    await this.app.checkVoiceConnection();
+                } finally {
+                    // ボタンを元に戻す
+                    refreshConnectionBtnModal.disabled = false;
+                    refreshConnectionBtnModal.textContent = '再接続';
+                }
+            });
         }
 
         // 音声読み上げ間隔スライダー

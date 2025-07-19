@@ -293,6 +293,9 @@ class TerminalAppManager {
         // Hook監視サービスを開始
         this.terminalApp.hookService.startHookWatcher();
         
+        // リアルタイム音声接続監視を開始
+        this.startRealtimeConnectionMonitoring();
+        
         debugLog('✅ 定期処理開始完了');
     }
 
@@ -305,6 +308,12 @@ class TerminalAppManager {
         if (!this.terminalApp.audioService) {
             debugError('AudioService not initialized');
             return;
+        }
+        
+        // 手動チェックフラグを設定（リトライ有りの場合）
+        const isManualCheck = retryCount > 1;
+        if (isManualCheck) {
+            this.isManualConnectionCheck = true;
         }
         
         // 音声エンジンの起動待機（最大3回リトライ）
@@ -344,6 +353,47 @@ class TerminalAppManager {
         }
         
         this.terminalApp.updateVoiceControls();
+        
+        // 手動チェックフラグをリセット
+        if (isManualCheck) {
+            this.isManualConnectionCheck = false;
+        }
+    }
+
+    /**
+     * リアルタイム音声接続監視の開始
+     */
+    startRealtimeConnectionMonitoring() {
+        debugLog('🔄 リアルタイム音声接続監視開始');
+        
+        // 監視フラグ
+        this.isManualConnectionCheck = false;
+        this.connectionMonitoringInterval = null;
+        
+        // 3秒間隔で接続状態をチェック
+        this.connectionMonitoringInterval = this.terminalApp.resourceManager.setInterval(async () => {
+            // 手動チェック中は実行しない（競合回避）
+            if (this.isManualConnectionCheck) {
+                debugLog('🔄 手動チェック中のため監視スキップ');
+                return;
+            }
+            
+            // 軽量な接続チェック（リトライなし）
+            await this.checkVoiceConnection(1, 0);
+        }, 3000); // 3秒間隔
+        
+        debugLog('✅ リアルタイム音声接続監視開始完了');
+    }
+
+    /**
+     * リアルタイム音声接続監視の停止
+     */
+    stopRealtimeConnectionMonitoring() {
+        if (this.connectionMonitoringInterval) {
+            clearInterval(this.connectionMonitoringInterval);
+            this.connectionMonitoringInterval = null;
+            debugLog('🛑 リアルタイム音声接続監視停止');
+        }
     }
 
     /**
@@ -373,6 +423,9 @@ class TerminalAppManager {
      */
     dispose() {
         debugLog('🗑️ TerminalAppManager破棄開始');
+        
+        // リアルタイム音声接続監視の停止
+        this.stopRealtimeConnectionMonitoring();
         
         // リソース管理システムのクリーンアップ
         if (this.terminalApp.resourceManager) {
