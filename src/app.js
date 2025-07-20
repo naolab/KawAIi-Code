@@ -547,7 +547,56 @@ document.addEventListener('DOMContentLoaded', () => {
     // アプリ初期化処理
     setTimeout(() => {
         try {
-            new TerminalApp();
+            const app = new TerminalApp();
+            
+            // デバッグ統計ボタンのイベントリスナーを追加
+            const debugStatsBtn = document.getElementById('debug-stats-btn');
+            if (debugStatsBtn) {
+                debugStatsBtn.addEventListener('click', () => {
+                    console.group('🛡️ シンプル重複防止システム 統計情報');
+                    
+                    // MessageAccumulatorの統計表示
+                    if (app.messageAccumulator && app.messageAccumulator.duplicateChecker) {
+                        app.messageAccumulator.duplicateChecker.showDiagnostics();
+                        
+                        // リアルタイム統計も表示
+                        app.messageAccumulator.duplicateChecker.showRealtimeStats();
+                        
+                        console.log('🎯 使用方法:');
+                        console.log('- このボタンで統計をいつでも確認できます');
+                        console.log('- コンソールで重複防止の動作をリアルタイム監視中');
+                        console.log('- 重複検出時は自動でアラート表示');
+                    } else {
+                        console.warn('⚠️ 重複防止システムが初期化されていません');
+                    }
+                    
+                    console.groupEnd();
+                });
+                
+                debugLog('📊 デバッグ統計ボタンのイベントリスナーを追加しました');
+                
+                // 開発者向けの使用方法をコンソールに表示
+                setTimeout(() => {
+                    console.group('🛡️ シンプル重複防止システム - 開発モード');
+                    console.log('✅ システムが正常に初期化されました');
+                    console.log('');
+                    console.log('🔍 監視内容:');
+                    console.log('- 読み上げテキストの重複チェック');
+                    console.log('- リアルタイム統計情報');
+                    console.log('- パフォーマンス情報');
+                    console.log('');
+                    console.log('📊 統計確認方法:');
+                    console.log('1. 画面左上の 📊 ボタンをクリック');
+                    console.log('2. このコンソールで詳細な統計を確認');
+                    console.log('3. 重複検出時は自動でログ出力');
+                    console.log('');
+                    console.log('🎯 期待される効果:');
+                    console.log('- ターミナルリサイズ時の重複読み上げ防止');
+                    console.log('- スクロール時の重複読み上げ防止');
+                    console.log('- 同一テキストの再読み上げ防止');
+                    console.groupEnd();
+                }, 2000);
+            }
         } catch (error) {
             debugError('TerminalApp初期化エラー:', error);
             // エラーが発生しても強制的に接続状態をチェック

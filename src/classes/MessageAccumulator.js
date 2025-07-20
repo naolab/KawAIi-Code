@@ -16,37 +16,19 @@ class MessageAccumulator {
         this.processCallback = null;
         this.errorHandler = window.ErrorHandler ? new window.ErrorHandler() : null;
         
-        // 重複防止システム
-        this.contentTracker = null;
-        this.positionTracker = null;
-        this.currentLine = 0;
-        this.currentChar = 0;
+        // シンプル重複防止システム
+        this.duplicateChecker = new SimpleDuplicateChecker();
         this.debugLogEnabled = true;
+        this.logPrefix = '📝 [MessageAccumulator]';
     }
     
     /**
-     * 重複防止システムの初期化
-     * @param {ContentTracker} contentTracker - コンテンツ追跡インスタンス
-     * @param {TerminalPositionTracker} positionTracker - 位置追跡インスタンス
+     * 重複防止システムの設定
+     * @param {boolean} enabled - デバッグログを有効にするかどうか
      */
-    initDuplicatePrevention(contentTracker, positionTracker) {
-        this.contentTracker = contentTracker;
-        this.positionTracker = positionTracker;
-        
-        if (this.contentTracker) {
-            this.contentTracker.setDebugLogging(this.debugLogEnabled);
-        }
-        
-        this.debugLogSafe('🛡️ 重複防止システム初期化完了');
-    }
-
-    /**
-     * 位置トラッカーの設定（後から設定可能）
-     * @param {TerminalPositionTracker} positionTracker - 位置追跡インスタンス
-     */
-    setPositionTracker(positionTracker) {
-        this.positionTracker = positionTracker;
-        this.debugLogSafe('📍 位置トラッカー設定完了');
+    initDuplicatePrevention(enabled = true) {
+        this.duplicateChecker.setDebugLogging(enabled);
+        this.debugLogSafe('🛡️ シンプル重複防止システム初期化完了');
     }
 
     setProcessCallback(callback) {
@@ -57,68 +39,36 @@ class MessageAccumulator {
     }
     
     addChunk(data) {
-        // 現在の位置を更新
-        this.updateCurrentPosition(data);
-        
         const hasMarker = data.includes('⏺') || data.includes('✦');
         const hasQuotes = data.includes('『') && data.includes('』');
         
-        // debugLog(`📝 MessageAccumulator.addChunk - マーカー: ${hasMarker}, 括弧: ${hasQuotes}, データ長: ${data.length}`);
+        this.debugLogSafe(`${this.logPrefix} 🔍 チャンク受信: マーカー=${hasMarker}, 括弧=${hasQuotes}, 長さ=${data.length}, プレビュー="${data.substring(0, 30)}..."`);
         
         if (hasMarker) {
             // 新しいメッセージ開始
             if (this.isAccumulating) {
-                debugLog(`🔄 既存メッセージを強制完了してから新メッセージ開始`);
-                this.forceCompleteWithDuplicateCheck();
+                this.debugLogSafe(`${this.logPrefix} 🔄 既存メッセージを強制完了してから新メッセージ開始`);
+                this.forceComplete();
             }
             
             this.pendingMessage = data;
             this.lastChunkTime = Date.now();
             this.isAccumulating = true;
-            debugLog(`🆕 新しいメッセージ蓄積開始 - 長さ: ${data.length}`);
+            this.debugLogSafe(`${this.logPrefix} 🆕 新しいメッセージ蓄積開始 - 長さ: ${data.length}`);
             this.scheduleCompletion();
             
         } else if (this.isAccumulating) {
             // 既存メッセージに追加（蓄積中は全てのチャンクを統合）
             this.pendingMessage += '\n' + data;
             this.lastChunkTime = Date.now();
-            debugLog(`➕ メッセージに追加 - 現在の総長: ${this.pendingMessage.length}`);
+            this.debugLogSafe(`${this.logPrefix} ➕ メッセージに追加 - 現在の総長: ${this.pendingMessage.length}`);
             this.scheduleCompletion();
             
         } else {
-            // debugLog(`⏭️ チャンクをスキップ - 条件に合致せず`);
+            this.debugLogSafe(`${this.logPrefix} ⏭️ チャンクをスキップ - 条件に合致せず`);
         }
     }
 
-    /**
-     * 現在の位置を更新
-     * @param {string} data - 受信したデータ
-     */
-    updateCurrentPosition(data) {
-        if (this.positionTracker) {
-            // 位置トラッカーから正確な位置を取得
-            const pos = this.positionTracker.getCurrentPosition();
-            this.currentLine = pos.absoluteLine;
-            this.currentChar = pos.char;
-        } else {
-            // フォールバック: データから位置を推定
-            this.updatePositionFromData(data);
-        }
-    }
-
-    /**
-     * データから位置を推定（フォールバック）
-     * @param {string} data - 受信したデータ
-     */
-    updatePositionFromData(data) {
-        const lines = data.split('\n').length - 1;
-        if (lines > 0) {
-            this.currentLine += lines;
-            this.currentChar = data.length - data.lastIndexOf('\n') - 1;
-        } else {
-            this.currentChar += data.length;
-        }
-    }
     
     // より賢い完了判定
     isMessageComplete(data) {
@@ -165,32 +115,11 @@ class MessageAccumulator {
         this.complete();
     }
 
-    /**
-     * 重複チェック付きの強制完了
-     */
-    forceCompleteWithDuplicateCheck() {
-        // 既存のメッセージがある場合のみ処理
-        if (this.isAccumulating && this.pendingMessage && this.pendingMessage.trim()) {
-            this.debugLogSafe('🔄 既存メッセージを重複チェック付きで強制完了');
-            this.completeWithDuplicateCheck();
-        } else {
-            this.debugLogSafe('📭 強制完了: 処理対象なし');
-            this.reset();
-        }
-    }
     
     complete() {
-        // 重複チェック付きの完了処理を呼び出し
-        this.completeWithDuplicateCheck();
-    }
-
-    /**
-     * 重複チェック付きの完了処理
-     */
-    completeWithDuplicateCheck() {
         if (!this.isAccumulating || !this.pendingMessage) {
-            debugLog(`❌ 完了処理スキップ - 蓄積中でないかメッセージが空`);
-            debugLog(`❌ デバッグ情報:`, {
+            this.debugLogSafe(`${this.logPrefix} ❌ 完了処理スキップ - 蓄積中でないかメッセージが空`);
+            this.debugLogSafe(`${this.logPrefix} ❌ デバッグ情報:`, {
                 isAccumulating: this.isAccumulating,
                 messageLength: this.pendingMessage ? this.pendingMessage.length : 0,
                 hasCallback: !!this.processCallback
@@ -198,25 +127,28 @@ class MessageAccumulator {
             return;
         }
         
-        debugLog(`✅ メッセージ蓄積完了 - 最終長: ${this.pendingMessage.length}`);
-        debugLog(`✅ 蓄積時間: ${Date.now() - this.lastChunkTime + this.completionTimeout}ms`);
-        debugLog(`🔔 complete()呼び出し - コールバック有無:`, !!this.processCallback);
-        debugLog(`🔔 コールバック関数:`, this.processCallback);
+        this.debugLogSafe(`${this.logPrefix} ✅ メッセージ蓄積完了 - 最終長: ${this.pendingMessage.length}`);
+        this.debugLogSafe(`${this.logPrefix} ✅ 蓄積時間: ${Date.now() - this.lastChunkTime + this.completionTimeout}ms`);
+        this.debugLogSafe(`${this.logPrefix} 🔔 complete()呼び出し - コールバック有無:`, !!this.processCallback);
         
         const completeMessage = this.pendingMessage;
         const content = this.extractVoiceText(completeMessage);
         
-        // 重複チェック
-        if (content && this.contentTracker) {
-            if (!this.contentTracker.isNewContent(content, this.currentLine, this.currentChar)) {
-                this.debugLogSafe(`🚫 重複コンテンツをスキップ: "${content.substring(0, 50)}..."`);
+        // シンプル重複チェック
+        if (content) {
+            this.debugLogSafe(`${this.logPrefix} 🔍 音声テキスト抽出完了: "${content.substring(0, 50)}..."`);
+            
+            if (this.duplicateChecker.isDuplicate(content)) {
+                this.debugLogSafe(`${this.logPrefix} 🚫 重複コンテンツをスキップ: "${content.substring(0, 50)}..."`);
                 this.reset();
                 return;
             }
             
-            // 処理済みとしてマーク
-            this.contentTracker.markAsProcessed(content, this.currentLine, this.currentChar);
-            this.debugLogSafe(`🎵 新しい音声コンテンツを検出: "${content.substring(0, 50)}..."`);
+            // 読み上げ済みとしてマーク
+            this.duplicateChecker.markAsSpoken(content);
+            this.debugLogSafe(`${this.logPrefix} 🎵 新しい音声コンテンツを検出: "${content.substring(0, 50)}..."`);
+        } else {
+            this.debugLogSafe(`${this.logPrefix} ⚠️ 音声テキストが抽出できませんでした`);
         }
         
         // メッセージをリセット
@@ -302,14 +234,11 @@ class MessageAccumulator {
             isAccumulating: this.isAccumulating,
             messageLength: this.pendingMessage.length,
             timeSinceLastChunk: Date.now() - this.lastChunkTime,
-            hasTimer: !!this.completionTimer,
-            currentPosition: `L${this.currentLine}:C${this.currentChar}`
+            hasTimer: !!this.completionTimer
         };
 
         // 重複防止システムの統計情報を追加
-        if (this.contentTracker) {
-            baseStatus.duplicatePrevention = this.contentTracker.getStats();
-        }
+        baseStatus.duplicatePrevention = this.duplicateChecker.getStats();
 
         return baseStatus;
     }
@@ -320,9 +249,7 @@ class MessageAccumulator {
      */
     setDebugLogging(enabled) {
         this.debugLogEnabled = enabled;
-        if (this.contentTracker) {
-            this.contentTracker.setDebugLogging(enabled);
-        }
+        this.duplicateChecker.setDebugLogging(enabled);
         this.debugLogSafe(`🐛 デバッグログ: ${enabled ? '有効' : '無効'}`);
     }
 
@@ -330,10 +257,15 @@ class MessageAccumulator {
      * 重複防止システムのクリア（デバッグ用）
      */
     clearDuplicatePrevention() {
-        if (this.contentTracker) {
-            this.contentTracker.clear();
-            this.debugLogSafe('🧹 重複防止システムをクリア');
-        }
+        this.duplicateChecker.clear();
+        this.debugLogSafe('🧹 重複防止システムをクリア');
+    }
+
+    /**
+     * 重複防止システムの統計表示
+     */
+    showDuplicateStats() {
+        this.duplicateChecker.logStats();
     }
 
     /**
