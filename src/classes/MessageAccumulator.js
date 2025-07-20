@@ -20,6 +20,9 @@ class MessageAccumulator {
         this.duplicateChecker = new SimpleDuplicateChecker();
         this.debugLogEnabled = true;
         this.logPrefix = '📝 [MessageAccumulator]';
+        
+        // TabManager参照（親タブ判定用）
+        this.tabManager = null;
     }
     
     /**
@@ -29,6 +32,32 @@ class MessageAccumulator {
     initDuplicatePrevention(enabled = true) {
         this.duplicateChecker.setDebugLogging(enabled);
         this.debugLogSafe('🛡️ シンプル重複防止システム初期化完了');
+    }
+
+    /**
+     * TabManagerの参照を設定
+     * @param {TabManager} tabManager - TabManagerのインスタンス
+     */
+    setTabManager(tabManager) {
+        this.tabManager = tabManager;
+        this.debugLogSafe('🗂️ TabManager参照を設定');
+    }
+
+    /**
+     * 現在のタブが親タブかどうかを判定
+     * @returns {boolean} 親タブの場合true
+     */
+    isCurrentTabParent() {
+        if (!this.tabManager || !this.tabManager.parentTabId) {
+            this.debugLogSafe('🗂️ TabManagerまたは親タブIDが未設定 - 音声処理を実行');
+            return true; // 後方互換性のため、不明な場合は音声処理を実行
+        }
+        
+        const parentTab = this.tabManager.tabs[this.tabManager.parentTabId];
+        const isParent = parentTab && parentTab.isParent;
+        
+        this.debugLogSafe(`🗂️ 親タブ判定: ${isParent ? '親タブ' : '非親タブ'} (ID: ${this.tabManager.parentTabId})`);
+        return isParent;
     }
 
     setProcessCallback(callback) {
@@ -156,7 +185,8 @@ class MessageAccumulator {
         this.isAccumulating = false;
         this.completionTimer = null;
         
-        if (this.processCallback) {
+        // 音声処理は親タブのみ実行
+        if (this.processCallback && this.isCurrentTabParent()) {
             debugLog(`📞 コールバック実行開始 - メッセージ長: ${completeMessage.length}`);
             debugLog(`📞 メッセージサンプル:`, completeMessage.substring(0, 100) + '...');
             
@@ -178,6 +208,8 @@ class MessageAccumulator {
                     debugError('メッセージ処理中にエラーが発生しました:', error);
                 }
             }
+        } else if (!this.isCurrentTabParent()) {
+            this.debugLogSafe(`${this.logPrefix} 🗂️ 非親タブのため音声処理をスキップ`);
         } else {
             debugError(`❌ コールバックが設定されていません！`);
             debugError(`❌ メッセージが破棄されました:`, completeMessage.substring(0, 100) + '...');

@@ -59,8 +59,8 @@ class TabManager {
             tab.terminal.write(data);
         }
         
-        // 親タブの場合のみ音声処理
-        if (tab.isParent && this.deps.messageAccumulator) {
+        // 全タブで重複チェック対象として追加
+        if (this.deps.messageAccumulator) {
             this.deps.messageAccumulator.addChunk(data);
         }
     }

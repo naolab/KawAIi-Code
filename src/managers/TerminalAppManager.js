@@ -213,6 +213,11 @@ class TerminalAppManager {
         this.terminalApp.tabManager = new TabManager(this.terminalApp.tabManagerDependencies);
         this.services.tabManager = this.terminalApp.tabManager;
         this.terminalApp.tabManager.initialize();
+        
+        // MessageAccumulatorにTabManagerの参照を設定
+        if (this.terminalApp.messageAccumulator && this.terminalApp.tabManager) {
+            this.terminalApp.messageAccumulator.setTabManager(this.terminalApp.tabManager);
+        }
     }
 
     /**
