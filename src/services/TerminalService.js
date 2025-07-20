@@ -4,6 +4,7 @@
  * - AI（Claude Code）の起動・停止
  * - ターミナルデータの処理
  * - リサイズ処理
+ * - 重複読み上げ防止システム統合
  */
 
 class TerminalService {
@@ -34,7 +35,33 @@ class TerminalService {
         this.selectedSpeaker = terminalApp.selectedSpeaker;
         this.voicePlayingState = terminalApp.voicePlayingState;
         
+        // 重複防止システム
+        this.contentTracker = null;
+        this.positionTracker = null;
+        this.scrollPosition = 0;
+        this.isScrollingUp = false;
+        this.scrollTimeout = null;
+        this.lastProcessedPosition = { line: 0, char: 0 };
+        
         debugLog('🖥️ TerminalService初期化完了');
+        this.initDuplicatePrevention();
+    }
+
+    /**
+     * 重複防止システムの初期化
+     */
+    initDuplicatePrevention() {
+        try {
+            // ContentTrackerの初期化
+            if (typeof ContentTracker !== 'undefined') {
+                this.contentTracker = new ContentTracker();
+                debugLog('🛡️ ContentTracker初期化完了');
+            } else {
+                debugLog('⚠️ ContentTrackerクラスが見つかりません');
+            }
+        } catch (error) {
+            debugError('重複防止システム初期化エラー:', error);
+        }
     }
 
     setupTerminal() {
@@ -50,6 +77,9 @@ class TerminalService {
         }
         
         this.fitAddon.fit();
+        
+        // 位置トラッカーの初期化（ターミナル作成後）
+        this.initPositionTracker();
 
         // Handle terminal input
         this.terminal.onData((data) => {
@@ -83,11 +113,8 @@ class TerminalService {
                     dataPreview: data.substring(0, 50)
                 });
                 
-                if (this.terminal) {
-                    this.terminal.write(data);
-                }
-                // MessageAccumulatorに送信（二重処理を防ぐため、直接processTerminalDataは呼び出さない）
-                this.messageAccumulator.addChunk(data);
+                // 高度なデータ処理（重複防止付き）
+                this.handleTerminalData(data);
             });
 
             // Handle Claude Code exit
@@ -271,6 +298,134 @@ class TerminalService {
         this.terminalApp.updateButtons();
     }
 
+    /**
+     * 位置トラッカーの初期化
+     */
+    initPositionTracker() {
+        try {
+            if (typeof TerminalPositionTracker !== 'undefined' && this.terminal) {
+                this.positionTracker = new TerminalPositionTracker(this.terminal);
+                
+                // MessageAccumulatorに位置トラッカーを設定
+                if (this.messageAccumulator && this.messageAccumulator.setPositionTracker) {
+                    this.messageAccumulator.setPositionTracker(this.positionTracker);
+                }
+                
+                // ContentTrackerとMessageAccumulatorを統合
+                if (this.contentTracker && this.messageAccumulator && this.messageAccumulator.initDuplicatePrevention) {
+                    this.messageAccumulator.initDuplicatePrevention(this.contentTracker, this.positionTracker);
+                }
+                
+                // スクロール監視を設定
+                this.setupScrollMonitoring();
+                
+                debugLog('📍 TerminalPositionTracker初期化完了');
+            } else {
+                debugLog('⚠️ TerminalPositionTrackerクラスまたはターミナルが見つかりません');
+            }
+        } catch (error) {
+            debugError('位置トラッカー初期化エラー:', error);
+        }
+    }
+
+    /**
+     * スクロール監視の設定
+     */
+    setupScrollMonitoring() {
+        if (this.terminal && this.terminal.onScroll) {
+            this.terminal.onScroll((ydisp) => {
+                this.handleScroll(ydisp);
+            });
+            debugLog('📜 スクロール監視を設定');
+        }
+    }
+
+    /**
+     * スクロール処理
+     * @param {number} ydisp - スクロール位置
+     */
+    handleScroll(ydisp) {
+        const wasScrollingUp = ydisp < this.scrollPosition;
+        this.scrollPosition = ydisp;
+        
+        if (wasScrollingUp && !this.isScrollingUp) {
+            this.isScrollingUp = true;
+            debugLog('📜 上向きスクロール検出 - 音声処理を一時停止');
+            
+            // スクロールが止まったら再開
+            clearTimeout(this.scrollTimeout);
+            this.scrollTimeout = setTimeout(() => {
+                this.isScrollingUp = false;
+                debugLog('📜 スクロール停止 - 音声処理を再開');
+            }, 1000);
+        }
+    }
+
+    /**
+     * 高度なターミナルデータ処理（重複防止付き）
+     * @param {string} data - 受信したデータ
+     */
+    handleTerminalData(data) {
+        // ターミナルに表示（常に実行）
+        if (this.terminal) {
+            this.terminal.write(data);
+        }
+        
+        // 音声処理の可否判定
+        if (this.shouldSkipAudioProcessing()) {
+            debugLog('🚫 音声処理をスキップ中');
+            return;
+        }
+        
+        // 位置ベースの新規性チェック
+        if (this.positionTracker) {
+            const currentPos = this.positionTracker.getCurrentPosition();
+            
+            if (this.isNewPosition(currentPos)) {
+                debugLog(`🆕 新しい位置でのデータ: L${currentPos.absoluteLine}:C${currentPos.char}`);
+                this.messageAccumulator.addChunk(data);
+                this.updateLastProcessedPosition(currentPos);
+            } else {
+                debugLog(`🔄 既知の位置でのデータをスキップ: L${currentPos.absoluteLine}:C${currentPos.char}`);
+            }
+        } else {
+            // フォールバック: 位置トラッカーがない場合は従来通り
+            this.messageAccumulator.addChunk(data);
+        }
+    }
+
+    /**
+     * 音声処理スキップ判定
+     * @returns {boolean} スキップする場合true
+     */
+    shouldSkipAudioProcessing() {
+        return this.isScrollingUp || 
+               this.isResizing || 
+               !this.terminalApp?.voiceEnabled;
+    }
+
+    /**
+     * 新しい位置かどうか判定
+     * @param {object} currentPos - 現在の位置
+     * @returns {boolean} 新しい位置の場合true
+     */
+    isNewPosition(currentPos) {
+        return currentPos.absoluteLine > this.lastProcessedPosition.line || 
+               (currentPos.absoluteLine === this.lastProcessedPosition.line && 
+                currentPos.char > this.lastProcessedPosition.char);
+    }
+
+    /**
+     * 最後の処理位置を更新
+     * @param {object} position - 位置情報
+     */
+    updateLastProcessedPosition(position) {
+        this.lastProcessedPosition = {
+            line: position.absoluteLine,
+            char: position.char
+        };
+    }
+
     handleResize() {
         // 既存のリサイズタイマーをクリア
         if (this.resizeTimer) {
@@ -279,14 +434,26 @@ class TerminalService {
         
         // リサイズ中フラグを設定
         this.isResizing = true;
-        debugLog('🔄 リサイズ開始 - 音声処理を一時停止（デバウンス処理）');
+        debugLog('🔄 リサイズ開始 - 音声処理を一時停止');
         
-        // 新しいタイマーを設定（最後のリサイズから300ms後に解除）
+        // 位置トラッカーの状態をログ出力
+        if (this.positionTracker) {
+            this.positionTracker.logCurrentState();
+        }
+        
+        // 新しいタイマーを設定（最後のリサイズから200ms後に解除）
         this.resizeTimer = setTimeout(() => {
             this.isResizing = false;
             this.resizeTimer = null;
-            debugLog('🔄 リサイズ完了 - 音声処理を再開（デバウンス処理）');
-        }, 300);
+            debugLog('🔄 リサイズ完了 - 音声処理を再開');
+            
+            // 現在位置から再開
+            if (this.positionTracker) {
+                const currentPos = this.positionTracker.getCurrentPosition();
+                this.updateLastProcessedPosition(currentPos);
+                debugLog(`🔄 リサイズ後の位置: L${currentPos.absoluteLine}:C${currentPos.char}`);
+            }
+        }, 200);
     }
 
     async processTerminalData(data) {
