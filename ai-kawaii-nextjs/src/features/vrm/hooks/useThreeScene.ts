@@ -179,6 +179,7 @@ export const useThreeScene = ({
     }
     
     const handleLoadDefaultVRM = () => {
+      console.log('🔵 [useThreeScene] loadDefaultVRMイベント受信')
       loadDefaultVRM()
     }
 

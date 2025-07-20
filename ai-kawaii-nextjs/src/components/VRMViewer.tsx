@@ -87,22 +87,25 @@ export default function VRMViewer({ className }: VRMViewerProps) {
 
   // アプリ起動時にデフォルトVRMを自動読み込み
   useEffect(() => {
+    let mounted = true
+    
     // シーンが初期化された後にデフォルトVRMを読み込む
     const autoLoadDefaultVRM = async () => {
       // シーンの初期化を待つ
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // デフォルトVRMが未ロードの場合のみ読み込み
-      if (!vrmRef.current && !loading) {
-        // デバッグログは開発時のみ表示
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('🤖 アプリ起動時にデフォルトVRMを自動読み込み開始')
-        }
+      // マウント済み & デフォルトVRMが未ロードの場合のみ読み込み
+      if (mounted && !vrmRef.current && !loading) {
+        console.log('🤖 [VRMViewer useEffect] アプリ起動時にデフォルトVRMを自動読み込み開始')
         await loadDefaultVRM()
       }
     }
 
     autoLoadDefaultVRM()
+    
+    return () => {
+      mounted = false
+    }
   }, []) // 初回マウント時のみ実行するように修正
 
   return (

@@ -43,8 +43,10 @@ export const useVRMLoader = ({
     try {
       // 既存のVRMを削除
       if (vrmRef.current) {
+        console.log('🟡 [loadVRMFile] 既存のVRMを削除')
         sceneRef.current.remove(vrmRef.current.scene)
         VRMUtils.deepDispose(vrmRef.current.scene)
+        vrmRef.current = null
       }
 
       // GLTFLoaderにVRMLoaderPluginを登録
@@ -67,6 +69,7 @@ export const useVRMLoader = ({
       vrm.scene.rotation.y = -Math.PI / 30  // 反時計回りに6度回転 (-π/30 ≈ -0.1ラジアン)
       
       // VRMをシーンに追加
+      console.log('🔴 [loadVRMFile] VRMをシーンに追加')
       sceneRef.current.add(vrm.scene)
 
       // frustum cullingを無効化
@@ -107,8 +110,10 @@ export const useVRMLoader = ({
 
       // 既存のVRMを削除
       if (vrmRef.current && sceneRef.current) {
+        console.log('🟡 [loadDefaultVRM] 既存のVRMを削除')
         sceneRef.current.remove(vrmRef.current.scene)
         VRMUtils.deepDispose(vrmRef.current.scene)
+        vrmRef.current = null
       }
 
       // GLTFLoaderにVRMLoaderPluginを登録
@@ -134,6 +139,7 @@ export const useVRMLoader = ({
       
       // VRMをシーンに追加
       if (sceneRef.current) {
+        console.log('🔴 [loadDefaultVRM] VRMをシーンに追加')
         sceneRef.current.add(vrm.scene)
         vrmRef.current = vrm
 
