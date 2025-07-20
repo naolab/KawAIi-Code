@@ -228,8 +228,11 @@ class MessageAccumulator {
             debugLog(`📞 コールバック実行開始 - メッセージ長: ${completeMessage.length}`);
             debugLog(`📞 メッセージサンプル:`, completeMessage.substring(0, 100) + '...');
             
+            // 大量『』テキスト制限（バグ対策）
+            const processedMessage = this.limitVoiceTexts(completeMessage);
+            
             try {
-                this.processCallback(completeMessage);
+                this.processCallback(processedMessage);
                 debugLog(`📞 コールバック実行完了`);
             } catch (error) {
                 if (this.errorHandler) {
@@ -331,6 +334,42 @@ class MessageAccumulator {
             this.contentTracker.clear();
             this.debugLogSafe('🧹 重複防止システムをクリア');
         }
+    }
+
+    /**
+     * 大量『』テキスト制限（バグ対策）
+     * @param {string} message - 処理対象メッセージ
+     * @returns {string} 制限適用後のメッセージ
+     */
+    limitVoiceTexts(message) {
+        const quotedMatches = message.match(/『[^』]*』/g);
+        
+        if (!quotedMatches) {
+            return message;
+        }
+        
+        const MAX_QUOTED_TEXTS = 10;
+        
+        if (quotedMatches.length <= MAX_QUOTED_TEXTS) {
+            return message;
+        }
+        
+        // 最初の10個のみ残す
+        const limitedQuotes = quotedMatches.slice(0, MAX_QUOTED_TEXTS);
+        const remaining = quotedMatches.length - MAX_QUOTED_TEXTS;
+        
+        // 元のメッセージから『』を削除
+        let limitedMessage = message.replace(/『[^』]*』/g, '');
+        
+        // 制限された『』テキストを追加
+        limitedMessage += limitedQuotes.join('');
+        
+        // 要約メッセージを追加
+        limitedMessage += `『他に${remaining}個のメッセージがあるが、負荷対策で省略したぞ』`;
+        
+        this.debugLogSafe(`⚠️ 音声テキスト制限: ${quotedMatches.length}個中${MAX_QUOTED_TEXTS}個のみ処理`);
+        
+        return limitedMessage;
     }
 }
 

@@ -407,13 +407,22 @@ class VoiceHookService {
 
         console.log(`${bracketMatches.length}個の『』テキストが見つかりました`);
 
+        // 大量テキスト制限（バグ対策）
+        const MAX_VOICE_TEXTS = 5;
+        let processMatches = bracketMatches;
+        
+        if (bracketMatches.length > MAX_VOICE_TEXTS) {
+            processMatches = bracketMatches.slice(0, MAX_VOICE_TEXTS);
+            console.log(`⚠️ 音声読み上げ制限: ${bracketMatches.length}個中${MAX_VOICE_TEXTS}個のみ処理（負荷対策）`);
+        }
+
         // 2. 各『』テキストを順番に処理
-        for (let i = 0; i < bracketMatches.length; i++) {
-            const bracketText = bracketMatches[i];
-            console.log(`処理中 (${i + 1}/${bracketMatches.length}): ${bracketText}`);
+        for (let i = 0; i < processMatches.length; i++) {
+            const bracketText = processMatches[i];
+            console.log(`処理中 (${i + 1}/${processMatches.length}): ${bracketText}`);
 
             // 重複チェック（最後の1つのみチェック）
-            if (i === bracketMatches.length - 1 && this.isDuplicateText(bracketText)) {
+            if (i === processMatches.length - 1 && this.isDuplicateText(bracketText)) {
                 console.log('最後のテキストが重複のためスキップ');
                 continue;
             }
@@ -422,7 +431,7 @@ class VoiceHookService {
             await this.processVoiceSynthesis(bracketText);
 
             // 次のテキストまで間隔を開ける（最後以外）
-            if (i < bracketMatches.length - 1) {
+            if (i < processMatches.length - 1) {
                 const intervalMs = this.voiceInterval * 1000; // 秒をミリ秒に変換
                 console.log(`次の音声まで${this.voiceInterval}秒待機中...`);
                 await new Promise(resolve => setTimeout(resolve, intervalMs));
