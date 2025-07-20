@@ -11,7 +11,7 @@ class AppConstants {
     static get AUDIO() {
         return {
             MAX_AGE: 120000,              // 120秒（2分）で古い音声とみなす
-            MAX_QUEUE_SIZE: 50,           // キューの最大サイズ（メモリ使用量制限）
+            MAX_QUEUE_SIZE: 10,           // キューの最大サイズ（メモリ使用量制限）
             DEFAULT_INTERVAL_SECONDS: 0.5,  // 音声読み上げ間隔（デフォルト0.5秒）
             DEFAULT_INTERVAL: 500        // 音声読み上げ間隔（ミリ秒）
         };

@@ -15,6 +15,18 @@ class VoiceQueue {
     
     // キューに音声テキストを追加
     async addToQueue(text) {
+        // キューサイズ制限チェック（最大10個）
+        const MAX_QUEUE_SIZE = 10;
+        
+        if (this.queue.length >= MAX_QUEUE_SIZE) {
+            // 古いエントリを削除して新しいものを追加
+            const removedText = this.queue.shift();
+            this.debugLog('🎵 キュー容量超過のため古いエントリを削除:', { 
+                removed: removedText.substring(0, 30) + '...', 
+                queueLength: this.queue.length 
+            });
+        }
+        
         this.queue.push(text);
         this.debugLog('🎵 音声キューに追加:', { text: text.substring(0, 30) + '...', queueLength: this.queue.length });
         
