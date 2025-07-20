@@ -61,7 +61,7 @@ export const useThreeScene = ({
       0.1,
       20.0
     )
-    camera.position.set(0, 1.4, 2.0) // デフォルトのカメラ位置
+    camera.position.set(0.22, 1.45, 0.8) // カメラを0.22の位置に調整
     cameraRef.current = camera
 
     // レンダラーの初期化（パフォーマンス最適化）
@@ -82,7 +82,7 @@ export const useThreeScene = ({
     // OrbitControls の初期化（ChatVRMと同じ設定）
     const cameraControls = new OrbitControls(camera, renderer.domElement)
     cameraControls.screenSpacePanning = true
-    cameraControls.target.set(0, 1.4, 0) // デフォルトのターゲット位置
+    cameraControls.target.set(0, 1.3, 0) // カメラターゲットを1.3に調整
     cameraControls.update()
     cameraControlsRef.current = cameraControls
 
