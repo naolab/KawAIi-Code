@@ -14,9 +14,9 @@ export const useCamera = ({ cameraRef, cameraControlsRef }: UseCameraProps) => {
     const headNode = vrm.humanoid?.getNormalizedBoneNode("head")
     if (headNode && cameraRef.current && cameraControlsRef.current) {
       // カメラ位置をキャラクター全体が見えるように調整
-      cameraRef.current.position.set(0.1, 1.1, 0.8)
+      cameraRef.current.position.set(0, 1.4, 2.0) // デフォルト位置
       // ターゲットをキャラクターの中央に設定
-      cameraControlsRef.current.target.set(0, 1.0, 0)
+      cameraControlsRef.current.target.set(0, 1.4, 0) // デフォルトターゲット
       cameraControlsRef.current.update()
     }
   }, [cameraRef, cameraControlsRef])

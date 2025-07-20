@@ -64,9 +64,9 @@ export const useVRMLoader = ({
       VRMUtils.rotateVRM0(vrm)
       
       // VRMのサイズと位置を調整（デフォルトVRMと同じ設定）
-      vrm.scene.scale.setScalar(0.7)  // 少し小さくする
-      vrm.scene.position.set(0, 0.12, 0)  // 高さを0.12に調整
-      vrm.scene.rotation.y = -Math.PI / 30  // 反時計回りに6度回転 (-π/30 ≈ -0.1ラジアン)
+      // vrm.scene.scale.setScalar(0.7)  // デフォルト1.0に戻す
+      // vrm.scene.position.set(0, 0.12, 0)  // デフォルト(0,0,0)に戻す
+      // vrm.scene.rotation.y = -Math.PI / 30  // デフォルト0に戻す
       
       // VRMをシーンに追加
       console.log('🔴 [loadVRMFile] VRMをシーンに追加')
@@ -133,9 +133,9 @@ export const useVRMLoader = ({
       VRMUtils.rotateVRM0(vrm)
       
       // VRMのサイズと位置を調整
-      vrm.scene.scale.setScalar(0.7)  // 少し小さくする
-      vrm.scene.position.set(0, 0.12, 0)  // 高さを0.12に調整
-      vrm.scene.rotation.y = -Math.PI / 30  // 反時計回りに6度回転 (-π/30 ≈ -0.1ラジアン)
+      // vrm.scene.scale.setScalar(0.7)  // デフォルト1.0に戻す
+      // vrm.scene.position.set(0, 0.12, 0)  // デフォルト(0,0,0)に戻す
+      // vrm.scene.rotation.y = -Math.PI / 30  // デフォルト0に戻す
       
       // VRMをシーンに追加
       if (sceneRef.current) {

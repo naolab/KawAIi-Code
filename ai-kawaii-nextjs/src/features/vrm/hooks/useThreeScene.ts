@@ -56,12 +56,12 @@ export const useThreeScene = ({
     const initialWidth = window.innerWidth
     const initialHeight = window.innerHeight
     const camera = new THREE.PerspectiveCamera(
-      35.0, // FOVをさらに広げて全体が見えるように
+      50.0, // デフォルトのFOVに戻す
       initialWidth / initialHeight,
       0.1,
       20.0
     )
-    camera.position.set(0, 1.5, 1.0) // カメラを初期位置に設定
+    camera.position.set(0, 1.4, 2.0) // デフォルトのカメラ位置
     cameraRef.current = camera
 
     // レンダラーの初期化（パフォーマンス最適化）
@@ -82,7 +82,7 @@ export const useThreeScene = ({
     // OrbitControls の初期化（ChatVRMと同じ設定）
     const cameraControls = new OrbitControls(camera, renderer.domElement)
     cameraControls.screenSpacePanning = true
-    cameraControls.target.set(0, 1.2, 0) // ターゲットを初期位置に設定
+    cameraControls.target.set(0, 1.4, 0) // デフォルトのターゲット位置
     cameraControls.update()
     cameraControlsRef.current = cameraControls
 
