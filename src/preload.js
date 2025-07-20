@@ -96,6 +96,11 @@ window.electronAPI = {
   removeAppConfig: (key) => ipcRenderer.invoke('remove-app-config', key),
   clearAppConfig: () => ipcRenderer.invoke('clear-app-config'),
 
+  // 会話ログ読み込み
+  logs: {
+    loadConversationLog: (count) => ipcRenderer.invoke('load-conversation-log', count)
+  },
+
   fs: require('fs'), // fsモジュールを公開
   path: require('path'), // pathモジュールを公開
   os: require('os') // osモジュールを公開

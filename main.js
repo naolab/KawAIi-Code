@@ -701,6 +701,105 @@ ipcMain.handle('voice-get-emotion', async (event, text) => {
   }
 });
 
+// 会話ログ読み込み機能
+ipcMain.handle('load-conversation-log', async (event, count = 20) => {
+  try {
+    const logPath = path.join(os.homedir(), '.claude', 'global_load_log.py');
+    
+    // ログファイルの存在確認
+    if (!fs.existsSync(logPath)) {
+      return { 
+        success: false, 
+        error: 'ログファイルが見つかりません',
+        logs: [] 
+      };
+    }
+
+    // Pythonスクリプトを実行してログを取得
+    const command = `python3 "${logPath}" last ${count}`;
+    
+    return new Promise((resolve) => {
+      const child = spawn('python3', [logPath, 'last', count.toString()], {
+        cwd: os.homedir(),
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      let output = '';
+      let errorOutput = '';
+
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
+      child.on('close', (code) => {
+        if (code === 0 && output) {
+          // ログデータをパース
+          const logs = parseConversationLog(output);
+          resolve({ 
+            success: true, 
+            logs: logs,
+            count: logs.length
+          });
+        } else {
+          resolve({ 
+            success: false, 
+            error: errorOutput || 'ログの読み込みに失敗しました',
+            logs: []
+          });
+        }
+      });
+
+      // タイムアウト設定（10秒）
+      setTimeout(() => {
+        child.kill();
+        resolve({ 
+          success: false, 
+          error: 'ログ読み込みがタイムアウトしました',
+          logs: []
+        });
+      }, 10000);
+    });
+
+  } catch (error) {
+    console.error('Conversation log loading error:', error);
+    return { 
+      success: false, 
+      error: error.message,
+      logs: []
+    };
+  }
+});
+
+// ログデータのパース関数
+function parseConversationLog(rawOutput) {
+  try {
+    const logs = [];
+    const lines = rawOutput.split('\n').filter(line => line.trim());
+    
+    for (const line of lines) {
+      // 『』で囲まれたテキストを抽出
+      const match = line.match(/『([^』]+)』/);
+      if (match) {
+        const timestamp = new Date().toLocaleString(); // 簡易的なタイムスタンプ
+        logs.push({
+          timestamp: timestamp,
+          text: match[1],
+          raw: line
+        });
+      }
+    }
+    
+    return logs.slice(-50); // 最大50件に制限
+  } catch (error) {
+    console.error('Log parsing error:', error);
+    return [];
+  }
+}
+
 // 感情データの転送用IPCハンドラー
 ipcMain.on('emotion-data', (event, emotionData) => {
   debugLog('😊 感情データを受信:', emotionData);

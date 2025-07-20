@@ -534,6 +534,178 @@ class TerminalApp {
 
 
 
+    // 統計・ログモーダル表示
+    async showStatsLogModal() {
+        const modal = document.getElementById('stats-log-modal');
+        if (!modal) {
+            console.error('Stats log modal not found');
+            return;
+        }
+
+        try {
+            // 統計情報を表示
+            await this.updateStatsDisplay();
+            
+            // ログ情報を表示
+            await this.updateLogDisplay();
+            
+            // モーダルを表示
+            modal.style.display = 'block';
+            
+            // モーダルイベントリスナーを設定
+            this.setupStatsLogModalEvents();
+            
+        } catch (error) {
+            console.error('Error showing stats log modal:', error);
+        }
+    }
+
+    // 統計情報の表示更新
+    async updateStatsDisplay() {
+        const statsContent = document.getElementById('stats-content');
+        if (!statsContent) return;
+
+        try {
+            let statsHtml = '<div style="color: #333;">';
+            
+            if (this.messageAccumulator && this.messageAccumulator.duplicateChecker) {
+                const stats = this.messageAccumulator.duplicateChecker.getStats();
+                const runtime = Math.round(stats.runtimeHours * 60);
+                
+                statsHtml += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #ff6b35;">📊 重複防止システム統計 (${runtime}分稼働)</strong>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                        <div>🔍 総チェック数: <strong>${stats.checked}件</strong></div>
+                        <div>🚫 重複検出数: <strong>${stats.duplicates}件 (${stats.duplicateRate}%)</strong></div>
+                        <div>🎵 読み上げ数: <strong>${stats.spoken}件</strong></div>
+                        <div>💾 メモリ使用: <strong>${stats.memoryKB}KB</strong></div>
+                        <div>⚡ 効率性: <strong>${stats.duplicates > 0 ? '重複を検出済み' : '重複なし'}</strong></div>
+                        <div>📈 時間あたり読み上げ: <strong>${stats.avgPerHour}件/h</strong></div>
+                    </div>
+                `;
+                
+                // 最近のハッシュサンプル
+                const recentHashes = Array.from(this.messageAccumulator.duplicateChecker.spokenTexts).slice(-5);
+                if (recentHashes.length > 0) {
+                    statsHtml += `
+                        <div style="margin-top: 15px;">
+                            <strong>📝 最近のハッシュサンプル:</strong>
+                            <div style="font-family: monospace; font-size: 12px; color: #666; margin-top: 5px;">
+                    `;
+                    recentHashes.forEach((hash, i) => {
+                        statsHtml += `<div>${i + 1}. ${hash}</div>`;
+                    });
+                    statsHtml += '</div></div>';
+                }
+                
+            } else {
+                statsHtml += `
+                    <div style="color: #ff6b35;">⚠️ 重複防止システムが初期化されていません</div>
+                    <div style="margin-top: 10px;">
+                        <div>📊 基本情報:</div>
+                        <div>- アプリ起動時刻: ${new Date().toLocaleString()}</div>
+                        <div>- 統計ボタン動作: OK</div>
+                    </div>
+                `;
+            }
+            
+            statsHtml += '</div>';
+            statsContent.innerHTML = statsHtml;
+            
+        } catch (error) {
+            statsContent.innerHTML = `<div style="color: red;">統計情報の読み込みに失敗しました: ${error.message}</div>`;
+        }
+    }
+
+    // ログ情報の表示更新
+    async updateLogDisplay(count = 20) {
+        const logContent = document.getElementById('log-content');
+        if (!logContent) return;
+
+        try {
+            logContent.innerHTML = '<div style="text-align: center; color: #666;">ログを読み込み中...</div>';
+            
+            // 会話ログを読み込み
+            const result = await window.electronAPI.logs.loadConversationLog(count);
+            
+            if (result.success && result.logs.length > 0) {
+                let logHtml = `<div style="margin-bottom: 10px; color: #35a6ff; font-weight: bold;">取得件数: ${result.logs.length}件</div>`;
+                
+                result.logs.forEach((log, index) => {
+                    logHtml += `
+                        <div style="margin-bottom: 12px; padding: 8px; background: white; border-left: 3px solid #35a6ff; border-radius: 4px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">#${index + 1} ${log.timestamp}</div>
+                            <div style="color: #333;">${this.escapeHtml(log.text)}</div>
+                        </div>
+                    `;
+                });
+                
+                logContent.innerHTML = logHtml;
+            } else {
+                const errorMsg = result.error || 'ログが見つかりませんでした';
+                logContent.innerHTML = `
+                    <div style="text-align: center; color: #666;">
+                        <div style="margin-bottom: 10px;">💬 ${errorMsg}</div>
+                        <div style="font-size: 12px;">ログファイル: ~/.claude/conversation_log.db</div>
+                    </div>
+                `;
+            }
+            
+        } catch (error) {
+            logContent.innerHTML = `<div style="color: red;">ログの読み込みに失敗しました: ${error.message}</div>`;
+        }
+    }
+
+    // HTMLエスケープ関数
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // 統計・ログモーダルのイベントリスナー設定
+    setupStatsLogModalEvents() {
+        // 閉じるボタン
+        const closeBtn = document.getElementById('close-stats-log');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                document.getElementById('stats-log-modal').style.display = 'none';
+            };
+        }
+
+        // 更新ボタン
+        const refreshBtn = document.getElementById('refresh-log-btn');
+        if (refreshBtn) {
+            refreshBtn.onclick = async () => {
+                const countSelect = document.getElementById('log-count-select');
+                const count = countSelect ? parseInt(countSelect.value) : 20;
+                await this.updateLogDisplay(count);
+                await this.updateStatsDisplay();
+            };
+        }
+
+        // 件数選択
+        const countSelect = document.getElementById('log-count-select');
+        if (countSelect) {
+            countSelect.onchange = async () => {
+                const count = parseInt(countSelect.value);
+                await this.updateLogDisplay(count);
+            };
+        }
+
+        // モーダル外クリックで閉じる
+        const modal = document.getElementById('stats-log-modal');
+        if (modal) {
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            };
+        }
+    }
+
 }
 
 // 音声キューイングシステム
@@ -552,25 +724,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // デバッグ統計ボタンのイベントリスナーを追加
             const debugStatsBtn = document.getElementById('debug-stats-btn');
             if (debugStatsBtn) {
-                debugStatsBtn.addEventListener('click', () => {
-                    console.group('🛡️ シンプル重複防止システム 統計情報');
-                    
-                    // MessageAccumulatorの統計表示
-                    if (app.messageAccumulator && app.messageAccumulator.duplicateChecker) {
-                        app.messageAccumulator.duplicateChecker.showDiagnostics();
-                        
-                        // リアルタイム統計も表示
-                        app.messageAccumulator.duplicateChecker.showRealtimeStats();
-                        
-                        console.log('🎯 使用方法:');
-                        console.log('- このボタンで統計をいつでも確認できます');
-                        console.log('- コンソールで重複防止の動作をリアルタイム監視中');
-                        console.log('- 重複検出時は自動でアラート表示');
-                    } else {
-                        console.warn('⚠️ 重複防止システムが初期化されていません');
-                    }
-                    
-                    console.groupEnd();
+                debugStatsBtn.addEventListener('click', async () => {
+                    // 統計・ログモーダルを表示
+                    await app.showStatsLogModal();
                 });
                 
                 debugLog('📊 デバッグ統計ボタンのイベントリスナーを追加しました');
