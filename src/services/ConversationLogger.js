@@ -16,12 +16,14 @@ class ConversationLogger {
         this.db = null;
         this.isInitialized = false;
         this.logPrefix = '💾 [ConversationLogger]';
+        this.maxLogs = 1000; // 最大ログ件数
         
         // 統計情報
         this.stats = {
             totalLogs: 0,
             sessionLogs: 0,
             errors: 0,
+            deletedLogs: 0,
             startTime: Date.now()
         };
         
@@ -142,6 +144,9 @@ class ConversationLogger {
             
             this.stats.sessionLogs++;
             this.stats.totalLogs++;
+            
+            // 上限チェックと古いログの削除
+            await this.enforceLogLimit();
             
             this.debugLog(`${this.logPrefix} ログ保存完了: "${cleanText.substring(0, 50)}..." (総数: ${this.stats.totalLogs})`);
             
@@ -269,6 +274,7 @@ class ConversationLogger {
         
         return {
             ...this.stats,
+            maxLogs: this.maxLogs,
             runtimeHours: Math.round(runtimeHours * 100) / 100,
             logsPerHour: runtimeHours > 0 ? Math.round(this.stats.sessionLogs / runtimeHours) : 0,
             isInitialized: this.isInitialized,
@@ -292,6 +298,68 @@ class ConversationLogger {
                 });
             });
         }
+    }
+
+    /**
+     * ログ件数制限の実施
+     */
+    async enforceLogLimit() {
+        try {
+            const currentCount = await this.getLogCount();
+            if (currentCount > this.maxLogs) {
+                const deleteCount = currentCount - this.maxLogs;
+                await this.deleteOldestLogs(deleteCount);
+                
+                // 統計を更新
+                this.stats.deletedLogs += deleteCount;
+                this.stats.totalLogs = this.maxLogs;
+                
+                this.debugLog(`${this.logPrefix} 上限制限実施: ${deleteCount}件の古いログを削除 (上限: ${this.maxLogs}件)`);
+            }
+        } catch (error) {
+            this.debugLog(`${this.logPrefix} 上限制限エラー:`, error);
+            this.stats.errors++;
+        }
+    }
+
+    /**
+     * 現在のログ件数を取得
+     */
+    async getLogCount() {
+        return new Promise((resolve, reject) => {
+            this.db.get('SELECT COUNT(*) as count FROM conversation_logs', (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row.count || 0);
+                }
+            });
+        });
+    }
+
+    /**
+     * 古いログを指定件数削除
+     * @param {number} deleteCount - 削除する件数
+     */
+    async deleteOldestLogs(deleteCount) {
+        return new Promise((resolve, reject) => {
+            const sql = `
+                DELETE FROM conversation_logs 
+                WHERE id IN (
+                    SELECT id FROM conversation_logs 
+                    ORDER BY timestamp ASC 
+                    LIMIT ?
+                )
+            `;
+            
+            this.db.run(sql, [deleteCount], (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
     }
 
     /**
