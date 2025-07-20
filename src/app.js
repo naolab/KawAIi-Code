@@ -557,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 初期化完了後にローディング画面を非表示
         setTimeout(() => {
             loadingScreen.hide();
-        }, 500);
+        }, 4000);
     }, 1000); // 1秒間ローディング画面を表示
     
     // 初回強制接続チェック（フォールバック）
