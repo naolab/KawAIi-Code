@@ -916,7 +916,7 @@ class UIEventManager {
         // チャット入力エリアは削除済み
 
         // 初期メッセージを削除（シンプルな起動のため）
-        // this.addVoiceMessage('ニコ', 'こんにちは〜！何をお手伝いしましょうか？');
+        // this.addVoiceMessage('モネ', 'こんにちは〜！何をお手伝いしましょうか？');
     }
 
     /**

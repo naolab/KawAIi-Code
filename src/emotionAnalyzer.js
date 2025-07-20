@@ -3,7 +3,7 @@ const Logger = require('./utils/logger');
 const logger = Logger.create('EmotionAnalyzer');
 
 /**
- * ニコの感情分析モジュール
+ * モネの感情分析モジュール
  * emotion_mapping_proposal.mdに基づいて実装
  */
 class EmotionAnalyzer {

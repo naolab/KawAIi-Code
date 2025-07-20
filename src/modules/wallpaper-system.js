@@ -165,7 +165,7 @@ class WallpaperSystem {
                         await unifiedConfig.set('selectedWallpaperChoice', 'default');
                         await unifiedConfig.remove('lastUploadedWallpaper');
                         if (uploadedWallpaperNameSpan) uploadedWallpaperNameSpan.textContent = '';
-                        this.addVoiceMessage('ニコ', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
+                        this.addVoiceMessage('モネ', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
                         this.startWallpaperTimer(); // デフォルト壁紙に戻るのでタイマーを開始
                     }
                 }
@@ -242,7 +242,7 @@ class WallpaperSystem {
                 this.currentWallpaperOption = 'default';
                 await unifiedConfig.set('wallpaperOption', 'default');
                 document.getElementById('wallpaper-default-radio').checked = true;
-                this.addVoiceMessage('ニコ', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
+                this.addVoiceMessage('モネ', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
                 // ここでnewWallpaperPathを更新し、下の比較ロジックで再適用されるようにする
                 if (this.wallpaperAnimationEnabled) {
                     newWallpaperPath = `assets/wallpapers/default/${baseFileName}.mp4`;
@@ -314,7 +314,7 @@ class WallpaperSystem {
                 await unifiedConfig.set('wallpaperOption', 'default');
                 document.getElementById('wallpaper-default-radio').checked = true;
                 this.applyWallpaper(); // フォールバック
-                this.addVoiceMessage('ニコ', 'アップロードされた壁紙の読み込み中にエラーが発生したため、デフォルト壁紙に戻したよ！');
+                this.addVoiceMessage('モネ', 'アップロードされた壁紙の読み込み中にエラーが発生したため、デフォルト壁紙に戻したよ！');
             }
         }
 
@@ -369,7 +369,7 @@ class WallpaperSystem {
             const response = await window.electronAPI.wallpaper.uploadWallpaper(serializableFileData);
             if (response.success) {
                 // 成功メッセージ
-                this.addVoiceMessage('ニコ', '壁紙がアップロードできたよ〜！✨');
+                this.addVoiceMessage('モネ', '壁紙がアップロードできたよ〜！✨');
 
                 // 壁紙リストを再読み込みし、UIの状態を更新
                 // 自動選択は行わず、loadWallpaperListで既存のlocalStorage設定に基づいて状態を決定させる
