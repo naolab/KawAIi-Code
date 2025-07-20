@@ -41,7 +41,8 @@
                 </button>
                 <button id="help-btn" class="settings-btn help-btn" aria-label="使い方を見る">
                 </button>
-                <button id="debug-stats-btn" class="settings-btn debug-btn" aria-label="重複防止統計を表示" title="重複防止システム統計" style="background: #ff6b35; color: white; font-size: 12px; border-radius: 4px;">📊</button>
+                <button id="debug-stats-btn" class="settings-btn help-btn" aria-label="会話ログを表示" title="会話ログ">
+                </button>
             </div>
             <div class="controls">
                 <button id="terminal-toggle" class="simple-btn terminal-toggle-btn" aria-label="ターミナル表示切り替え">
@@ -348,35 +349,25 @@
             </div>
         </div>
         
-        <!-- 統計・ログ表示モーダル -->
-        <div id="stats-log-modal" class="settings-modal" style="display: none;">
-            <div class="settings-content" style="max-width: 800px; max-height: 80vh;">
-                <div class="settings-header">
-                    <h3>📊 統計・ログ情報</h3>
+        <!-- 会話ログ表示モーダル -->
+        <div id="stats-log-modal" class="help-modal" style="display: none;">
+            <div class="help-content">
+                <div class="help-header">
+                    <h3>会話ログ</h3>
                     <button id="close-stats-log" class="close-btn">×</button>
                 </div>
-                <div class="settings-body" style="max-height: 70vh; overflow-y: auto;">
-                    <!-- 統計セクション -->
-                    <div class="stats-section" style="margin-bottom: 20px;">
-                        <h4 style="color: #ff6b35; margin-bottom: 10px;">🛡️ 重複防止システム統計</h4>
-                        <div id="stats-content" style="background: #f5f5f5; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 14px;">
-                            <div>統計情報を読み込み中...</div>
-                        </div>
-                    </div>
-                    
-                    <!-- ログセクション -->
-                    <div class="log-section">
-                        <h4 style="color: #35a6ff; margin-bottom: 10px;">💬 会話ログ (最新20件)</h4>
-                        <div style="margin-bottom: 10px;">
-                            <button id="refresh-log-btn" class="simple-btn" style="width: auto; padding: 5px 15px; font-size: 12px;">🔄 更新</button>
-                            <select id="log-count-select" style="margin-left: 10px; padding: 5px;">
+                <div class="help-body">
+                    <div class="help-section">
+                        <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                            <button id="refresh-log-btn" class="simple-btn" style="width: auto; padding: 8px 16px; font-size: 14px;">🔄 更新</button>
+                            <select id="log-count-select" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: white;">
                                 <option value="10">最新10件</option>
                                 <option value="20" selected>最新20件</option>
                                 <option value="50">最新50件</option>
                                 <option value="100">最新100件</option>
                             </select>
                         </div>
-                        <div id="log-content" style="background: #f8f8f8; padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto; font-size: 14px; line-height: 1.6;">
+                        <div id="log-content" style="background: #f8f8f8; padding: 20px; border-radius: 8px; max-height: 500px; overflow-y: auto; font-size: 14px; line-height: 1.6; border: 1px solid #e0e0e0;">
                             <div style="text-align: center; color: #666;">ログを読み込み中...</div>
                         </div>
                     </div>

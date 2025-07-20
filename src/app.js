@@ -534,18 +534,15 @@ class TerminalApp {
 
 
 
-    // 統計・ログモーダル表示
+    // 会話ログモーダル表示
     async showStatsLogModal() {
         const modal = document.getElementById('stats-log-modal');
         if (!modal) {
-            console.error('Stats log modal not found');
+            console.error('Log modal not found');
             return;
         }
 
         try {
-            // 統計情報を表示
-            await this.updateStatsDisplay();
-            
             // ログ情報を表示
             await this.updateLogDisplay();
             
@@ -556,68 +553,10 @@ class TerminalApp {
             this.setupStatsLogModalEvents();
             
         } catch (error) {
-            console.error('Error showing stats log modal:', error);
+            console.error('Error showing log modal:', error);
         }
     }
 
-    // 統計情報の表示更新
-    async updateStatsDisplay() {
-        const statsContent = document.getElementById('stats-content');
-        if (!statsContent) return;
-
-        try {
-            let statsHtml = '<div style="color: #333;">';
-            
-            if (this.messageAccumulator && this.messageAccumulator.duplicateChecker) {
-                const stats = this.messageAccumulator.duplicateChecker.getStats();
-                const runtime = Math.round(stats.runtimeHours * 60);
-                
-                statsHtml += `
-                    <div style="margin-bottom: 15px;">
-                        <strong style="color: #ff6b35;">📊 重複防止システム統計 (${runtime}分稼働)</strong>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                        <div>🔍 総チェック数: <strong>${stats.checked}件</strong></div>
-                        <div>🚫 重複検出数: <strong>${stats.duplicates}件 (${stats.duplicateRate}%)</strong></div>
-                        <div>🎵 読み上げ数: <strong>${stats.spoken}件</strong></div>
-                        <div>💾 メモリ使用: <strong>${stats.memoryKB}KB</strong></div>
-                        <div>⚡ 効率性: <strong>${stats.duplicates > 0 ? '重複を検出済み' : '重複なし'}</strong></div>
-                        <div>📈 時間あたり読み上げ: <strong>${stats.avgPerHour}件/h</strong></div>
-                    </div>
-                `;
-                
-                // 最近のハッシュサンプル
-                const recentHashes = Array.from(this.messageAccumulator.duplicateChecker.spokenTexts).slice(-5);
-                if (recentHashes.length > 0) {
-                    statsHtml += `
-                        <div style="margin-top: 15px;">
-                            <strong>📝 最近のハッシュサンプル:</strong>
-                            <div style="font-family: monospace; font-size: 12px; color: #666; margin-top: 5px;">
-                    `;
-                    recentHashes.forEach((hash, i) => {
-                        statsHtml += `<div>${i + 1}. ${hash}</div>`;
-                    });
-                    statsHtml += '</div></div>';
-                }
-                
-            } else {
-                statsHtml += `
-                    <div style="color: #ff6b35;">⚠️ 重複防止システムが初期化されていません</div>
-                    <div style="margin-top: 10px;">
-                        <div>📊 基本情報:</div>
-                        <div>- アプリ起動時刻: ${new Date().toLocaleString()}</div>
-                        <div>- 統計ボタン動作: OK</div>
-                    </div>
-                `;
-            }
-            
-            statsHtml += '</div>';
-            statsContent.innerHTML = statsHtml;
-            
-        } catch (error) {
-            statsContent.innerHTML = `<div style="color: red;">統計情報の読み込みに失敗しました: ${error.message}</div>`;
-        }
-    }
 
     // ログ情報の表示更新
     async updateLogDisplay(count = 20) {
@@ -631,13 +570,21 @@ class TerminalApp {
             const result = await window.electronAPI.logs.loadConversationLog(count);
             
             if (result.success && result.logs.length > 0) {
-                let logHtml = `<div style="margin-bottom: 10px; color: #35a6ff; font-weight: bold;">取得件数: ${result.logs.length}件</div>`;
+                let logHtml = `
+                    <div style="margin-bottom: 15px; padding: 10px; background: #e7f3ff; border-radius: 6px; border-left: 4px solid #007acc;">
+                        <strong style="color: #007acc;">📊 取得件数: ${result.logs.length}件</strong>
+                        ${result.total > result.logs.length ? ` (全${result.total}件中)` : ''}
+                    </div>
+                `;
                 
                 result.logs.forEach((log, index) => {
                     logHtml += `
-                        <div style="margin-bottom: 12px; padding: 8px; background: white; border-left: 3px solid #35a6ff; border-radius: 4px;">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">#${index + 1} ${log.timestamp}</div>
-                            <div style="color: #333;">${this.escapeHtml(log.text)}</div>
+                        <div class="help-item" style="margin-bottom: 15px; padding: 12px; background: white; border: 1px solid #e0e0e0; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            <div style="font-size: 12px; color: #888; margin-bottom: 6px; display: flex; justify-content: between;">
+                                <span><strong>#${index + 1}</strong></span>
+                                <span>${log.timestamp}</span>
+                            </div>
+                            <div style="color: #333; font-size: 14px; line-height: 1.5;">${this.escapeHtml(log.text)}</div>
                         </div>
                     `;
                 });
@@ -646,9 +593,15 @@ class TerminalApp {
             } else {
                 const errorMsg = result.error || 'ログが見つかりませんでした';
                 logContent.innerHTML = `
-                    <div style="text-align: center; color: #666;">
-                        <div style="margin-bottom: 10px;">💬 ${errorMsg}</div>
-                        <div style="font-size: 12px;">ログファイル: ~/.claude/conversation_log.db</div>
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <div style="font-size: 18px; margin-bottom: 10px;">💬</div>
+                        <div style="font-size: 16px; margin-bottom: 8px;">${errorMsg}</div>
+                        <div style="font-size: 12px; color: #999;">
+                            ${errorMsg.includes('見つかりません') ? 
+                                'AIと会話すると、ここに『』で囲まれたテキストが保存されます。' : 
+                                'データベース: ~/.claude/conversation_log.db'
+                            }
+                        </div>
                     </div>
                 `;
             }
@@ -682,7 +635,6 @@ class TerminalApp {
                 const countSelect = document.getElementById('log-count-select');
                 const count = countSelect ? parseInt(countSelect.value) : 20;
                 await this.updateLogDisplay(count);
-                await this.updateStatsDisplay();
             };
         }
 
