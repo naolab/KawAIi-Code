@@ -234,7 +234,7 @@ class UnifiedConfigManager {
             voiceSynthesisEnabled: true,
             defaultSpeakerId: null,
             voiceCooldownSeconds: 1,
-            voiceIntervalSeconds: 1,
+            voiceIntervalSeconds: 0.5,
             useHooks: false, // デフォルトはアプリ内監視モード
             claudeMdAutoGenerate: true, // CLAUDE.md自動生成（デフォルトON）
             
