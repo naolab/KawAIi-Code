@@ -122,7 +122,7 @@ export const useVRMLoader = ({
       loader.register((parser: any) => new VRMLoaderPlugin(parser))
 
       // VRMを直接URLから読み込み
-      const gltf = await loader.loadAsync('./kotone_claude1.vrm')
+      const gltf = await loader.loadAsync('./Nico_default.vrm')
       const vrm = gltf.userData.vrm as VRM
 
       if (!vrm) {
