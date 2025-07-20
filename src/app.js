@@ -547,7 +547,7 @@ class TerminalApp {
             await this.updateLogDisplay();
             
             // モーダルを表示
-            modal.style.display = 'block';
+            modal.style.display = 'flex';
             
             // モーダルイベントリスナーを設定
             this.setupStatsLogModalEvents();
@@ -570,19 +570,13 @@ class TerminalApp {
             const result = await window.electronAPI.logs.loadConversationLog(count);
             
             if (result.success && result.logs.length > 0) {
-                let logHtml = `
-                    <div style="margin-bottom: 15px; padding: 10px; background: #e7f3ff; border-radius: 6px; border-left: 4px solid #007acc;">
-                        <strong style="color: #007acc;">📊 取得件数: ${result.logs.length}件</strong>
-                        ${result.total > result.logs.length ? ` (全${result.total}件中)` : ''}
-                    </div>
-                `;
+                let logHtml = ``;
                 
                 result.logs.forEach((log, index) => {
                     logHtml += `
                         <div class="help-item" style="margin-bottom: 15px; padding: 12px; background: white; border: 1px solid #e0e0e0; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                            <div style="font-size: 12px; color: #888; margin-bottom: 6px; display: flex; justify-content: between;">
-                                <span><strong>#${index + 1}</strong></span>
-                                <span>${log.timestamp}</span>
+                            <div style="font-size: 12px; color: #888; margin-bottom: 6px;">
+                                <span>${new Date(log.timestamp).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })} ${new Date(log.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                             <div style="color: #333; font-size: 14px; line-height: 1.5;">${this.escapeHtml(log.text)}</div>
                         </div>
@@ -594,11 +588,10 @@ class TerminalApp {
                 const errorMsg = result.error || 'ログが見つかりませんでした';
                 logContent.innerHTML = `
                     <div style="text-align: center; padding: 40px; color: #666;">
-                        <div style="font-size: 18px; margin-bottom: 10px;">💬</div>
-                        <div style="font-size: 16px; margin-bottom: 8px;">${errorMsg}</div>
+                        <div style="font-size: 16px; margin-bottom: 8px;">会話履歴がありません</div>
                         <div style="font-size: 12px; color: #999;">
                             ${errorMsg.includes('見つかりません') ? 
-                                'AIと会話すると、ここに『』で囲まれたテキストが保存されます。' : 
+                                '' : 
                                 'データベース: ~/.claude/conversation_log.db'
                             }
                         </div>

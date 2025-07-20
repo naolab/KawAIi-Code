@@ -41,7 +41,7 @@
                 </button>
                 <button id="help-btn" class="settings-btn help-btn" aria-label="使い方を見る">
                 </button>
-                <button id="debug-stats-btn" class="settings-btn help-btn" aria-label="会話ログを表示" title="会話ログ">
+                <button id="debug-stats-btn" class="settings-btn history-btn" aria-label="会話ログを表示" title="会話ログ">
                 </button>
             </div>
             <div class="controls">
@@ -359,8 +359,8 @@
                 <div class="help-body">
                     <div class="help-section">
                         <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                            <button id="refresh-log-btn" class="simple-btn" style="width: auto; padding: 8px 16px; font-size: 14px;">🔄 更新</button>
-                            <select id="log-count-select" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: white;">
+                            <button id="refresh-log-btn" class="simple-btn">更新</button>
+                            <select id="log-count-select" class="speaker-select">
                                 <option value="10">最新10件</option>
                                 <option value="20" selected>最新20件</option>
                                 <option value="50">最新50件</option>
