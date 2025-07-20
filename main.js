@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const VoiceService = require('./src/voiceService');
 const appConfig = require('./src/appConfig');
 const AIConfigService = require('./src/services/ai-config-service');
+const ConversationLogger = require('./src/services/ConversationLogger');
 // ログレベル制御（配布版では詳細ログを無効化）
 // 開発時は環境変数またはfalseで開発モードに切り替え
 const isProduction = process.env.NODE_ENV === 'production' || false; // 開発時はfalse
@@ -16,6 +17,7 @@ const errorLog = console.error; // エラーは常に出力
 
 // サービス初期化
 const aiConfigService = new AIConfigService();
+const conversationLogger = new ConversationLogger();
 
 // AI.mdファイルクリーンアップ関数
 async function cleanupAiMdFiles() {
@@ -336,6 +338,9 @@ app.whenReady().then(async () => {
 
   await startNextjsServer();
 
+  // ConversationLoggerの初期化
+  await conversationLogger.initialize();
+
   createWindow();
   
   // Hook通知監視開始
@@ -358,6 +363,11 @@ async function performCleanup() {
   
   // Hook通知監視停止
   stopHookNotificationWatcher();
+  
+  // ConversationLoggerの終了処理
+  if (conversationLogger) {
+    await conversationLogger.close();
+  }
   
   // Kill Next.js server when app closes
   if (nextjsProcess) {
@@ -701,71 +711,33 @@ ipcMain.handle('voice-get-emotion', async (event, text) => {
   }
 });
 
-// 会話ログ読み込み機能
+// 会話ログ読み込み機能（内部システム）
 ipcMain.handle('load-conversation-log', async (event, count = 20) => {
   try {
-    const logPath = path.join(os.homedir(), '.claude', 'global_load_log.py');
+    debugLog('Internal conversation log loading:', { count });
     
-    // ログファイルの存在確認
-    if (!fs.existsSync(logPath)) {
-      return { 
-        success: false, 
-        error: 'ログファイルが見つかりません',
-        logs: [] 
+    // 内部ConversationLoggerを使用してログを取得
+    const result = await conversationLogger.getLogs(count, 0);
+    
+    if (result.success) {
+      debugLog(`Internal log loading success: ${result.logs.length} logs`);
+      return {
+        success: true,
+        logs: result.logs,
+        count: result.count,
+        total: result.total
+      };
+    } else {
+      debugLog('Internal log loading failed:', result.error);
+      return {
+        success: false,
+        error: result.error || 'ログの読み込みに失敗しました',
+        logs: []
       };
     }
-
-    // Pythonスクリプトを実行してログを取得
-    const command = `python3 "${logPath}" last ${count}`;
     
-    return new Promise((resolve) => {
-      const child = spawn('python3', [logPath, 'last', count.toString()], {
-        cwd: os.homedir(),
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-
-      let output = '';
-      let errorOutput = '';
-
-      child.stdout.on('data', (data) => {
-        output += data.toString();
-      });
-
-      child.stderr.on('data', (data) => {
-        errorOutput += data.toString();
-      });
-
-      child.on('close', (code) => {
-        if (code === 0 && output) {
-          // ログデータをパース
-          const logs = parseConversationLog(output);
-          resolve({ 
-            success: true, 
-            logs: logs,
-            count: logs.length
-          });
-        } else {
-          resolve({ 
-            success: false, 
-            error: errorOutput || 'ログの読み込みに失敗しました',
-            logs: []
-          });
-        }
-      });
-
-      // タイムアウト設定（10秒）
-      setTimeout(() => {
-        child.kill();
-        resolve({ 
-          success: false, 
-          error: 'ログ読み込みがタイムアウトしました',
-          logs: []
-        });
-      }, 10000);
-    });
-
   } catch (error) {
-    console.error('Conversation log loading error:', error);
+    console.error('Internal conversation log loading error:', error);
     return { 
       success: false, 
       error: error.message,
@@ -774,31 +746,30 @@ ipcMain.handle('load-conversation-log', async (event, count = 20) => {
   }
 });
 
-// ログデータのパース関数
-function parseConversationLog(rawOutput) {
+// ログ保存機能（内部システム）
+ipcMain.handle('save-conversation-log', async (event, text, sessionId = null) => {
   try {
-    const logs = [];
-    const lines = rawOutput.split('\n').filter(line => line.trim());
+    debugLog('Internal conversation log saving:', { text: text.substring(0, 50) + '...', sessionId });
     
-    for (const line of lines) {
-      // 『』で囲まれたテキストを抽出
-      const match = line.match(/『([^』]+)』/);
-      if (match) {
-        const timestamp = new Date().toLocaleString(); // 簡易的なタイムスタンプ
-        logs.push({
-          timestamp: timestamp,
-          text: match[1],
-          raw: line
-        });
-      }
+    // 内部ConversationLoggerを使用してログを保存
+    const result = await conversationLogger.saveLog(text, sessionId);
+    
+    if (result.success) {
+      debugLog(`Internal log saving success: ${result.logId}`);
+    } else {
+      debugLog('Internal log saving failed:', result.error);
     }
     
-    return logs.slice(-50); // 最大50件に制限
+    return result;
+    
   } catch (error) {
-    console.error('Log parsing error:', error);
-    return [];
+    console.error('Internal conversation log saving error:', error);
+    return { 
+      success: false, 
+      error: error.message
+    };
   }
-}
+});
 
 // 感情データの転送用IPCハンドラー
 ipcMain.on('emotion-data', (event, emotionData) => {

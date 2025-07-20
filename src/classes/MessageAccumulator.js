@@ -23,6 +23,9 @@ class MessageAccumulator {
         
         // TabManager参照（親タブ判定用）
         this.tabManager = null;
+        
+        // セッションID（ログ用）
+        this.sessionId = null;
     }
     
     /**
@@ -176,6 +179,9 @@ class MessageAccumulator {
             // 読み上げ済みとしてマーク
             this.duplicateChecker.markAsSpoken(content);
             this.debugLogSafe(`${this.logPrefix} 🎵 新しい音声コンテンツを検出: "${content.substring(0, 50)}..."`);
+            
+            // 内部ログシステムに保存
+            this.saveToInternalLog(content);
         } else {
             this.debugLogSafe(`${this.logPrefix} ⚠️ 音声テキストが抽出できませんでした`);
         }
@@ -234,6 +240,40 @@ class MessageAccumulator {
         }
         
         return null;
+    }
+
+    /**
+     * 内部ログシステムに保存
+     * @param {string} content - 保存するテキスト
+     */
+    async saveToInternalLog(content) {
+        try {
+            if (window.electronAPI && window.electronAPI.logs && window.electronAPI.logs.saveConversationLog) {
+                const sessionId = this.generateSessionId();
+                const result = await window.electronAPI.logs.saveConversationLog(content, sessionId);
+                
+                if (result.success) {
+                    this.debugLogSafe(`${this.logPrefix} 💾 内部ログ保存成功: ID ${result.logId}`);
+                } else {
+                    this.debugLogSafe(`${this.logPrefix} 💾 内部ログ保存失敗: ${result.error}`);
+                }
+            } else {
+                this.debugLogSafe(`${this.logPrefix} 💾 内部ログAPI未使用 - electronAPI不使用`);
+            }
+        } catch (error) {
+            this.debugLogSafe(`${this.logPrefix} 💾 内部ログ保存エラー:`, error);
+        }
+    }
+
+    /**
+     * セッションIDの生成
+     * @returns {string} セッションID
+     */
+    generateSessionId() {
+        if (!this.sessionId) {
+            this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        }
+        return this.sessionId;
     }
 
     /**
