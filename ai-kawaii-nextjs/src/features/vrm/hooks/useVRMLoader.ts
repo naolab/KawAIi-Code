@@ -65,7 +65,6 @@ export const useVRMLoader = ({
       vrm.scene.scale.setScalar(0.7)  // 少し小さくする
       vrm.scene.position.set(0, 0.12, 0)  // 高さを0.12に調整
       vrm.scene.rotation.y = -Math.PI / 30  // 反時計回りに6度回転 (-π/30 ≈ -0.1ラジアン)
-      vrm.scene.rotation.x = Math.PI / 60   // 手前に3度倒す (π/60 ≈ 0.05ラジアン)
       
       // VRMをシーンに追加
       sceneRef.current.add(vrm.scene)
@@ -132,7 +131,6 @@ export const useVRMLoader = ({
       vrm.scene.scale.setScalar(0.7)  // 少し小さくする
       vrm.scene.position.set(0, 0.12, 0)  // 高さを0.12に調整
       vrm.scene.rotation.y = -Math.PI / 30  // 反時計回りに6度回転 (-π/30 ≈ -0.1ラジアン)
-      vrm.scene.rotation.x = Math.PI / 60   // 手前に3度倒す (π/60 ≈ 0.05ラジアン)
       
       // VRMをシーンに追加
       if (sceneRef.current) {

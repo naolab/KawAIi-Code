@@ -103,7 +103,7 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     }
 
     autoLoadDefaultVRM()
-  }, [loadDefaultVRM, loading]) // loadingを依存配列に追加してフックの状態変化を監視
+  }, []) // 初回マウント時のみ実行するように修正
 
   return (
     <div 
