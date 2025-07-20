@@ -994,7 +994,7 @@ body {
 .help-content::-webkit-scrollbar-track {
     background: transparent;
     border-radius: 4px;
-    margin: 12px 0;  /* スクロールバーのはみ出し防止 */
+    margin: 24px 0;  /* スクロールバーの上下余白を拡大 */
 }
 
 .help-content::-webkit-scrollbar-thumb {
@@ -1332,7 +1332,7 @@ input[type="checkbox"]:checked::before {
 #terminal-mini::-webkit-scrollbar-track {
     background: transparent;
     border-radius: 4px;
-    margin: 12px 0;  /* スクロールバーのはみ出し防止 */
+    margin: 24px 0;  /* スクロールバーの上下余白を拡大 */
 }
 
 .chat-messages::-webkit-scrollbar-thumb,
@@ -1372,7 +1372,7 @@ input[type="checkbox"]:checked::before {
 .settings-content::-webkit-scrollbar-track {
     background: transparent;
     border-radius: 4px;
-    margin: 12px 0;  /* スクロールバーのはみ出し防止 */
+    margin: 24px 0;  /* スクロールバーの上下余白を拡大 */
 }
 
 .settings-content::-webkit-scrollbar-thumb {
