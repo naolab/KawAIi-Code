@@ -626,7 +626,7 @@ body {
 }
 
 /* 設定ボタン - ピュアCSS */
-.settings-btn::before {
+.settings-btn:not(.history-btn):not(.help-btn)::before {
     content: '';
     position: absolute;
     top: 50%;
@@ -648,10 +648,10 @@ body {
     height: 50px;
     border: none;
     border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
     cursor: pointer;
     transition: all 0.3s ease;
     backdrop-filter: blur(15px);
-    background: rgba(255, 255, 255, 0.85);
     border: 2px solid rgba(255, 183, 102, 0.9);
     box-shadow: 
         0 4px 15px rgba(255, 140, 66, 0.2),
@@ -683,7 +683,7 @@ body {
 }
 
 /* 左右の横向きの歯 */
-.settings-btn .gear-horizontal {
+.settings-btn:not(.history-btn) .gear-horizontal {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -736,8 +736,8 @@ body {
 
 /* ホバー時の斜めの歯の回転を削除 */
 
-/* ギアの中心穴（内側の円） */
-.settings-btn::after {
+/* ギアの中心穴（内側の円） - history-btnとhelp-btnには適用しない */
+.settings-btn:not(.history-btn):not(.help-btn)::after {
     content: '';
     position: absolute;
     top: 50%;
@@ -826,8 +826,8 @@ body {
 
 /* ターミナル切り替えボタン */
 .terminal-toggle-btn {
-    background: rgba(255, 255, 255, 0.9);
-    border: 2px solid rgba(255, 140, 66, 0.6);
+    background: rgba(255, 255, 255, 0.85);
+    border: 2px solid rgba(255, 183, 102, 0.9);
     transition: all 0.3s ease;
 }
 
@@ -957,31 +957,76 @@ body {
     box-shadow: none !important; /* 歯車の中心の丸の影を消す */
 }
 
-/* 履歴ボタン - 設定ボタンと同じスタイル */
+/* 履歴ボタン - 目玉ボタンの楕円スタイルをベースにした輪っか */
 .history-btn {
     color: rgba(255, 255, 255, 0.9);
 }
 
-.history-btn svg {
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-}
-
-.history-btn:hover {
-    color: white;
-}
-
-/* 履歴ボタンの歯車アイコンと中心の丸を完全に非表示にする */
-.history-btn::before,
-.history-btn .gear-horizontal,
+/* 歯車アイコンのみ非表示（時計の針は表示） */
 .history-btn .gear-diagonal {
     display: none !important;
     opacity: 0 !important;
     visibility: hidden !important;
 }
 
-/* 履歴ボタンのアイコンを非表示 */
+/* gear-horizontalのオレンジ色を無効化 */
+.history-btn .gear-horizontal {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* 時計の外枠 */
 .history-btn::after {
-    display: none !important;
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px;
+    height: 24px;
+    border: 3px solid #ff6b35;
+    border-radius: 50%;
+    box-sizing: border-box;
+}
+
+/* 長針（12時方向） */
+.history-btn .clock-hand-long {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 8px;
+    background: #ff6b35;
+    transform: translate(-50%, -100%);
+    transform-origin: center bottom;
+    z-index: 7;
+}
+
+/* 短針（3時方向） */
+.history-btn .clock-hand-short {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 2px;
+    background: #ff6b35;
+    transform: translate(0, -50%);
+    transform-origin: left center;
+    z-index: 7;
+}
+
+/* 中心点 */
+.history-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 3px;
+    height: 3px;
+    background: #ff6b35;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 8;
 }
 
 /* 会話ログモーダル内のボタンとセレクトスタイル */
@@ -1023,23 +1068,6 @@ body {
     background: white;
 }
 
-/* 時計の針を新しく定義 */
-.history-btn:after {
-    position: relative;
-    z-index: 6;
-}
-
-.history-btn:after::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 1px;
-    height: 6px;
-    background-color: #FF8C42;
-    transform: translate(-50%, -100%);
-    z-index: 7;
-}
 
 
 
