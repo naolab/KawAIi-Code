@@ -22,7 +22,7 @@ class LoadingScreen {
                 <div class="loading-content">
                     <div class="loading-spinner"></div>
                     <div class="loading-text">
-                        <span>KawAIi Code を起動中</span>
+                        <span>Now Loading</span>
                         <span class="loading-dots">...</span>
                     </div>
                 </div>
@@ -54,8 +54,7 @@ class LoadingScreen {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: rgba(0, 0, 0, 0.8);
-                backdrop-filter: blur(5px);
+                background: #f5f5dc;
                 opacity: 0;
                 visibility: hidden;
                 transition: opacity 0.3s ease, visibility 0.3s ease;
