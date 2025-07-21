@@ -20,7 +20,6 @@ class LoadingScreen {
         this.element.innerHTML = `
             <div class="loading-overlay">
                 <div class="loading-content">
-                    <div class="loading-spinner"></div>
                     <div class="loading-text">
                         <span>Now Loading</span>
                         <span class="loading-dots">...</span>
@@ -66,11 +65,11 @@ class LoadingScreen {
             }
 
             .loading-overlay {
-                background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(22, 33, 62, 0.95) 100%);
+                background: transparent;
                 border-radius: 15px;
                 padding: 40px;
-                box-shadow: 0 20px 40px rgba(255, 140, 66, 0.2);
-                border: 2px solid rgba(255, 140, 66, 0.3);
+                box-shadow: none;
+                border: none;
                 min-width: 300px;
                 text-align: center;
             }
@@ -92,8 +91,8 @@ class LoadingScreen {
             }
 
             .loading-text {
-                color: #ffffff;
-                font-size: 16px;
+                color: #000000;
+                font-size: 24px;
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 display: flex;
                 align-items: center;
@@ -101,7 +100,7 @@ class LoadingScreen {
             }
 
             .loading-dots {
-                color: #ff8c42;
+                color: #000000;
                 font-weight: bold;
                 min-width: 20px;
                 text-align: left;
