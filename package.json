@@ -30,8 +30,7 @@
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/xterm": "^5.5.0",
     "axios": "^1.6.0",
-    "node-pty": "^1.0.0",
-    "sqlite3": "^5.1.7"
+    "node-pty": "^1.0.0"
   },
   "build": {
     "appId": "com.ai-kawaii.terminal",
@@ -65,7 +64,9 @@
       "entitlements": "entitlements.plist",
       "entitlementsInherit": "entitlements.plist",
       "identity": "NAO TSUYOSHI (R5829GY53J)",
-      "notarize": false,
+      "notarize": {
+        "teamId": "R5829GY53J"
+      },
       "target": [
         {
           "target": "dmg",

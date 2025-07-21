@@ -99,7 +99,9 @@ window.electronAPI = {
   // 会話ログ読み込み・保存
   logs: {
     loadConversationLog: (count) => ipcRenderer.invoke('load-conversation-log', count),
-    saveConversationLog: (text, sessionId) => ipcRenderer.invoke('save-conversation-log', text, sessionId)
+    saveConversationLog: (text, sessionId) => ipcRenderer.invoke('save-conversation-log', text, sessionId),
+    getStats: () => ipcRenderer.invoke('get-conversation-log-stats'),
+    clearLogs: () => ipcRenderer.invoke('clear-conversation-log')
   },
 
   fs: require('fs'), // fsモジュールを公開

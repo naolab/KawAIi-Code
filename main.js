@@ -7,7 +7,7 @@ const { spawn } = require('child_process');
 const VoiceService = require('./src/voiceService');
 const appConfig = require('./src/appConfig');
 const AIConfigService = require('./src/services/ai-config-service');
-const ConversationLogger = require('./src/services/ConversationLogger');
+const ConversationLoggerMain = require('./src/services/ConversationLoggerMain');
 // ログレベル制御（配布版では詳細ログを無効化）
 // 開発時は環境変数またはfalseで開発モードに切り替え
 const isProduction = process.env.NODE_ENV === 'production' || false; // 開発時はfalse
@@ -17,7 +17,7 @@ const errorLog = console.error; // エラーは常に出力
 
 // サービス初期化
 const aiConfigService = new AIConfigService();
-const conversationLogger = new ConversationLogger();
+const conversationLogger = new ConversationLoggerMain();
 
 // AI.mdファイルクリーンアップ関数
 async function cleanupAiMdFiles() {
@@ -764,6 +764,46 @@ ipcMain.handle('save-conversation-log', async (event, text, sessionId = null) =>
     
   } catch (error) {
     console.error('Internal conversation log saving error:', error);
+    return { 
+      success: false, 
+      error: error.message
+    };
+  }
+});
+
+// ログ統計情報取得機能（内部システム）
+ipcMain.handle('get-conversation-log-stats', async () => {
+  try {
+    const result = conversationLogger.getStats();
+    debugLog('Internal log stats retrieved:', result.stats);
+    return result;
+  } catch (error) {
+    console.error('Internal conversation log stats error:', error);
+    return { 
+      success: false, 
+      error: error.message,
+      stats: null
+    };
+  }
+});
+
+// ログクリア機能（内部システム）
+ipcMain.handle('clear-conversation-log', async () => {
+  try {
+    debugLog('Internal conversation log clearing requested');
+    
+    const result = await conversationLogger.clearLogs();
+    
+    if (result.success) {
+      debugLog('Internal log clearing success');
+    } else {
+      debugLog('Internal log clearing failed:', result.error);
+    }
+    
+    return result;
+    
+  } catch (error) {
+    console.error('Internal conversation log clearing error:', error);
     return { 
       success: false, 
       error: error.message

@@ -1,60 +1,53 @@
 /**
- * 内部会話ログシステム
- * - SQLiteデータベースによる会話ログ保存
- * - 外部依存なしの自立型ログシステム
- * - 既存ログ形式との互換性を保持
+ * レンダラープロセス用会話ログクライアント
+ * - IPC通信でメインプロセスのSQLiteシステムにアクセス
+ * - Electronセキュリティベストプラクティスに準拠
+ * - 既存APIインターフェースとの互換性を保持
  */
-
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
 
 class ConversationLogger {
     constructor() {
-        this.dbPath = path.join(os.homedir(), '.claude', 'conversation_log.db');
-        this.db = null;
-        this.isInitialized = false;
         this.logPrefix = '💾 [ConversationLogger]';
-        this.maxLogs = 1000; // 最大ログ件数
+        this.isInitialized = false;
         
-        // 統計情報
+        // 統計情報（キャッシュ用）
         this.stats = {
             totalLogs: 0,
             sessionLogs: 0,
             errors: 0,
-            deletedLogs: 0,
             startTime: Date.now()
         };
         
         this.debugLog = console.log;
+        
+        // ElectronAPIの確認
+        if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.logs) {
+            this.electronAPI = window.electronAPI.logs;
+        } else {
+            console.warn(`${this.logPrefix} ElectronAPIが利用できません`);
+            this.electronAPI = null;
+        }
     }
 
     /**
-     * データベースの初期化
+     * 初期化（IPC通信版では統計情報の取得のみ）
      */
     async initialize() {
         try {
-            // .claudeディレクトリの作成
-            const claudeDir = path.dirname(this.dbPath);
-            if (!fs.existsSync(claudeDir)) {
-                fs.mkdirSync(claudeDir, { recursive: true });
-                this.debugLog(`${this.logPrefix} ディレクトリを作成: ${claudeDir}`);
+            if (!this.electronAPI) {
+                throw new Error('ElectronAPI not available');
             }
 
-            // データベース接続
-            await this.connectDatabase();
-            
-            // テーブル初期化
-            await this.createTables();
-            
-            // 既存ログ数を取得
-            await this.loadStats();
-            
-            this.isInitialized = true;
-            this.debugLog(`${this.logPrefix} 初期化完了 - 既存ログ: ${this.stats.totalLogs}件`);
-            
-            return { success: true };
+            // 統計情報を取得して初期化の確認
+            const result = await this.electronAPI.getStats();
+            if (result.success) {
+                this.stats = { ...this.stats, ...result.stats };
+                this.isInitialized = true;
+                this.debugLog(`${this.logPrefix} 初期化完了 - 既存ログ: ${this.stats.totalLogs}件`);
+                return { success: true, totalLogs: this.stats.totalLogs };
+            } else {
+                throw new Error(result.error || 'Stats retrieval failed');
+            }
             
         } catch (error) {
             this.debugLog(`${this.logPrefix} 初期化エラー:`, error);
@@ -63,94 +56,37 @@ class ConversationLogger {
         }
     }
 
-    /**
-     * データベース接続
-     */
-    async connectDatabase() {
-        return new Promise((resolve, reject) => {
-            this.db = new sqlite3.Database(this.dbPath, (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-    }
 
     /**
-     * テーブル作成
-     */
-    async createTables() {
-        return new Promise((resolve, reject) => {
-            // 既存ログ形式と互換性のあるテーブル構造
-            const sql = `
-                CREATE TABLE IF NOT EXISTS conversation_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    text TEXT NOT NULL,
-                    source TEXT DEFAULT 'kawaii-app',
-                    session_id TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            `;
-            
-            this.db.run(sql, (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-    }
-
-    /**
-     * 統計情報の読み込み
-     */
-    async loadStats() {
-        return new Promise((resolve, reject) => {
-            const sql = `SELECT COUNT(*) as total FROM conversation_logs`;
-            
-            this.db.get(sql, (err, row) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    this.stats.totalLogs = row.total || 0;
-                    resolve();
-                }
-            });
-        });
-    }
-
-    /**
-     * 会話ログの保存
+     * 会話ログの保存（IPC通信版）
      * @param {string} text - 保存するテキスト
      * @param {string} sessionId - セッションID（オプション）
      */
     async saveLog(text, sessionId = null) {
-        if (!this.isInitialized) {
-            this.debugLog(`${this.logPrefix} 未初期化のため保存をスキップ: "${text.substring(0, 30)}..."`);
-            return { success: false, error: 'Logger not initialized' };
-        }
-
         try {
+            if (!this.electronAPI) {
+                throw new Error('ElectronAPI not available');
+            }
+
             const cleanText = this.cleanText(text);
             if (!cleanText) {
                 return { success: false, error: 'Empty text after cleaning' };
             }
 
-            await this.insertLog(cleanText, sessionId);
+            const result = await this.electronAPI.saveConversationLog(cleanText, sessionId);
             
-            this.stats.sessionLogs++;
-            this.stats.totalLogs++;
+            if (result.success) {
+                this.stats.sessionLogs++;
+                if (result.totalLogs) {
+                    this.stats.totalLogs = result.totalLogs;
+                }
+                this.debugLog(`${this.logPrefix} ログ保存完了: "${cleanText.substring(0, 50)}..." (総数: ${this.stats.totalLogs})`);
+            } else {
+                this.stats.errors++;
+                this.debugLog(`${this.logPrefix} 保存エラー:`, result.error);
+            }
             
-            // 上限チェックと古いログの削除
-            await this.enforceLogLimit();
-            
-            this.debugLog(`${this.logPrefix} ログ保存完了: "${cleanText.substring(0, 50)}..." (総数: ${this.stats.totalLogs})`);
-            
-            return { success: true, logId: this.stats.totalLogs };
+            return result;
             
         } catch (error) {
             this.stats.errors++;
@@ -160,47 +96,41 @@ class ConversationLogger {
     }
 
     /**
-     * ログをデータベースに挿入
-     */
-    async insertLog(text, sessionId) {
-        return new Promise((resolve, reject) => {
-            const sql = `
-                INSERT INTO conversation_logs (text, session_id) 
-                VALUES (?, ?)
-            `;
-            
-            this.db.run(sql, [text, sessionId], function(err) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(this.lastID);
-                }
-            });
-        });
-    }
-
-    /**
-     * ログの読み込み
+     * ログの読み込み（IPC通信版）
      * @param {number} limit - 取得件数
      * @param {number} offset - オフセット
      */
     async getLogs(limit = 20, offset = 0) {
-        if (!this.isInitialized) {
-            await this.initialize();
-        }
-
         try {
-            const logs = await this.selectLogs(limit, offset);
-            const formattedLogs = this.formatLogs(logs);
+            if (!this.electronAPI) {
+                throw new Error('ElectronAPI not available');
+            }
+
+            if (!this.isInitialized) {
+                await this.initialize();
+            }
+
+            const result = await this.electronAPI.loadConversationLog(limit);
             
-            this.debugLog(`${this.logPrefix} ログ読み込み完了: ${formattedLogs.length}件`);
-            
-            return {
-                success: true,
-                logs: formattedLogs,
-                count: formattedLogs.length,
-                total: this.stats.totalLogs
-            };
+            if (result.success) {
+                this.debugLog(`${this.logPrefix} ログ読み込み完了: ${result.logs.length}件`);
+                
+                // 統計情報の更新
+                if (result.total !== undefined) {
+                    this.stats.totalLogs = result.total;
+                }
+                
+                return {
+                    success: true,
+                    logs: result.logs,
+                    count: result.count || result.logs.length,
+                    total: result.total || this.stats.totalLogs
+                };
+            } else {
+                this.stats.errors++;
+                this.debugLog(`${this.logPrefix} 読み込みエラー:`, result.error);
+                return result;
+            }
             
         } catch (error) {
             this.stats.errors++;
@@ -208,46 +138,13 @@ class ConversationLogger {
             return { 
                 success: false, 
                 error: error.message,
-                logs: []
+                logs: [],
+                count: 0,
+                total: 0
             };
         }
     }
 
-    /**
-     * ログをデータベースから選択
-     */
-    async selectLogs(limit, offset) {
-        return new Promise((resolve, reject) => {
-            const sql = `
-                SELECT id, text, timestamp, source, session_id
-                FROM conversation_logs 
-                ORDER BY timestamp DESC 
-                LIMIT ? OFFSET ?
-            `;
-            
-            this.db.all(sql, [limit, offset], (err, rows) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(rows || []);
-                }
-            });
-        });
-    }
-
-    /**
-     * ログのフォーマット（既存形式に合わせる）
-     */
-    formatLogs(logs) {
-        return logs.map(log => ({
-            id: log.id,
-            timestamp: new Date(log.timestamp).toLocaleString(),
-            text: log.text,
-            source: log.source || 'kawaii-app',
-            sessionId: log.session_id,
-            raw: `『${log.text}』` // 既存形式に合わせる
-        }));
-    }
 
     /**
      * テキストのクリーニング
@@ -267,123 +164,78 @@ class ConversationLogger {
     }
 
     /**
-     * 統計情報の取得
+     * 統計情報の取得（IPC通信版）
      */
-    getStats() {
-        const runtimeHours = (Date.now() - this.stats.startTime) / (1000 * 60 * 60);
-        
-        return {
-            ...this.stats,
-            maxLogs: this.maxLogs,
-            runtimeHours: Math.round(runtimeHours * 100) / 100,
-            logsPerHour: runtimeHours > 0 ? Math.round(this.stats.sessionLogs / runtimeHours) : 0,
-            isInitialized: this.isInitialized,
-            dbPath: this.dbPath
-        };
+    async getStats() {
+        try {
+            if (!this.electronAPI) {
+                throw new Error('ElectronAPI not available');
+            }
+
+            const result = await this.electronAPI.getStats();
+            
+            if (result.success) {
+                // ローカル統計と統合
+                const runtimeHours = (Date.now() - this.stats.startTime) / (1000 * 60 * 60);
+                
+                return {
+                    success: true,
+                    stats: {
+                        ...result.stats,
+                        sessionLogs: this.stats.sessionLogs,
+                        runtimeHours: Math.round(runtimeHours * 100) / 100,
+                        logsPerHour: runtimeHours > 0 ? Math.round(this.stats.sessionLogs / runtimeHours) : 0
+                    }
+                };
+            } else {
+                this.stats.errors++;
+                return result;
+            }
+            
+        } catch (error) {
+            this.stats.errors++;
+            this.debugLog(`${this.logPrefix} 統計取得エラー:`, error);
+            return { 
+                success: false, 
+                error: error.message,
+                stats: null
+            };
+        }
     }
 
     /**
-     * データベースの閉じる
+     * 接続のクローズ（IPC版では不要だが互換性のため残す）
      */
     async close() {
-        if (this.db) {
-            return new Promise((resolve) => {
-                this.db.close((err) => {
-                    if (err) {
-                        this.debugLog(`${this.logPrefix} 閉じる際にエラー:`, err);
-                    } else {
-                        this.debugLog(`${this.logPrefix} データベース接続を閉じました`);
-                    }
-                    resolve();
-                });
-            });
-        }
+        this.debugLog(`${this.logPrefix} クローズ要求（IPC版では不要）`);
+        this.isInitialized = false;
+        return Promise.resolve();
     }
 
     /**
-     * ログ件数制限の実施
-     */
-    async enforceLogLimit() {
-        try {
-            const currentCount = await this.getLogCount();
-            if (currentCount > this.maxLogs) {
-                const deleteCount = currentCount - this.maxLogs;
-                await this.deleteOldestLogs(deleteCount);
-                
-                // 統計を更新
-                this.stats.deletedLogs += deleteCount;
-                this.stats.totalLogs = this.maxLogs;
-                
-                this.debugLog(`${this.logPrefix} 上限制限実施: ${deleteCount}件の古いログを削除 (上限: ${this.maxLogs}件)`);
-            }
-        } catch (error) {
-            this.debugLog(`${this.logPrefix} 上限制限エラー:`, error);
-            this.stats.errors++;
-        }
-    }
-
-    /**
-     * 現在のログ件数を取得
-     */
-    async getLogCount() {
-        return new Promise((resolve, reject) => {
-            this.db.get('SELECT COUNT(*) as count FROM conversation_logs', (err, row) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(row.count || 0);
-                }
-            });
-        });
-    }
-
-    /**
-     * 古いログを指定件数削除
-     * @param {number} deleteCount - 削除する件数
-     */
-    async deleteOldestLogs(deleteCount) {
-        return new Promise((resolve, reject) => {
-            const sql = `
-                DELETE FROM conversation_logs 
-                WHERE id IN (
-                    SELECT id FROM conversation_logs 
-                    ORDER BY timestamp ASC 
-                    LIMIT ?
-                )
-            `;
-            
-            this.db.run(sql, [deleteCount], (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-    }
-
-    /**
-     * ログのクリア（デバッグ用）
+     * ログのクリア（IPC通信版）
      */
     async clearLogs() {
-        if (!this.isInitialized) {
-            return { success: false, error: 'Logger not initialized' };
-        }
-
         try {
-            await new Promise((resolve, reject) => {
-                this.db.run('DELETE FROM conversation_logs', (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
+            if (!this.electronAPI) {
+                throw new Error('ElectronAPI not available');
+            }
 
-            this.stats.totalLogs = 0;
-            this.debugLog(`${this.logPrefix} 全ログをクリアしました`);
+            const result = await this.electronAPI.clearLogs();
             
-            return { success: true };
+            if (result.success) {
+                this.stats.totalLogs = result.totalLogs || 0;
+                this.stats.sessionLogs = 0;
+                this.debugLog(`${this.logPrefix} 全ログをクリアしました`);
+            } else {
+                this.stats.errors++;
+                this.debugLog(`${this.logPrefix} クリアエラー:`, result.error);
+            }
+            
+            return result;
             
         } catch (error) {
+            this.stats.errors++;
             this.debugLog(`${this.logPrefix} クリアエラー:`, error);
             return { success: false, error: error.message };
         }
