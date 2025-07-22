@@ -13,8 +13,38 @@ class VoiceQueue {
         this.debugLog = debugLog;
     }
     
+    /**
+     * 現在のタブが親タブかどうかを判定
+     * @returns {boolean} 親タブの場合true
+     */
+    isCurrentTabParent() {
+        const tabManager = this.terminalApp.tabManager;
+        if (!tabManager) {
+            this.debugLog('🎵 TabManager未設定 - 音声キューをスキップ（安全側）');
+            return false; // 安全優先: 不明な場合は音声処理をスキップ
+        }
+        
+        if (!tabManager.parentTabId) {
+            this.debugLog('🎵 親タブID未設定 - 音声キューをスキップ（安全側）');
+            return false; // 安全優先: 不明な場合は音声処理をスキップ
+        }
+        
+        const activeTabId = tabManager.activeTabId;
+        const parentTabId = tabManager.parentTabId;
+        const isParent = activeTabId === parentTabId;
+        
+        this.debugLog(`🎵 親タブ判定: アクティブ=${activeTabId}, 親=${parentTabId}, 一致=${isParent}`);
+        return isParent;
+    }
+    
     // キューに音声テキストを追加
     async addToQueue(text) {
+        // 親タブ判定（非親タブの場合は音声処理をスキップ）
+        if (!this.isCurrentTabParent()) {
+            this.debugLog('🎵 非親タブのため音声キューをスキップ:', { text: text.substring(0, 30) + '...' });
+            return;
+        }
+        
         // キューサイズ制限チェック（最大10個）
         const MAX_QUEUE_SIZE = 10;
         

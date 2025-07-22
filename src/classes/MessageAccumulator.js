@@ -51,9 +51,14 @@ class MessageAccumulator {
      * @returns {boolean} 親タブの場合true
      */
     isCurrentTabParent() {
-        if (!this.tabManager || !this.tabManager.parentTabId) {
-            this.debugLogSafe('🗂️ TabManagerまたは親タブIDが未設定 - 音声処理を実行');
-            return true; // 後方互換性のため、不明な場合は音声処理を実行
+        if (!this.tabManager) {
+            this.debugLogSafe('🗂️ TabManager未設定 - 音声処理をスキップ（安全側）');
+            return false; // 安全優先: 不明な場合は音声処理をスキップ
+        }
+        
+        if (!this.tabManager.parentTabId) {
+            this.debugLogSafe('🗂️ 親タブID未設定 - 音声処理をスキップ（安全側）');
+            return false; // 安全優先: 不明な場合は音声処理をスキップ
         }
         
         const parentTab = this.tabManager.tabs[this.tabManager.parentTabId];
