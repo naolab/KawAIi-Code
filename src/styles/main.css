@@ -847,7 +847,7 @@ body {
     transform: translate(-50%, -50%);
     width: 20px;
     height: 12px;
-    border: 2px solid #ff6b35;
+    border: 2px solid #FF8C42;
     border-radius: 50%;
     background: white;
     transition: all 0.2s ease;
@@ -864,7 +864,7 @@ body {
     height: 12px;
     background: white;
     border-radius: 50%;
-    border: 1.5px solid #ff6b35;
+    border: 1.5px solid #FF8C42;
     transition: all 0.2s ease;
 }
 
@@ -876,7 +876,7 @@ body {
     transform: translate(-70%, -70%);
     width: 5px;
     height: 5px;
-    background: #ff6b35;
+    background: #FF8C42;
     border-radius: 50%;
     transition: all 0.2s ease;
     z-index: 3;
@@ -889,8 +889,8 @@ body {
     border-radius: 2px;
     border-top: none;
     border-bottom: none;
-    border-color: #ff6b35;
-    background: #ff6b35;
+    border-color: #FF8C42;
+    background: #FF8C42;
 }
 
 .terminal-toggle-btn.terminal-hidden::after {
@@ -903,7 +903,7 @@ body {
 
 .terminal-toggle-btn:hover::before,
 .terminal-toggle-btn:hover::after {
-    box-shadow: 0 0 8px rgba(255, 107, 53, 0.5);
+    box-shadow: 0 0 8px rgba(255, 140, 66, 0.5);
 }
 
 /* ボタンが無効な状態 */
@@ -984,7 +984,7 @@ body {
     transform: translate(-50%, -50%);
     width: 24px;
     height: 24px;
-    border: 3px solid #ff6b35;
+    border: 3px solid #FF8C42;
     border-radius: 50%;
     box-sizing: border-box;
 }
@@ -996,7 +996,7 @@ body {
     left: 50%;
     width: 2px;
     height: 8px;
-    background: #ff6b35;
+    background: #FF8C42;
     transform: translate(-50%, -100%);
     transform-origin: center bottom;
     z-index: 7;
@@ -1009,7 +1009,7 @@ body {
     left: 50%;
     width: 5px;
     height: 2px;
-    background: #ff6b35;
+    background: #FF8C42;
     transform: translate(0, -50%);
     transform-origin: left center;
     z-index: 7;
@@ -1023,7 +1023,7 @@ body {
     left: 50%;
     width: 3px;
     height: 3px;
-    background: #ff6b35;
+    background: #FF8C42;
     border-radius: 50%;
     transform: translate(-50%, -50%);
     z-index: 8;
