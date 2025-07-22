@@ -6,15 +6,17 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "node build.js build",
+    "postinstall": "electron-rebuild -f -w node-pty",
+    "rebuild": "electron-rebuild -f -w node-pty",
+    "build": "npm run rebuild && node build.js build",
     "build:nextjs": "cd ai-kawaii-nextjs && npm run build",
     "build:electron": "electron-builder",
-    "build:simple": "npm run build:nextjs && npm run build:electron",
+    "build:simple": "npm run build:nextjs && npm run rebuild && npm run build:electron",
     "pack": "node build.js pack",
     "dist": "node build.js build",
     "quick-build": "npm run build:nextjs && electron-builder --dir",
     "clean": "rm -rf dist/ && rm -rf ai-kawaii-nextjs/out/ && rm -rf ai-kawaii-nextjs/.next/",
-    "clean-build": "npm run clean && npm run build"
+    "clean-build": "npm run clean && npm install && npm run build"
   },
   "author": "",
   "license": "MIT",
@@ -63,10 +65,8 @@
       "hardenedRuntime": true,
       "entitlements": "entitlements.plist",
       "entitlementsInherit": "entitlements.plist",
-      "identity": "NAO TSUYOSHI (R5829GY53J)",
-      "notarize": {
-        "teamId": "R5829GY53J"
-      },
+      "identity": null,
+      "notarize": false,
       "target": [
         {
           "target": "dmg",

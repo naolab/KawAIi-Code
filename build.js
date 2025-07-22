@@ -31,6 +31,29 @@ try {
   }
   console.log('✅ 出力ディレクトリ確認完了');
 
+  // Step 2.5: ネイティブモジュールのリビルド
+  console.log('\n2.5️⃣ ネイティブモジュールをリビルド中...');
+  try {
+    // electron-rebuildの存在確認
+    const hasElectronRebuild = fs.existsSync(
+      path.join(__dirname, 'node_modules', '.bin', 'electron-rebuild')
+    );
+    
+    if (hasElectronRebuild) {
+      execSync('npm run rebuild', { stdio: 'inherit' });
+      console.log('✅ ネイティブモジュールリビルド完了');
+    } else {
+      console.warn('⚠️  electron-rebuildが見つかりません。');
+      console.warn('   npm install を実行してからビルドしてください。');
+      console.warn('   または手動で npm run rebuild を実行してください。');
+    }
+  } catch (error) {
+    console.error('⚠️  ネイティブモジュールのリビルドに失敗:', error.message);
+    console.error('   配布版が正常に動作しない可能性があります。');
+    console.error('   手動で npm run rebuild を実行してから再度ビルドしてください。');
+    // ビルドは続行（エラーで止めない）
+  }
+
   // Step 3: Electronビルド
   console.log('\n2️⃣ Electronアプリビルド中...');
   
