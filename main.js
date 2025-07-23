@@ -1094,6 +1094,28 @@ ipcMain.handle('clear-app-config', async () => {
   }
 });
 
+// Cloud API関連のIPCハンドラー
+ipcMain.handle('get-cloud-api-key', async () => {
+  try {
+    const apiKey = appConfig.getCloudApiKey();
+    return apiKey;
+  } catch (error) {
+    errorLog('get-cloud-api-key error:', error);
+    return '';
+  }
+});
+
+ipcMain.handle('set-cloud-api-key', async (event, apiKey) => {
+  try {
+    await appConfig.setCloudApiKey(apiKey);
+    debugLog('Cloud API key set');
+    return { success: true };
+  } catch (error) {
+    errorLog('set-cloud-api-key error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // ===== タブ機能用IPCハンドラー =====
 
 // AI設定処理はAIConfigServiceに統一

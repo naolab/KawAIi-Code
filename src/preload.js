@@ -104,6 +104,10 @@ window.electronAPI = {
     clearLogs: () => ipcRenderer.invoke('clear-conversation-log')
   },
 
+  // Cloud API関連
+  getCloudApiKey: () => ipcRenderer.invoke('get-cloud-api-key'),
+  setCloudApiKey: (apiKey) => ipcRenderer.invoke('set-cloud-api-key', apiKey),
+
   fs: require('fs'), // fsモジュールを公開
   path: require('path'), // pathモジュールを公開
   os: require('os') // osモジュールを公開

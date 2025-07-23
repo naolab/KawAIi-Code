@@ -813,7 +813,7 @@ class UIEventManager {
      * Cloud API設定のイベントリスナー設定
      */
     setupCloudApiControls() {
-        const unifiedConfig = require('./unified-config-manager');
+        // グローバル変数として読み込み済み
         const useCloudApiToggle = document.getElementById('use-cloud-api-toggle');
         const cloudApiSettings = document.getElementById('cloud-api-settings');
         const cloudApiKeyInput = document.getElementById('cloud-api-key-input');
@@ -842,10 +842,14 @@ class UIEventManager {
                 
                 // APIキーも読み込み（復号化は内部で処理）
                 if (cloudApiKeyInput && useCloudAPI) {
-                    const appConfig = require('../appConfig');
-                    const apiKey = appConfig.getCloudApiKey();
-                    if (apiKey) {
-                        cloudApiKeyInput.value = apiKey;
+                    try {
+                        // electronAPIを通してAPIキーを取得
+                        const apiKey = await window.electronAPI.getCloudApiKey?.();
+                        if (apiKey) {
+                            cloudApiKeyInput.value = apiKey;
+                        }
+                    } catch (error) {
+                        this.debugLog('APIキー読み込みエラー:', error);
                     }
                 }
             };
@@ -895,9 +899,8 @@ class UIEventManager {
                 testCloudApiBtn.textContent = 'テスト中...';
                 
                 try {
-                    // 一時的に設定を保存してテスト
-                    const appConfig = require('../appConfig');
-                    await appConfig.setCloudApiKey(apiKey);
+                    // electronAPIを通してAPIキーを保存
+                    await window.electronAPI.setCloudApiKey?.(apiKey);
                     
                     if (this.app.voiceService) {
                         this.app.voiceService.updateApiSettings();
@@ -924,10 +927,10 @@ class UIEventManager {
                 if (!cloudApiKeyInput) return;
                 
                 const apiKey = cloudApiKeyInput.value.trim();
-                const appConfig = require('../appConfig');
                 
                 try {
-                    await appConfig.setCloudApiKey(apiKey);
+                    // electronAPIを通してAPIキーを保存
+                    await window.electronAPI.setCloudApiKey?.(apiKey);
                     this.showCloudApiStatus('success', '設定を保存しました');
                     
                     // VoiceServiceの設定を更新
@@ -985,7 +988,7 @@ class UIEventManager {
      * 音声エラーメッセージを生成
      */
     getVoiceErrorMessage(error) {
-        const unifiedConfig = require('./unified-config-manager');
+        // グローバル変数として読み込み済み
         const useCloudAPI = unifiedConfig.get('useCloudAPI', false);
         
         if (error.errorType) {
