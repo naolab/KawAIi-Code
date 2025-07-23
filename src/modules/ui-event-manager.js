@@ -820,6 +820,16 @@ class UIEventManager {
         const testCloudApiBtn = document.getElementById('test-cloud-api-btn');
         const saveCloudApiBtn = document.getElementById('save-cloud-api-btn');
         const cloudApiStatus = document.getElementById('cloud-api-status');
+        
+        // デバッグ用：要素の取得状況をチェック
+        this.debugLog('Cloud API elements check:', {
+            useCloudApiToggle: !!useCloudApiToggle,
+            cloudApiSettings: !!cloudApiSettings,
+            cloudApiKeyInput: !!cloudApiKeyInput,
+            testCloudApiBtn: !!testCloudApiBtn,
+            saveCloudApiBtn: !!saveCloudApiBtn,
+            cloudApiStatus: !!cloudApiStatus
+        });
 
         if (useCloudApiToggle) {
             // 初期値を設定から読み込み
@@ -844,10 +854,18 @@ class UIEventManager {
             // トグル変更時の処理
             useCloudApiToggle.addEventListener('change', async (e) => {
                 const useCloudAPI = e.target.checked;
+                this.debugLog('Cloud API toggle clicked:', { 
+                    useCloudAPI, 
+                    cloudApiSettingsExists: !!cloudApiSettings 
+                });
+                
                 await unifiedConfig.set('useCloudAPI', useCloudAPI);
                 
                 if (cloudApiSettings) {
                     cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
+                    this.debugLog('Cloud API settings display changed to:', cloudApiSettings.style.display);
+                } else {
+                    this.debugLog('ERROR: cloudApiSettings element not found!');
                 }
                 
                 // VoiceServiceの設定を更新
