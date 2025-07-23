@@ -782,6 +782,19 @@ async function continuousConnectionCheck() {
         return;
     }
     
+    // クラウドAPI使用時はスキップ
+    const unifiedConfig = getSafeUnifiedConfig();
+    const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+    if (useCloudAPI) {
+        // クラウドAPI使用時は常に接続済みとする
+        if (statusElement.textContent !== '接続済み') {
+            statusElement.textContent = '接続済み';
+            statusElement.className = 'status-connected';
+            debugLog('🌥️ クラウドAPI使用中 - 接続済みを維持');
+        }
+        return;
+    }
+    
     try {
         const response = await fetch('http://localhost:10101/version');
         if (response.ok) {
