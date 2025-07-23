@@ -215,6 +215,11 @@ class AudioService {
         try {
             this.debugLog('アプリ内音声再生開始:', text ? text.substring(0, 30) + '...' : '');
 
+            // VRMリップシンク用に音声データを送信
+            if (this.terminalApp.vrmIntegrationService) {
+                this.terminalApp.vrmIntegrationService.sendAudioToVRM(audioData);
+            }
+
             // 既存の音声が再生中の場合は停止
             if (this.terminalApp.voicePlayingState.currentAudio) {
                 this.terminalApp.voicePlayingState.currentAudio.pause();
@@ -240,6 +245,12 @@ class AudioService {
                     this.debugLog('アプリ内音声再生完了');
                     this.terminalApp.voicePlayingState.isPlaying = false;
                     this.terminalApp.voicePlayingState.currentAudio = null;
+                    
+                    // 音声終了をVRMビューワーに通知
+                    if (this.terminalApp.vrmIntegrationService) {
+                        this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('ended');
+                    }
+                    
                     URL.revokeObjectURL(audioUrl);
                     resolve();
                 });
@@ -248,6 +259,12 @@ class AudioService {
                     this.debugError('アプリ内音声再生エラー:', error);
                     this.terminalApp.voicePlayingState.isPlaying = false;
                     this.terminalApp.voicePlayingState.currentAudio = null;
+                    
+                    // エラー時もVRMビューワーに通知
+                    if (this.terminalApp.vrmIntegrationService) {
+                        this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('error');
+                    }
+                    
                     URL.revokeObjectURL(audioUrl);
                     resolve();
                 });
