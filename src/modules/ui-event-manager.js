@@ -310,6 +310,9 @@ class UIEventManager {
             });
         }
 
+        // Aivis Cloud API設定
+        this.setupCloudApiControls();
+
         // Hook使用切り替えスイッチ（配布版では無効化）
         const useHooksToggle = document.getElementById('use-hooks-toggle');
         if (useHooksToggle) {
@@ -807,6 +810,147 @@ class UIEventManager {
     }
 
     /**
+     * Cloud API設定のイベントリスナー設定
+     */
+    setupCloudApiControls() {
+        const unifiedConfig = require('./unified-config-manager');
+        const useCloudApiToggle = document.getElementById('use-cloud-api-toggle');
+        const cloudApiSettings = document.getElementById('cloud-api-settings');
+        const cloudApiKeyInput = document.getElementById('cloud-api-key-input');
+        const testCloudApiBtn = document.getElementById('test-cloud-api-btn');
+        const saveCloudApiBtn = document.getElementById('save-cloud-api-btn');
+        const cloudApiStatus = document.getElementById('cloud-api-status');
+
+        if (useCloudApiToggle) {
+            // 初期値を設定から読み込み
+            const initCloudApi = async () => {
+                const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                useCloudApiToggle.checked = useCloudAPI;
+                if (cloudApiSettings) {
+                    cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
+                }
+                
+                // APIキーも読み込み（復号化は内部で処理）
+                if (cloudApiKeyInput && useCloudAPI) {
+                    const appConfig = require('../appConfig');
+                    const apiKey = appConfig.getCloudApiKey();
+                    if (apiKey) {
+                        cloudApiKeyInput.value = apiKey;
+                    }
+                }
+            };
+            initCloudApi();
+
+            // トグル変更時の処理
+            useCloudApiToggle.addEventListener('change', async (e) => {
+                const useCloudAPI = e.target.checked;
+                await unifiedConfig.set('useCloudAPI', useCloudAPI);
+                
+                if (cloudApiSettings) {
+                    cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
+                }
+                
+                // VoiceServiceの設定を更新
+                if (this.app.voiceService) {
+                    this.app.voiceService.updateApiSettings();
+                }
+                
+                // 接続状態を再確認
+                await this.app.checkVoiceConnection();
+                
+                this.debugLog('Cloud API toggle changed:', useCloudAPI);
+            });
+        }
+
+        // 接続テストボタン
+        if (testCloudApiBtn) {
+            testCloudApiBtn.addEventListener('click', async () => {
+                if (!cloudApiKeyInput || !cloudApiStatus) return;
+                
+                const apiKey = cloudApiKeyInput.value.trim();
+                if (!apiKey) {
+                    this.showCloudApiStatus('error', 'APIキーを入力してください');
+                    return;
+                }
+                
+                testCloudApiBtn.disabled = true;
+                testCloudApiBtn.textContent = 'テスト中...';
+                
+                try {
+                    // 一時的に設定を保存してテスト
+                    const appConfig = require('../appConfig');
+                    await appConfig.setCloudApiKey(apiKey);
+                    
+                    if (this.app.voiceService) {
+                        this.app.voiceService.updateApiSettings();
+                        const result = await this.app.voiceService.checkConnection();
+                        
+                        if (result.success) {
+                            this.showCloudApiStatus('success', 'クラウドAPIに正常に接続しました');
+                        } else {
+                            this.showCloudApiStatus('error', `接続失敗: ${result.error}`);
+                        }
+                    }
+                } catch (error) {
+                    this.showCloudApiStatus('error', `エラー: ${error.message}`);
+                } finally {
+                    testCloudApiBtn.disabled = false;
+                    testCloudApiBtn.textContent = '接続テスト';
+                }
+            });
+        }
+
+        // 保存ボタン
+        if (saveCloudApiBtn) {
+            saveCloudApiBtn.addEventListener('click', async () => {
+                if (!cloudApiKeyInput) return;
+                
+                const apiKey = cloudApiKeyInput.value.trim();
+                const appConfig = require('../appConfig');
+                
+                try {
+                    await appConfig.setCloudApiKey(apiKey);
+                    this.showCloudApiStatus('success', '設定を保存しました');
+                    
+                    // VoiceServiceの設定を更新
+                    if (this.app.voiceService) {
+                        this.app.voiceService.updateApiSettings();
+                    }
+                } catch (error) {
+                    this.showCloudApiStatus('error', `保存エラー: ${error.message}`);
+                }
+            });
+        }
+    }
+
+    /**
+     * Cloud APIステータス表示
+     */
+    showCloudApiStatus(type, message) {
+        const cloudApiStatus = document.getElementById('cloud-api-status');
+        if (!cloudApiStatus) return;
+        
+        cloudApiStatus.style.display = 'block';
+        cloudApiStatus.textContent = message;
+        
+        // スタイルを設定
+        if (type === 'success') {
+            cloudApiStatus.style.backgroundColor = '#e8f5e9';
+            cloudApiStatus.style.color = '#2e7d32';
+            cloudApiStatus.style.border = '1px solid #4caf50';
+        } else if (type === 'error') {
+            cloudApiStatus.style.backgroundColor = '#ffebee';
+            cloudApiStatus.style.color = '#c62828';
+            cloudApiStatus.style.border = '1px solid #f44336';
+        }
+        
+        // 5秒後に自動で非表示
+        setTimeout(() => {
+            cloudApiStatus.style.display = 'none';
+        }, 5000);
+    }
+
+    /**
      * 音声エラーを表示
      */
     showVoiceError(error) {
@@ -823,19 +967,33 @@ class UIEventManager {
      * 音声エラーメッセージを生成
      */
     getVoiceErrorMessage(error) {
+        const unifiedConfig = require('./unified-config-manager');
+        const useCloudAPI = unifiedConfig.getSync('useCloudAPI', false);
+        
         if (error.errorType) {
             switch (error.errorType) {
                 case 'network':
+                    if (useCloudAPI) {
+                        return 'Aivis Cloud APIに接続できません。インターネット接続とAPIキーを確認してください。';
+                    }
                     return '音声エンジンに接続できません。AivisSpeechが起動しているか確認してください。';
                 case 'timeout':
                     return '音声生成に時間がかかりすぎています。しばらく待ってから再試行してください。';
                 case 'server':
+                    if (useCloudAPI) {
+                        return 'Aivis Cloud APIでエラーが発生しました。APIキーまたは利用制限を確認してください。';
+                    }
                     return '音声エンジンでエラーが発生しました。エンジンの再起動を試してください。';
                 case 'synthesis':
                     return 'テキストの音声変換に失敗しました。内容を確認してください。';
                 default:
                     return '音声読み上げエラーが発生しました。';
             }
+        }
+        
+        // 401エラー（認証エラー）の特別処理
+        if (error.message && error.message.includes('401')) {
+            return 'APIキーが無効です。設定画面で正しいAPIキーを入力してください。';
         }
         
         return `音声読み上げエラー: ${error.message || 'Unknown error'}`;

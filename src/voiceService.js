@@ -1,18 +1,21 @@
 const axios = require('axios');
 const Logger = require('./utils/logger');
 const EmotionAnalyzer = require('./emotionAnalyzer');
+const appConfig = require('./appConfig');
 
 const logger = Logger.create('VoiceService');
 
 class VoiceService {
     constructor() {
-        this.baseUrl = 'http://127.0.0.1:10101';
+        this.baseUrl = 'http://127.0.0.1:10101'; // デフォルトはローカル
+        this.cloudApiUrl = 'https://api.aivis-project.com/v1'; // クラウドAPIのURL
         this.audioQueue = [];
         this.isPlaying = false;
         this.audioContext = null;
         this.currentAudio = null;
         this.isConnected = false;
         this.speakers = [];
+        this.useCloudAPI = false; // クラウドAPI使用フラグ
         
         // 動的タイムアウト設定
         this.minTimeout = 30000; // 30秒（最低）
@@ -36,22 +39,75 @@ class VoiceService {
         
         // 感情分析器
         this.emotionAnalyzer = new EmotionAnalyzer();
+        
+        // 設定を読み込んでクラウドAPI使用を決定
+        this.updateApiSettings();
+    }
+    
+    // API設定を更新
+    updateApiSettings() {
+        this.useCloudAPI = appConfig.get('useCloudAPI', false);
+        if (this.useCloudAPI) {
+            this.cloudApiUrl = appConfig.get('aivisCloudApiUrl', 'https://api.aivis-project.com/v1');
+        }
+    }
+    
+    // 現在のAPIエンドポイントを取得
+    getApiEndpoint() {
+        return this.useCloudAPI ? this.cloudApiUrl : this.baseUrl;
+    }
+    
+    // APIリクエストにヘッダーを追加
+    getRequestHeaders(additionalHeaders = {}) {
+        const headers = { ...additionalHeaders };
+        
+        if (this.useCloudAPI) {
+            const apiKey = appConfig.getCloudApiKey();
+            if (apiKey) {
+                headers['Authorization'] = `Bearer ${apiKey}`;
+            }
+        }
+        
+        return headers;
     }
 
     async checkConnection() {
         try {
-            const response = await axios.get(`${this.baseUrl}/version`, { timeout: 10000 });
+            // API設定を最新に更新
+            this.updateApiSettings();
+            
+            const endpoint = this.getApiEndpoint();
+            const headers = this.getRequestHeaders({ 'accept': 'application/json' });
+            
+            // クラウドAPIの場合はヘルスチェックエンドポイントを使用
+            const checkUrl = this.useCloudAPI ? `${endpoint}/health` : `${endpoint}/version`;
+            
+            const response = await axios.get(checkUrl, { 
+                headers, 
+                timeout: 10000 
+            });
+            
             this.isConnected = true;
-            return { success: true, version: response.data.version };
+            return { 
+                success: true, 
+                version: response.data.version || 'Cloud API',
+                isCloudAPI: this.useCloudAPI 
+            };
         } catch (error) {
             this.isConnected = false;
-            return { success: false, error: 'AivisSpeech Engine not running' };
+            const errorMessage = this.useCloudAPI 
+                ? 'Aivis Cloud API connection failed' 
+                : 'AivisSpeech Engine not running';
+            return { success: false, error: errorMessage };
         }
     }
 
     async getSpeakers() {
         try {
-            const response = await axios.get(`${this.baseUrl}/speakers`);
+            const endpoint = this.getApiEndpoint();
+            const headers = this.getRequestHeaders({ 'accept': 'application/json' });
+            
+            const response = await axios.get(`${endpoint}/speakers`, { headers });
             this.speakers = response.data;
             return this.speakers;
         } catch (error) {
@@ -121,46 +177,74 @@ class VoiceService {
 
     async synthesizeText(text, speaker = 0) {
         if (!this.isConnected) {
-            throw new Error('AivisSpeech Engine not connected');
+            const engineType = this.useCloudAPI ? 'Aivis Cloud API' : 'AivisSpeech Engine';
+            throw new Error(`${engineType} not connected`);
         }
 
         const timeout = this.calculateTimeout(text);
-        logger.debug(`音声合成開始: テキスト長=${text.length}文字, タイムアウト=${timeout}ms`);
+        logger.debug(`音声合成開始: テキスト長=${text.length}文字, タイムアウト=${timeout}ms, API=${this.useCloudAPI ? 'Cloud' : 'Local'}`);
+        
+        const endpoint = this.getApiEndpoint();
         
         const synthesizeOperation = async () => {
-            // Step 1: Get audio query with dynamic timeout
-            const queryResponse = await axios.post(
-                `${this.baseUrl}/audio_query`,
-                null,
-                {
-                    params: { text, speaker },
-                    headers: { 'accept': 'application/json' },
-                    timeout: Math.floor(timeout * 0.4) // クエリには40%の時間を割り当て
-                }
-            );
-            
-            // Step 1.5: Optimize query for faster synthesis
-            const queryData = queryResponse.data;
-            if (queryData.speedScale) {
-                queryData.speedScale = 1.2;  // 20%高速化
-            }
-
-            // Step 2: Synthesize audio with remaining timeout
-            const audioResponse = await axios.post(
-                `${this.baseUrl}/synthesis`,
-                queryData,
-                {
-                    params: { speaker },
-                    headers: { 
-                        'accept': 'audio/wav',
-                        'Content-Type': 'application/json' 
+            if (this.useCloudAPI) {
+                // クラウドAPIの場合は直接合成エンドポイントを呼ぶ
+                const headers = this.getRequestHeaders({
+                    'accept': 'audio/wav',
+                    'Content-Type': 'application/json'
+                });
+                
+                const audioResponse = await axios.post(
+                    `${endpoint}/synthesis`,
+                    {
+                        text: text,
+                        speaker: speaker,
+                        speedScale: 1.2  // 20%高速化
                     },
-                    responseType: 'arraybuffer',
-                    timeout: Math.floor(timeout * 0.6) // 合成には60%の時間を割り当て
+                    {
+                        headers,
+                        responseType: 'arraybuffer',
+                        timeout: timeout
+                    }
+                );
+                
+                return audioResponse.data;
+            } else {
+                // ローカルエンジンの場合は従来の2ステップ処理
+                // Step 1: Get audio query
+                const queryResponse = await axios.post(
+                    `${endpoint}/audio_query`,
+                    null,
+                    {
+                        params: { text, speaker },
+                        headers: { 'accept': 'application/json' },
+                        timeout: Math.floor(timeout * 0.4)
+                    }
+                );
+                
+                // Step 1.5: Optimize query
+                const queryData = queryResponse.data;
+                if (queryData.speedScale) {
+                    queryData.speedScale = 1.2;
                 }
-            );
 
-            return audioResponse.data;
+                // Step 2: Synthesize audio
+                const audioResponse = await axios.post(
+                    `${endpoint}/synthesis`,
+                    queryData,
+                    {
+                        params: { speaker },
+                        headers: { 
+                            'accept': 'audio/wav',
+                            'Content-Type': 'application/json' 
+                        },
+                        responseType: 'arraybuffer',
+                        timeout: Math.floor(timeout * 0.6)
+                    }
+                );
+
+                return audioResponse.data;
+            }
         };
         
         return await this.retryWithBackoff(synthesizeOperation, `text=${text.substring(0, 30)}...`);

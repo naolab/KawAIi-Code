@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 
 class AppConfig {
     constructor() {
@@ -64,6 +65,10 @@ class AppConfig {
             voiceIntervalSeconds: 1,
             useHooks: false, // 配布版では常時無効
             currentCharacter: 'shy', // 照れ屋キャラクターに固定
+            // Aivis Cloud API設定
+            useCloudAPI: false, // デフォルトはローカルエンジン使用
+            aivisCloudApiKey: '', // APIキー（暗号化して保存）
+            aivisCloudApiUrl: 'https://api.aivis-project.com/v1', // クラウドAPIエンドポイント
             // その他のデフォルト設定
         };
     }
@@ -75,6 +80,45 @@ class AppConfig {
     setClaudeWorkingDir(dir) {
         this.config.claudeWorkingDir = dir;
         this.saveConfig();
+    }
+
+    // APIキーの暗号化・復号化メソッド
+    encryptApiKey(apiKey) {
+        if (!apiKey) return '';
+        const algorithm = 'aes-256-cbc';
+        const key = crypto.createHash('sha256').update('kawaii-voice-app').digest();
+        const iv = Buffer.alloc(16, 0); // 簡易的な固定IV
+        const cipher = crypto.createCipheriv(algorithm, key, iv);
+        let encrypted = cipher.update(apiKey, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        return encrypted;
+    }
+
+    decryptApiKey(encryptedKey) {
+        if (!encryptedKey) return '';
+        try {
+            const algorithm = 'aes-256-cbc';
+            const key = crypto.createHash('sha256').update('kawaii-voice-app').digest();
+            const iv = Buffer.alloc(16, 0);
+            const decipher = crypto.createDecipheriv(algorithm, key, iv);
+            let decrypted = decipher.update(encryptedKey, 'hex', 'utf8');
+            decrypted += decipher.final('utf8');
+            return decrypted;
+        } catch (error) {
+            console.error('APIキーの復号化に失敗:', error);
+            return '';
+        }
+    }
+
+    // Cloud API関連のgetter/setter
+    async setCloudApiKey(apiKey) {
+        const encrypted = this.encryptApiKey(apiKey);
+        await this.set('aivisCloudApiKey', encrypted);
+    }
+
+    getCloudApiKey() {
+        const encrypted = this.get('aivisCloudApiKey', '');
+        return this.decryptApiKey(encrypted);
     }
 }
 

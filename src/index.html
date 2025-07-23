@@ -116,6 +116,32 @@
                         </select>
                     </div>
                     
+                    <!-- Aivis Cloud API設定セクション -->
+                    <div class="setting-group" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin: 15px 0; background-color: #f9f9f9;">
+                        <h4 style="margin: 0 0 12px 0; color: #333; font-size: 14px;">Aivis Cloud API設定（ベータ）</h4>
+                        
+                        <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <label for="use-cloud-api-toggle">クラウドAPIを使用</label>
+                            <div class="setting-switch">
+                                <input type="checkbox" id="use-cloud-api-toggle">
+                                <label for="use-cloud-api-toggle" class="switch-label"></label>
+                            </div>
+                        </div>
+                        
+                        <div id="cloud-api-settings" style="display: none;">
+                            <div class="setting-item" style="margin-bottom: 12px;">
+                                <label for="cloud-api-key-input" style="display: block; margin-bottom: 5px; font-size: 13px;">APIキー</label>
+                                <input type="password" id="cloud-api-key-input" placeholder="APIキーを入力" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            
+                            <div style="display: flex; gap: 10px;">
+                                <button id="test-cloud-api-btn" class="simple-btn" style="flex: 1;">接続テスト</button>
+                                <button id="save-cloud-api-btn" class="simple-btn" style="flex: 1;">保存</button>
+                            </div>
+                            
+                            <div id="cloud-api-status" style="margin-top: 10px; font-size: 12px; padding: 8px; border-radius: 4px; display: none;"></div>
+                        </div>
+                    </div>
                     
                     <div class="setting-group connection-status-group">
                         <span>音声エンジン接続状況</span>
