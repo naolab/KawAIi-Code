@@ -872,9 +872,9 @@ class UIEventManager {
                     this.debugLog('ERROR: cloudApiSettings element not found!');
                 }
                 
-                // VoiceServiceの設定を更新
-                if (this.app.voiceService) {
-                    this.app.voiceService.updateApiSettings();
+                // AudioServiceの設定を更新
+                if (this.app.terminalApp && this.app.terminalApp.audioService) {
+                    await this.app.terminalApp.audioService.updateApiSettings();
                 }
                 
                 // 接続状態を再確認
@@ -902,9 +902,9 @@ class UIEventManager {
                     // electronAPIを通してAPIキーを保存
                     await window.electronAPI.setCloudApiKey?.(apiKey);
                     
-                    if (this.app.voiceService) {
-                        this.app.voiceService.updateApiSettings();
-                        const result = await this.app.voiceService.checkConnection();
+                    if (this.app.terminalApp && this.app.terminalApp.audioService) {
+                        await this.app.terminalApp.audioService.updateApiSettings();
+                        const result = await this.app.terminalApp.audioService.testConnection();
                         
                         if (result.success) {
                             this.showCloudApiStatus('success', 'クラウドAPIに正常に接続しました');
@@ -933,9 +933,9 @@ class UIEventManager {
                     await window.electronAPI.setCloudApiKey?.(apiKey);
                     this.showCloudApiStatus('success', '設定を保存しました');
                     
-                    // VoiceServiceの設定を更新
-                    if (this.app.voiceService) {
-                        this.app.voiceService.updateApiSettings();
+                    // AudioServiceの設定を更新
+                    if (this.app.terminalApp && this.app.terminalApp.audioService) {
+                        await this.app.terminalApp.audioService.updateApiSettings();
                     }
                 } catch (error) {
                     this.showCloudApiStatus('error', `保存エラー: ${error.message}`);

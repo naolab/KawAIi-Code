@@ -16,7 +16,46 @@ class AudioService {
         this.debugLog = debugLog;
         this.debugError = debugError;
         
+        // API設定
+        this.baseUrl = 'http://localhost:10101';
+        this.cloudApiUrl = 'https://api.aivis-project.com/v1';
+        this.useCloudAPI = false;
+        this.cloudApiKey = '';
+        
         // 音声再生状態は統一管理システムを使用（app.js）
+        this.updateApiSettings();
+    }
+
+    // API設定を更新
+    async updateApiSettings() {
+        try {
+            const unifiedConfig = getSafeUnifiedConfig();
+            this.useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+            if (this.useCloudAPI) {
+                this.cloudApiUrl = await unifiedConfig.get('aivisCloudApiUrl', 'https://api.aivis-project.com/v1');
+                // APIキーは暗号化されているため、window.electronAPI経由で復号化されたキーを取得
+                if (window.electronAPI && window.electronAPI.getCloudApiKey) {
+                    this.cloudApiKey = await window.electronAPI.getCloudApiKey();
+                }
+            }
+            this.debugLog('API設定を更新:', { useCloudAPI: this.useCloudAPI, endpoint: this.getApiEndpoint() });
+        } catch (error) {
+            this.debugError('API設定の更新に失敗:', error);
+        }
+    }
+
+    // 現在のAPIエンドポイントを取得
+    getApiEndpoint() {
+        return this.useCloudAPI ? this.cloudApiUrl : this.baseUrl;
+    }
+
+    // APIリクエストヘッダーを取得
+    getRequestHeaders() {
+        const headers = {};
+        if (this.useCloudAPI && this.cloudApiKey) {
+            headers['Authorization'] = `Bearer ${this.cloudApiKey}`;
+        }
+        return headers;
     }
 
     // 話者リストを読み込み
@@ -53,12 +92,18 @@ class AudioService {
                 speed
             });
 
+            // API設定を更新
+            await this.updateApiSettings();
+            const endpoint = this.getApiEndpoint();
+            const headers = {
+                ...this.getRequestHeaders(),
+                'Content-Type': 'application/json'
+            };
+            
             // 音声クエリを生成
-            const queryResponse = await fetch(`http://localhost:10101/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, {
+            const queryResponse = await fetch(`${endpoint}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
+                headers
             });
 
             if (!queryResponse.ok) {
@@ -72,11 +117,9 @@ class AudioService {
             audioQuery.speedScale = speed;
 
             // 音声を合成
-            const synthesisResponse = await fetch(`http://localhost:10101/synthesis?speaker=${speakerId}`, {
+            const synthesisResponse = await fetch(`${endpoint}/synthesis?speaker=${speakerId}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: JSON.stringify(audioQuery)
             });
 
