@@ -968,7 +968,7 @@ class UIEventManager {
      */
     getVoiceErrorMessage(error) {
         const unifiedConfig = require('./unified-config-manager');
-        const useCloudAPI = unifiedConfig.getSync('useCloudAPI', false);
+        const useCloudAPI = unifiedConfig.get('useCloudAPI', false);
         
         if (error.errorType) {
             switch (error.errorType) {
