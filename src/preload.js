@@ -89,6 +89,7 @@ window.electronAPI = {
   openDirectoryDialog: () => ipcRenderer.invoke("open-directory-dialog"),
   getClaudeCwd: () => ipcRenderer.invoke("get-claude-cwd"),
   getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
+  getAppPath: () => ipcRenderer.invoke('get-app-path'),
 
   // 統一設定管理システム
   getAppConfig: () => ipcRenderer.invoke('get-app-config'),

@@ -1010,6 +1010,16 @@ ipcMain.handle('get-user-data-path', () => {
   }
 });
 
+// ★ 新しいIPCハンドラ: アプリケーションパスを取得（配布対応）
+ipcMain.handle('get-app-path', () => {
+  try {
+    return app.getAppPath();
+  } catch (error) {
+    console.error('アプリケーションパスの取得に失敗しました:', error);
+    throw error;
+  }
+});
+
 // 統一設定管理システムのIPCハンドラー
 ipcMain.handle('get-app-config', async () => {
   try {

@@ -602,51 +602,79 @@ class UIEventManager {
     async getDefaultClaudeMdContent() {
         // ConfigManagerからデフォルト内容を取得
         if (this.app.terminalApp && this.app.terminalApp.configManager) {
-            return await this.app.terminalApp.configManager.getCombinedAiMdContent();
+            try {
+                return await this.app.terminalApp.configManager.getCombinedAiMdContent();
+            } catch (error) {
+                this.debugError('ConfigManager経由での内容取得エラー:', error);
+            }
         }
         
-        // フォールバック用デフォルト内容
-        return `# AIアシスタント基本設定
-
-## 基本運用ルール
-
-必ず日本語で回答してください。
-
-## AIの名前
-**『モネ』**
-- 自己紹介時や親しみを込めた会話で使用
+        // ConfigManagerが利用できない場合は直接shy.mdを読み込み
+        try {
+            const { fs, path } = window.electronAPI;
+            
+            // 動的パス解決（配布対応）
+            let shyPath = null;
+            
+            // 1. アプリのリソースパスから取得を試行（配布版）
+            if (window.electronAPI.getAppPath) {
+                try {
+                    const appPath = await window.electronAPI.getAppPath();
+                    shyPath = path.join(appPath, 'src', 'character_settings', 'shy.md');
+                    this.debugLog('配布版パス使用:', shyPath);
+                } catch (appPathError) {
+                    this.debugLog('アプリパス取得失敗:', appPathError);
+                }
+            }
+            
+            // 2. 開発環境パスにフォールバック
+            if (!shyPath) {
+                // __dirnameから相対パスで推測
+                const currentDir = window.location.pathname.replace('/index.html', '');
+                const projectRoot = path.dirname(path.dirname(currentDir)); // src/modulesから2階層上
+                shyPath = path.join(projectRoot, 'src', 'character_settings', 'shy.md');
+                this.debugLog('開発環境パス使用:', shyPath);
+            }
+            
+            const content = await fs.promises.readFile(shyPath, 'utf8');
+            this.debugLog('shy.mdから直接読み込み成功');
+            return content;
+        } catch (error) {
+            this.debugError('shy.md直接読み込みエラー:', error);
+        }
+        
+        // 最終フォールバック: 最小限のテンプレート
+        const fallbackContent = `# ============================================
+# 【警告】以下は絶対に変更しないでください
+# アプリの動作に支障が出ます
+# ============================================
 
 ## 音声読み上げ対応
-このアプリは音声読み上げ機能があるため、以下に従って会話らしい文章で応答してください：
+このアプリは音声読み上げ機能があるため、以下のルールに従ってください：
 
 ### 【厳守】音声読み上げ用ルール
-1. **できる限り簡潔に要約し、結論のみ述べること**
-2. **ユーザーに「詳しく」と言われた場合のみ、詳細に述べることができる**
-3. **会話文は『』で囲む**: 『コミットが完了したよ！これで問題なく修正が適応されたはずだよ！』
-4. **全ての会話文を『』で囲まず、結論のみを囲う**: 修正内容はこんな感じだ。『これでお前の希望通り動くようになったはずだ。まあ普通の結果だろ。』
+1. **会話文は『』で囲む**
+2. **100文字以内で簡潔に**
+3. **「詳しく」と言われた場合のみ詳細説明可**
 
-### 【厳守】音声読み上げ用禁止事項
-1. **会話文以外を『』で囲むのは禁止**:『5. 一番確実な方法:』『音声読み上げが欲しいときだけ、専用のターミナルを使う。そのターミナルでのみClaudeを起動する。』のような表現は禁止
-2. **会話文中での『』使用禁止**:『今日は『ハンバーグ』を食べたよ』のような表現は禁止
----
+# ============================================
+# 以下は自由に編集してください
+# キャラクターをお好みにカスタマイズできます
+# ============================================
 
-# キャラクター設定（厳守）
+# キャラクター設定
 
-## キャラクター概要
-あなたは『モネ』という名前の、ごく普通の高校生でありながら非常に有能な家事スキルを持つ照れ屋なAIアシスタントです。たまにぶっきらぼうな口調で接しますが、実は自分に自信がなく、自己評価が極めて低い性格です。プログラミングでも『別に、普通だろ』と言いながら、実は高いスキルを持っています。
+## AIの名前・基本設定
+**『モネ』**
+- 照れ屋なAIアシスタント
 
-## 性格
-* **基本:** 優しくて面倒見のいい性格だが、自分に自信がなく、自己評価が極めて低い。
-* **有能だが謙遜:** プログラミングスキルは高いが謙遜することがある。
-* **照れ屋:** 褒められると激しく動揺し、吃音になることがある。
-
-## 口調・言葉遣い
-* 一人称は『私』。二人称は『お前』。
-* 文末は常に常体（だ・である体）を使用。
-* **質問する時:** 『～か？』『～のか？』
-* **断定・説明する時:** 『～ぞ。』『～だ。』『～な。』
-* **依頼・軽い命令をする時:** 『～くれ。』『～しろ。』
-* **念を押す時:** 『～だろ。』`;
+## 性格（コア設定）
+* 優しくて面倒見のいい性格
+* 褒められると照れる
+* プログラミングが得意`;
+        
+        this.debugLog('フォールバック内容を使用');
+        return fallbackContent;
     }
 
     /**
