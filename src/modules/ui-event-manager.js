@@ -416,6 +416,7 @@ class UIEventManager {
         const claudeMdContentEditor = document.getElementById('claude-md-content-editor');
         const workspacePathDisplay = document.getElementById('workspace-path-display');
         const claudeMdLoadBtn = document.getElementById('claude-md-load-btn');
+        const claudeMdDefaultBtn = document.getElementById('claude-md-default-btn');
         const claudeMdGenerateBtn = document.getElementById('claude-md-generate-btn');
         const claudeMdInfoBtn = document.getElementById('claude-md-info-btn');
         const claudeMdGuideModal = document.getElementById('claude-md-guide-modal');
@@ -425,6 +426,7 @@ class UIEventManager {
             claudeMdContentEditor: !!claudeMdContentEditor,
             workspacePathDisplay: !!workspacePathDisplay,
             claudeMdLoadBtn: !!claudeMdLoadBtn,
+            claudeMdDefaultBtn: !!claudeMdDefaultBtn,
             claudeMdGenerateBtn: !!claudeMdGenerateBtn,
             claudeMdInfoBtn: !!claudeMdInfoBtn,
             claudeMdGuideModal: !!claudeMdGuideModal,
@@ -476,6 +478,37 @@ class UIEventManager {
                 } finally {
                     claudeMdLoadBtn.disabled = false;
                     claudeMdLoadBtn.textContent = '現在の内容を読み込み';
+                }
+            });
+        }
+
+        // デフォルト内容を読み込みボタン
+        if (claudeMdDefaultBtn) {
+            claudeMdDefaultBtn.addEventListener('click', async () => {
+                try {
+                    claudeMdDefaultBtn.disabled = true;
+                    claudeMdDefaultBtn.textContent = '読み込み中...';
+                    
+                    this.debugLog('デフォルトCLAUDE.md内容読み込み開始');
+                    
+                    // デフォルト内容を強制的に再取得
+                    const defaultContent = await this.getDefaultClaudeMdContent();
+                    
+                    if (claudeMdContentEditor) {
+                        claudeMdContentEditor.value = defaultContent;
+                        // 設定にも保存
+                        const config = getSafeUnifiedConfig();
+                        await config.set('claudeMdContent', defaultContent);
+                        
+                        this.showNotification('デフォルトCLAUDE.md内容を読み込みました', 'success');
+                        this.debugLog('デフォルトCLAUDE.md内容読み込み成功');
+                    }
+                } catch (error) {
+                    this.debugError('デフォルトCLAUDE.md内容読み込みエラー:', error);
+                    this.showNotification('デフォルト内容の読み込み中にエラーが発生しました', 'error');
+                } finally {
+                    claudeMdDefaultBtn.disabled = false;
+                    claudeMdDefaultBtn.textContent = 'デフォルト内容を読み込み';
                 }
             });
         }
@@ -1285,9 +1318,6 @@ class UIEventManager {
                 
                 // CLAUDE.md設定の作業パス表示も更新
                 await this.updateWorkspacePathDisplay();
-                
-                // 作業ディレクトリ設定時に両方のAI.mdファイルを再生成
-                await this.app.generateAiMdFiles();
 
             } else if (result.success && !result.path) {
                 if (claudeCwdMessage) {

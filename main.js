@@ -19,30 +19,6 @@ const errorLog = console.error; // エラーは常に出力
 const aiConfigService = new AIConfigService();
 const conversationLogger = new ConversationLoggerMain();
 
-// AI.mdファイルクリーンアップ関数
-async function cleanupAiMdFiles() {
-  try {
-    const results = {};
-    
-    // CLAUDE.mdを削除（ホームディレクトリから）
-    try {
-      const claudeMdPath = path.join(os.homedir(), 'CLAUDE.md');
-      await fs.promises.unlink(claudeMdPath);
-      results.claude = { success: true, path: claudeMdPath };
-      infoLog('CLAUDE.md deleted from:', claudeMdPath);
-    } catch (error) {
-      results.claude = { success: false, error: error.message };
-      debugLog('CLAUDE.md deletion failed or file not found:', error.message);
-    }
-    
-    
-    infoLog('AI MD files cleanup completed:', results);
-    return results;
-  } catch (error) {
-    errorLog('Failed to cleanup AI MD files:', error);
-    return { success: false, error: error.message };
-  }
-}
 
 let mainWindow;
 let terminalProcess; // 既存の単一ターミナル（後方互換性のため残す）
@@ -357,9 +333,6 @@ async function performCleanup() {
   
   isCleanupExecuted = true;
   debugLog('アプリ終了時のクリーンアップを開始');
-  
-  // AI.mdファイルのクリーンアップを直接実行
-  await cleanupAiMdFiles();
   
   // Hook通知監視停止
   stopHookNotificationWatcher();
