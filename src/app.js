@@ -100,8 +100,6 @@ class TerminalApp {
         // 音声モード初期化
         await this.appManager.initializeVoiceMode();
         
-        // AI.mdファイルの生成
-        await this.appManager.generateAiMdFiles();
         
         // ステータスを更新
         this.updateStatus('Ready');
@@ -401,10 +399,6 @@ class TerminalApp {
         }
     }
 
-    // 両方のAI.mdファイルを生成 - TerminalAppManagerに委譲
-    async generateAiMdFiles() {
-        return await this.appManager.generateAiMdFiles();
-    }
 
     // AI.mdファイルクリーンアップ - ConfigManagerに委譲
     async cleanupAiMdFiles() {

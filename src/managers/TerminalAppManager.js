@@ -406,27 +406,6 @@ class TerminalAppManager {
         }
     }
 
-    /**
-     * AI.mdファイルの生成
-     */
-    async generateAiMdFiles() {
-        debugLog('📝 AI.mdファイル生成開始');
-        
-        try {
-            const result = await this.terminalApp.configManager.generateBothAiMdFiles();
-            if (result.success) {
-                debugLog('AI MD files generated successfully');
-            } else {
-                debugError('Failed to generate AI MD files:', result);
-            }
-            debugLog('✅ AI.mdファイル生成完了');
-            return result;
-        } catch (error) {
-            debugError('Error generating AI MD files:', error);
-            debugLog('❌ AI.mdファイル生成エラー完了');
-            return { success: false, error: error.message };
-        }
-    }
 
     /**
      * 全サービスの破棄
