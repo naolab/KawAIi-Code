@@ -24,6 +24,9 @@ class LoadingScreen {
                         <span>Now Loading</span>
                         <span class="loading-dots">...</span>
                     </div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
                 </div>
             </div>
         `;
@@ -109,6 +112,37 @@ class LoadingScreen {
             @keyframes spin {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
+            }
+
+            .loading-bar-container {
+                width: 250px;
+                height: 8px;
+                background: rgba(0, 0, 0, 0.1);
+                border-radius: 10px;
+                overflow: hidden;
+                margin-top: 15px;
+            }
+
+            .loading-bar {
+                height: 100%;
+                background: #ff8c42;
+                background: linear-gradient(90deg, #ff8c42, #ffa366);
+                border-radius: 10px;
+                animation: loadingBar 2s ease-in-out infinite;
+            }
+
+            @keyframes loadingBar {
+                0% {
+                    width: 0%;
+                    transform: translateX(0);
+                }
+                50% {
+                    width: 70%;
+                }
+                100% {
+                    width: 100%;
+                    transform: translateX(0);
+                }
             }
         `;
         
