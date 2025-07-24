@@ -1413,6 +1413,45 @@ input[type="checkbox"]:checked::before {
     cursor: pointer;
 }
 
+/* CLAUDE.md読み込みボタン群のレスポンシブレイアウト */
+.claude-md-load-buttons {
+    display: flex !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+}
+
+/* CLAUDE.md操作ボタン群のレスポンシブレイアウト */
+.claude-md-action-buttons {
+    display: flex !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+}
+
+/* 画面幅が狭い場合（1200px未満）は2行レイアウト */
+@media (max-width: 1200px) {
+    .claude-md-load-buttons,
+    .claude-md-action-buttons {
+        gap: 4px !important;
+    }
+    
+    .claude-md-load-buttons .simple-btn,
+    .claude-md-action-buttons .simple-btn {
+        flex: 1 1 calc(50% - 2px) !important;
+        min-width: 120px !important;
+        font-size: 13px !important;
+        padding: 10px 16px !important;
+    }
+}
+
+/* さらに狭い場合（900px未満）は縦並び */
+@media (max-width: 900px) {
+    .claude-md-load-buttons .simple-btn,
+    .claude-md-action-buttons .simple-btn {
+        flex: 1 1 100% !important;
+        min-width: auto !important;
+    }
+}
+
 /* 読み上げ履歴管理専用ボタンスタイル */
 .speech-history-controls .simple-btn {
     padding: 12px 24px;

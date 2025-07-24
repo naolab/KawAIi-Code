@@ -173,31 +173,32 @@
                     <div class="setting-group">
                         <label>CLAUDE.md設定</label>
                         
-                        <!-- 内容編集エリア -->
-                        <div class="setting-item" style="margin-top: 8px;">
-                            <label for="claude-md-content-editor" style="display: block; margin-bottom: 5px; font-size: 13px;">CLAUDE.md内容</label>
-                            <textarea id="claude-md-content-editor" 
-                                      style="width: 100%; height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;"
-                                      placeholder="CLAUDE.mdの内容を編集してください..."></textarea>
-                        </div>
-                        
                         <!-- 生成先表示 -->
-                        <div class="setting-item" style="margin-top: 10px;">
+                        <div class="setting-item" style="margin-top: 8px;">
                             <label style="display: block; margin-bottom: 5px; font-size: 13px;">生成先</label>
                             <div style="padding: 8px 12px; background: #f0f0f0; border-radius: 4px; font-size: 13px; color: #666; word-break: break-all;">
                                 <span id="workspace-path-display">読み込み中...</span>
                             </div>
                         </div>
                         
-                        <!-- ボタン群 -->
-                        <div style="display: flex; gap: 8px; margin-top: 10px;">
-                            <button id="claude-md-load-btn" class="simple-btn" style="flex: 1;">現在の内容を読み込み</button>
-                            <button id="claude-md-default-btn" class="simple-btn" style="flex: 1;">デフォルト内容を読み込み</button>
-                            <button id="claude-md-generate-btn" class="simple-btn" style="flex: 1;">生成</button>
+                        <!-- 操作ボタン群 -->
+                        <div class="claude-md-action-buttons" style="display: flex; gap: 6px; margin-top: 10px;">
+                            <button id="claude-md-generate-btn" class="simple-btn" style="flex: 1; min-width: 100px;">生成</button>
+                            <button id="claude-md-info-btn" class="simple-btn" style="flex: 1; min-width: 120px;">この機能について</button>
                         </div>
                         
-                        <div style="margin-top: 5px;">
-                            <button id="claude-md-info-btn" class="simple-btn" style="width: auto; min-width: 120px;">この機能について</button>
+                        <!-- 内容編集エリア -->
+                        <div class="setting-item" style="margin-top: 10px;">
+                            <label for="claude-md-content-editor" style="display: block; margin-bottom: 5px; font-size: 13px;">CLAUDE.md内容</label>
+                            <textarea id="claude-md-content-editor" 
+                                      style="width: 100%; height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;"
+                                      placeholder="CLAUDE.mdの内容を編集してください..."></textarea>
+                        </div>
+                        
+                        <!-- 読み込みボタン群 -->
+                        <div class="claude-md-load-buttons" style="display: flex; gap: 6px; margin-top: 10px;">
+                            <button id="claude-md-load-btn" class="simple-btn" style="flex: 1; min-width: 140px;">現在の内容を読み込み</button>
+                            <button id="claude-md-default-btn" class="simple-btn" style="flex: 1; min-width: 140px;">デフォルト内容を読み込み</button>
                         </div>
                     </div>
                     
@@ -429,79 +430,35 @@
                 </div>
                 <div class="help-body">
                     <div class="help-section">
-                        <h4>📝 CLAUDE.md設定とは</h4>
+                        <h4>機能概要</h4>
+                        <p>AIの性格・話し方をカスタマイズして、作業ディレクトリに保存する機能です。</p>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>使い方</h4>
                         <div class="help-item">
-                            <span class="help-icon">🤖</span>
-                            <strong>キャラクター設定ファイル:</strong> AIアシスタント（モネ）のキャラクター設定やプロジェクト指示を編集できるファイルです。
+                            <span class="help-icon">1️⃣</span>
+                            <strong>読み込み</strong> → 既存ファイルまたはテンプレートを取得
                         </div>
                         <div class="help-item">
-                            <span class="help-icon">✏️</span>
-                            <strong>手動編集:</strong> ユーザーが内容を自由に編集でき、独自のキャラクター設定や指示を追加できます。
+                            <span class="help-icon">2️⃣</span>
+                            <strong>編集</strong> → テキストエリアでカスタマイズ
                         </div>
                         <div class="help-item">
-                            <span class="help-icon">🎯</span>
-                            <strong>柔軟な配置:</strong> ホームディレクトリまたは作業ディレクトリに生成先を選択できます。
+                            <span class="help-icon">3️⃣</span>
+                            <strong>生成</strong> → 設定を保存
                         </div>
                     </div>
                     
                     <div class="help-section">
-                        <h4>✏️ 編集機能</h4>
+                        <h4>⚠️ 重要</h4>
                         <div class="help-item">
-                            <span class="help-icon">📝</span>
-                            <strong>内容編集:</strong>
-                            <ul>
-                                <li>テキストエリアでCLAUDE.mdの内容を直接編集</li>
-                                <li>キャラクター設定、指示、ルールなどを自由にカスタマイズ</li>
-                                <li>デフォルト内容をベースに、独自の設定を追加可能</li>
-                            </ul>
+                            <span class="help-icon">🚫</span>
+                            <strong>音声ルール部分は変更禁止</strong>
                         </div>
                         <div class="help-item">
-                            <span class="help-icon">📂</span>
-                            <strong>生成先:</strong>
-                            <ul>
-                                <li>作業ディレクトリのみに生成されます</li>
-                                <li>プロジェクト固有の設定として使用</li>
-                            </ul>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">🔄</span>
-                            <strong>読み込み機能:</strong>
-                            <ul>
-                                <li>既存のCLAUDE.mdファイルを編集エリアに読み込み</li>
-                                <li>既存の設定をベースにした編集が可能</li>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <div class="help-section">
-                        <h4>📂 使用方法</h4>
-                        <div class="help-item">
-                            <span class="help-icon">✏️</span>
-                            <strong>ステップ 1:</strong> テキストエリアでCLAUDE.mdの内容を編集します。
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">🎯</span>
-                            <strong>ステップ 2:</strong> 作業ディレクトリが設定されていることを確認します。
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">✨</span>
-                            <strong>ステップ 3:</strong> 「生成」ボタンでCLAUDE.mdファイルを作成します。
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">🔄</span>
-                            <strong>追加機能:</strong> 「現在の内容を読み込み」で既存ファイルを編集できます。
-                        </div>
-                    </div>
-                    
-                    <div class="help-section">
-                        <h4>💡 カスタマイズのコツ</h4>
-                        <div class="help-item">
-                            <span class="help-icon">🎭</span>
-                            <strong>キャラクター設定:</strong> モネの性格や口調を独自にカスタマイズできます。
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">📅</span>
-                            <strong>プロジェクト情報:</strong> 作業中のプロジェクトに関する特別な指示を追加できます。
+                            <span class="help-icon">✅</span>
+                            <strong>キャラクター設定部分は編集OK</strong>
                         </div>
                     </div>
                 </div>
