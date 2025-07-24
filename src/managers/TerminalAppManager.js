@@ -152,7 +152,7 @@ class TerminalAppManager {
         // UIEventManager
         this.terminalApp.uiEventManager = new UIEventManager(this.terminalApp);
         this.services.uiEventManager = this.terminalApp.uiEventManager;
-        this.terminalApp.uiEventManager.setupEventListeners();
+        await this.terminalApp.uiEventManager.setupEventListeners();
         
         debugLog('✅ UIサービス初期化完了');
     }

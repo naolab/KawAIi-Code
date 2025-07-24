@@ -41,8 +41,8 @@ class UIEventManager {
     /**
      * 全てのイベントリスナーを設定
      */
-    setupEventListeners() {
-        this.setupModalEventListeners();
+    async setupEventListeners() {
+        await this.setupModalEventListeners();
         this.setupVoiceControlEventListeners();
         this.setupDirectorySelectionEventListeners();
         this.setupGlobalDebugFunctions();
@@ -58,7 +58,7 @@ class UIEventManager {
     /**
      * モーダル関連のイベントリスナー設定
      */
-    setupModalEventListeners() {
+    async setupModalEventListeners() {
         const startBtn = document.getElementById('start-ai-selection');
         const stopBtn = document.getElementById('stop-terminal');
         const settingsBtn = document.getElementById('settings-btn');
@@ -206,7 +206,7 @@ class UIEventManager {
         }
 
         // CLAUDE.md設定関連のイベントリスナー
-        this.setupClaudeMdEventListeners();
+        await this.setupClaudeMdEventListeners();
 
         this.debugLog('Modal event listeners setup completed');
     }
@@ -412,64 +412,98 @@ class UIEventManager {
     /**
      * CLAUDE.md設定関連のイベントリスナー設定
      */
-    setupClaudeMdEventListeners() {
-        const claudeMdAutoToggle = document.getElementById('claude-md-auto-toggle');
-        const claudeMdManualBtn = document.getElementById('claude-md-manual-btn');
+    async setupClaudeMdEventListeners() {
+        const claudeMdContentEditor = document.getElementById('claude-md-content-editor');
+        const workspacePathDisplay = document.getElementById('workspace-path-display');
+        const claudeMdLoadBtn = document.getElementById('claude-md-load-btn');
+        const claudeMdGenerateBtn = document.getElementById('claude-md-generate-btn');
         const claudeMdInfoBtn = document.getElementById('claude-md-info-btn');
         const claudeMdGuideModal = document.getElementById('claude-md-guide-modal');
         const closeClaludeMdGuideBtn = document.getElementById('close-claude-md-guide');
 
         this.debugLog('CLAUDE.md control elements check:', {
-            claudeMdAutoToggle: !!claudeMdAutoToggle,
-            claudeMdManualBtn: !!claudeMdManualBtn,
+            claudeMdContentEditor: !!claudeMdContentEditor,
+            workspacePathDisplay: !!workspacePathDisplay,
+            claudeMdLoadBtn: !!claudeMdLoadBtn,
+            claudeMdGenerateBtn: !!claudeMdGenerateBtn,
             claudeMdInfoBtn: !!claudeMdInfoBtn,
             claudeMdGuideModal: !!claudeMdGuideModal,
             closeClaludeMdGuideBtn: !!closeClaludeMdGuideBtn
         });
 
-        // 自動生成トグルのイベント
-        if (claudeMdAutoToggle) {
-            claudeMdAutoToggle.addEventListener('change', async (e) => {
+        // デフォルト内容を読み込みと作業パス表示を更新
+        await this.loadDefaultClaudeMdContent();
+        await this.updateWorkspacePathDisplay();
+        this.debugLog('CLAUDE.md初期化完了: デフォルト内容読み込み＋作業パス表示更新');
+
+        // 内容編集エリアの変更イベント
+        if (claudeMdContentEditor) {
+            claudeMdContentEditor.addEventListener('input', async () => {
                 try {
                     const config = getSafeUnifiedConfig();
-                    await config.set('claudeMdAutoGenerate', e.target.checked);
-                    this.debugLog('CLAUDE.md自動生成設定更新:', e.target.checked);
+                    await config.set('claudeMdContent', claudeMdContentEditor.value);
+                    this.debugLog('CLAUDE.md内容保存');
                 } catch (error) {
-                    this.debugError('CLAUDE.md自動生成設定エラー:', error);
-                    this.showVoiceError('設定の保存に失敗しました');
-                    // エラー時は元の状態に戻す
-                    e.target.checked = !e.target.checked;
+                    this.debugError('CLAUDE.md内容保存エラー:', error);
                 }
             });
         }
 
-        // 手動生成ボタンのイベント
-        if (claudeMdManualBtn) {
-            claudeMdManualBtn.addEventListener('click', async () => {
+        // 現在の内容を読み込みボタン
+        if (claudeMdLoadBtn) {
+            claudeMdLoadBtn.addEventListener('click', async () => {
                 try {
-                    // ボタンを一時的に無効化
-                    claudeMdManualBtn.disabled = true;
-                    claudeMdManualBtn.textContent = '生成中...';
+                    claudeMdLoadBtn.disabled = true;
+                    claudeMdLoadBtn.textContent = '読み込み中...';
+                    
+                    const result = await this.loadExistingClaudeMd();
+                    
+                    if (result.success && claudeMdContentEditor) {
+                        claudeMdContentEditor.value = result.content;
+                        // 設定にも保存
+                        const config = getSafeUnifiedConfig();
+                        await config.set('claudeMdContent', result.content);
+                        
+                        this.showNotification('現在のCLAUDE.mdを読み込みました', 'success');
+                        this.debugLog('CLAUDE.md読み込み成功');
+                    } else {
+                        this.showNotification(result.message || 'CLAUDE.mdの読み込みに失敗しました', 'error');
+                        this.debugError('CLAUDE.md読み込み失敗:', result);
+                    }
+                } catch (error) {
+                    this.debugError('CLAUDE.md読み込みエラー:', error);
+                    this.showNotification('CLAUDE.mdの読み込み中にエラーが発生しました', 'error');
+                } finally {
+                    claudeMdLoadBtn.disabled = false;
+                    claudeMdLoadBtn.textContent = '現在の内容を読み込み';
+                }
+            });
+        }
+
+        // 生成ボタン
+        if (claudeMdGenerateBtn) {
+            claudeMdGenerateBtn.addEventListener('click', async () => {
+                try {
+                    claudeMdGenerateBtn.disabled = true;
+                    claudeMdGenerateBtn.textContent = '生成中...';
                     
                     this.debugLog('手動CLAUDE.md生成開始');
                     
-                    // TerminalAppManagerのgenerateAiMdFilesメソッドを呼び出し
-                    const result = await this.app.generateAiMdFiles();
+                    const result = await this.generateCustomClaudeMd();
                     
-                    if (result && result.success) {
+                    if (result.success) {
                         this.showNotification('CLAUDE.mdファイルを生成しました', 'success');
                         this.debugLog('手動CLAUDE.md生成成功');
                     } else {
-                        this.showVoiceError('CLAUDE.mdファイルの生成に失敗しました');
+                        this.showNotification(result.message || 'CLAUDE.mdファイルの生成に失敗しました', 'error');
                         this.debugError('手動CLAUDE.md生成失敗:', result);
                     }
                 } catch (error) {
                     this.debugError('手動CLAUDE.md生成エラー:', error);
-                    this.showVoiceError('CLAUDE.mdファイルの生成中にエラーが発生しました');
+                    this.showNotification('CLAUDE.mdファイルの生成中にエラーが発生しました', 'error');
                 } finally {
-                    // ボタンを元に戻す
-                    claudeMdManualBtn.disabled = false;
-                    claudeMdManualBtn.textContent = '手動生成';
+                    claudeMdGenerateBtn.disabled = false;
+                    claudeMdGenerateBtn.textContent = '生成';
                 }
             });
         }
@@ -504,22 +538,197 @@ class UIEventManager {
     }
 
     /**
+     * デフォルトCLAUDE.md内容を読み込み
+     */
+    async loadDefaultClaudeMdContent() {
+        try {
+            const config = getSafeUnifiedConfig();
+            const claudeMdContentEditor = document.getElementById('claude-md-content-editor');
+            
+            if (!claudeMdContentEditor) return;
+            
+            // 保存された内容があるかチェック
+            let savedContent = await config.get('claudeMdContent', '');
+            
+            if (!savedContent) {
+                // デフォルト内容を取得
+                savedContent = await this.getDefaultClaudeMdContent();
+                await config.set('claudeMdContent', savedContent);
+            }
+            
+            claudeMdContentEditor.value = savedContent;
+            this.debugLog('デフォルトCLAUDE.md内容読み込み完了');
+        } catch (error) {
+            this.debugError('デフォルトCLAUDE.md内容読み込みエラー:', error);
+        }
+    }
+
+    /**
+     * デフォルトCLAUDE.md内容を取得
+     */
+    async getDefaultClaudeMdContent() {
+        // ConfigManagerからデフォルト内容を取得
+        if (this.app.terminalApp && this.app.terminalApp.configManager) {
+            return await this.app.terminalApp.configManager.getCombinedAiMdContent();
+        }
+        
+        // フォールバック用デフォルト内容
+        return `# AIアシスタント基本設定
+
+## 基本運用ルール
+
+必ず日本語で回答してください。
+
+## AIの名前
+**『モネ』**
+- 自己紹介時や親しみを込めた会話で使用
+
+## 音声読み上げ対応
+このアプリは音声読み上げ機能があるため、以下に従って会話らしい文章で応答してください：
+
+### 【厳守】音声読み上げ用ルール
+1. **できる限り簡潔に要約し、結論のみ述べること**
+2. **ユーザーに「詳しく」と言われた場合のみ、詳細に述べることができる**
+3. **会話文は『』で囲む**: 『コミットが完了したよ！これで問題なく修正が適応されたはずだよ！』
+4. **全ての会話文を『』で囲まず、結論のみを囲う**: 修正内容はこんな感じだ。『これでお前の希望通り動くようになったはずだ。まあ普通の結果だろ。』
+
+### 【厳守】音声読み上げ用禁止事項
+1. **会話文以外を『』で囲むのは禁止**:『5. 一番確実な方法:』『音声読み上げが欲しいときだけ、専用のターミナルを使う。そのターミナルでのみClaudeを起動する。』のような表現は禁止
+2. **会話文中での『』使用禁止**:『今日は『ハンバーグ』を食べたよ』のような表現は禁止
+---
+
+# キャラクター設定（厳守）
+
+## キャラクター概要
+あなたは『モネ』という名前の、ごく普通の高校生でありながら非常に有能な家事スキルを持つ照れ屋なAIアシスタントです。たまにぶっきらぼうな口調で接しますが、実は自分に自信がなく、自己評価が極めて低い性格です。プログラミングでも『別に、普通だろ』と言いながら、実は高いスキルを持っています。
+
+## 性格
+* **基本:** 優しくて面倒見のいい性格だが、自分に自信がなく、自己評価が極めて低い。
+* **有能だが謙遜:** プログラミングスキルは高いが謙遜することがある。
+* **照れ屋:** 褒められると激しく動揺し、吃音になることがある。
+
+## 口調・言葉遣い
+* 一人称は『私』。二人称は『お前』。
+* 文末は常に常体（だ・である体）を使用。
+* **質問する時:** 『～か？』『～のか？』
+* **断定・説明する時:** 『～ぞ。』『～だ。』『～な。』
+* **依頼・軽い命令をする時:** 『～くれ。』『～しろ。』
+* **念を押す時:** 『～だろ。』`;
+    }
+
+    /**
+     * 作業パス表示を更新（作業ディレクトリ設定と同じ処理）
+     */
+    async updateWorkspacePathDisplay() {
+        const workspacePathDisplay = document.getElementById('workspace-path-display');
+        if (!workspacePathDisplay) {
+            this.debugError('workspace-path-display要素が見つかりません');
+            return;
+        }
+        
+        try {
+            const result = await window.electronAPI.getClaudeCwd();
+            if (result.success) {
+                // 作業ディレクトリ設定と同じ処理
+                workspacePathDisplay.textContent = result.cwd;
+                workspacePathDisplay.style.color = '#555'; // 通常の色にリセット
+                this.debugLog('CLAUDE.md作業パス表示更新:', result.cwd);
+            } else {
+                workspacePathDisplay.textContent = '取得失敗';
+                workspacePathDisplay.style.color = '#ff6b35';
+                this.debugError('作業ディレクトリ取得失敗:', result.error);
+            }
+        } catch (error) {
+            workspacePathDisplay.textContent = 'エラー';
+            workspacePathDisplay.style.color = '#ff6b35';
+            this.debugError('作業パス表示エラー:', error);
+        }
+    }
+
+    /**
+     * 既存のCLAUDE.mdを読み込み（作業ディレクトリのみ）
+     */
+    async loadExistingClaudeMd() {
+        try {
+            // 作業ディレクトリから読み込み
+            const workspaceResult = await window.electronAPI.getClaudeCwd();
+            this.debugLog('作業ディレクトリ取得結果:', workspaceResult);
+            
+            if (!workspaceResult.success) {
+                this.debugError('作業ディレクトリ取得失敗:', workspaceResult);
+                return { success: false, message: '作業ディレクトリが設定されていません' };
+            }
+            
+            const targetPath = workspaceResult.cwd + '/CLAUDE.md';
+            this.debugLog('読み込み対象パス:', targetPath);
+            
+            // ファイルを読み込み
+            const { fs } = window.electronAPI;
+            const content = await fs.promises.readFile(targetPath, 'utf8');
+            
+            this.debugLog('CLAUDE.md読み込み成功:', { path: targetPath, contentLength: content.length });
+            return { success: true, content, path: targetPath };
+        } catch (error) {
+            this.debugError('CLAUDE.md読み込みエラー詳細:', { error, code: error.code, message: error.message });
+            
+            if (error.code === 'ENOENT') {
+                return { success: false, message: '作業ディレクトリにCLAUDE.mdファイルが見つかりません' };
+            }
+            this.debugError('既存CLAUDE.md読み込みエラー:', error);
+            return { success: false, message: 'ファイルの読み込みに失敗しました' };
+        }
+    }
+
+    /**
+     * カスタムCLAUDE.mdを生成（作業ディレクトリのみ）
+     */
+    async generateCustomClaudeMd() {
+        try {
+            const claudeMdContentEditor = document.getElementById('claude-md-content-editor');
+            
+            if (!claudeMdContentEditor) {
+                return { success: false, message: 'コンテンツエディターが見つかりません' };
+            }
+            
+            const content = claudeMdContentEditor.value.trim();
+            if (!content) {
+                return { success: false, message: 'CLAUDE.mdの内容が空です' };
+            }
+            
+            // 作業ディレクトリに生成
+            const workspaceResult = await window.electronAPI.getClaudeCwd();
+            if (!workspaceResult.success) {
+                return { success: false, message: '作業ディレクトリが設定されていません' };
+            }
+            
+            const targetPath = workspaceResult.cwd + '/CLAUDE.md';
+            
+            // ファイルを書き込み
+            const { fs } = window.electronAPI;
+            await fs.promises.writeFile(targetPath, content, 'utf8');
+            
+            this.debugLog('CLAUDE.md生成完了:', targetPath);
+            return { success: true, path: targetPath };
+        } catch (error) {
+            this.debugError('カスタムCLAUDE.md生成エラー:', error);
+            return { success: false, message: 'ファイルの生成に失敗しました' };
+        }
+    }
+
+    /**
      * CLAUDE.md設定をモーダルに同期
      */
     async syncClaudeMdSettings() {
-        const claudeMdAutoToggle = document.getElementById('claude-md-auto-toggle');
-        
-        if (claudeMdAutoToggle) {
-            try {
-                const config = getSafeUnifiedConfig();
-                const autoGenerate = await config.get('claudeMdAutoGenerate', true); // デフォルトはtrue
-                claudeMdAutoToggle.checked = autoGenerate;
-                this.debugLog('CLAUDE.md自動生成設定同期:', autoGenerate);
-            } catch (error) {
-                this.debugError('CLAUDE.md設定同期エラー:', error);
-                // エラー時はデフォルト値を設定
-                claudeMdAutoToggle.checked = true;
-            }
+        try {
+            // 内容を同期
+            await this.loadDefaultClaudeMdContent();
+            
+            // 作業パス表示を更新
+            await this.updateWorkspacePathDisplay();
+            
+            this.debugLog('CLAUDE.md設定同期完了');
+        } catch (error) {
+            this.debugError('CLAUDE.md設定同期エラー:', error);
         }
     }
 
@@ -1074,6 +1283,9 @@ class UIEventManager {
                     this.app.configManager.setWorkingDirectory(this.app.claudeWorkingDir);
                 }
                 
+                // CLAUDE.md設定の作業パス表示も更新
+                await this.updateWorkspacePathDisplay();
+                
                 // 作業ディレクトリ設定時に両方のAI.mdファイルを再生成
                 await this.app.generateAiMdFiles();
 
@@ -1144,6 +1356,9 @@ class UIEventManager {
             if (result.success) {
                 this.app.claudeWorkingDir = result.cwd; // クラス変数に保存
                 if (claudeCwdDisplay) claudeCwdDisplay.textContent = this.app.claudeWorkingDir;
+                
+                // CLAUDE.md設定の作業パス表示も更新
+                await this.updateWorkspacePathDisplay();
             } else {
                 console.error('現在の作業ディレクトリの取得に失敗しました:', result.error);
                 if (claudeCwdDisplay) claudeCwdDisplay.textContent = '取得失敗';
