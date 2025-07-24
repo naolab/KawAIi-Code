@@ -621,15 +621,6 @@ class TerminalApp {
             };
         }
 
-        // 更新ボタン
-        const refreshBtn = document.getElementById('refresh-log-btn');
-        if (refreshBtn) {
-            refreshBtn.onclick = async () => {
-                const countSelect = document.getElementById('log-count-select');
-                const count = countSelect ? parseInt(countSelect.value) : 20;
-                await this.updateLogDisplay(count);
-            };
-        }
 
         // 件数選択
         const countSelect = document.getElementById('log-count-select');
