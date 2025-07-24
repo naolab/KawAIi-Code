@@ -1116,6 +1116,28 @@ ipcMain.handle('set-cloud-api-key', async (event, apiKey) => {
   }
 });
 
+ipcMain.handle('set-use-cloud-api', async (event, useCloudAPI) => {
+  try {
+    await appConfig.set('useCloudAPI', useCloudAPI);
+    debugLog('useCloudAPI set:', useCloudAPI);
+    return { success: true };
+  } catch (error) {
+    errorLog('set-use-cloud-api error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-use-cloud-api', async (event) => {
+  try {
+    const useCloudAPI = appConfig.get('useCloudAPI', false);
+    debugLog('useCloudAPI get:', useCloudAPI);
+    return useCloudAPI;
+  } catch (error) {
+    errorLog('get-use-cloud-api error:', error);
+    return false;
+  }
+});
+
 // ===== タブ機能用IPCハンドラー =====
 
 // AI設定処理はAIConfigServiceに統一

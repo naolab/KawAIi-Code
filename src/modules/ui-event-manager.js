@@ -863,7 +863,16 @@ class UIEventManager {
                     cloudApiSettingsExists: !!cloudApiSettings 
                 });
                 
+                // 統一設定システムに保存（localStorage）
                 await unifiedConfig.set('useCloudAPI', useCloudAPI);
+                
+                // 実際の設定ファイルにも保存
+                try {
+                    await window.electronAPI.setUseCloudApi?.(useCloudAPI);
+                    console.log('✅ クラウドAPI使用設定を保存:', useCloudAPI);
+                } catch (error) {
+                    console.error('❌ クラウドAPI使用設定の保存エラー:', error);
+                }
                 
                 if (cloudApiSettings) {
                     cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
@@ -1122,6 +1131,9 @@ class UIEventManager {
 
         // CLAUDE.md設定の同期
         await this.syncClaudeMdSettings();
+        
+        // クラウドAPI設定の同期
+        await this.syncCloudApiSettings();
 
         // Claude Code 作業ディレクトリ設定の同期
         const claudeCwdDisplay = document.getElementById('claude-cwd-display');
@@ -1185,6 +1197,52 @@ class UIEventManager {
         // 現在はチャット機能が削除されているため、何もしない
         // 将来的にチャット機能を復活させる場合に実装
         return null;
+    }
+    
+    /**
+     * クラウドAPI設定を同期
+     */
+    async syncCloudApiSettings() {
+        try {
+            // 実際の設定ファイルから読み込む
+            let useCloudAPI = false;
+            let encryptedApiKey = '';
+            
+            try {
+                useCloudAPI = await window.electronAPI.getUseCloudApi?.() || false;
+                encryptedApiKey = await window.electronAPI.getCloudApiKey?.() || '';
+            } catch (error) {
+                console.error('設定ファイル読み込みエラー:', error);
+                // フォールバック: unifiedConfigから読み込む
+                const unifiedConfig = getSafeUnifiedConfig();
+                useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                encryptedApiKey = await unifiedConfig.get('aivisCloudApiKey', '');
+            }
+            
+            // トグルボタンの状態を更新
+            const cloudApiToggle = document.getElementById('use-cloud-api-toggle');
+            if (cloudApiToggle) {
+                cloudApiToggle.checked = useCloudAPI;
+            }
+            
+            // APIキー入力欄の更新
+            const cloudApiKeyInput = document.getElementById('cloud-api-key-input');
+            if (cloudApiKeyInput) {
+                if (encryptedApiKey) {
+                    // 暗号化されたキーがある場合は、部分的に表示
+                    cloudApiKeyInput.value = 'sk-' + '*'.repeat(40);
+                    cloudApiKeyInput.dataset.hasKey = 'true';
+                } else {
+                    cloudApiKeyInput.value = '';
+                    cloudApiKeyInput.dataset.hasKey = 'false';
+                }
+            }
+            
+            console.log('🔄 クラウドAPI設定を同期:', { useCloudAPI, hasApiKey: !!encryptedApiKey });
+            
+        } catch (error) {
+            console.error('クラウドAPI設定の同期エラー:', error);
+        }
     }
 }
 

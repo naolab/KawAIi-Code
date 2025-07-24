@@ -107,6 +107,8 @@ window.electronAPI = {
   // Cloud API関連
   getCloudApiKey: () => ipcRenderer.invoke('get-cloud-api-key'),
   setCloudApiKey: (apiKey) => ipcRenderer.invoke('set-cloud-api-key', apiKey),
+  getUseCloudApi: () => ipcRenderer.invoke('get-use-cloud-api'),
+  setUseCloudApi: (useCloudAPI) => ipcRenderer.invoke('set-use-cloud-api', useCloudAPI),
 
   fs: require('fs'), // fsモジュールを公開
   path: require('path'), // pathモジュールを公開
