@@ -648,7 +648,7 @@ class TerminalApp {
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    // ローディング画面を表示
+    // ローディング画面を即座に表示
     const loadingScreen = new LoadingScreen();
     loadingScreen.show();
     
@@ -698,6 +698,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // 初期化完了後にローディング画面を非表示
         setTimeout(() => {
             loadingScreen.hide();
+            // メインアプリを表示
+            document.body.classList.add('loaded');
         }, 4000);
     }, 1000); // 1秒間ローディング画面を表示
     

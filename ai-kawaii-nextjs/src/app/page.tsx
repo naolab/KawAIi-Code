@@ -10,7 +10,10 @@ const VRMViewer = dynamic(() => import('@/components/VRMViewer'), {
   loading: () => (
     <div className="flex items-center justify-center h-full">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto mb-2"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto mb-4"></div>
+        <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden mx-auto mb-2">
+          <div className="h-full bg-orange-500 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+        </div>
         <p className="text-sm text-orange-600">3Dキャラクターを読み込み中...</p>
       </div>
     </div>
