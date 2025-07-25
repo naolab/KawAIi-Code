@@ -76,9 +76,9 @@ class TerminalAppManager {
         });
         this.services.processingCache = this.terminalApp.processingCache;
         
-        // 読み上げ履歴管理
-        this.terminalApp.speechHistory = new SpeechHistoryManager(200);
-        this.services.speechHistory = this.terminalApp.speechHistory;
+        // 読み上げ履歴管理（削除済み - VoiceQueueの重複チェッカーに統合）
+        // this.terminalApp.speechHistory = new SpeechHistoryManager(200);
+        // this.services.speechHistory = this.terminalApp.speechHistory;
         
         debugLog('✅ 基础サービス初期化完了');
     }
