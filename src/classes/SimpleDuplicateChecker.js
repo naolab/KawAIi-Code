@@ -83,9 +83,20 @@ class SimpleDuplicateChecker {
         
         if (!normalized) return null;
         
-        // Base64ハッシュ（軽量・高速）
+        // 32bit数値ハッシュ（衝突耐性を向上）
         try {
-            return btoa(unescape(encodeURIComponent(normalized))).substring(0, 32);
+            let hash = 0;
+            for (let i = 0; i < normalized.length; i++) {
+                const char = normalized.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // 32bit整数に変換
+            }
+            
+            // 文字長も考慮してより厳密なハッシュに
+            const lengthHash = normalized.length * 31;
+            const finalHash = (hash + lengthHash).toString(16);
+            
+            return finalHash;
         } catch (e) {
             this.debugLog('⚠️ [SimpleDupe] ハッシュ生成エラー:', e);
             return null;
