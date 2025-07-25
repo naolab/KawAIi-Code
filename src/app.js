@@ -59,6 +59,9 @@ class TerminalApp {
             isPlaying: false,           // アプリ内音声再生中フラグ
             isPlayingHook: false,       // Hook音声再生中フラグ
             currentAudio: null,         // 現在再生中の音声オブジェクト
+            currentAudioUrl: null,      // 現在のBlobURL（リソース管理用）
+            currentEndedHandler: null,  // 現在のendedイベントハンドラー
+            currentErrorHandler: null,  // 現在のerrorイベントハンドラー
             queue: [],                  // 音声キュー
             // 統一状態チェック関数
             isAnyPlaying: function() {
