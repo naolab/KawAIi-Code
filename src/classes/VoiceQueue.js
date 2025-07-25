@@ -3,7 +3,22 @@
  * - 音声テキストの順次処理
  * - 音声再生の競合回避
  * - 読み上げ間隔の制御
+ * - 重複読み上げの防止
  */
+
+// SimpleDuplicateCheckerの読み込み
+if (typeof SimpleDuplicateChecker === 'undefined') {
+    if (typeof require !== 'undefined') {
+        try {
+            const SimpleDuplicateChecker = require('./SimpleDuplicateChecker');
+            global.SimpleDuplicateChecker = SimpleDuplicateChecker;
+        } catch (e) {
+            console.error('SimpleDuplicateChecker読み込みエラー:', e);
+        }
+    } else if (typeof window !== 'undefined' && !window.SimpleDuplicateChecker) {
+        console.error('SimpleDuplicateChecker not found - 重複チェック機能が無効になります');
+    }
+}
 
 class VoiceQueue {
     constructor(terminalApp) {
@@ -11,6 +26,28 @@ class VoiceQueue {
         this.queue = [];
         this.isProcessing = false;
         this.debugLog = debugLog;
+        
+        // 重複チェッカーの初期化
+        this.duplicateChecker = null;
+        this.initializeDuplicateChecker();
+    }
+    
+    /**
+     * 重複チェッカーの初期化
+     */
+    initializeDuplicateChecker() {
+        try {
+            if (typeof SimpleDuplicateChecker !== 'undefined') {
+                this.duplicateChecker = new SimpleDuplicateChecker();
+                this.duplicateChecker.setDebugMode(true); // 開発時は詳細ログを有効
+                this.debugLog('🛡️ VoiceQueue: 重複チェッカー初期化完了');
+            } else {
+                this.debugLog('⚠️ VoiceQueue: SimpleDuplicateChecker未利用 - 重複チェック無効');
+            }
+        } catch (error) {
+            this.debugLog('❌ VoiceQueue: 重複チェッカー初期化エラー:', error);
+            this.duplicateChecker = null;
+        }
     }
     
     /**
@@ -39,6 +76,15 @@ class VoiceQueue {
     
     // キューに音声テキストを追加
     async addToQueue(text) {
+        // 重複チェック（最優先で実行）
+        if (this.duplicateChecker && this.duplicateChecker.isDuplicate(text)) {
+            this.debugLog('🚫 重複テキストのため音声キューをスキップ:', { 
+                text: text.substring(0, 30) + '...',
+                textLength: text.length 
+            });
+            return;
+        }
+        
         // 親タブ判定（非親タブの場合は音声処理をスキップ）
         if (!this.isCurrentTabParent()) {
             this.debugLog('🎵 非親タブのため音声キューをスキップ:', { text: text.substring(0, 30) + '...' });
@@ -59,6 +105,12 @@ class VoiceQueue {
         
         this.queue.push(text);
         this.debugLog('🎵 音声キューに追加:', { text: text.substring(0, 30) + '...', queueLength: this.queue.length });
+        
+        // 重複チェッカーに読み上げ予定としてマーク
+        if (this.duplicateChecker) {
+            this.duplicateChecker.markAsSpoken(text);
+            this.debugLog('✅ 重複チェッカーに読み上げ予定としてマーク完了');
+        }
         
         if (!this.isProcessing) {
             await this.processQueue();
@@ -163,10 +215,16 @@ class VoiceQueue {
     
     // キューの状態を取得
     getStatus() {
+        const duplicateStats = this.duplicateChecker ? this.duplicateChecker.getStats() : null;
+        
         return {
             queueLength: this.queue.length,
             isProcessing: this.isProcessing,
-            voicePlayingState: this.terminalApp.voicePlayingState
+            voicePlayingState: this.terminalApp.voicePlayingState,
+            duplicateChecker: {
+                enabled: !!this.duplicateChecker,
+                stats: duplicateStats
+            }
         };
     }
 }
