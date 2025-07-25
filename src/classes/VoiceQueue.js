@@ -39,7 +39,7 @@ class VoiceQueue {
         try {
             if (typeof SimpleDuplicateChecker !== 'undefined') {
                 this.duplicateChecker = new SimpleDuplicateChecker();
-                this.duplicateChecker.setDebugMode(true); // 開発時は詳細ログを有効
+                this.duplicateChecker.setDebugMode(false); // 本番用: デバッグログを無効化
                 this.debugLog('🛡️ VoiceQueue: 重複チェッカー初期化完了');
             } else {
                 this.debugLog('⚠️ VoiceQueue: SimpleDuplicateChecker未利用 - 重複チェック無効');
