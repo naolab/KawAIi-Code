@@ -1,5 +1,17 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// ConversationLogger準備完了の通知機構
+let loggerReadyCallbacks = [];
+let isLoggerReady = false;
+
+// ログシステム準備完了の通知を受信
+ipcRenderer.on('conversation-logger-ready', (event, data) => {
+    isLoggerReady = true;
+    console.log('💾 ConversationLogger準備完了:', data);
+    loggerReadyCallbacks.forEach(callback => callback(data));
+    loggerReadyCallbacks = [];
+});
+
 // contextIsolation: false なので、直接windowオブジェクトに設定
 window.electronAPI = {
   terminal: {
@@ -97,13 +109,43 @@ window.electronAPI = {
   removeAppConfig: (key) => ipcRenderer.invoke('remove-app-config', key),
   clearAppConfig: () => ipcRenderer.invoke('clear-app-config'),
 
-  // 会話ログ読み込み・保存
+  // 会話ログ読み込み・保存（確実性向上版）
   logs: {
     loadConversationLog: (count) => ipcRenderer.invoke('load-conversation-log', count),
-    saveConversationLog: (text, sessionId) => ipcRenderer.invoke('save-conversation-log', text, sessionId),
+    
+    // より確実なログ保存API
+    saveConversationLog: async (text, sessionId) => {
+      try {
+        // ログシステムの準備完了を確認
+        if (!isLoggerReady) {
+          const status = await ipcRenderer.invoke('check-conversation-logger-ready');
+          if (!status?.isInitialized) {
+            throw new Error('ConversationLogger not ready');
+          }
+          isLoggerReady = true;
+        }
+        
+        return await ipcRenderer.invoke('save-conversation-log', text, sessionId);
+      } catch (error) {
+        console.error('💾 ログ保存エラー:', error);
+        return { success: false, error: error.message };
+      }
+    },
+    
     getStats: () => ipcRenderer.invoke('get-conversation-log-stats'),
     clearLogs: () => ipcRenderer.invoke('clear-conversation-log')
   },
+
+  // ログシステム準備完了の待機API
+  onConversationLoggerReady: (callback) => {
+    if (isLoggerReady) {
+      callback({ success: true });
+    } else {
+      loggerReadyCallbacks.push(callback);
+    }
+  },
+  
+  checkConversationLoggerReady: () => ipcRenderer.invoke('check-conversation-logger-ready'),
 
   // Cloud API関連
   getCloudApiKey: () => ipcRenderer.invoke('get-cloud-api-key'),

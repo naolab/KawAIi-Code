@@ -46,8 +46,32 @@ function createWindow() {
 
   mainWindow.loadFile('src/index.html');
 
-  mainWindow.once('ready-to-show', () => {
+  mainWindow.once('ready-to-show', async () => {
     mainWindow.show();
+    
+    // ウィンドウ表示後にConversationLoggerの初期化完了を通知
+    try {
+      if (conversationLogger.isInitialized) {
+        const stats = conversationLogger.getStats();
+        debugLog('💾 ConversationLogger状態をレンダラープロセスに通知:', stats);
+        
+        // レンダラープロセスに初期化完了を通知
+        mainWindow.webContents.send('conversation-logger-ready', {
+          success: true,
+          totalLogs: stats.stats.totalLogs,
+          isInitialized: true
+        });
+      } else {
+        console.warn('💾 ConversationLogger未初期化 - レンダラープロセスに警告送信');
+        mainWindow.webContents.send('conversation-logger-ready', {
+          success: false,
+          error: 'Logger not initialized',
+          isInitialized: false
+        });
+      }
+    } catch (error) {
+      console.error('💾 ConversationLogger状態通知エラー:', error);
+    }
   });
 
   // デベロッパーツールを無効化（開発時も非表示）
@@ -781,6 +805,19 @@ ipcMain.handle('clear-conversation-log', async () => {
       success: false, 
       error: error.message
     };
+  }
+});
+
+// ConversationLogger準備状態確認
+ipcMain.handle('check-conversation-logger-ready', async () => {
+  try {
+    return {
+      isInitialized: conversationLogger.isInitialized,
+      stats: conversationLogger.isInitialized ? conversationLogger.getStats() : null
+    };
+  } catch (error) {
+    console.error('ConversationLogger状態確認エラー:', error);
+    return { isInitialized: false, error: error.message };
   }
 });
 
