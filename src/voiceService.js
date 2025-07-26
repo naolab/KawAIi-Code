@@ -188,18 +188,31 @@ class VoiceService {
         
         const synthesizeOperation = async () => {
             if (this.useCloudAPI) {
-                // クラウドAPIの場合は直接合成エンドポイントを呼ぶ
+                // クラウドAPIの場合は/tts/synthesizeエンドポイントを使用
                 const headers = this.getRequestHeaders({
-                    'accept': 'audio/wav',
+                    'accept': 'audio/mp3',
                     'Content-Type': 'application/json'
                 });
                 
+                // 感情分析実行
+                const emotion = this.emotionAnalyzer 
+                    ? this.emotionAnalyzer.analyzeEmotion(text)
+                    : { primary: 'neutral' };
+                
+                // 正しいAPIパラメータ構造で送信
                 const audioResponse = await axios.post(
-                    `${endpoint}/synthesis`,
+                    `${endpoint}/tts/synthesize`,
                     {
+                        model_uuid: 'a59cb814-0083-4369-8542-f51a29e72af7',
                         text: text,
-                        speaker: speaker,
-                        speedScale: 1.2  // 20%高速化
+                        use_ssml: false,
+                        output_format: 'mp3',
+                        output_sampling_rate: 44100,
+                        output_audio_channels: "mono",
+                        speaking_rate: 1.2,  // 正しいパラメータ名
+                        volume: 1.0,
+                        emotional_intensity: emotion.primary === 'joy' ? 1.3 : 1.0,
+                        tempo_dynamics: emotion.primary === 'joy' ? 1.2 : 1.0
                     },
                     {
                         headers,

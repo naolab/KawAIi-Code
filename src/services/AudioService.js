@@ -113,17 +113,21 @@ class AudioService {
             });
             
             if (this.useCloudAPI) {
-                // クラウドAPI用の音声合成処理
-                const cloudPayload = {
-                    model_uuid: 'a59cb814-0083-4369-8542-f51a29e72af7', // デフォルトのモデルUUID
-                    text: text,
-                    use_ssml: false,
-                    output_format: 'wav',
-                    output_sampling_rate: 24000,
-                    output_audio_channels: "mono",
-                    speed: speed,
-                    volume: volume / 100
-                };
+                // 感情分析実行
+                const emotion = this.terminalApp.emotionAnalyzer 
+                    ? this.terminalApp.emotionAnalyzer.analyzeEmotion(text)
+                    : { primary: 'neutral' };
+                
+                // SSML強化テキスト処理
+                const enhancedText = this.enhanceTextWithSSML(text, emotion);
+                
+                // 感情に応じたパラメータ構築
+                const cloudPayload = this.buildCloudApiParams(enhancedText.text, emotion, speed, volume);
+                cloudPayload.use_ssml = enhancedText.use_ssml;
+                
+                // 用途別プリセット適用
+                const preset = this.getAudioPreset('realtime');
+                Object.assign(cloudPayload, preset);
                 
                 this.debugLog('クラウドAPI音声合成リクエスト:', cloudPayload);
                 
@@ -142,6 +146,27 @@ class AudioService {
                         endpoint,
                         payload: cloudPayload
                     });
+                    
+                    // 422エラー（不正スタイル指定）の場合はフォールバック
+                    if (synthesisResponse.status === 422 && cloudPayload.style_name) {
+                        this.debugLog('スタイル指定エラー、ノーマルスタイルでリトライ');
+                        const fallbackPayload = { ...cloudPayload };
+                        delete fallbackPayload.style_name;
+                        delete fallbackPayload.emotional_intensity;
+                        
+                        const retryResponse = await fetch(`${endpoint}/tts/synthesize`, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify(fallbackPayload)
+                        });
+                        
+                        if (retryResponse.ok) {
+                            const audioData = await retryResponse.arrayBuffer();
+                            this.debugLog('フォールバック音声合成成功:', `${audioData.byteLength}バイト`);
+                            return audioData;
+                        }
+                    }
+                    
                     throw new Error(`クラウドAPI音声合成失敗: ${synthesisResponse.status} - ${errorText}`);
                 }
 
@@ -203,6 +228,139 @@ class AudioService {
             this.debugError('音声合成エラー:', error);
             return null;
         }
+    }
+
+    // 用途別音質プリセット設定
+    getAudioPreset(presetName) {
+        const AUDIO_PRESETS = {
+            // リアルタイム会話用（速度重視）
+            realtime: {
+                output_format: 'mp3',
+                output_bitrate: 128,
+                output_sampling_rate: 44100,
+                leading_silence_seconds: 0.05,
+                trailing_silence_seconds: 0.05
+            },
+            
+            // 高品質音声用（品質重視）
+            quality: {
+                output_format: 'flac',
+                output_sampling_rate: 44100,
+                leading_silence_seconds: 0.1,
+                trailing_silence_seconds: 0.1
+            },
+            
+            // モバイル・低帯域用（容量重視）
+            mobile: {
+                output_format: 'aac',
+                output_bitrate: 96,
+                output_sampling_rate: 22050,
+                leading_silence_seconds: 0.02,
+                trailing_silence_seconds: 0.02
+            }
+        };
+        
+        return AUDIO_PRESETS[presetName] || AUDIO_PRESETS.realtime;
+    }
+
+    // 感情に応じたクラウドAPIパラメータ構築
+    buildCloudApiParams(text, emotion, speed, volume) {
+        const baseParams = {
+            model_uuid: 'a59cb814-0083-4369-8542-f51a29e72af7',
+            text: text,
+            use_ssml: false,
+            output_audio_channels: "mono",
+            speaking_rate: speed, // 正しいパラメータ名に修正
+            volume: volume / 100
+        };
+        
+        // 感情に応じた調整
+        switch(emotion.primary) {
+            case 'joy':
+                return {
+                    ...baseParams,
+                    style_name: 'Happy',
+                    emotional_intensity: 1.3,
+                    tempo_dynamics: 1.2,
+                    speaking_rate: Math.min(speed * 1.1, 2.0)
+                };
+                
+            case 'sadness':
+                return {
+                    ...baseParams,
+                    style_name: 'Sad', 
+                    emotional_intensity: 1.1,
+                    tempo_dynamics: 0.8,
+                    speaking_rate: Math.max(speed * 0.9, 0.5)
+                };
+                
+            case 'surprise':
+                return {
+                    ...baseParams,
+                    emotional_intensity: 1.4,
+                    tempo_dynamics: 1.3,
+                    pitch: 0.1  // 少し高めに
+                };
+                
+            case 'anger':
+                return {
+                    ...baseParams,
+                    emotional_intensity: 1.5,
+                    tempo_dynamics: 1.1,
+                    speaking_rate: Math.min(speed * 1.05, 2.0)
+                };
+                
+            default:
+                return {
+                    ...baseParams,
+                    emotional_intensity: 1.0,
+                    tempo_dynamics: 1.0
+                };
+        }
+    }
+
+    // SSML強化テキスト処理
+    enhanceTextWithSSML(text, emotion) {
+        let ssmlText = text;
+        let useSSML = false;
+        
+        // 1. 感情に応じた全体的な調整
+        if (emotion.primary === 'joy') {
+            ssmlText = `<prosody rate="110%" pitch="+10%" volume="loud">${ssmlText}</prosody>`;
+            useSSML = true;
+        } else if (emotion.primary === 'sadness') {
+            ssmlText = `<prosody rate="85%" pitch="-5%" volume="soft">${ssmlText}</prosody>`;
+            useSSML = true;
+        } else if (emotion.primary === 'surprise') {
+            ssmlText = `<prosody rate="115%" pitch="+15%">${ssmlText}</prosody>`;
+            useSSML = true;
+        }
+        
+        // 2. 句読点での自動間調整（感情に関係なく適用）
+        if (ssmlText.includes('。') || ssmlText.includes('！') || ssmlText.includes('？')) {
+            ssmlText = ssmlText.replace(/。/g, '。<break time="0.8s"/>');
+            ssmlText = ssmlText.replace(/！/g, '！<break time="0.6s"/>');
+            ssmlText = ssmlText.replace(/？/g, '？<break time="0.7s"/>');
+            useSSML = true;
+        }
+        
+        // 3. 強調表現の自動検出
+        if (ssmlText.includes('『') && ssmlText.includes('』')) {
+            ssmlText = ssmlText.replace(/『([^』]+)』/g, '<aivis:emotion style="Happy" intensity="1.5">$1</aivis:emotion>');
+            useSSML = true;
+        }
+        
+        // 4. 段落分け（改行が2つ以上連続する場合）
+        if (ssmlText.includes('\n\n')) {
+            ssmlText = ssmlText.replace(/\n\n/g, '</p><p>');
+            ssmlText = `<p>${ssmlText}</p>`;
+            useSSML = true;
+        }
+        
+        return {
+            text: ssmlText,
+            use_ssml: useSSML
+        };
     }
 
     // アプリ内音声再生
