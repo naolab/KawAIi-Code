@@ -809,10 +809,7 @@ body.loaded {
     transition: all 0.3s ease;
 }
 
-.start-btn:hover::before {
-    border-left-color: #FF6B35;
-    filter: drop-shadow(0 0 8px rgba(255, 140, 66, 0.6));
-}
+/* 開始ボタンアイコンのホバーエフェクトを削除（ボタン全体のもやもやで十分） */
 
 /* 停止ボタン - 四角形 */
 .stop-btn::before {
@@ -824,10 +821,7 @@ body.loaded {
     transition: all 0.3s ease;
 }
 
-.stop-btn:hover::before {
-    background: #FF6B35;
-    box-shadow: 0 0 12px rgba(255, 140, 66, 0.8);
-}
+/* 停止ボタンアイコンのホバーエフェクトを削除（ボタン全体のもやもやで十分） */
 
 /* ターミナル切り替えボタン */
 .terminal-toggle-btn {
@@ -906,10 +900,7 @@ body.loaded {
     opacity: 0;
 }
 
-.terminal-toggle-btn:hover::before,
-.terminal-toggle-btn:hover::after {
-    box-shadow: 0 0 8px rgba(255, 140, 66, 0.5);
-}
+/* 目玉ボタンアイコンのホバーエフェクトを削除（ボタン全体のもやもやで十分） */
 
 /* ボタンが無効な状態 */
 .simple-btn:disabled {
@@ -935,6 +926,12 @@ body.loaded {
 
 .help-btn:hover {
     color: white;
+    transform: translateY(-2px) scale(1.05);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 
+        0 8px 25px rgba(255, 140, 66, 0.4),
+        0 3px 10px rgba(255, 183, 102, 0.3);
+    border-color: rgba(255, 183, 102, 1);
 }
 
 /* ヘルプボタンの歯車アイコンと中心の丸を完全に非表示にする */
@@ -1032,6 +1029,16 @@ body.loaded {
     border-radius: 50%;
     transform: translate(-50%, -50%);
     z-index: 8;
+}
+
+/* 会話ログボタンのホバーエフェクト */
+.history-btn:hover {
+    transform: translateY(-2px) scale(1.05);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 
+        0 8px 25px rgba(255, 140, 66, 0.4),
+        0 3px 10px rgba(255, 183, 102, 0.3);
+    border-color: rgba(255, 183, 102, 1);
 }
 
 /* 会話ログモーダル内のボタンとセレクトスタイル */
