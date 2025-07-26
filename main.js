@@ -49,29 +49,34 @@ function createWindow() {
   mainWindow.once('ready-to-show', async () => {
     mainWindow.show();
     
-    // ウィンドウ表示後にConversationLoggerの初期化完了を通知
-    try {
-      if (conversationLogger.isInitialized) {
-        const stats = conversationLogger.getStats();
-        debugLog('💾 ConversationLogger状態をレンダラープロセスに通知:', stats);
-        
-        // レンダラープロセスに初期化完了を通知
-        mainWindow.webContents.send('conversation-logger-ready', {
-          success: true,
-          totalLogs: stats.stats.totalLogs,
-          isInitialized: true
-        });
-      } else {
-        console.warn('💾 ConversationLogger未初期化 - レンダラープロセスに警告送信');
-        mainWindow.webContents.send('conversation-logger-ready', {
-          success: false,
-          error: 'Logger not initialized',
-          isInitialized: false
-        });
-      }
-    } catch (error) {
-      console.error('💾 ConversationLogger状態通知エラー:', error);
-    }
+    // DOM読み込み完了を待ってからログシステム状態を通知
+    mainWindow.webContents.once('dom-ready', async () => {
+      // DOM完全読み込み後、少し待ってから通知（レンダラープロセスの初期化を確実に完了させる）
+      setTimeout(async () => {
+        try {
+          if (conversationLogger.isInitialized) {
+            const stats = conversationLogger.getStats();
+            debugLog('💾 ConversationLogger状態をレンダラープロセスに通知 (DOM完了後):', stats);
+            
+            // レンダラープロセスに初期化完了を通知
+            mainWindow.webContents.send('conversation-logger-ready', {
+              success: true,
+              stats: stats.stats,
+              isInitialized: true
+            });
+          } else {
+            console.warn('💾 ConversationLogger未初期化 - レンダラープロセスに警告送信');
+            mainWindow.webContents.send('conversation-logger-ready', {
+              success: false,
+              error: 'Logger not initialized',
+              isInitialized: false
+            });
+          }
+        } catch (error) {
+          console.error('💾 ConversationLogger状態通知エラー:', error);
+        }
+      }, 1000); // DOM完全読み込み後1秒待機
+    });
   });
 
   // デベロッパーツールを無効化（開発時も非表示）

@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // ConversationLogger準備完了の通知機構
 let loggerReadyCallbacks = [];
 let isLoggerReady = false;
+let loggerInitPromise = null;
 
 // ログシステム準備完了の通知を受信
 ipcRenderer.on('conversation-logger-ready', (event, data) => {
@@ -11,6 +12,60 @@ ipcRenderer.on('conversation-logger-ready', (event, data) => {
     loggerReadyCallbacks.forEach(callback => callback(data));
     loggerReadyCallbacks = [];
 });
+
+// 確実にログシステムの準備を待つ関数
+async function ensureLoggerReady() {
+    if (isLoggerReady) {
+        console.log('💾 ログシステム: 既に初期化済み');
+        return true;
+    }
+    
+    if (!loggerInitPromise) {
+        console.log('💾 ログシステム: 初期化待機開始');
+        loggerInitPromise = new Promise(async (resolve) => {
+            let resolved = false;
+            
+            // 1. 既に準備完了かチェック
+            try {
+                const status = await ipcRenderer.invoke('check-conversation-logger-ready');
+                if (status?.isInitialized) {
+                    isLoggerReady = true;
+                    console.log('💾 ログシステム: 状態確認で初期化確認');
+                    resolved = true;
+                    resolve(true);
+                    return;
+                }
+            } catch (error) {
+                console.warn('💾 初期状態確認失敗:', error);
+            }
+            
+            // 2. イベント待機
+            const onReady = (event, data) => {
+                if (!resolved) {
+                    isLoggerReady = true;
+                    console.log('💾 ログシステム: イベント経由で初期化確認');
+                    resolved = true;
+                    ipcRenderer.off('conversation-logger-ready', onReady);
+                    resolve(true);
+                }
+            };
+            
+            ipcRenderer.on('conversation-logger-ready', onReady);
+            
+            // 3. タイムアウト (10秒)
+            setTimeout(() => {
+                if (!resolved) {
+                    console.warn('💾 ログシステム初期化タイムアウト');
+                    resolved = true;
+                    ipcRenderer.off('conversation-logger-ready', onReady);
+                    resolve(false);
+                }
+            }, 10000);
+        });
+    }
+    
+    return await loggerInitPromise;
+}
 
 // contextIsolation: false なので、直接windowオブジェクトに設定
 window.electronAPI = {
@@ -116,13 +171,10 @@ window.electronAPI = {
     // より確実なログ保存API
     saveConversationLog: async (text, sessionId) => {
       try {
-        // ログシステムの準備完了を確認
-        if (!isLoggerReady) {
-          const status = await ipcRenderer.invoke('check-conversation-logger-ready');
-          if (!status?.isInitialized) {
-            throw new Error('ConversationLogger not ready');
-          }
-          isLoggerReady = true;
+        // 確実にログシステムの準備を待つ
+        const isReady = await ensureLoggerReady();
+        if (!isReady) {
+          throw new Error('ConversationLogger initialization timeout');
         }
         
         return await ipcRenderer.invoke('save-conversation-log', text, sessionId);
