@@ -1110,6 +1110,9 @@ class UIEventManager {
                     cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
                 }
                 
+                // 話者選択と音声エンジン接続状況の初期状態設定
+                this.toggleLocalVoiceControls(!useCloudAPI);
+                
                 // APIキーも読み込み（復号化は内部で処理）
                 if (cloudApiKeyInput && useCloudAPI) {
                     try {
@@ -1150,6 +1153,9 @@ class UIEventManager {
                 } else {
                     this.debugLog('ERROR: cloudApiSettings element not found!');
                 }
+                
+                // 話者選択と音声エンジン接続状況の無効化/有効化
+                this.toggleLocalVoiceControls(!useCloudAPI);
                 
                 // AudioServiceの設定を更新
                 if (this.app.terminalApp && this.app.terminalApp.audioService) {
@@ -1248,6 +1254,53 @@ class UIEventManager {
         setTimeout(() => {
             cloudApiStatus.style.display = 'none';
         }, 5000);
+    }
+
+    /**
+     * ローカル音声コントロールの有効化/無効化
+     */
+    toggleLocalVoiceControls(enabled) {
+        // 話者選択を制御
+        const speakerSelect = document.getElementById('speaker-select-modal');
+        if (speakerSelect) {
+            speakerSelect.disabled = !enabled;
+            if (enabled) {
+                speakerSelect.style.opacity = '1';
+                speakerSelect.style.cursor = 'pointer';
+                speakerSelect.style.pointerEvents = 'auto';
+            } else {
+                speakerSelect.style.opacity = '0.5';
+                speakerSelect.style.cursor = 'not-allowed';
+                speakerSelect.style.pointerEvents = 'none';
+            }
+        }
+        
+        // 音声エンジン接続状況グループを制御
+        const connectionStatusGroup = document.querySelector('.connection-status-group');
+        if (connectionStatusGroup) {
+            if (enabled) {
+                connectionStatusGroup.style.opacity = '1';
+                connectionStatusGroup.style.pointerEvents = 'auto';
+            } else {
+                connectionStatusGroup.style.opacity = '0.5';
+                connectionStatusGroup.style.pointerEvents = 'none';
+            }
+        }
+        
+        // 再接続ボタンを制御
+        const refreshConnectionBtn = document.getElementById('refresh-connection-modal');
+        if (refreshConnectionBtn) {
+            refreshConnectionBtn.disabled = !enabled;
+            if (enabled) {
+                refreshConnectionBtn.style.opacity = '1';
+                refreshConnectionBtn.style.cursor = 'pointer';
+            } else {
+                refreshConnectionBtn.style.opacity = '0.5';
+                refreshConnectionBtn.style.cursor = 'not-allowed';
+            }
+        }
+        
+        this.debugLog('Local voice controls toggled:', { enabled });
     }
 
     /**
