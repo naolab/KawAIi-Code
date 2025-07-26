@@ -166,7 +166,7 @@ class VoiceQueue {
                     await this.waitForVoiceComplete();
                     
                     // 読み上げ間隔制御
-                    const intervalSeconds = await getSafeUnifiedConfig().get('voiceIntervalSeconds', 1);
+                    const intervalSeconds = await getSafeUnifiedConfig().get('voiceIntervalSeconds', 0.5);
                     const intervalMs = intervalSeconds * 1000;
                     
                     if (intervalMs > 0) {
