@@ -327,7 +327,7 @@ class TerminalAppManager {
                 const result = await this.terminalApp.audioService.testConnection();
                 if (result.success) {
                     // AudioService.testConnection()で既に状態は更新済み
-                    this.terminalApp.updateConnectionStatus('接続済み', 'connected');
+                    await this.terminalApp.updateConnectionStatus('接続済み', 'connected');
                     
                     // 軽量チェック時は話者読み込みをスキップ（パフォーマンス最適化）
                     if (!skipLoadSpeakers) {
@@ -341,7 +341,7 @@ class TerminalAppManager {
                     
                     if (attempt === retryCount) {
                         // 最終試行で失敗した場合
-                        this.terminalApp.updateConnectionStatus('未接続', 'disconnected');
+                        await this.terminalApp.updateConnectionStatus('未接続', 'disconnected');
                         debugLog('❌ 音声接続チェック完了（最終的に失敗）');
                     } else {
                         // リトライ前の待機
@@ -353,7 +353,7 @@ class TerminalAppManager {
                 
                 if (attempt === retryCount) {
                     // 最終試行でエラーの場合
-                    this.terminalApp.updateConnectionStatus('エラー', 'error');
+                    await this.terminalApp.updateConnectionStatus('エラー', 'error');
                     debugError('Voice connection check failed after all retries:', error);
                 } else {
                     // リトライ前の待機

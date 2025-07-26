@@ -471,13 +471,13 @@ class TerminalApp {
         }
     }
 
-    updateConnectionStatus(text, status) {
+    async updateConnectionStatus(text, status) {
         debugLog('🔧 updateConnectionStatus呼び出し:', { text, status });
         const statusElementModal = document.getElementById('connection-status-modal');
         if (statusElementModal) {
             // クラウドAPI使用時は常に「未接続」を表示
             const unifiedConfig = getSafeUnifiedConfig();
-            const useCloudAPI = unifiedConfig.get('useCloudAPI', false);
+            const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
             
             if (useCloudAPI) {
                 statusElementModal.textContent = '未接続';
@@ -790,31 +790,9 @@ async function continuousConnectionCheck() {
         return;
     }
     
-    try {
-        const response = await fetch('http://localhost:10101/version');
-        if (response.ok) {
-            // 接続成功
-            if (statusElement.textContent !== '接続済み') {
-                statusElement.textContent = '接続済み';
-                statusElement.className = 'status-connected';
-                debugLog('🔄 継続チェック: 接続復旧を検出');
-            }
-        } else {
-            // 接続失敗
-            if (statusElement.textContent !== '未接続') {
-                statusElement.textContent = '未接続';
-                statusElement.className = 'status-disconnected';
-                debugLog('🔄 継続チェック: 接続断を検出');
-            }
-        }
-    } catch (error) {
-        // 接続エラー
-        if (statusElement.textContent !== '未接続') {
-            statusElement.textContent = '未接続';
-            statusElement.className = 'status-disconnected';
-            debugLog('🔄 継続チェック: 接続エラーを検出');
-        }
-    }
+    // ローカルAPI使用時もTerminalAppManagerのリアルタイム監視に任せる（重複回避）
+    debugLog('🔧 ローカルAPI使用中 - TerminalAppManagerのリアルタイム監視に任せる');
+    return;
 }
 
 // アプリ終了時の監視停止
