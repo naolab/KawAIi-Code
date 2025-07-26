@@ -475,9 +475,19 @@ class TerminalApp {
         debugLog('🔧 updateConnectionStatus呼び出し:', { text, status });
         const statusElementModal = document.getElementById('connection-status-modal');
         if (statusElementModal) {
-            statusElementModal.textContent = text;
-            statusElementModal.className = `status-${status}`;
-            debugLog('✅ UI更新成功:', { text, status, element: statusElementModal });
+            // クラウドAPI使用時は常に「未接続」を表示
+            const unifiedConfig = getSafeUnifiedConfig();
+            const useCloudAPI = unifiedConfig.get('useCloudAPI', false);
+            
+            if (useCloudAPI) {
+                statusElementModal.textContent = '未接続';
+                statusElementModal.className = 'status-disconnected';
+                debugLog('✅ クラウドAPI使用時: 未接続固定表示');
+            } else {
+                statusElementModal.textContent = text;
+                statusElementModal.className = `status-${status}`;
+                debugLog('✅ ローカルAPI使用時: UI更新成功:', { text, status });
+            }
         } else {
             debugError('❌ UI要素が見つかりません: connection-status-modal');
         }
@@ -772,16 +782,11 @@ async function continuousConnectionCheck() {
         return;
     }
     
-    // クラウドAPI使用時はスキップ
+    // クラウドAPI使用時はスキップ（updateConnectionStatus()に任せる）
     const unifiedConfig = getSafeUnifiedConfig();
     const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
     if (useCloudAPI) {
-        // クラウドAPI使用時は常に接続済みとする
-        if (statusElement.textContent !== '接続済み') {
-            statusElement.textContent = '接続済み';
-            statusElement.className = 'status-connected';
-            debugLog('🌥️ クラウドAPI使用中 - 接続済みを維持');
-        }
+        debugLog('🌥️ クラウドAPI使用中 - 継続監視をスキップ（updateConnectionStatus()に任せる）');
         return;
     }
     
