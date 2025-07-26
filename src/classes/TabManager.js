@@ -54,14 +54,17 @@ class TabManager {
             return;
         }
         
-        // ターミナルに出力
+        // ターミナルに出力（全タブ）
         if (tab.terminal) {
             tab.terminal.write(data);
         }
         
-        // 全タブで重複チェック対象として追加
-        if (this.deps.messageAccumulator) {
+        // 音声処理は親タブのみ（Phase 2A: 事前フィルタリング改善）
+        if (this.isParentTab(tabId) && this.deps.messageAccumulator) {
+            debugLog(`🎵 親タブ${tabId}のデータを音声処理パイプラインに送信:`, data.substring(0, 50) + '...');
             this.deps.messageAccumulator.addChunk(data);
+        } else if (!this.isParentTab(tabId)) {
+            debugLog(`🔇 非親タブ${tabId}のデータは音声処理をスキップ:`, data.substring(0, 30) + '...');
         }
     }
     
@@ -350,6 +353,15 @@ class TabManager {
         }
     }
 
+    /**
+     * 指定されたタブが親タブかどうかを判定
+     * @param {string} tabId - 判定対象のタブID
+     * @returns {boolean} 親タブの場合true
+     */
+    isParentTab(tabId) {
+        return this.parentTabId === tabId;
+    }
+
     setParentTab(tabId) {
         if (!this.tabs[tabId]) return;
         
@@ -362,6 +374,7 @@ class TabManager {
         this.parentTabId = tabId;
         this.tabs[tabId].isParent = true;
         
+        debugLog(`🌟 親タブを${tabId}に設定完了`);
         this.updateTabUI();
     }
 

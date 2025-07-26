@@ -321,7 +321,7 @@ class ConversationLoggerMain {
      * ログローテーション（古いログの管理）
      */
     async rotateLogsIfNeeded() {
-        const maxLogs = 10000; // 最大ログ数
+        const maxLogs = 1000; // 最大ログ数
         
         if (this.logData.logs.length > maxLogs) {
             try {
