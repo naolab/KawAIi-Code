@@ -1172,11 +1172,11 @@ class UIEventManager {
         // 接続テストボタン
         if (testCloudApiBtn) {
             testCloudApiBtn.addEventListener('click', async () => {
-                if (!cloudApiKeyInput || !cloudApiStatus) return;
+                if (!cloudApiKeyInput) return;
                 
                 const apiKey = cloudApiKeyInput.value.trim();
                 if (!apiKey) {
-                    this.showCloudApiStatus('error', 'APIキーを入力してください');
+                    this.showNotification('APIキーを入力してください', 'error');
                     return;
                 }
                 
@@ -1187,18 +1187,30 @@ class UIEventManager {
                     // electronAPIを通してAPIキーを保存
                     await window.electronAPI.setCloudApiKey?.(apiKey);
                     
-                    if (this.app.terminalApp && this.app.terminalApp.audioService) {
-                        await this.app.terminalApp.audioService.updateApiSettings();
-                        const result = await this.app.terminalApp.audioService.testConnection();
+                    if (this.app.audioService) {
+                        await this.app.audioService.updateApiSettings();
                         
-                        if (result.success) {
-                            this.showCloudApiStatus('success', 'クラウドAPIに正常に接続しました');
-                        } else {
-                            this.showCloudApiStatus('error', `接続失敗: ${result.error}`);
+                        // 実際の音声合成テストを実行（重複防止を回避）
+                        try {
+                            const testMessage = 'これはテスト用のメッセージです';
+                            // AudioServiceのsynthesizeTextOnlyを直接呼び出して重複チェックを回避
+                            const audioData = await this.app.audioService.synthesizeTextOnly(testMessage);
+                            if (audioData) {
+                                await this.app.audioService.playAppInternalAudio(audioData, testMessage);
+                            } else {
+                                this.showNotification('音声の生成に失敗しました', 'error');
+                            }
+                        } catch (testError) {
+                            const userFriendlyMessage = this.convertToUserFriendlyError(testError.message);
+                            this.showNotification(userFriendlyMessage, 'error');
                         }
+                        // 成功時は通知なし（音声が聞こえれば成功がわかる）
+                    } else {
+                        this.showNotification('音声システムの初期化に失敗しました。アプリを再起動してください', 'error');
                     }
                 } catch (error) {
-                    this.showCloudApiStatus('error', `エラー: ${error.message}`);
+                    const userFriendlyMessage = this.convertToUserFriendlyError(error.message);
+                    this.showNotification(userFriendlyMessage, 'error');
                 } finally {
                     testCloudApiBtn.disabled = false;
                     testCloudApiBtn.textContent = '接続テスト';
@@ -1350,6 +1362,55 @@ class UIEventManager {
         }
         
         return `音声読み上げエラー: ${error.message || 'Unknown error'}`;
+    }
+
+    /**
+     * エラーメッセージをユーザーフレンドリーに変換
+     */
+    convertToUserFriendlyError(errorMessage) {
+        if (!errorMessage) {
+            return '接続テストに失敗しました。設定を確認してください';
+        }
+        
+        const message = errorMessage.toLowerCase();
+        
+        // 401エラー（認証失敗）
+        if (message.includes('401') || message.includes('アクセストークンが不正') || message.includes('unauthorized')) {
+            return 'APIキーが正しくありません。設定を確認してください';
+        }
+        
+        // ネットワークエラー
+        if (message.includes('fetch failed') || message.includes('network') || message.includes('connection')) {
+            return 'インターネット接続を確認してください';
+        }
+        
+        // タイムアウト
+        if (message.includes('timeout') || message.includes('タイムアウト')) {
+            return '接続がタイムアウトしました。ネットワーク環境を確認してください';
+        }
+        
+        // 403エラー（アクセス拒否）
+        if (message.includes('403') || message.includes('forbidden')) {
+            return 'アクセスが拒否されました。APIキーの権限を確認してください';
+        }
+        
+        // 429エラー（レート制限）
+        if (message.includes('429') || message.includes('rate limit') || message.includes('too many requests')) {
+            return 'リクエストが多すぎます';
+        }
+        
+        // 500系エラー（サーバーエラー）
+        if (message.includes('500') || message.includes('502') || message.includes('503') || message.includes('504')) {
+            return 'サーバーでエラーが発生しています';
+        }
+        
+        // 音声合成関連エラー
+        if (message.includes('synthesis') || message.includes('音声合成') || message.includes('tts')) {
+            return '音声の生成に失敗しました';
+        }
+        
+        // その他のエラー
+        return '接続テストに失敗しました。設定を確認してください';
     }
 
     /**
