@@ -17,7 +17,7 @@ const errorLog = console.error; // エラーは常に出力
 
 // サービス初期化
 const aiConfigService = new AIConfigService();
-const conversationLogger = new ConversationLoggerMain();
+// const conversationLogger = new ConversationLoggerMain(); // 一時的に無効化
 
 
 let mainWindow;
@@ -54,24 +54,14 @@ function createWindow() {
       // DOM完全読み込み後、少し待ってから通知（レンダラープロセスの初期化を確実に完了させる）
       setTimeout(async () => {
         try {
-          if (conversationLogger.isInitialized) {
-            const stats = conversationLogger.getStats();
-            debugLog('💾 ConversationLogger状態をレンダラープロセスに通知 (DOM完了後):', stats);
-            
-            // レンダラープロセスに初期化完了を通知
-            mainWindow.webContents.send('conversation-logger-ready', {
-              success: true,
-              stats: stats.stats,
-              isInitialized: true
-            });
-          } else {
-            console.warn('💾 ConversationLogger未初期化 - レンダラープロセスに警告送信');
-            mainWindow.webContents.send('conversation-logger-ready', {
-              success: false,
-              error: 'Logger not initialized',
-              isInitialized: false
-            });
-          }
+          // ConversationLogger無効化中 - 常に無効状態を通知
+          console.log('💾 ConversationLogger無効化中 - レンダラープロセスに通知送信');
+          mainWindow.webContents.send('conversation-logger-ready', {
+            success: false,
+            error: 'ConversationLogger disabled',
+            isInitialized: false,
+            disabled: true
+          });
         } catch (error) {
           console.error('💾 ConversationLogger状態通知エラー:', error);
         }
@@ -343,76 +333,76 @@ app.whenReady().then(async () => {
 
   await startNextjsServer();
 
-  // ConversationLoggerの非同期初期化（Phase3: パフォーマンス最適化）
-  const conversationLoggerPromise = (async () => {
-    try {
-      console.log('💾 ConversationLogger非同期初期化開始...');
-      const result = await conversationLogger.initializeWithRetry();
-      
-      console.log('✅ ConversationLogger初期化完了');
-      console.log('💾 初期化結果:', {
-        success: result.success,
-        mode: result.mode,
-        fallback: result.fallback,
-        retriesExhausted: result.retriesExhausted,
-        totalLogs: result.totalLogs,
-        isInitialized: conversationLogger.isInitialized,
-        logPath: conversationLogger.logPath
-      });
-      
-      // ヘルスチェック実行
-      const health = await conversationLogger.performHealthCheck();
-      console.log('🩺 初期ヘルスチェック結果:', {
-        status: health.status,
-        capabilities: health.capabilities,
-        uptime: Math.round(health.metrics.uptime / 1000) + 's'
-      });
-      
-      // Phase3: システム監視開始
-      conversationLogger.startMonitoring();
-      console.log('📊 システム監視を開始しました');
-      
-      return { success: true, mode: result.mode };
-      
-    } catch (error) {
-      console.error('❌ ConversationLogger最終初期化失敗:', error);
-      console.error('❌ エラー詳細:', {
-        message: error.message,
-        code: error.code,
-        errno: error.errno,
-        path: error.path,
-        stack: error.stack?.split('\n').slice(0, 3).join('\n')
-      });
-      
-      console.warn('⚠️ ログ機能は完全に無効化されました');
-      return { success: false, error: error.message };
-    }
-  })();
+  // ConversationLoggerの非同期初期化（一時的に無効化）
+  // const conversationLoggerPromise = (async () => {
+  //   try {
+  //     console.log('💾 ConversationLogger非同期初期化開始...');
+  //     const result = await conversationLogger.initializeWithRetry();
+  //     
+  //     console.log('✅ ConversationLogger初期化完了');
+  //     console.log('💾 初期化結果:', {
+  //       success: result.success,
+  //       mode: result.mode,
+  //       fallback: result.fallback,
+  //       retriesExhausted: result.retriesExhausted,
+  //       totalLogs: result.totalLogs,
+  //       isInitialized: conversationLogger.isInitialized,
+  //       logPath: conversationLogger.logPath
+  //     });
+  //     
+  //     // ヘルスチェック実行
+  //     const health = await conversationLogger.performHealthCheck();
+  //     console.log('🩺 初期ヘルスチェック結果:', {
+  //       status: health.status,
+  //       capabilities: health.capabilities,
+  //       uptime: Math.round(health.metrics.uptime / 1000) + 's'
+  //     });
+  //     
+  //     // Phase3: システム監視開始
+  //     conversationLogger.startMonitoring();
+  //     console.log('📊 システム監視を開始しました');
+  //     
+  //     return { success: true, mode: result.mode };
+  //     
+  //   } catch (error) {
+  //     console.error('❌ ConversationLogger最終初期化失敗:', error);
+  //     console.error('❌ エラー詳細:', {
+  //       message: error.message,
+  //       code: error.code,
+  //       errno: error.errno,
+  //       path: error.path,
+  //       stack: error.stack?.split('\n').slice(0, 3).join('\n')
+  //     });
+  //     
+  //     console.warn('⚠️ ログ機能は完全に無効化されました');
+  //     return { success: false, error: error.message };
+  //   }
+  // })();
 
   createWindow();
   
-  // Phase3: 非同期初期化完了後の通知
-  conversationLoggerPromise.then((result) => {
-    if (mainWindow && mainWindow.webContents) {
-      mainWindow.webContents.send('conversation-logger-ready', {
-        success: result.success,
-        mode: result.mode,
-        isInitialized: conversationLogger.isInitialized,
-        health: result.success ? conversationLogger.performHealthCheck() : null
-      });
-      console.log('📡 レンダラープロセスにConversationLogger準備完了を通知');
-    }
-  }).catch((error) => {
-    console.error('ConversationLogger非同期初期化でエラー:', error);
-    if (mainWindow && mainWindow.webContents) {
-      mainWindow.webContents.send('conversation-logger-ready', {
-        success: false,
-        error: error.message,
-        mode: 'error',
-        isInitialized: false
-      });
-    }
-  });
+  // Phase3: 非同期初期化完了後の通知（無効化中）
+  // conversationLoggerPromise.then((result) => {
+  //   if (mainWindow && mainWindow.webContents) {
+  //     mainWindow.webContents.send('conversation-logger-ready', {
+  //       success: result.success,
+  //       mode: result.mode,
+  //       isInitialized: conversationLogger.isInitialized,
+  //       health: result.success ? conversationLogger.performHealthCheck() : null
+  //     });
+  //     console.log('📡 レンダラープロセスにConversationLogger準備完了を通知');
+  //   }
+  // }).catch((error) => {
+  //   console.error('ConversationLogger非同期初期化でエラー:', error);
+  //   if (mainWindow && mainWindow.webContents) {
+  //     mainWindow.webContents.send('conversation-logger-ready', {
+  //       success: false,
+  //       error: error.message,
+  //       mode: 'error',
+  //       isInitialized: false
+  //     });
+  //   }
+  // });
   
   // Hook通知監視開始
   startHookNotificationWatcher();
@@ -432,10 +422,10 @@ async function performCleanup() {
   // Hook通知監視停止
   stopHookNotificationWatcher();
   
-  // ConversationLoggerの終了処理
-  if (conversationLogger) {
-    await conversationLogger.close();
-  }
+  // ConversationLoggerの終了処理（無効化中）
+  // if (conversationLogger) {
+  //   await conversationLogger.close();
+  // }
   
   // Kill Next.js server when app closes
   if (nextjsProcess) {
@@ -781,6 +771,15 @@ ipcMain.handle('voice-get-emotion', async (event, text) => {
 
 // 会話ログ読み込み機能（内部システム）
 ipcMain.handle('load-conversation-log', async (event, count = 20) => {
+  // ConversationLogger無効化中 - 空の結果を返す
+  return {
+    success: true,
+    logs: [],
+    total: 0,
+    disabled: true
+  };
+  
+  /*
   try {
     debugLog('Internal conversation log loading:', { count });
     
@@ -812,10 +811,15 @@ ipcMain.handle('load-conversation-log', async (event, count = 20) => {
       logs: []
     };
   }
+  */
 });
 
 // ログ保存機能（内部システム）
 ipcMain.handle('save-conversation-log', async (event, text, sessionId = null) => {
+  // ConversationLogger無効化中 - ログ保存をスキップ
+  return { success: false, error: 'ConversationLogger disabled', disabled: true };
+  
+  /*
   try {
     debugLog('Internal conversation log saving:', { text: text.substring(0, 50) + '...', sessionId });
     
@@ -837,59 +841,25 @@ ipcMain.handle('save-conversation-log', async (event, text, sessionId = null) =>
       error: error.message
     };
   }
+  */
 });
 
 // ログ統計情報取得機能（内部システム）
 ipcMain.handle('get-conversation-log-stats', async () => {
-  try {
-    const result = conversationLogger.getStats();
-    debugLog('Internal log stats retrieved:', result.stats);
-    return result;
-  } catch (error) {
-    console.error('Internal conversation log stats error:', error);
-    return { 
-      success: false, 
-      error: error.message,
-      stats: null
-    };
-  }
+  // ConversationLogger無効化中
+  return { success: false, disabled: true, stats: null };
 });
 
 // ログクリア機能（内部システム）
 ipcMain.handle('clear-conversation-log', async () => {
-  try {
-    debugLog('Internal conversation log clearing requested');
-    
-    const result = await conversationLogger.clearLogs();
-    
-    if (result.success) {
-      debugLog('Internal log clearing success');
-    } else {
-      debugLog('Internal log clearing failed:', result.error);
-    }
-    
-    return result;
-    
-  } catch (error) {
-    console.error('Internal conversation log clearing error:', error);
-    return { 
-      success: false, 
-      error: error.message
-    };
-  }
+  // ConversationLogger無効化中
+  return { success: false, disabled: true };
 });
 
 // ConversationLogger準備状態確認
 ipcMain.handle('check-conversation-logger-ready', async () => {
-  try {
-    return {
-      isInitialized: conversationLogger.isInitialized,
-      stats: conversationLogger.isInitialized ? conversationLogger.getStats() : null
-    };
-  } catch (error) {
-    console.error('ConversationLogger状態確認エラー:', error);
-    return { isInitialized: false, error: error.message };
-  }
+  // ConversationLogger無効化中
+  return { isInitialized: false, disabled: true };
 });
 
 // 感情データの転送用IPCハンドラー
