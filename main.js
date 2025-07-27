@@ -19,30 +19,6 @@ const errorLog = console.error; // エラーは常に出力
 const aiConfigService = new AIConfigService();
 const conversationLogger = new ConversationLoggerMain();
 
-// AI.mdファイルクリーンアップ関数
-async function cleanupAiMdFiles() {
-  try {
-    const results = {};
-    
-    // CLAUDE.mdを削除（ホームディレクトリから）
-    try {
-      const claudeMdPath = path.join(os.homedir(), 'CLAUDE.md');
-      await fs.promises.unlink(claudeMdPath);
-      results.claude = { success: true, path: claudeMdPath };
-      infoLog('CLAUDE.md deleted from:', claudeMdPath);
-    } catch (error) {
-      results.claude = { success: false, error: error.message };
-      debugLog('CLAUDE.md deletion failed or file not found:', error.message);
-    }
-    
-    
-    infoLog('AI MD files cleanup completed:', results);
-    return results;
-  } catch (error) {
-    errorLog('Failed to cleanup AI MD files:', error);
-    return { success: false, error: error.message };
-  }
-}
 
 let mainWindow;
 let terminalProcess; // 既存の単一ターミナル（後方互換性のため残す）
@@ -70,8 +46,37 @@ function createWindow() {
 
   mainWindow.loadFile('src/index.html');
 
-  mainWindow.once('ready-to-show', () => {
+  mainWindow.once('ready-to-show', async () => {
     mainWindow.show();
+    
+    // DOM読み込み完了を待ってからログシステム状態を通知
+    mainWindow.webContents.once('dom-ready', async () => {
+      // DOM完全読み込み後、少し待ってから通知（レンダラープロセスの初期化を確実に完了させる）
+      setTimeout(async () => {
+        try {
+          if (conversationLogger.isInitialized) {
+            const stats = conversationLogger.getStats();
+            debugLog('💾 ConversationLogger状態をレンダラープロセスに通知 (DOM完了後):', stats);
+            
+            // レンダラープロセスに初期化完了を通知
+            mainWindow.webContents.send('conversation-logger-ready', {
+              success: true,
+              stats: stats.stats,
+              isInitialized: true
+            });
+          } else {
+            console.warn('💾 ConversationLogger未初期化 - レンダラープロセスに警告送信');
+            mainWindow.webContents.send('conversation-logger-ready', {
+              success: false,
+              error: 'Logger not initialized',
+              isInitialized: false
+            });
+          }
+        } catch (error) {
+          console.error('💾 ConversationLogger状態通知エラー:', error);
+        }
+      }, 1000); // DOM完全読み込み後1秒待機
+    });
   });
 
   // デベロッパーツールを無効化（開発時も非表示）
@@ -357,9 +362,6 @@ async function performCleanup() {
   
   isCleanupExecuted = true;
   debugLog('アプリ終了時のクリーンアップを開始');
-  
-  // AI.mdファイルのクリーンアップを直接実行
-  await cleanupAiMdFiles();
   
   // Hook通知監視停止
   stopHookNotificationWatcher();
@@ -811,6 +813,19 @@ ipcMain.handle('clear-conversation-log', async () => {
   }
 });
 
+// ConversationLogger準備状態確認
+ipcMain.handle('check-conversation-logger-ready', async () => {
+  try {
+    return {
+      isInitialized: conversationLogger.isInitialized,
+      stats: conversationLogger.isInitialized ? conversationLogger.getStats() : null
+    };
+  } catch (error) {
+    console.error('ConversationLogger状態確認エラー:', error);
+    return { isInitialized: false, error: error.message };
+  }
+});
+
 // 感情データの転送用IPCハンドラー
 ipcMain.on('emotion-data', (event, emotionData) => {
   debugLog('😊 感情データを受信:', emotionData);
@@ -1034,6 +1049,16 @@ ipcMain.handle('get-user-data-path', () => {
   } catch (error) {
     console.error('ユーザーデータパスの取得に失敗しました:', error);
     return { success: false, error: error.message };
+  }
+});
+
+// ★ 新しいIPCハンドラ: アプリケーションパスを取得（配布対応）
+ipcMain.handle('get-app-path', () => {
+  try {
+    return app.getAppPath();
+  } catch (error) {
+    console.error('アプリケーションパスの取得に失敗しました:', error);
+    throw error;
   }
 });
 

@@ -76,11 +76,13 @@ async function testCloudAPI() {
             model_uuid: 'a59cb814-0083-4369-8542-f51a29e72af7',
             text: 'テストです',
             use_ssml: false,
-            output_format: 'wav',
-            output_sampling_rate: 24000,
-            output_audio_channels: 'mono', // 修正: 文字列に変更
-            speed: 1.0,
-            volume: 0.5
+            output_format: 'mp3',           // リアルタイム用に最適化
+            output_sampling_rate: 44100,    // 標準品質
+            output_audio_channels: 'mono',
+            speaking_rate: 1.0,             // 正しいパラメータ名に修正
+            volume: 1.0,                    // 標準音量に修正
+            emotional_intensity: 1.0,       // 感情表現の強さ
+            tempo_dynamics: 1.0             // 抑揚の制御
         };
         
         const ttsResponse = await fetch(`${apiUrl}/tts/synthesize`, {

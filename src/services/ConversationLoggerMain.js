@@ -128,16 +128,16 @@ class ConversationLoggerMain {
         }
 
         try {
-            const cleanText = this.cleanText(text);
-            if (!cleanText) {
-                return { success: false, error: 'Empty text after cleaning' };
+            // テキストクリーニングはクライアント側で実施済み
+            if (!text || typeof text !== 'string' || !text.trim()) {
+                return { success: false, error: 'Empty text provided' };
             }
 
             // 新しいログエントリを作成
             const logEntry = {
                 id: Date.now(),
                 timestamp: new Date().toISOString(),
-                text: cleanText,
+                text: text.trim(),
                 sessionId: sessionId,
                 source: 'kawaii-app'
             };
@@ -161,7 +161,7 @@ class ConversationLoggerMain {
                 throw new Error(saveResult.error);
             }
             
-            console.log(`${this.logPrefix} ログ保存完了: "${cleanText.substring(0, 50)}..." (総数: ${this.stats.totalLogs})`);
+            console.log(`${this.logPrefix} ログ保存完了: "${text.substring(0, 50)}..." (総数: ${this.stats.totalLogs})`);
             
             return { success: true, logId: logEntry.id, totalLogs: this.stats.totalLogs };
             
@@ -235,21 +235,13 @@ class ConversationLoggerMain {
     }
 
     /**
-     * テキストのクリーニング
+     * テキストのクリーニング（廃止）
+     * クライアント側で実行済みのため、サーバー側では不要
      */
-    cleanText(text) {
-        if (!text || typeof text !== 'string') {
-            return null;
-        }
-        
-        // 『』を除去して中身のテキストのみを抽出
-        let cleaned = text.replace(/[『』]/g, '');
-        
-        // 空白の正規化
-        cleaned = cleaned.replace(/\s+/g, ' ').trim();
-        
-        return cleaned || null;
-    }
+    // cleanText(text) {
+    //     // この処理はクライアント側（ConversationLogger）で実行済み
+    //     // 重複処理を避けるため廃止
+    // }
 
     /**
      * 統計情報の取得
@@ -321,7 +313,7 @@ class ConversationLoggerMain {
      * ログローテーション（古いログの管理）
      */
     async rotateLogsIfNeeded() {
-        const maxLogs = 10000; // 最大ログ数
+        const maxLogs = 1000; // 最大ログ数
         
         if (this.logData.logs.length > maxLogs) {
             try {

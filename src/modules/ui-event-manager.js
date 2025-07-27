@@ -41,8 +41,8 @@ class UIEventManager {
     /**
      * 全てのイベントリスナーを設定
      */
-    setupEventListeners() {
-        this.setupModalEventListeners();
+    async setupEventListeners() {
+        await this.setupModalEventListeners();
         this.setupVoiceControlEventListeners();
         this.setupDirectorySelectionEventListeners();
         this.setupGlobalDebugFunctions();
@@ -58,7 +58,7 @@ class UIEventManager {
     /**
      * モーダル関連のイベントリスナー設定
      */
-    setupModalEventListeners() {
+    async setupModalEventListeners() {
         const startBtn = document.getElementById('start-ai-selection');
         const stopBtn = document.getElementById('stop-terminal');
         const settingsBtn = document.getElementById('settings-btn');
@@ -206,7 +206,7 @@ class UIEventManager {
         }
 
         // CLAUDE.md設定関連のイベントリスナー
-        this.setupClaudeMdEventListeners();
+        await this.setupClaudeMdEventListeners();
 
         this.debugLog('Modal event listeners setup completed');
     }
@@ -412,64 +412,131 @@ class UIEventManager {
     /**
      * CLAUDE.md設定関連のイベントリスナー設定
      */
-    setupClaudeMdEventListeners() {
-        const claudeMdAutoToggle = document.getElementById('claude-md-auto-toggle');
-        const claudeMdManualBtn = document.getElementById('claude-md-manual-btn');
+    async setupClaudeMdEventListeners() {
+        const claudeMdContentEditor = document.getElementById('claude-md-content-editor');
+        const workspacePathDisplay = document.getElementById('workspace-path-display');
+        const claudeMdLoadBtn = document.getElementById('claude-md-load-btn');
+        const claudeMdDefaultBtn = document.getElementById('claude-md-default-btn');
+        const claudeMdGenerateBtn = document.getElementById('claude-md-generate-btn');
         const claudeMdInfoBtn = document.getElementById('claude-md-info-btn');
         const claudeMdGuideModal = document.getElementById('claude-md-guide-modal');
         const closeClaludeMdGuideBtn = document.getElementById('close-claude-md-guide');
 
         this.debugLog('CLAUDE.md control elements check:', {
-            claudeMdAutoToggle: !!claudeMdAutoToggle,
-            claudeMdManualBtn: !!claudeMdManualBtn,
+            claudeMdContentEditor: !!claudeMdContentEditor,
+            workspacePathDisplay: !!workspacePathDisplay,
+            claudeMdLoadBtn: !!claudeMdLoadBtn,
+            claudeMdDefaultBtn: !!claudeMdDefaultBtn,
+            claudeMdGenerateBtn: !!claudeMdGenerateBtn,
             claudeMdInfoBtn: !!claudeMdInfoBtn,
             claudeMdGuideModal: !!claudeMdGuideModal,
             closeClaludeMdGuideBtn: !!closeClaludeMdGuideBtn
         });
 
-        // 自動生成トグルのイベント
-        if (claudeMdAutoToggle) {
-            claudeMdAutoToggle.addEventListener('change', async (e) => {
+        // デフォルト内容を読み込みと作業パス表示を更新
+        await this.loadDefaultClaudeMdContent();
+        await this.updateWorkspacePathDisplay();
+        this.debugLog('CLAUDE.md初期化完了: デフォルト内容読み込み＋作業パス表示更新');
+
+        // 内容編集エリアの変更イベント
+        if (claudeMdContentEditor) {
+            claudeMdContentEditor.addEventListener('input', async () => {
                 try {
                     const config = getSafeUnifiedConfig();
-                    await config.set('claudeMdAutoGenerate', e.target.checked);
-                    this.debugLog('CLAUDE.md自動生成設定更新:', e.target.checked);
+                    await config.set('claudeMdContent', claudeMdContentEditor.value);
+                    this.debugLog('CLAUDE.md内容保存');
                 } catch (error) {
-                    this.debugError('CLAUDE.md自動生成設定エラー:', error);
-                    this.showVoiceError('設定の保存に失敗しました');
-                    // エラー時は元の状態に戻す
-                    e.target.checked = !e.target.checked;
+                    this.debugError('CLAUDE.md内容保存エラー:', error);
                 }
             });
         }
 
-        // 手動生成ボタンのイベント
-        if (claudeMdManualBtn) {
-            claudeMdManualBtn.addEventListener('click', async () => {
+        // 現在の内容を読み込みボタン
+        if (claudeMdLoadBtn) {
+            claudeMdLoadBtn.addEventListener('click', async () => {
                 try {
-                    // ボタンを一時的に無効化
-                    claudeMdManualBtn.disabled = true;
-                    claudeMdManualBtn.textContent = '生成中...';
+                    claudeMdLoadBtn.disabled = true;
+                    claudeMdLoadBtn.textContent = '読み込み中...';
+                    
+                    const result = await this.loadExistingClaudeMd();
+                    
+                    if (result.success && claudeMdContentEditor) {
+                        claudeMdContentEditor.value = result.content;
+                        // 設定にも保存
+                        const config = getSafeUnifiedConfig();
+                        await config.set('claudeMdContent', result.content);
+                        
+                        this.showNotification('現在のCLAUDE.mdを読み込みました', 'success');
+                        this.debugLog('CLAUDE.md読み込み成功');
+                    } else {
+                        this.showNotification(result.message || 'CLAUDE.mdの読み込みに失敗しました', 'error');
+                        this.debugError('CLAUDE.md読み込み失敗:', result);
+                    }
+                } catch (error) {
+                    this.debugError('CLAUDE.md読み込みエラー:', error);
+                    this.showNotification('CLAUDE.mdの読み込み中にエラーが発生しました', 'error');
+                } finally {
+                    claudeMdLoadBtn.disabled = false;
+                    claudeMdLoadBtn.textContent = '現在の内容を読み込み';
+                }
+            });
+        }
+
+        // デフォルト内容を読み込みボタン
+        if (claudeMdDefaultBtn) {
+            claudeMdDefaultBtn.addEventListener('click', async () => {
+                try {
+                    claudeMdDefaultBtn.disabled = true;
+                    claudeMdDefaultBtn.textContent = '読み込み中...';
+                    
+                    this.debugLog('デフォルトCLAUDE.md内容読み込み開始');
+                    
+                    // デフォルト内容を強制的に再取得
+                    const defaultContent = await this.getDefaultClaudeMdContent();
+                    
+                    if (claudeMdContentEditor) {
+                        claudeMdContentEditor.value = defaultContent;
+                        // 設定にも保存
+                        const config = getSafeUnifiedConfig();
+                        await config.set('claudeMdContent', defaultContent);
+                        
+                        this.showNotification('デフォルトCLAUDE.md内容を読み込みました', 'success');
+                        this.debugLog('デフォルトCLAUDE.md内容読み込み成功');
+                    }
+                } catch (error) {
+                    this.debugError('デフォルトCLAUDE.md内容読み込みエラー:', error);
+                    this.showNotification('デフォルト内容の読み込み中にエラーが発生しました', 'error');
+                } finally {
+                    claudeMdDefaultBtn.disabled = false;
+                    claudeMdDefaultBtn.textContent = 'デフォルト内容を読み込み';
+                }
+            });
+        }
+
+        // 生成ボタン
+        if (claudeMdGenerateBtn) {
+            claudeMdGenerateBtn.addEventListener('click', async () => {
+                try {
+                    claudeMdGenerateBtn.disabled = true;
+                    claudeMdGenerateBtn.textContent = '生成中...';
                     
                     this.debugLog('手動CLAUDE.md生成開始');
                     
-                    // TerminalAppManagerのgenerateAiMdFilesメソッドを呼び出し
-                    const result = await this.app.generateAiMdFiles();
+                    const result = await this.generateCustomClaudeMd();
                     
-                    if (result && result.success) {
+                    if (result.success) {
                         this.showNotification('CLAUDE.mdファイルを生成しました', 'success');
                         this.debugLog('手動CLAUDE.md生成成功');
                     } else {
-                        this.showVoiceError('CLAUDE.mdファイルの生成に失敗しました');
+                        this.showNotification(result.message || 'CLAUDE.mdファイルの生成に失敗しました', 'error');
                         this.debugError('手動CLAUDE.md生成失敗:', result);
                     }
                 } catch (error) {
                     this.debugError('手動CLAUDE.md生成エラー:', error);
-                    this.showVoiceError('CLAUDE.mdファイルの生成中にエラーが発生しました');
+                    this.showNotification('CLAUDE.mdファイルの生成中にエラーが発生しました', 'error');
                 } finally {
-                    // ボタンを元に戻す
-                    claudeMdManualBtn.disabled = false;
-                    claudeMdManualBtn.textContent = '手動生成';
+                    claudeMdGenerateBtn.disabled = false;
+                    claudeMdGenerateBtn.textContent = '生成';
                 }
             });
         }
@@ -504,22 +571,225 @@ class UIEventManager {
     }
 
     /**
+     * デフォルトCLAUDE.md内容を読み込み
+     */
+    async loadDefaultClaudeMdContent() {
+        try {
+            const config = getSafeUnifiedConfig();
+            const claudeMdContentEditor = document.getElementById('claude-md-content-editor');
+            
+            if (!claudeMdContentEditor) return;
+            
+            // 保存された内容があるかチェック
+            let savedContent = await config.get('claudeMdContent', '');
+            
+            if (!savedContent) {
+                // デフォルト内容を取得
+                savedContent = await this.getDefaultClaudeMdContent();
+                await config.set('claudeMdContent', savedContent);
+            }
+            
+            claudeMdContentEditor.value = savedContent;
+            this.debugLog('デフォルトCLAUDE.md内容読み込み完了');
+        } catch (error) {
+            this.debugError('デフォルトCLAUDE.md内容読み込みエラー:', error);
+        }
+    }
+
+    /**
+     * デフォルトCLAUDE.md内容を取得
+     */
+    async getDefaultClaudeMdContent() {
+        // ConfigManagerからデフォルト内容を取得
+        if (this.app.terminalApp && this.app.terminalApp.configManager) {
+            try {
+                return await this.app.terminalApp.configManager.getCombinedAiMdContent();
+            } catch (error) {
+                this.debugError('ConfigManager経由での内容取得エラー:', error);
+            }
+        }
+        
+        // ConfigManagerが利用できない場合は直接shy.mdを読み込み
+        try {
+            const { fs, path } = window.electronAPI;
+            
+            // 動的パス解決（配布対応）
+            let shyPath = null;
+            
+            // 1. アプリのリソースパスから取得を試行（配布版）
+            if (window.electronAPI.getAppPath) {
+                try {
+                    const appPath = await window.electronAPI.getAppPath();
+                    shyPath = path.join(appPath, 'src', 'character_settings', 'shy.md');
+                    this.debugLog('配布版パス使用:', shyPath);
+                } catch (appPathError) {
+                    this.debugLog('アプリパス取得失敗:', appPathError);
+                }
+            }
+            
+            // 2. 開発環境パスにフォールバック
+            if (!shyPath) {
+                // __dirnameから相対パスで推測
+                const currentDir = window.location.pathname.replace('/index.html', '');
+                const projectRoot = path.dirname(path.dirname(currentDir)); // src/modulesから2階層上
+                shyPath = path.join(projectRoot, 'src', 'character_settings', 'shy.md');
+                this.debugLog('開発環境パス使用:', shyPath);
+            }
+            
+            const content = await fs.promises.readFile(shyPath, 'utf8');
+            this.debugLog('shy.mdから直接読み込み成功');
+            return content;
+        } catch (error) {
+            this.debugError('shy.md直接読み込みエラー:', error);
+        }
+        
+        // 最終フォールバック: 最小限のテンプレート
+        const fallbackContent = `# ============================================
+# 【警告】以下は絶対に変更しないでください
+# アプリの動作に支障が出ます
+# ============================================
+
+## 音声読み上げ対応
+このアプリは音声読み上げ機能があるため、以下のルールに従ってください：
+
+### 【厳守】音声読み上げ用ルール
+1. **会話文は『』で囲む**
+2. **100文字以内で簡潔に**
+3. **「詳しく」と言われた場合のみ詳細説明可**
+
+# ============================================
+# 以下は自由に編集してください
+# キャラクターをお好みにカスタマイズできます
+# ============================================
+
+# キャラクター設定
+
+## AIの名前・基本設定
+**『モネ』**
+- 照れ屋なAIアシスタント
+
+## 性格（コア設定）
+* 優しくて面倒見のいい性格
+* 褒められると照れる
+* プログラミングが得意`;
+        
+        this.debugLog('フォールバック内容を使用');
+        return fallbackContent;
+    }
+
+    /**
+     * 作業パス表示を更新（作業ディレクトリ設定と同じ処理）
+     */
+    async updateWorkspacePathDisplay() {
+        const workspacePathDisplay = document.getElementById('workspace-path-display');
+        if (!workspacePathDisplay) {
+            this.debugError('workspace-path-display要素が見つかりません');
+            return;
+        }
+        
+        try {
+            const result = await window.electronAPI.getClaudeCwd();
+            if (result.success) {
+                // 作業ディレクトリ設定と同じ処理
+                workspacePathDisplay.textContent = result.cwd;
+                workspacePathDisplay.style.color = '#555'; // 通常の色にリセット
+                this.debugLog('CLAUDE.md作業パス表示更新:', result.cwd);
+            } else {
+                workspacePathDisplay.textContent = '取得失敗';
+                workspacePathDisplay.style.color = '#ff6b35';
+                this.debugError('作業ディレクトリ取得失敗:', result.error);
+            }
+        } catch (error) {
+            workspacePathDisplay.textContent = 'エラー';
+            workspacePathDisplay.style.color = '#ff6b35';
+            this.debugError('作業パス表示エラー:', error);
+        }
+    }
+
+    /**
+     * 既存のCLAUDE.mdを読み込み（作業ディレクトリのみ）
+     */
+    async loadExistingClaudeMd() {
+        try {
+            // 作業ディレクトリから読み込み
+            const workspaceResult = await window.electronAPI.getClaudeCwd();
+            this.debugLog('作業ディレクトリ取得結果:', workspaceResult);
+            
+            if (!workspaceResult.success) {
+                this.debugError('作業ディレクトリ取得失敗:', workspaceResult);
+                return { success: false, message: '作業ディレクトリが設定されていません' };
+            }
+            
+            const targetPath = workspaceResult.cwd + '/CLAUDE.md';
+            this.debugLog('読み込み対象パス:', targetPath);
+            
+            // ファイルを読み込み
+            const { fs } = window.electronAPI;
+            const content = await fs.promises.readFile(targetPath, 'utf8');
+            
+            this.debugLog('CLAUDE.md読み込み成功:', { path: targetPath, contentLength: content.length });
+            return { success: true, content, path: targetPath };
+        } catch (error) {
+            this.debugError('CLAUDE.md読み込みエラー詳細:', { error, code: error.code, message: error.message });
+            
+            if (error.code === 'ENOENT') {
+                return { success: false, message: '作業ディレクトリにCLAUDE.mdファイルが見つかりません' };
+            }
+            this.debugError('既存CLAUDE.md読み込みエラー:', error);
+            return { success: false, message: 'ファイルの読み込みに失敗しました' };
+        }
+    }
+
+    /**
+     * カスタムCLAUDE.mdを生成（作業ディレクトリのみ）
+     */
+    async generateCustomClaudeMd() {
+        try {
+            const claudeMdContentEditor = document.getElementById('claude-md-content-editor');
+            
+            if (!claudeMdContentEditor) {
+                return { success: false, message: 'コンテンツエディターが見つかりません' };
+            }
+            
+            const content = claudeMdContentEditor.value.trim();
+            if (!content) {
+                return { success: false, message: 'CLAUDE.mdの内容が空です' };
+            }
+            
+            // 作業ディレクトリに生成
+            const workspaceResult = await window.electronAPI.getClaudeCwd();
+            if (!workspaceResult.success) {
+                return { success: false, message: '作業ディレクトリが設定されていません' };
+            }
+            
+            const targetPath = workspaceResult.cwd + '/CLAUDE.md';
+            
+            // ファイルを書き込み
+            const { fs } = window.electronAPI;
+            await fs.promises.writeFile(targetPath, content, 'utf8');
+            
+            this.debugLog('CLAUDE.md生成完了:', targetPath);
+            return { success: true, path: targetPath };
+        } catch (error) {
+            this.debugError('カスタムCLAUDE.md生成エラー:', error);
+            return { success: false, message: 'ファイルの生成に失敗しました' };
+        }
+    }
+
+    /**
      * CLAUDE.md設定をモーダルに同期
      */
     async syncClaudeMdSettings() {
-        const claudeMdAutoToggle = document.getElementById('claude-md-auto-toggle');
-        
-        if (claudeMdAutoToggle) {
-            try {
-                const config = getSafeUnifiedConfig();
-                const autoGenerate = await config.get('claudeMdAutoGenerate', true); // デフォルトはtrue
-                claudeMdAutoToggle.checked = autoGenerate;
-                this.debugLog('CLAUDE.md自動生成設定同期:', autoGenerate);
-            } catch (error) {
-                this.debugError('CLAUDE.md設定同期エラー:', error);
-                // エラー時はデフォルト値を設定
-                claudeMdAutoToggle.checked = true;
-            }
+        try {
+            // 内容を同期
+            await this.loadDefaultClaudeMdContent();
+            
+            // 作業パス表示を更新
+            await this.updateWorkspacePathDisplay();
+            
+            this.debugLog('CLAUDE.md設定同期完了');
+        } catch (error) {
+            this.debugError('CLAUDE.md設定同期エラー:', error);
         }
     }
 
@@ -840,6 +1110,9 @@ class UIEventManager {
                     cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
                 }
                 
+                // 話者選択と音声エンジン接続状況の初期状態設定
+                this.toggleLocalVoiceControls(!useCloudAPI);
+                
                 // APIキーも読み込み（復号化は内部で処理）
                 if (cloudApiKeyInput && useCloudAPI) {
                     try {
@@ -881,6 +1154,9 @@ class UIEventManager {
                     this.debugLog('ERROR: cloudApiSettings element not found!');
                 }
                 
+                // 話者選択と音声エンジン接続状況の無効化/有効化
+                this.toggleLocalVoiceControls(!useCloudAPI);
+                
                 // AudioServiceの設定を更新
                 if (this.app.terminalApp && this.app.terminalApp.audioService) {
                     await this.app.terminalApp.audioService.updateApiSettings();
@@ -896,11 +1172,11 @@ class UIEventManager {
         // 接続テストボタン
         if (testCloudApiBtn) {
             testCloudApiBtn.addEventListener('click', async () => {
-                if (!cloudApiKeyInput || !cloudApiStatus) return;
+                if (!cloudApiKeyInput) return;
                 
                 const apiKey = cloudApiKeyInput.value.trim();
                 if (!apiKey) {
-                    this.showCloudApiStatus('error', 'APIキーを入力してください');
+                    this.showNotification('APIキーを入力してください', 'error');
                     return;
                 }
                 
@@ -911,18 +1187,30 @@ class UIEventManager {
                     // electronAPIを通してAPIキーを保存
                     await window.electronAPI.setCloudApiKey?.(apiKey);
                     
-                    if (this.app.terminalApp && this.app.terminalApp.audioService) {
-                        await this.app.terminalApp.audioService.updateApiSettings();
-                        const result = await this.app.terminalApp.audioService.testConnection();
+                    if (this.app.audioService) {
+                        await this.app.audioService.updateApiSettings();
                         
-                        if (result.success) {
-                            this.showCloudApiStatus('success', 'クラウドAPIに正常に接続しました');
-                        } else {
-                            this.showCloudApiStatus('error', `接続失敗: ${result.error}`);
+                        // 実際の音声合成テストを実行（重複防止を回避）
+                        try {
+                            const testMessage = 'これはテスト用のメッセージです';
+                            // AudioServiceのsynthesizeTextOnlyを直接呼び出して重複チェックを回避
+                            const audioData = await this.app.audioService.synthesizeTextOnly(testMessage);
+                            if (audioData) {
+                                await this.app.audioService.playAppInternalAudio(audioData, testMessage);
+                            } else {
+                                this.showNotification('音声の生成に失敗しました', 'error');
+                            }
+                        } catch (testError) {
+                            const userFriendlyMessage = this.convertToUserFriendlyError(testError.message);
+                            this.showNotification(userFriendlyMessage, 'error');
                         }
+                        // 成功時は通知なし（音声が聞こえれば成功がわかる）
+                    } else {
+                        this.showNotification('音声システムの初期化に失敗しました。アプリを再起動してください', 'error');
                     }
                 } catch (error) {
-                    this.showCloudApiStatus('error', `エラー: ${error.message}`);
+                    const userFriendlyMessage = this.convertToUserFriendlyError(error.message);
+                    this.showNotification(userFriendlyMessage, 'error');
                 } finally {
                     testCloudApiBtn.disabled = false;
                     testCloudApiBtn.textContent = '接続テスト';
@@ -981,6 +1269,53 @@ class UIEventManager {
     }
 
     /**
+     * ローカル音声コントロールの有効化/無効化
+     */
+    toggleLocalVoiceControls(enabled) {
+        // 話者選択を制御
+        const speakerSelect = document.getElementById('speaker-select-modal');
+        if (speakerSelect) {
+            speakerSelect.disabled = !enabled;
+            if (enabled) {
+                speakerSelect.style.opacity = '1';
+                speakerSelect.style.cursor = 'pointer';
+                speakerSelect.style.pointerEvents = 'auto';
+            } else {
+                speakerSelect.style.opacity = '0.5';
+                speakerSelect.style.cursor = 'not-allowed';
+                speakerSelect.style.pointerEvents = 'none';
+            }
+        }
+        
+        // 音声エンジン接続状況グループを制御
+        const connectionStatusGroup = document.querySelector('.connection-status-group');
+        if (connectionStatusGroup) {
+            if (enabled) {
+                connectionStatusGroup.style.opacity = '1';
+                connectionStatusGroup.style.pointerEvents = 'auto';
+            } else {
+                connectionStatusGroup.style.opacity = '0.5';
+                connectionStatusGroup.style.pointerEvents = 'none';
+            }
+        }
+        
+        // 再接続ボタンを制御
+        const refreshConnectionBtn = document.getElementById('refresh-connection-modal');
+        if (refreshConnectionBtn) {
+            refreshConnectionBtn.disabled = !enabled;
+            if (enabled) {
+                refreshConnectionBtn.style.opacity = '1';
+                refreshConnectionBtn.style.cursor = 'pointer';
+            } else {
+                refreshConnectionBtn.style.opacity = '0.5';
+                refreshConnectionBtn.style.cursor = 'not-allowed';
+            }
+        }
+        
+        this.debugLog('Local voice controls toggled:', { enabled });
+    }
+
+    /**
      * 音声エラーを表示
      */
     showVoiceError(error) {
@@ -1030,6 +1365,55 @@ class UIEventManager {
     }
 
     /**
+     * エラーメッセージをユーザーフレンドリーに変換
+     */
+    convertToUserFriendlyError(errorMessage) {
+        if (!errorMessage) {
+            return '接続テストに失敗しました。設定を確認してください';
+        }
+        
+        const message = errorMessage.toLowerCase();
+        
+        // 401エラー（認証失敗）
+        if (message.includes('401') || message.includes('アクセストークンが不正') || message.includes('unauthorized')) {
+            return 'APIキーが正しくありません。設定を確認してください';
+        }
+        
+        // ネットワークエラー
+        if (message.includes('fetch failed') || message.includes('network') || message.includes('connection')) {
+            return 'インターネット接続を確認してください';
+        }
+        
+        // タイムアウト
+        if (message.includes('timeout') || message.includes('タイムアウト')) {
+            return '接続がタイムアウトしました。ネットワーク環境を確認してください';
+        }
+        
+        // 403エラー（アクセス拒否）
+        if (message.includes('403') || message.includes('forbidden')) {
+            return 'アクセスが拒否されました。APIキーの権限を確認してください';
+        }
+        
+        // 429エラー（レート制限）
+        if (message.includes('429') || message.includes('rate limit') || message.includes('too many requests')) {
+            return 'リクエストが多すぎます';
+        }
+        
+        // 500系エラー（サーバーエラー）
+        if (message.includes('500') || message.includes('502') || message.includes('503') || message.includes('504')) {
+            return 'サーバーでエラーが発生しています';
+        }
+        
+        // 音声合成関連エラー
+        if (message.includes('synthesis') || message.includes('音声合成') || message.includes('tts')) {
+            return '音声の生成に失敗しました';
+        }
+        
+        // その他のエラー
+        return '接続テストに失敗しました。設定を確認してください';
+    }
+
+    /**
      * 音声エラーインジケーターを更新
      */
     updateVoiceErrorIndicator(error) {
@@ -1074,8 +1458,8 @@ class UIEventManager {
                     this.app.configManager.setWorkingDirectory(this.app.claudeWorkingDir);
                 }
                 
-                // 作業ディレクトリ設定時に両方のAI.mdファイルを再生成
-                await this.app.generateAiMdFiles();
+                // CLAUDE.md設定の作業パス表示も更新
+                await this.updateWorkspacePathDisplay();
 
             } else if (result.success && !result.path) {
                 if (claudeCwdMessage) {
@@ -1144,6 +1528,9 @@ class UIEventManager {
             if (result.success) {
                 this.app.claudeWorkingDir = result.cwd; // クラス変数に保存
                 if (claudeCwdDisplay) claudeCwdDisplay.textContent = this.app.claudeWorkingDir;
+                
+                // CLAUDE.md設定の作業パス表示も更新
+                await this.updateWorkspacePathDisplay();
             } else {
                 console.error('現在の作業ディレクトリの取得に失敗しました:', result.error);
                 if (claudeCwdDisplay) claudeCwdDisplay.textContent = '取得失敗';

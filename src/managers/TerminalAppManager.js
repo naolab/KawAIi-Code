@@ -76,9 +76,9 @@ class TerminalAppManager {
         });
         this.services.processingCache = this.terminalApp.processingCache;
         
-        // 読み上げ履歴管理
-        this.terminalApp.speechHistory = new SpeechHistoryManager(200);
-        this.services.speechHistory = this.terminalApp.speechHistory;
+        // 読み上げ履歴管理（削除済み - VoiceQueueの重複チェッカーに統合）
+        // this.terminalApp.speechHistory = new SpeechHistoryManager(200);
+        // this.services.speechHistory = this.terminalApp.speechHistory;
         
         debugLog('✅ 基础サービス初期化完了');
     }
@@ -152,7 +152,7 @@ class TerminalAppManager {
         // UIEventManager
         this.terminalApp.uiEventManager = new UIEventManager(this.terminalApp);
         this.services.uiEventManager = this.terminalApp.uiEventManager;
-        this.terminalApp.uiEventManager.setupEventListeners();
+        await this.terminalApp.uiEventManager.setupEventListeners();
         
         debugLog('✅ UIサービス初期化完了');
     }
@@ -290,6 +290,20 @@ class TerminalAppManager {
         // リソース管理：定期クリーンアップ開始
         this.terminalApp.resourceManager.startPeriodicCleanup(AppConstants.AUDIO.DEFAULT_INTERVAL * 20);
         
+        // メモリモニター開始（メモリリーク対策）
+        if (typeof MemoryMonitor !== 'undefined') {
+            this.terminalApp.memoryMonitor = new MemoryMonitor({
+                name: 'TerminalAppMemoryMonitor',
+                warningThreshold: 0.75,  // 75%で警告
+                criticalThreshold: 0.85, // 85%で緊急対応
+                monitoringInterval: 30000 // 30秒間隔
+            });
+            this.terminalApp.memoryMonitor.startMonitoring();
+            debugLog('🧠 メモリモニター開始完了');
+        } else {
+            debugError('⚠️ MemoryMonitor未利用 - メモリ監視機能無効');
+        }
+        
         // 処理キャッシュ：定期クリーンアップ開始
         this.terminalApp.resourceManager.setInterval(() => {
             this.terminalApp.processingCache.cleanupExpiredEntries();
@@ -327,7 +341,7 @@ class TerminalAppManager {
                 const result = await this.terminalApp.audioService.testConnection();
                 if (result.success) {
                     // AudioService.testConnection()で既に状態は更新済み
-                    this.terminalApp.updateConnectionStatus('接続済み', 'connected');
+                    await this.terminalApp.updateConnectionStatus('接続済み', 'connected');
                     
                     // 軽量チェック時は話者読み込みをスキップ（パフォーマンス最適化）
                     if (!skipLoadSpeakers) {
@@ -341,7 +355,7 @@ class TerminalAppManager {
                     
                     if (attempt === retryCount) {
                         // 最終試行で失敗した場合
-                        this.terminalApp.updateConnectionStatus('未接続', 'disconnected');
+                        await this.terminalApp.updateConnectionStatus('未接続', 'disconnected');
                         debugLog('❌ 音声接続チェック完了（最終的に失敗）');
                     } else {
                         // リトライ前の待機
@@ -353,7 +367,7 @@ class TerminalAppManager {
                 
                 if (attempt === retryCount) {
                     // 最終試行でエラーの場合
-                    this.terminalApp.updateConnectionStatus('エラー', 'error');
+                    await this.terminalApp.updateConnectionStatus('エラー', 'error');
                     debugError('Voice connection check failed after all retries:', error);
                 } else {
                     // リトライ前の待機
@@ -406,27 +420,6 @@ class TerminalAppManager {
         }
     }
 
-    /**
-     * AI.mdファイルの生成
-     */
-    async generateAiMdFiles() {
-        debugLog('📝 AI.mdファイル生成開始');
-        
-        try {
-            const result = await this.terminalApp.configManager.generateBothAiMdFiles();
-            if (result.success) {
-                debugLog('AI MD files generated successfully');
-            } else {
-                debugError('Failed to generate AI MD files:', result);
-            }
-            debugLog('✅ AI.mdファイル生成完了');
-            return result;
-        } catch (error) {
-            debugError('Error generating AI MD files:', error);
-            debugLog('❌ AI.mdファイル生成エラー完了');
-            return { success: false, error: error.message };
-        }
-    }
 
     /**
      * 全サービスの破棄

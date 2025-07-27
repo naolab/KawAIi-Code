@@ -33,25 +33,39 @@ class ConfigManager {
             // キャラクター設定のフォールバック読み込み
             let shySettings = null;
             
-            // 1. 開発環境での読み込みを試行
-            try {
-                const devPath = path.join(__dirname, '..', 'character_settings', 'shy.md');
-                shySettings = await fs.promises.readFile(devPath, 'utf8');
-                logger.debug('Character settings loaded from development path');
-            } catch (devError) {
-                // 2. パッケージ化環境での読み込みを試行
+            // 1. アプリのリソースパスから取得を試行（配布版）
+            if (window.electronAPI.getAppPath) {
                 try {
-                    const appPath = window.process && window.process.resourcesPath 
-                        ? path.join(window.process.resourcesPath, 'app.asar')
-                        : path.join(__dirname, '..');
-                    const srcPath = path.join(appPath, 'src');
-                    const shySettingsPath = path.join(srcPath, 'character_settings', 'shy.md');
+                    const appPath = await window.electronAPI.getAppPath();
+                    const shySettingsPath = path.join(appPath, 'src', 'character_settings', 'shy.md');
                     shySettings = await fs.promises.readFile(shySettingsPath, 'utf8');
-                    logger.debug('Character settings loaded from packaged path');
-                } catch (packageError) {
-                    logger.debug('Failed to load character settings from both paths, using default');
-                    this.useDefaultCharacterSettings();
-                    return;
+                    logger.debug('Character settings loaded from app resource path:', shySettingsPath);
+                } catch (appPathError) {
+                    logger.debug('Failed to load from app resource path:', appPathError);
+                }
+            }
+            
+            // 2. 開発環境での読み込みを試行（フォールバック）
+            if (!shySettings) {
+                try {
+                    const devPath = path.join(__dirname, '..', 'character_settings', 'shy.md');
+                    shySettings = await fs.promises.readFile(devPath, 'utf8');
+                    logger.debug('Character settings loaded from development path');
+                } catch (devError) {
+                    // 3. パッケージ化環境での読み込みを試行（旧方式）
+                    try {
+                        const appPath = window.process && window.process.resourcesPath 
+                            ? path.join(window.process.resourcesPath, 'app.asar')
+                            : path.join(__dirname, '..');
+                        const srcPath = path.join(appPath, 'src');
+                        const shySettingsPath = path.join(srcPath, 'character_settings', 'shy.md');
+                        shySettings = await fs.promises.readFile(shySettingsPath, 'utf8');
+                        logger.debug('Character settings loaded from packaged path (legacy)');
+                    } catch (packageError) {
+                        logger.debug('Failed to load character settings from all paths, using default');
+                        this.useDefaultCharacterSettings();
+                        return;
+                    }
                 }
             }
             

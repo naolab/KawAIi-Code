@@ -59,6 +59,9 @@ class TerminalApp {
             isPlaying: false,           // アプリ内音声再生中フラグ
             isPlayingHook: false,       // Hook音声再生中フラグ
             currentAudio: null,         // 現在再生中の音声オブジェクト
+            currentAudioUrl: null,      // 現在のBlobURL（リソース管理用）
+            currentEndedHandler: null,  // 現在のendedイベントハンドラー
+            currentErrorHandler: null,  // 現在のerrorイベントハンドラー
             queue: [],                  // 音声キュー
             // 統一状態チェック関数
             isAnyPlaying: function() {
@@ -100,8 +103,6 @@ class TerminalApp {
         // 音声モード初期化
         await this.appManager.initializeVoiceMode();
         
-        // AI.mdファイルの生成
-        await this.appManager.generateAiMdFiles();
         
         // ステータスを更新
         this.updateStatus('Ready');
@@ -401,10 +402,6 @@ class TerminalApp {
         }
     }
 
-    // 両方のAI.mdファイルを生成 - TerminalAppManagerに委譲
-    async generateAiMdFiles() {
-        return await this.appManager.generateAiMdFiles();
-    }
 
     // AI.mdファイルクリーンアップ - ConfigManagerに委譲
     async cleanupAiMdFiles() {
@@ -474,13 +471,23 @@ class TerminalApp {
         }
     }
 
-    updateConnectionStatus(text, status) {
+    async updateConnectionStatus(text, status) {
         debugLog('🔧 updateConnectionStatus呼び出し:', { text, status });
         const statusElementModal = document.getElementById('connection-status-modal');
         if (statusElementModal) {
-            statusElementModal.textContent = text;
-            statusElementModal.className = `status-${status}`;
-            debugLog('✅ UI更新成功:', { text, status, element: statusElementModal });
+            // クラウドAPI使用時は常に「未接続」を表示
+            const unifiedConfig = getSafeUnifiedConfig();
+            const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+            
+            if (useCloudAPI) {
+                statusElementModal.textContent = '未接続';
+                statusElementModal.className = 'status-disconnected';
+                debugLog('✅ クラウドAPI使用時: 未接続固定表示');
+            } else {
+                statusElementModal.textContent = text;
+                statusElementModal.className = `status-${status}`;
+                debugLog('✅ ローカルAPI使用時: UI更新成功:', { text, status });
+            }
         } else {
             debugError('❌ UI要素が見つかりません: connection-status-modal');
         }
@@ -775,44 +782,17 @@ async function continuousConnectionCheck() {
         return;
     }
     
-    // クラウドAPI使用時はスキップ
+    // クラウドAPI使用時はスキップ（updateConnectionStatus()に任せる）
     const unifiedConfig = getSafeUnifiedConfig();
     const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
     if (useCloudAPI) {
-        // クラウドAPI使用時は常に接続済みとする
-        if (statusElement.textContent !== '接続済み') {
-            statusElement.textContent = '接続済み';
-            statusElement.className = 'status-connected';
-            debugLog('🌥️ クラウドAPI使用中 - 接続済みを維持');
-        }
+        debugLog('🌥️ クラウドAPI使用中 - 継続監視をスキップ（updateConnectionStatus()に任せる）');
         return;
     }
     
-    try {
-        const response = await fetch('http://localhost:10101/version');
-        if (response.ok) {
-            // 接続成功
-            if (statusElement.textContent !== '接続済み') {
-                statusElement.textContent = '接続済み';
-                statusElement.className = 'status-connected';
-                debugLog('🔄 継続チェック: 接続復旧を検出');
-            }
-        } else {
-            // 接続失敗
-            if (statusElement.textContent !== '未接続') {
-                statusElement.textContent = '未接続';
-                statusElement.className = 'status-disconnected';
-                debugLog('🔄 継続チェック: 接続断を検出');
-            }
-        }
-    } catch (error) {
-        // 接続エラー
-        if (statusElement.textContent !== '未接続') {
-            statusElement.textContent = '未接続';
-            statusElement.className = 'status-disconnected';
-            debugLog('🔄 継続チェック: 接続エラーを検出');
-        }
-    }
+    // ローカルAPI使用時もTerminalAppManagerのリアルタイム監視に任せる（重複回避）
+    debugLog('🔧 ローカルAPI使用中 - TerminalAppManagerのリアルタイム監視に任せる');
+    return;
 }
 
 // アプリ終了時の監視停止

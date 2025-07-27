@@ -113,17 +113,21 @@ class AudioService {
             });
             
             if (this.useCloudAPI) {
-                // クラウドAPI用の音声合成処理
-                const cloudPayload = {
-                    model_uuid: 'a59cb814-0083-4369-8542-f51a29e72af7', // デフォルトのモデルUUID
-                    text: text,
-                    use_ssml: false,
-                    output_format: 'wav',
-                    output_sampling_rate: 24000,
-                    output_audio_channels: "mono",
-                    speed: speed,
-                    volume: volume / 100
-                };
+                // 感情分析実行
+                const emotion = this.terminalApp.emotionAnalyzer 
+                    ? this.terminalApp.emotionAnalyzer.analyzeEmotion(text)
+                    : { primary: 'neutral' };
+                
+                // SSML強化テキスト処理
+                const enhancedText = this.enhanceTextWithSSML(text, emotion);
+                
+                // 感情に応じたパラメータ構築
+                const cloudPayload = this.buildCloudApiParams(enhancedText.text, emotion, speed, volume);
+                cloudPayload.use_ssml = enhancedText.use_ssml;
+                
+                // 用途別プリセット適用
+                const preset = this.getAudioPreset('realtime');
+                Object.assign(cloudPayload, preset);
                 
                 this.debugLog('クラウドAPI音声合成リクエスト:', cloudPayload);
                 
@@ -142,10 +146,55 @@ class AudioService {
                         endpoint,
                         payload: cloudPayload
                     });
+                    
+                    // 422エラー（不正スタイル指定）の場合はフォールバック
+                    if (synthesisResponse.status === 422 && cloudPayload.style_name) {
+                        this.debugLog('スタイル指定エラー、ノーマルスタイルでリトライ');
+                        const fallbackPayload = { ...cloudPayload };
+                        delete fallbackPayload.style_name;
+                        delete fallbackPayload.emotional_intensity;
+                        
+                        const retryResponse = await fetch(`${endpoint}/tts/synthesize`, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify(fallbackPayload)
+                        });
+                        
+                        if (retryResponse.ok) {
+                            const audioData = await retryResponse.arrayBuffer();
+                            this.debugLog('フォールバック音声合成成功:', `${audioData.byteLength}バイト`);
+                            return audioData;
+                        }
+                    }
+                    
                     throw new Error(`クラウドAPI音声合成失敗: ${synthesisResponse.status} - ${errorText}`);
                 }
 
                 const audioData = await synthesisResponse.arrayBuffer();
+                
+                // 音声データサイズ検証
+                if (audioData.byteLength < 100) {
+                    this.debugLog('クラウドAPI音声データ不正: サイズが小さすぎます', {
+                        size: audioData.byteLength,
+                        expectedMinimum: 100
+                    });
+                    
+                    // フォールバック: ローカルエンジンで再試行
+                    this.debugLog('ローカルエンジンにフォールバック中...');
+                    const originalCloudSetting = this.useCloudAPI;
+                    try {
+                        this.useCloudAPI = false;
+                        const fallbackAudioData = await this.synthesizeTextOnly(text, speakerId, volume, speed);
+                        this.debugLog('ローカルエンジンフォールバック成功');
+                        return fallbackAudioData;
+                    } catch (fallbackError) {
+                        this.debugError('ローカルエンジンフォールバックも失敗:', fallbackError.message);
+                        throw new Error(`音声データサイズが不正で、ローカルエンジンフォールバックも失敗しました`);
+                    } finally {
+                        this.useCloudAPI = originalCloudSetting;
+                    }
+                }
+                
                 this.debugLog('クラウドAPI音声合成成功:', `${audioData.byteLength}バイト`);
                 return audioData;
                 
@@ -205,6 +254,88 @@ class AudioService {
         }
     }
 
+    // 用途別音質プリセット設定
+    getAudioPreset(presetName) {
+        const AUDIO_PRESETS = {
+            // リアルタイム会話用（速度重視）
+            realtime: {
+                output_format: 'mp3',
+                output_bitrate: 128,
+                output_sampling_rate: 44100,
+                leading_silence_seconds: 0.05,
+                trailing_silence_seconds: 0.05
+            },
+            
+            // 高品質音声用（品質重視）
+            quality: {
+                output_format: 'flac',
+                output_sampling_rate: 44100,
+                leading_silence_seconds: 0.1,
+                trailing_silence_seconds: 0.1
+            },
+            
+            // モバイル・低帯域用（容量重視）
+            mobile: {
+                output_format: 'aac',
+                output_bitrate: 96,
+                output_sampling_rate: 22050,
+                leading_silence_seconds: 0.02,
+                trailing_silence_seconds: 0.02
+            }
+        };
+        
+        return AUDIO_PRESETS[presetName] || AUDIO_PRESETS.realtime;
+    }
+
+    // クラウドAPIパラメータ構築（最小限版）
+    buildCloudApiParams(text, emotion, speed, volume) {
+        // 文字数節約のため、必要最小限のパラメータのみ使用
+        return {
+            model_uuid: 'a59cb814-0083-4369-8542-f51a29e72af7',
+            text: text,
+            use_ssml: false,
+            output_audio_channels: "mono",
+            speaking_rate: speed,
+            volume: volume / 100
+        };
+    }
+
+    // SSML強化テキスト処理（簡素化版）
+    enhanceTextWithSSML(text, emotion) {
+        // 文字数節約のため、SSML処理を最小限に抑制
+        // 基本的な感情パラメータは buildCloudApiParams で処理
+        return {
+            text: text,
+            use_ssml: false
+        };
+    }
+
+    // 音声データの形式を自動検出
+    detectAudioFormat(audioData) {
+        if (!audioData || audioData.byteLength < 4) return 'audio/wav';
+        
+        const view = new Uint8Array(audioData);
+        
+        // MP3ヘッダー検出 (ID3タグまたはMPEGフレーム)
+        if ((view[0] === 0x49 && view[1] === 0x44 && view[2] === 0x33) || // ID3
+            (view[0] === 0xFF && (view[1] & 0xE0) === 0xE0)) { // MPEG frame
+            return 'audio/mpeg';
+        }
+        
+        // WAVヘッダー検出
+        if (view[0] === 0x52 && view[1] === 0x49 && view[2] === 0x46 && view[3] === 0x46) {
+            return 'audio/wav';
+        }
+        
+        // OGGヘッダー検出
+        if (view[0] === 0x4F && view[1] === 0x67 && view[2] === 0x67 && view[3] === 0x53) {
+            return 'audio/ogg';
+        }
+        
+        // デフォルトはWAV
+        return 'audio/wav';
+    }
+
     // アプリ内音声再生
     async playAppInternalAudio(audioData, text) {
         if (!audioData) {
@@ -213,67 +344,43 @@ class AudioService {
         }
 
         try {
-            this.debugLog('アプリ内音声再生開始:', text ? text.substring(0, 30) + '...' : '');
+            this.debugLog('アプリ内音声再生開始:', {
+                text: text ? text.substring(0, 30) + '...' : '',
+                dataSize: audioData.byteLength
+            });
 
             // VRMリップシンク用に音声データを送信
             if (this.terminalApp.vrmIntegrationService) {
                 this.terminalApp.vrmIntegrationService.sendAudioToVRM(audioData);
             }
 
-            // 既存の音声が再生中の場合は停止
-            if (this.terminalApp.voicePlayingState.currentAudio) {
-                this.terminalApp.voicePlayingState.currentAudio.pause();
-                this.terminalApp.voicePlayingState.currentAudio = null;
-            }
+            // 既存音声の安全なクリーンアップ
+            await this.cleanupCurrentAudio();
 
-            // Blobを作成してAudioオブジェクトで再生
-            const audioBlob = new Blob([audioData], { type: 'audio/wav' });
+            // 動的MIMEタイプ検出でBlobを作成してAudioオブジェクトで再生
+            const mimeType = this.detectAudioFormat(audioData);
+            const audioBlob = new Blob([audioData], { type: mimeType });
+            
+            this.debugLog('音声形式検出:', { mimeType, dataSize: audioData.byteLength });
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
             
             // 音声再生状態を更新
             this.terminalApp.voicePlayingState.isPlaying = true;
             this.terminalApp.voicePlayingState.currentAudio = audio;
+            this.terminalApp.voicePlayingState.currentAudioUrl = audioUrl;
 
             // 音声を再生
             await audio.play();
             this.debugLog('アプリ内音声再生開始完了');
 
-            // 再生完了を待機
-            await new Promise((resolve) => {
-                audio.addEventListener('ended', () => {
-                    this.debugLog('アプリ内音声再生完了');
-                    this.terminalApp.voicePlayingState.isPlaying = false;
-                    this.terminalApp.voicePlayingState.currentAudio = null;
-                    
-                    // 音声終了をVRMビューワーに通知
-                    if (this.terminalApp.vrmIntegrationService) {
-                        this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('ended');
-                    }
-                    
-                    URL.revokeObjectURL(audioUrl);
-                    resolve();
-                });
-
-                audio.addEventListener('error', (error) => {
-                    this.debugError('アプリ内音声再生エラー:', error);
-                    this.terminalApp.voicePlayingState.isPlaying = false;
-                    this.terminalApp.voicePlayingState.currentAudio = null;
-                    
-                    // エラー時もVRMビューワーに通知
-                    if (this.terminalApp.vrmIntegrationService) {
-                        this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('error');
-                    }
-                    
-                    URL.revokeObjectURL(audioUrl);
-                    resolve();
-                });
-            });
+            // 再生完了を待機（改善版）
+            await this.waitForAudioCompletion(audio, audioUrl);
 
         } catch (error) {
             this.debugError('アプリ内音声再生エラー:', error);
-            this.terminalApp.voicePlayingState.isPlaying = false;
-            this.terminalApp.voicePlayingState.currentAudio = null;
+            // エラー時も確実にクリーンアップ
+            await this.cleanupCurrentAudio();
         }
     }
 
@@ -331,7 +438,8 @@ class AudioService {
             }
             
             // 音声データの形式を検証
-            const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            const mimeType = this.detectAudioFormat(arrayBuffer);
+            const audioBlob = new Blob([arrayBuffer], { type: mimeType });
             if (audioBlob.size === 0) {
                 this.debugLog('❌ 音声Blobが空です');
                 return;
@@ -508,12 +616,12 @@ class AudioService {
     }
 
     // 音声再生を停止
-    stopAudio() {
-        if (this.terminalApp.voicePlayingState.currentAudio) {
-            this.terminalApp.voicePlayingState.currentAudio.pause();
-            this.terminalApp.voicePlayingState.currentAudio = null;
-            this.terminalApp.voicePlayingState.isPlaying = false;
+    async stopAudio() {
+        try {
+            await this.cleanupCurrentAudio();
             this.debugLog('音声再生を停止');
+        } catch (error) {
+            this.debugError('音声停止エラー:', error);
         }
     }
 
@@ -572,14 +680,10 @@ class AudioService {
     // 音声停止（統合版）
     async stopVoice() {
         try {
-            // 現在再生中の音声を停止
-            if (this.terminalApp.voicePlayingState.currentAudio) {
-                this.terminalApp.voicePlayingState.currentAudio.pause();
-                this.terminalApp.voicePlayingState.currentAudio = null;
-            }
+            // 現在再生中の音声を安全に停止
+            await this.cleanupCurrentAudio();
             
             // 再生状態をリセット
-            this.terminalApp.voicePlayingState.isPlaying = false;
             this.terminalApp.voicePlayingState.queue = [];
             
             this.debugLog('音声停止完了');
@@ -613,6 +717,155 @@ class AudioService {
             this.debugError('音声読み上げエラー:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    /**
+     * 現在の音声を安全にクリーンアップ（メモリリーク対策強化版）
+     */
+    async cleanupCurrentAudio() {
+        const currentState = this.terminalApp.voicePlayingState;
+        
+        // 既に停止中または再生中でない場合でもBlobURLクリーンアップは実行
+        this.debugLog('🧹 音声クリーンアップ開始:', {
+            hasAudio: !!currentState.currentAudio,
+            hasUrl: !!currentState.currentAudioUrl,
+            hasEndedHandler: !!currentState.currentEndedHandler,
+            hasErrorHandler: !!currentState.currentErrorHandler
+        });
+        
+        try {
+            // Audio要素の完全停止とイベントリスナー削除
+            if (currentState.currentAudio) {
+                // 全イベントリスナーを削除（メモリリーク防止）
+                if (currentState.currentEndedHandler) {
+                    currentState.currentAudio.removeEventListener('ended', currentState.currentEndedHandler);
+                    currentState.currentEndedHandler = null;
+                }
+                if (currentState.currentErrorHandler) {
+                    currentState.currentAudio.removeEventListener('error', currentState.currentErrorHandler);
+                    currentState.currentErrorHandler = null;
+                }
+                
+                // その他の可能なイベントリスナーも削除
+                ['loadstart', 'loadeddata', 'canplay', 'play', 'pause', 'abort', 'stalled'].forEach(eventType => {
+                    try {
+                        currentState.currentAudio.removeEventListener(eventType, () => {});
+                    } catch (e) {
+                        // イベントリスナーが存在しない場合は無視
+                    }
+                });
+                
+                // 音声を完全停止
+                try {
+                    currentState.currentAudio.pause();
+                    currentState.currentAudio.currentTime = 0;
+                    currentState.currentAudio.src = '';
+                    currentState.currentAudio.load(); // リソースを解放
+                } catch (audioError) {
+                    this.debugError('Audio要素停止時エラー:', audioError);
+                }
+                
+                // VRMに中断通知
+                if (this.terminalApp.vrmIntegrationService) {
+                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('interrupted');
+                }
+            }
+            
+        } catch (error) {
+            this.debugError('音声停止時エラー（継続）:', error);
+            // エラーが発生しても処理を継続
+        }
+        
+        // 【重要】Blob URLを確実にクリーンアップ（メモリリーク対策）
+        if (currentState.currentAudioUrl) {
+            try {
+                URL.revokeObjectURL(currentState.currentAudioUrl);
+                this.debugLog('✅ Blob URL解放完了:', currentState.currentAudioUrl.substring(0, 50) + '...');
+            } catch (error) {
+                this.debugError('❌ Blob URLクリーンアップエラー:', error);
+            }
+        }
+        
+        // 状態を完全にリセット（ガベージコレクション促進）
+        currentState.currentAudio = null;
+        currentState.currentAudioUrl = null;
+        currentState.currentEndedHandler = null;
+        currentState.currentErrorHandler = null;
+        currentState.isPlaying = false;
+        
+        this.debugLog('🧹 音声クリーンアップ完了');
+    }
+
+    /**
+     * 音声完了の確実な待機
+     */
+    async waitForAudioCompletion(audio, audioUrl) {
+        return new Promise((resolve) => {
+            let isResolved = false;
+            
+            const cleanup = () => {
+                if (isResolved) return;
+                isResolved = true;
+                
+                // イベントリスナーを削除
+                audio.removeEventListener('ended', endedHandler);
+                audio.removeEventListener('error', errorHandler);
+                
+                // 状態をリセット
+                this.terminalApp.voicePlayingState.isPlaying = false;
+                this.terminalApp.voicePlayingState.currentAudio = null;
+                this.terminalApp.voicePlayingState.currentAudioUrl = null;
+                this.terminalApp.voicePlayingState.currentEndedHandler = null;
+                this.terminalApp.voicePlayingState.currentErrorHandler = null;
+                
+                // Blob URLを解放
+                try {
+                    URL.revokeObjectURL(audioUrl);
+                } catch (error) {
+                    this.debugError('Blob URL解放エラー:', error);
+                }
+                
+                resolve();
+            };
+            
+            const endedHandler = () => {
+                this.debugLog('アプリ内音声再生完了');
+                
+                // 音声終了をVRMビューワーに通知
+                if (this.terminalApp.vrmIntegrationService) {
+                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('ended');
+                }
+                
+                cleanup();
+            };
+            
+            const errorHandler = (error) => {
+                this.debugError('アプリ内音声再生エラー:', error);
+                
+                // エラー時もVRMビューワーに通知
+                if (this.terminalApp.vrmIntegrationService) {
+                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('error');
+                }
+                
+                cleanup();
+            };
+            
+            // イベントハンドラーを保存（クリーンアップ用）
+            this.terminalApp.voicePlayingState.currentEndedHandler = endedHandler;
+            this.terminalApp.voicePlayingState.currentErrorHandler = errorHandler;
+            
+            // イベントリスナーを設定
+            audio.addEventListener('ended', endedHandler);
+            audio.addEventListener('error', errorHandler);
+            
+            // タイムアウト設定（30秒で強制終了）
+            setTimeout(() => {
+                if (!isResolved) {
+                    this.debugLog('音声再生タイムアウト - 強制終了');
+                    cleanup();
+                }
+            }, 30000);
+        });
     }
 }
 

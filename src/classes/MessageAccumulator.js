@@ -26,6 +26,13 @@ class MessageAccumulator {
         
         // セッションID（ログ用）
         this.sessionId = null;
+        
+        // ログシステム準備状態
+        this.loggerReady = false;
+        this.pendingLogs = [];
+        
+        // ConversationLogger準備完了を待機
+        this.waitForLoggerReady();
     }
     
     /**
@@ -248,12 +255,66 @@ class MessageAccumulator {
     }
 
     /**
-     * 内部ログシステムに保存
+     * ConversationLogger準備完了の待機
+     */
+    async waitForLoggerReady() {
+        if (window.electronAPI?.logs) {
+            // IPC経由で初期化状態を確認
+            try {
+                const status = await window.electronAPI.checkConversationLoggerReady?.();
+                if (status?.isInitialized) {
+                    this.loggerReady = true;
+                    this.debugLogSafe(`${this.logPrefix} 💾 ログシステム初期化確認完了`);
+                    this.processPendingLogs();
+                    return;
+                }
+            } catch (error) {
+                this.debugLogSafe(`${this.logPrefix} 💾 ログシステム状態確認エラー:`, error);
+            }
+        }
+        
+        // 準備完了イベントを待機
+        if (window.electronAPI?.onConversationLoggerReady) {
+            window.electronAPI.onConversationLoggerReady((data) => {
+                this.loggerReady = true;
+                this.debugLogSafe(`${this.logPrefix} 💾 ConversationLogger準備完了通知受信:`, data);
+                this.processPendingLogs();
+            });
+        }
+        
+        // タイムアウト設定（10秒後に強制的に開始）
+        setTimeout(() => {
+            if (!this.loggerReady) {
+                this.debugLogSafe(`${this.logPrefix} 💾 ログシステム初期化タイムアウト - 強制開始`);
+                this.loggerReady = true;
+                this.processPendingLogs();
+            }
+        }, 10000);
+    }
+    
+    /**
+     * 保留中ログの処理
+     */
+    async processPendingLogs() {
+        if (this.pendingLogs.length === 0) return;
+        
+        this.debugLogSafe(`${this.logPrefix} 💾 保留中ログの処理開始: ${this.pendingLogs.length}件`);
+        
+        for (const log of this.pendingLogs) {
+            await this.doSaveLog(log.content);
+        }
+        
+        this.pendingLogs = [];
+        this.debugLogSafe(`${this.logPrefix} 💾 保留中ログの処理完了`);
+    }
+    
+    /**
+     * 実際のログ保存処理
      * @param {string} content - 保存するテキスト
      */
-    async saveToInternalLog(content) {
+    async doSaveLog(content) {
         try {
-            if (window.electronAPI && window.electronAPI.logs && window.electronAPI.logs.saveConversationLog) {
+            if (window.electronAPI?.logs?.saveConversationLog) {
                 const sessionId = this.generateSessionId();
                 const result = await window.electronAPI.logs.saveConversationLog(content, sessionId);
                 
@@ -268,6 +329,25 @@ class MessageAccumulator {
         } catch (error) {
             this.debugLogSafe(`${this.logPrefix} 💾 内部ログ保存エラー:`, error);
         }
+    }
+
+    /**
+     * 内部ログシステムに保存（改善版）
+     * @param {string} content - 保存するテキスト
+     */
+    async saveToInternalLog(content) {
+        if (!this.loggerReady) {
+            // 準備未完了時は一時保存
+            this.pendingLogs.push({
+                content,
+                timestamp: Date.now()
+            });
+            this.debugLogSafe(`${this.logPrefix} 💾 ログシステム準備中 - 一時保存: ${content.substring(0, 30)}...`);
+            return;
+        }
+        
+        // 準備完了時は即座に保存
+        await this.doSaveLog(content);
     }
 
     /**
