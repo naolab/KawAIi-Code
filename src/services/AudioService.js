@@ -336,6 +336,44 @@ class AudioService {
         return 'audio/wav';
     }
 
+    // 音声データの音量を増幅
+    amplifyAudioData(audioData, gainFactor = 1.5) {
+        try {
+            const format = this.detectAudioFormat(audioData);
+            this.debugLog('🎧 音量増幅処理開始:', { format, gainFactor, dataSize: audioData.byteLength });
+            
+            // WAVファイルの場合の処理
+            if (format === 'audio/wav') {
+                const view = new DataView(audioData);
+                const newBuffer = new ArrayBuffer(audioData.byteLength);
+                const newView = new DataView(newBuffer);
+                
+                // WAVヘッダーをコピー（最初の44バイト）
+                for (let i = 0; i < 44; i++) {
+                    newView.setUint8(i, view.getUint8(i));
+                }
+                
+                // 音声データ部分を増幅（16bit PCM想定）
+                for (let i = 44; i < audioData.byteLength; i += 2) {
+                    const sample = view.getInt16(i, true); // リトルエンディアン
+                    const amplified = Math.max(-32768, Math.min(32767, sample * gainFactor));
+                    newView.setInt16(i, amplified, true);
+                }
+                
+                this.debugLog('✅ WAV音量増幅完了');
+                return newBuffer;
+            }
+            
+            // MP3やその他の形式の場合は、Web Audio APIを使った増幅を試みる
+            // ただし、リアルタイム処理には適さないため、ゲイン調整で対応
+            this.debugLog(`⚠️ ${format}形式のため音量増幅をスキップ（Web Audio APIでのリアルタイム処理が必要）`);
+            return audioData;
+        } catch (error) {
+            this.debugError('音量増幅エラー:', error);
+            return audioData; // エラー時は元データを返す
+        }
+    }
+
     // アプリ内音声再生
     async playAppInternalAudio(audioData, text) {
         if (!audioData) {
@@ -349,21 +387,62 @@ class AudioService {
                 dataSize: audioData.byteLength
             });
 
+            // API音声の場合は音量を増幅
+            let processedAudioData = audioData;
+            
+            this.debugLog('🔍 音量増幅デバッグ:', {
+                useCloudAPI: this.useCloudAPI,
+                audioFormat: this.detectAudioFormat(audioData),
+                dataSize: audioData.byteLength
+            });
+            
+            if (this.useCloudAPI) {
+                const originalFormat = this.detectAudioFormat(audioData);
+                processedAudioData = this.amplifyAudioData(audioData, 1.8);
+                this.debugLog('🔊 API音声の音量を増幅:', {
+                    originalFormat: originalFormat,
+                    originalSize: audioData.byteLength,
+                    processedSize: processedAudioData.byteLength,
+                    gainFactor: 1.8,
+                    amplified: processedAudioData !== audioData
+                });
+            } else {
+                this.debugLog('🎵 ローカル音声のため増幅スキップ');
+            }
+
             // VRMリップシンク用に音声データを送信
             if (this.terminalApp.vrmIntegrationService) {
-                this.terminalApp.vrmIntegrationService.sendAudioToVRM(audioData);
+                this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData);
             }
 
             // 既存音声の安全なクリーンアップ
             await this.cleanupCurrentAudio();
 
             // 動的MIMEタイプ検出でBlobを作成してAudioオブジェクトで再生
-            const mimeType = this.detectAudioFormat(audioData);
-            const audioBlob = new Blob([audioData], { type: mimeType });
+            const mimeType = this.detectAudioFormat(processedAudioData);
+            const audioBlob = new Blob([processedAudioData], { type: mimeType });
             
-            this.debugLog('音声形式検出:', { mimeType, dataSize: audioData.byteLength });
+            this.debugLog('音声形式検出:', { mimeType, dataSize: processedAudioData.byteLength });
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
+            
+            // API音声の場合は再生音量も増幅（MP3対応）
+            if (this.useCloudAPI) {
+                audio.volume = 1.0; // API音声は最大音量で再生
+                this.debugLog('🔊 API音声の再生音量を最大に設定 (MP3対応)');
+            } else {
+                // ローカル音声は通常の音量設定を適用
+                try {
+                    const unifiedConfig = getSafeUnifiedConfig();
+                    const volumeValue = await unifiedConfig.get('voiceVolume', 50);
+                    const safeVolume = isNaN(volumeValue) ? 50 : volumeValue;
+                    audio.volume = Math.max(0, Math.min(1, safeVolume / 100));
+                    this.debugLog('🎵 ローカル音声の音量設定:', { volumeValue, safeVolume, finalVolume: audio.volume });
+                } catch (error) {
+                    this.debugError('音量設定取得エラー:', error);
+                    audio.volume = 0.5; // デフォルト値
+                }
+            }
             
             // 音声再生状態を更新
             this.terminalApp.voicePlayingState.isPlaying = true;
