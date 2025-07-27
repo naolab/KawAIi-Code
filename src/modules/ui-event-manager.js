@@ -272,6 +272,7 @@ class UIEventManager {
         if (helpBtn && helpModal) {
             helpBtn.addEventListener('click', () => {
                 helpModal.style.display = 'flex';
+                this.initHelpNavigation();
             });
         }
         
@@ -1775,6 +1776,49 @@ class UIEventManager {
             
         } catch (error) {
             console.error('クラウドAPI設定の同期エラー:', error);
+        }
+    }
+
+    /**
+     * ヘルプナビゲーション機能を初期化
+     */
+    initHelpNavigation() {
+        try {
+            const navItems = document.querySelectorAll('.help-nav-item');
+            const sections = document.querySelectorAll('.help-section');
+            
+            if (!navItems.length || !sections.length) {
+                console.warn('ヘルプナビゲーション要素が見つかりません');
+                return;
+            }
+
+            navItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    const targetSection = item.getAttribute('data-section');
+                    if (!targetSection) return;
+                    
+                    // 全てのナビアイテムから active クラスを削除
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    // クリックされたナビアイテムに active クラスを追加
+                    item.classList.add('active');
+                    
+                    // 全てのセクションを非表示
+                    sections.forEach(section => section.classList.remove('active'));
+                    // 対象のセクションを表示
+                    const targetElement = document.getElementById(`help-section-${targetSection}`);
+                    if (targetElement) {
+                        targetElement.classList.add('active');
+                    }
+                    
+                    this.debugLog(`ヘルプセクション切り替え: ${targetSection}`);
+                });
+            });
+            
+            this.debugLog('ヘルプナビゲーション初期化完了');
+        } catch (error) {
+            this.debugError('ヘルプナビゲーション初期化エラー:', error);
         }
     }
 }

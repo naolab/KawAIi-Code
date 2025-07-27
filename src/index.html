@@ -199,7 +199,7 @@
                         <div class="setting-item" style="margin-top: 10px;">
                             <label for="claude-md-content-editor" style="display: block; margin-bottom: 5px; font-size: 13px;">CLAUDE.md内容</label>
                             <textarea id="claude-md-content-editor" 
-                                      style="width: 100%; height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;"
+                                      style="width: 100%; height: 300px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;"
                                       placeholder="CLAUDE.mdの内容を編集してください..."></textarea>
                         </div>
                         
@@ -242,59 +242,140 @@
         
         <!-- ヘルプ・使い方ガイド -->
         <div id="help-modal" class="help-modal" style="display: none;">
-            <div class="help-content">
+            <div class="help-content-sidebar">
                 <div class="help-header">
                     <h3>使い方ガイド</h3>
                     <button id="close-help" class="close-btn">×</button>
                 </div>
-                <div class="help-body">
-                    <div class="help-section">
-                        <h4>基本操作</h4>
-                        <div class="help-item">
-                            <strong>開始ボタン:</strong> AI選択してチャットを開始します
-                        </div>
-                        <div class="help-item">
-                            <strong>停止ボタン:</strong> AIアシスタントを停止します
-                        </div>
-                        <div class="help-item">
-                            <strong>表示切り替え:</strong> ターミナル表示を切り替えます
-                        </div>
-                        <div class="help-item">
-                            <strong>設定ボタン:</strong> 音声・壁紙・ディレクトリを設定します
-                        </div>
-                        <div class="help-item">
-                            <strong>ヘルプボタン:</strong> 使い方ガイドを表示します
-                        </div>
-                        <div class="help-item">
-                            <!-- <strong>会話ログボタン:</strong> 過去の会話履歴を確認できます -->
-                        </div>
+                <div class="help-main-container">
+                    <!-- サイドバー -->
+                    <div class="help-sidebar">
+                        <nav class="help-nav">
+                            <a href="#" class="help-nav-item active" data-section="quickstart">
+                                クイックスタート
+                            </a>
+                            <a href="#" class="help-nav-item" data-section="voice">
+                                音声機能
+                            </a>
+                            <a href="#" class="help-nav-item" data-section="character">
+                                VRMキャラクター
+                            </a>
+                            <a href="#" class="help-nav-item" data-section="claude">
+                                Claude Code機能
+                            </a>
+                            <a href="#" class="help-nav-item" data-section="customize">
+                                カスタマイズ
+                            </a>
+                            <a href="#" class="help-nav-item" data-section="controls">
+                                操作ボタン
+                            </a>
+                        </nav>
                     </div>
                     
-                    
-                    <div class="help-section">
-                        <h4>キャラクター機能</h4>
-                        <div class="help-item">
-                            <strong>音声合成:</strong> AivisSpeech連携により、AIの応答が音声で読み上げられます。
+                    <!-- メインコンテンツ -->
+                    <div class="help-content-main">
+                        <!-- クイックスタート -->
+                        <div id="help-section-quickstart" class="help-section active">
+                            <h2>クイックスタート</h2>
+                            <div class="help-item">
+                                <h3>最初のAI会話</h3>
+                                <ol>
+                                    <li><strong>開始ボタン</strong>（右向き三角形）をクリック</li>
+                                    <li>ターミナル画面でClaude Codeと対話開始</li>
+                                    <li>右側の3Dキャラクター（モネちゃん）がAIの返答に合わせて表情変化</li>
+                                </ol>
+                            </div>
+                            <div class="help-item">
+                                <h3>音声機能を有効にする（オプション）</h3>
+                                <p>音声機能を有効にすると、キャラクターが返答を読み上げます。感情に応じた自然な表情変化を楽しめます。</p>
+                            </div>
                         </div>
-                        <div class="help-item">
-                            <strong>ファイルボタン:</strong> 表示するキャラクターを変更できます
+
+                        <!-- 音声機能 -->
+                        <div id="help-section-voice" class="help-section">
+                            <h2>音声機能</h2>
+                            <div class="help-item">
+                                <h3>AivisSpeech Engine（ローカル）</h3>
+                                <p><a href="https://aivis-project.com/" target="_blank">AivisSpeech公式サイト</a>からAivisSpeech Engineをダウンロード・インストールしてください。Engine起動後（ポート: 127.0.0.1:10101）、KawAIi Codeで音声機能が自動的に有効化されます。</p>
+                            </div>
+                            <div class="help-item">
+                                <h3>Aivis Cloud API（クラウド）</h3>
+                                <p>設定画面から「クラウドAPI使用」を有効化し、Aivis Cloud APIキーを設定してください。インターネット経由で高品質な音声合成を利用できます。ローカルソフト不要でシステムリソース使用量が少ないのが利点です。</p>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="help-section">
-                        <h4>カスタマイズ</h4>
-                        <div class="help-item">
-                            <strong>作業ディレクトリ:</strong> AIアシスタントが動作するフォルダを設定できます。
+
+                        <!-- VRMキャラクター -->
+                        <div id="help-section-character" class="help-section">
+                            <h2>VRMキャラクター</h2>
+                            <div class="help-item">
+                                <h3>デフォルトキャラクター</h3>
+                                <p>モネちゃんは照れ屋で優しいプログラミングアシスタントです。AI応答の感情に合わせて表情が自動変更され、待機中も自然な動作をします。</p>
+                            </div>
+                            <div class="help-item">
+                                <h3>カスタムキャラクター</h3>
+                                <p>右上の設定ボタンをクリックし、「VRMファイルを選択」からお好みの.vrmファイルを選択できます。VRM 0.x（フル対応）、VRM 1.0（基本対応）に対応しており、ファイルサイズは50MB以下を推奨しています。</p>
+                            </div>
+                            <div class="help-item">
+                                <h3>表情・動作機能</h3>
+                                <table>
+                                    <tr><th>AI応答内容</th><th>表情変化</th></tr>
+                                    <tr><td>成功・完了</td><td>喜び</td></tr>
+                                    <tr><td>エラー・失敗</td><td>困った表情</td></tr>
+                                    <tr><td>説明・解説</td><td>真剣な表情</td></tr>
+                                    <tr><td>褒められた時</td><td>照れ</td></tr>
+                                </table>
+                                <p>音声連動機能により、LipSync（音声再生時の口の動き）と自然な表情変化が実現されています。</p>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="help-section">
-                        <h4>ヒント</h4>
-                        <div class="help-item">
-                            <strong>初回起動:</strong> 初めて使用する場合は、まず開始ボタンを押してAIアシスタントを起動してください。
+
+                        <!-- Claude Code機能 -->
+                        <div id="help-section-claude" class="help-section">
+                            <h2>Claude Code機能</h2>
+                            <div class="help-item">
+                                <h3>通常モード</h3>
+                                <p>一般的なプログラミング支援、コードレビューに使用します。安全性重視で権限チェックありのため、通常の開発作業全般に推奨されます。</p>
+                            </div>
+                            <div class="help-item">
+                                <h3>Dangerousモード</h3>
+                                <p>システム設定変更、高度な操作に使用します。権限チェックをスキップしてより自由度が高い操作が可能ですが、上級者向けのため慎重に使用してください。</p>
+                            </div>
+                            <div class="help-item">
+                                <h3>CLAUDE.md設定（手動）</h3>
+                                <p>設定画面からCLAUDE.mdの内容を編集できます。「生成」ボタンで作業ディレクトリにCLAUDE.mdを作成し、プロジェクト固有のAI指示を設定できます。</p>
+                            </div>
                         </div>
-                        <div class="help-item">
-                            <strong>音声エンジン接続:</strong> 音声エンジンに接続できない場合は、設定の『再接続』ボタンをお試しください。
+
+                        <!-- カスタマイズ -->
+                        <div id="help-section-customize" class="help-section">
+                            <h2>カスタマイズ</h2>
+                            <div class="help-item">
+                                <h3>壁紙システム</h3>
+                                <p>時間帯に応じて自動で壁紙が切り替わります。朝（6-12時）は爽やかなブルー系、昼（12-18時）は明るいイエロー系、夕（18-21時）は温かなオレンジ系、夜（21-6時）は落ち着いたパープル系になります。</p>
+                                <p>設定画面から「壁紙アップロード」でカスタム壁紙を設定できます。JPG、PNG、MP4（動画壁紙）に対応しており、推奨解像度は1920x1080以上です。</p>
+                            </div>
+                            <div class="help-item">
+                                <h3>ターミナル設定</h3>
+                                <p>最大4つのターミナルを同時実行できるタブ機能があります。眼のアイコンで表示/非表示を切り替え、フォントサイズは設定画面で調整可能です。</p>
+                            </div>
+                            <div class="help-item">
+                                <h3>プロジェクト設定</h3>
+                                <p>プロジェクトごとに異なる作業ディレクトリを設定できます。CLAUDE.mdは設定画面で内容を編集し手動で生成、キャラクター設定もプロジェクト別に割り当て可能です。</p>
+                            </div>
+                        </div>
+
+                        <!-- 操作ボタン -->
+                        <div id="help-section-controls" class="help-section">
+                            <h2>操作ボタン</h2>
+                            <div class="help-item">
+                                <table>
+                                    <tr><th>ボタン</th><th>機能</th></tr>
+                                    <tr><td><strong>開始ボタン</strong></td><td>Claude Codeを起動</td></tr>
+                                    <tr><td><strong>停止ボタン</strong></td><td>Claude Codeを停止</td></tr>
+                                    <tr><td><strong>表示切り替え</strong></td><td>ターミナル表示/非表示</td></tr>
+                                    <tr><td><strong>設定ボタン</strong></td><td>音声・VRM・壁紙・ディレクトリ設定</td></tr>
+                                    <tr><td><strong>ヘルプボタン</strong></td><td>この使い方ガイドを表示</td></tr>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

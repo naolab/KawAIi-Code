@@ -1097,17 +1097,234 @@ body.loaded {
     z-index: 1000;
 }
 
-/* ヘルプモーダル - 設定モーダルと同じスタイル */
-.help-content {
+/* ヘルプモーダル - サイドバーデザイン */
+.help-content-sidebar {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 24px;
     padding: 0;
-    width: 600px;
-    max-width: 90%;
-    max-height: 85vh;
-    overflow-y: auto;
+    width: 1000px;
+    max-width: 95%;
+    max-height: 90vh;
+    overflow: hidden;
     box-shadow: 0 8px 24px rgba(255, 140, 66, 0.2);
     border: none;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ヘルプヘッダー（従来のスタイルを維持） */
+.help-content-sidebar .help-header {
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #FF8C42 0%, #FFB366 100%);
+    border-radius: 24px 24px 0 0;
+    color: white;
+    flex-shrink: 0;
+}
+
+/* メインコンテナ */
+.help-main-container {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+/* サイドバー */
+.help-sidebar {
+    width: 250px;
+    background: #f8f9fa;
+    flex-shrink: 0;
+    overflow-y: auto;
+    border-right: 1px solid #dee2e6;
+}
+
+.help-nav {
+    padding: 0;
+    margin: 0;
+}
+
+.help-nav-item {
+    display: block;
+    padding: 16px 20px;
+    color: #6c757d;
+    text-decoration: none;
+    border-bottom: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.help-nav-item:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.help-nav-item.active {
+    background: linear-gradient(135deg, #FF8C42 0%, #FFB366 100%);
+    color: white;
+    border-left: 4px solid #e67e22;
+}
+
+/* メインコンテンツエリア */
+.help-content-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px;
+    background: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* セクション */
+.help-content-main .help-section {
+    display: none;
+}
+
+.help-content-main .help-section.active {
+    display: block;
+}
+
+.help-content-main h2 {
+    margin: 0 0 32px 0;
+    color: #2c3e50;
+    font-size: 28px;
+    font-weight: 700;
+    padding: 0;
+}
+
+.help-content-main h3 {
+    margin: 28px 0 12px 0;
+    color: #495057;
+    font-size: 22px;
+    font-weight: 600;
+    padding: 0 0 8px 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.help-content-main h4 {
+    margin: 32px 0 16px 0;
+    color: #6c757d;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.help-content-main .help-item {
+    margin-bottom: 40px;
+    padding: 0 0 32px 0;
+    background: transparent;
+    border-radius: 0;
+    border-left: none;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.help-content-main .help-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.help-content-main p {
+    margin: 16px 0;
+    line-height: 1.8;
+    color: #495057;
+    font-size: 15px;
+}
+
+.help-content-main ul, 
+.help-content-main ol {
+    margin: 20px 0;
+    padding-left: 28px;
+}
+
+.help-content-main li {
+    margin: 10px 0;
+    line-height: 1.8;
+    color: #495057;
+    font-size: 15px;
+}
+
+.help-content-main strong {
+    color: #FF8C42;
+    font-weight: 600;
+}
+
+.help-content-main code {
+    background: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-size: 14px;
+    color: #e74c3c;
+    border: 1px solid #ecf0f1;
+}
+
+.help-content-main a {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.help-content-main a:hover {
+    text-decoration: underline;
+}
+
+/* テーブルスタイル */
+.help-content-main table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.help-content-main th {
+    background: linear-gradient(135deg, #fff5f0 0%, #ffe8d6 100%);
+    color: #495057;
+    padding: 16px 20px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #FF8C42;
+}
+
+.help-content-main td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #ecf0f1;
+    color: #495057;
+    font-size: 15px;
+}
+
+.help-content-main tr:last-child td {
+    border-bottom: none;
+}
+
+.help-content-main tr:nth-child(even) {
+    background: #fdfdfd;
+}
+
+/* スクロールバー */
+.help-sidebar::-webkit-scrollbar,
+.help-content-main::-webkit-scrollbar {
+    width: 8px;
+}
+
+.help-sidebar::-webkit-scrollbar-track,
+.help-content-main::-webkit-scrollbar-track {
+    background: #ecf0f1;
+    border-radius: 4px;
+}
+
+.help-sidebar::-webkit-scrollbar-thumb,
+.help-content-main::-webkit-scrollbar-thumb {
+    background: #bdc3c7;
+    border-radius: 4px;
+}
+
+.help-sidebar::-webkit-scrollbar-thumb:hover,
+.help-content-main::-webkit-scrollbar-thumb:hover {
+    background: #95a5a6;
 }
 
 /* ヘルプモーダルのスクロールバー */
@@ -1188,14 +1405,7 @@ body.loaded {
 }
 
 .help-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 12px;
-    padding: 12px;
-    background: rgba(255, 183, 102, 0.1);
-    border-radius: 8px;
-    border-left: 3px solid rgba(255, 140, 66, 0.4);
+    margin-bottom: 24px;
 }
 
 .help-item:last-child {
@@ -1233,9 +1443,9 @@ body.loaded {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 24px;
     padding: 0;
-    width: 480px;
-    max-width: 90%;
-    max-height: 85vh;
+    width: 700px;
+    max-width: 95%;
+    max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 8px 24px rgba(255, 140, 66, 0.2);
     border: none;
