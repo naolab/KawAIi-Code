@@ -52,15 +52,15 @@ async function ensureLoggerReady() {
             
             ipcRenderer.on('conversation-logger-ready', onReady);
             
-            // 3. タイムアウト (10秒)
+            // 3. タイムアウト (20秒) - dist版での初期化遅延に対応
             setTimeout(() => {
                 if (!resolved) {
-                    console.warn('💾 ログシステム初期化タイムアウト');
+                    console.warn('💾 ログシステム初期化タイムアウト (20秒)');
                     resolved = true;
                     ipcRenderer.off('conversation-logger-ready', onReady);
                     resolve(false);
                 }
-            }, 10000);
+            }, 20000);
         });
     }
     

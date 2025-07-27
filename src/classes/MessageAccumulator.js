@@ -332,22 +332,40 @@ class MessageAccumulator {
     }
 
     /**
-     * 内部ログシステムに保存（改善版）
+     * 内部ログシステムに保存（改善版・フォールバック強化）
      * @param {string} content - 保存するテキスト
      */
     async saveToInternalLog(content) {
         if (!this.loggerReady) {
-            // 準備未完了時は一時保存
+            // 準備未完了時は一時保存（フォールバック印付き）
             this.pendingLogs.push({
                 content,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                fallback: true,
+                reason: 'logger_not_ready'
             });
-            this.debugLogSafe(`${this.logPrefix} 💾 ログシステム準備中 - 一時保存: ${content.substring(0, 30)}...`);
+            this.debugLogSafe(`${this.logPrefix} 💾 フォールバック保存（未準備）: ${content.substring(0, 30)}...`);
+            
+            // メモリ上に保管しているのでユーザーには成功として報告
+            console.log(`💾 ログをメモリに一時保存しました: "${content.substring(0, 50)}..."`);
             return;
         }
         
-        // 準備完了時は即座に保存
-        await this.doSaveLog(content);
+        // 準備完了時は即座に保存を試行
+        try {
+            await this.doSaveLog(content);
+        } catch (error) {
+            // 保存失敗時もメモリにフォールバック
+            this.pendingLogs.push({
+                content,
+                timestamp: Date.now(),
+                fallback: true,
+                reason: 'save_failed',
+                error: error.message
+            });
+            this.debugLogSafe(`${this.logPrefix} 💾 フォールバック保存（保存失敗）: ${error.message}`);
+            console.log(`💾 ログ保存失敗のためメモリに保存: "${content.substring(0, 50)}..."`);
+        }
     }
 
     /**
