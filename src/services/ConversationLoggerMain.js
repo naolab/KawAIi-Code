@@ -21,6 +21,14 @@ class ConversationLoggerMain {
         this.fallbackMode = false;
         this.initializationError = null;
         
+        // リトライ設定（Phase2追加）
+        this.retryConfig = {
+            maxAttempts: 3,
+            baseDelay: 1000,    // 1秒
+            maxDelay: 5000,     // 5秒
+            backoffFactor: 2
+        };
+        
         // メモリキャッシュ
         this.cache = [];
         this.maxCacheSize = 100; // 最大100件をメモリに保持
@@ -64,21 +72,153 @@ class ConversationLoggerMain {
     }
 
     /**
+     * リトライ機構付きの初期化（Phase2追加）
+     */
+    async initializeWithRetry() {
+        let lastError = null;
+        
+        for (let attempt = 1; attempt <= this.retryConfig.maxAttempts; attempt++) {
+            try {
+                console.log(`${this.logPrefix} 初期化試行 ${attempt}/${this.retryConfig.maxAttempts}`);
+                
+                const result = await this.initialize();
+                console.log(`${this.logPrefix} 初期化成功（試行${attempt}回目）`);
+                return result;
+                
+            } catch (error) {
+                lastError = error;
+                console.error(`${this.logPrefix} 初期化試行${attempt}失敗:`, error);
+                
+                if (attempt < this.retryConfig.maxAttempts) {
+                    const delay = Math.min(
+                        this.retryConfig.baseDelay * Math.pow(this.retryConfig.backoffFactor, attempt - 1),
+                        this.retryConfig.maxDelay
+                    );
+                    
+                    console.log(`${this.logPrefix} ${delay}ms後に再試行...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+        
+        // 全ての試行が失敗した場合
+        console.error(`${this.logPrefix} 全ての初期化試行が失敗しました`);
+        console.error(`${this.logPrefix} 最終エラー:`, lastError);
+        
+        // メモリのみモードにフォールバック
+        await this.enableMemoryOnlyMode();
+        return { 
+            success: true, 
+            mode: 'memory', 
+            fallback: true, 
+            retriesExhausted: true,
+            error: lastError?.message 
+        };
+    }
+
+    /**
      * 通常の初期化処理
      */
     async normalInitialize() {
-        // .claudeディレクトリの作成
-        const claudeDir = path.dirname(this.logPath);
-        if (!fs.existsSync(claudeDir)) {
-            fs.mkdirSync(claudeDir, { recursive: true });
-            console.log(`${this.logPrefix} ディレクトリを作成: ${claudeDir}`);
-        }
+        try {
+            // .claudeディレクトリの作成
+            const claudeDir = path.dirname(this.logPath);
+            if (!fs.existsSync(claudeDir)) {
+                fs.mkdirSync(claudeDir, { recursive: true });
+                console.log(`${this.logPrefix} ディレクトリを作成: ${claudeDir}`);
+            }
 
-        // 既存ログファイルの読み込み
-        await this.loadFromFile();
+            // 既存ログファイルの読み込み
+            await this.loadFromFile();
+            
+            this.isInitialized = true;
+            console.log(`${this.logPrefix} 通常初期化完了 - 既存ログ: ${this.stats.totalLogs}件`);
+            
+        } catch (error) {
+            console.warn(`${this.logPrefix} 通常パス初期化失敗、代替パス試行:`, error);
+            
+            // 代替パス試行
+            const alternativeSuccess = await this.tryAlternativePaths();
+            if (!alternativeSuccess) {
+                throw new Error('全ての代替パスが失敗しました');
+            }
+            
+            // 代替パスで再度初期化を試行
+            await this.loadFromFile();
+            this.isInitialized = true;
+            console.log(`${this.logPrefix} 代替パス初期化完了 - 既存ログ: ${this.stats.totalLogs}件`);
+        }
+    }
+
+    /**
+     * 代替パス試行機能（Phase2追加）
+     */
+    async tryAlternativePaths() {
+        const alternativePaths = [
+            // 1. ユーザーホームディレクトリ（kawaii-code）
+            path.join(os.homedir(), '.kawaii-code', 'conversation_log.json'),
+            
+            // 2. システム一時ディレクトリ
+            path.join(os.tmpdir(), 'kawaii-logs', 'conversation_log.json'),
+            
+            // 3. アプリケーション実行ディレクトリ
+            path.join(process.cwd(), 'temp-logs', 'conversation_log.json'),
+            
+            // 4. ユーザードキュメント
+            path.join(os.homedir(), 'Documents', 'KawAIi-Code-Logs', 'conversation_log.json'),
+            
+            // 5. デスクトップ（最後の手段）
+            path.join(os.homedir(), 'Desktop', 'kawaii-logs', 'conversation_log.json')
+        ];
         
-        this.isInitialized = true;
-        console.log(`${this.logPrefix} 通常初期化完了 - 既存ログ: ${this.stats.totalLogs}件`);
+        for (const [index, alternatePath] of alternativePaths.entries()) {
+            try {
+                console.log(`${this.logPrefix} 代替パス試行 ${index + 1}/${alternativePaths.length}: ${alternatePath}`);
+                
+                // ディレクトリ作成テスト
+                const dir = path.dirname(alternatePath);
+                await this.ensureDirectoryExists(dir);
+                
+                // 書き込み権限テスト
+                await this.testWritePermission(alternatePath);
+                
+                // 成功した場合
+                this.logPath = alternatePath;
+                console.log(`${this.logPrefix} 代替パス使用成功: ${this.logPath}`);
+                return true;
+                
+            } catch (error) {
+                console.warn(`${this.logPrefix} 代替パス${index + 1}失敗: ${alternatePath}`, error.message);
+            }
+        }
+        
+        console.error(`${this.logPrefix} 全ての代替パスが失敗しました`);
+        return false;
+    }
+
+    /**
+     * ディレクトリ存在確認・作成
+     */
+    async ensureDirectoryExists(dirPath) {
+        try {
+            await fs.promises.access(dirPath);
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                await fs.promises.mkdir(dirPath, { recursive: true });
+                console.log(`${this.logPrefix} ディレクトリ作成: ${dirPath}`);
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    /**
+     * 書き込み権限テスト
+     */
+    async testWritePermission(filePath) {
+        const testContent = JSON.stringify({ test: true, timestamp: Date.now() });
+        await fs.promises.writeFile(filePath, testContent, 'utf8');
+        await fs.promises.unlink(filePath); // テストファイルを削除
     }
 
     /**
@@ -423,6 +563,103 @@ class ConversationLoggerMain {
         } catch (error) {
             console.error(`${this.logPrefix} クリアエラー:`, error);
             return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * ヘルスチェック機能（Phase2追加）
+     */
+    async performHealthCheck() {
+        const health = {
+            timestamp: new Date().toISOString(),
+            status: 'unknown',
+            mode: this.operatingMode,
+            isInitialized: this.isInitialized,
+            lastError: this.initializationError?.message,
+            logPath: this.logPath,
+            metrics: {
+                cacheSize: this.cache.length,
+                totalLogs: this.stats.totalLogs,
+                sessionLogs: this.stats.sessionLogs,
+                errors: this.stats.errors,
+                uptime: Date.now() - this.stats.startTime
+            },
+            capabilities: {
+                fileWrite: false,
+                memoryWrite: false,
+                directoryAccess: false
+            }
+        };
+        
+        try {
+            // ファイル書き込みテスト
+            if (this.operatingMode === 'full') {
+                await this.testFileOperations();
+                health.capabilities.fileWrite = true;
+                health.capabilities.directoryAccess = true;
+            }
+            
+            // メモリ書き込みテスト
+            this.testMemoryOperations();
+            health.capabilities.memoryWrite = true;
+            
+            health.status = this.operatingMode === 'full' ? 'healthy' : 'degraded';
+            
+        } catch (error) {
+            health.status = 'error';
+            health.lastError = error.message;
+            
+            // 自動修復を試行
+            if (this.operatingMode === 'full') {
+                console.warn(`${this.logPrefix} ヘルスチェック失敗、メモリモードに切り替え`);
+                await this.enableMemoryOnlyMode();
+                health.mode = this.operatingMode;
+                health.status = 'recovered';
+            }
+        }
+        
+        return health;
+    }
+    
+    /**
+     * ファイル操作テスト
+     */
+    async testFileOperations() {
+        const testPath = path.join(path.dirname(this.logPath), 'health-check.tmp');
+        const testData = { test: true, timestamp: Date.now() };
+        
+        // 書き込みテスト
+        await fs.promises.writeFile(testPath, JSON.stringify(testData), 'utf8');
+        
+        // 読み込みテスト
+        const readData = await fs.promises.readFile(testPath, 'utf8');
+        const parsed = JSON.parse(readData);
+        
+        if (parsed.test !== true) {
+            throw new Error('File read/write test failed');
+        }
+        
+        // クリーンアップ
+        await fs.promises.unlink(testPath);
+    }
+    
+    /**
+     * メモリ操作テスト
+     */
+    testMemoryOperations() {
+        const beforeSize = this.cache.length;
+        const testEntry = { test: true, timestamp: Date.now() };
+        
+        this.cache.push(testEntry);
+        
+        if (this.cache[this.cache.length - 1].test !== true) {
+            throw new Error('Memory write test failed');
+        }
+        
+        this.cache.pop();
+        
+        if (this.cache.length !== beforeSize) {
+            throw new Error('Memory operation test failed');
         }
     }
 

@@ -343,30 +343,42 @@ app.whenReady().then(async () => {
 
   await startNextjsServer();
 
-  // ConversationLoggerの初期化（エラーハンドリング強化）
+  // ConversationLoggerの初期化（Phase2: リトライ機構付き）
   try {
-    console.log('💾 ConversationLogger初期化開始...');
-    await conversationLogger.initialize();
-    console.log('✅ ConversationLogger初期化成功');
-    console.log('💾 初期化状態:', {
+    console.log('💾 ConversationLogger初期化開始（リトライ機構付き）...');
+    const result = await conversationLogger.initializeWithRetry();
+    
+    console.log('✅ ConversationLogger初期化完了');
+    console.log('💾 初期化結果:', {
+      success: result.success,
+      mode: result.mode,
+      fallback: result.fallback,
+      retriesExhausted: result.retriesExhausted,
+      totalLogs: result.totalLogs,
       isInitialized: conversationLogger.isInitialized,
-      logPath: conversationLogger.logPath,
-      mode: conversationLogger.operatingMode || 'unknown'
+      logPath: conversationLogger.logPath
     });
+    
+    // ヘルスチェック実行
+    const health = await conversationLogger.performHealthCheck();
+    console.log('🩺 初期ヘルスチェック結果:', {
+      status: health.status,
+      capabilities: health.capabilities,
+      uptime: Math.round(health.metrics.uptime / 1000) + 's'
+    });
+    
   } catch (error) {
-    // 本番環境でも必ずエラーを表示（重要なシステムエラーのため）
-    console.error('❌ ConversationLogger初期化失敗:', error);
+    // Phase2でも念のため最終的なエラーハンドリング
+    console.error('❌ ConversationLogger最終初期化失敗:', error);
     console.error('❌ エラー詳細:', {
       message: error.message,
       code: error.code,
       errno: error.errno,
       path: error.path,
-      stack: error.stack?.split('\n').slice(0, 3).join('\n') // スタックトレースの最初の3行のみ
+      stack: error.stack?.split('\n').slice(0, 3).join('\n')
     });
     
-    // エラーでもアプリは継続動作
-    console.warn('⚠️ ログ機能は制限されますが、アプリは正常に動作します');
-    console.log('💡 ログはメモリ内のみに保存されます（アプリ終了時に消失）');
+    console.warn('⚠️ ログ機能は完全に無効化されました');
   }
 
   createWindow();
