@@ -171,6 +171,30 @@ class AudioService {
                 }
 
                 const audioData = await synthesisResponse.arrayBuffer();
+                
+                // 音声データサイズ検証
+                if (audioData.byteLength < 100) {
+                    this.debugLog('クラウドAPI音声データ不正: サイズが小さすぎます', {
+                        size: audioData.byteLength,
+                        expectedMinimum: 100
+                    });
+                    
+                    // フォールバック: ローカルエンジンで再試行
+                    this.debugLog('ローカルエンジンにフォールバック中...');
+                    const originalCloudSetting = this.useCloudAPI;
+                    try {
+                        this.useCloudAPI = false;
+                        const fallbackAudioData = await this.synthesizeTextOnly(text, speakerId, volume, speed);
+                        this.debugLog('ローカルエンジンフォールバック成功');
+                        return fallbackAudioData;
+                    } catch (fallbackError) {
+                        this.debugError('ローカルエンジンフォールバックも失敗:', fallbackError.message);
+                        throw new Error(`音声データサイズが不正で、ローカルエンジンフォールバックも失敗しました`);
+                    } finally {
+                        this.useCloudAPI = originalCloudSetting;
+                    }
+                }
+                
                 this.debugLog('クラウドAPI音声合成成功:', `${audioData.byteLength}バイト`);
                 return audioData;
                 
@@ -263,104 +287,53 @@ class AudioService {
         return AUDIO_PRESETS[presetName] || AUDIO_PRESETS.realtime;
     }
 
-    // 感情に応じたクラウドAPIパラメータ構築
+    // クラウドAPIパラメータ構築（最小限版）
     buildCloudApiParams(text, emotion, speed, volume) {
-        const baseParams = {
+        // 文字数節約のため、必要最小限のパラメータのみ使用
+        return {
             model_uuid: 'a59cb814-0083-4369-8542-f51a29e72af7',
             text: text,
             use_ssml: false,
             output_audio_channels: "mono",
-            speaking_rate: speed, // 正しいパラメータ名に修正
+            speaking_rate: speed,
             volume: volume / 100
         };
-        
-        // 感情に応じた調整
-        switch(emotion.primary) {
-            case 'joy':
-                return {
-                    ...baseParams,
-                    style_name: 'Happy',
-                    emotional_intensity: 1.3,
-                    tempo_dynamics: 1.2,
-                    speaking_rate: Math.min(speed * 1.1, 2.0)
-                };
-                
-            case 'sadness':
-                return {
-                    ...baseParams,
-                    style_name: 'Sad', 
-                    emotional_intensity: 1.1,
-                    tempo_dynamics: 0.8,
-                    speaking_rate: Math.max(speed * 0.9, 0.5)
-                };
-                
-            case 'surprise':
-                return {
-                    ...baseParams,
-                    emotional_intensity: 1.4,
-                    tempo_dynamics: 1.3,
-                    pitch: 0.1  // 少し高めに
-                };
-                
-            case 'anger':
-                return {
-                    ...baseParams,
-                    emotional_intensity: 1.5,
-                    tempo_dynamics: 1.1,
-                    speaking_rate: Math.min(speed * 1.05, 2.0)
-                };
-                
-            default:
-                return {
-                    ...baseParams,
-                    emotional_intensity: 1.0,
-                    tempo_dynamics: 1.0
-                };
-        }
     }
 
-    // SSML強化テキスト処理
+    // SSML強化テキスト処理（簡素化版）
     enhanceTextWithSSML(text, emotion) {
-        let ssmlText = text;
-        let useSSML = false;
-        
-        // 1. 感情に応じた全体的な調整
-        if (emotion.primary === 'joy') {
-            ssmlText = `<prosody rate="110%" pitch="+10%" volume="loud">${ssmlText}</prosody>`;
-            useSSML = true;
-        } else if (emotion.primary === 'sadness') {
-            ssmlText = `<prosody rate="85%" pitch="-5%" volume="soft">${ssmlText}</prosody>`;
-            useSSML = true;
-        } else if (emotion.primary === 'surprise') {
-            ssmlText = `<prosody rate="115%" pitch="+15%">${ssmlText}</prosody>`;
-            useSSML = true;
-        }
-        
-        // 2. 句読点での自動間調整（感情に関係なく適用）
-        if (ssmlText.includes('。') || ssmlText.includes('！') || ssmlText.includes('？')) {
-            ssmlText = ssmlText.replace(/。/g, '。<break time="0.8s"/>');
-            ssmlText = ssmlText.replace(/！/g, '！<break time="0.6s"/>');
-            ssmlText = ssmlText.replace(/？/g, '？<break time="0.7s"/>');
-            useSSML = true;
-        }
-        
-        // 3. 強調表現の自動検出
-        if (ssmlText.includes('『') && ssmlText.includes('』')) {
-            ssmlText = ssmlText.replace(/『([^』]+)』/g, '<aivis:emotion style="Happy" intensity="1.5">$1</aivis:emotion>');
-            useSSML = true;
-        }
-        
-        // 4. 段落分け（改行が2つ以上連続する場合）
-        if (ssmlText.includes('\n\n')) {
-            ssmlText = ssmlText.replace(/\n\n/g, '</p><p>');
-            ssmlText = `<p>${ssmlText}</p>`;
-            useSSML = true;
-        }
-        
+        // 文字数節約のため、SSML処理を最小限に抑制
+        // 基本的な感情パラメータは buildCloudApiParams で処理
         return {
-            text: ssmlText,
-            use_ssml: useSSML
+            text: text,
+            use_ssml: false
         };
+    }
+
+    // 音声データの形式を自動検出
+    detectAudioFormat(audioData) {
+        if (!audioData || audioData.byteLength < 4) return 'audio/wav';
+        
+        const view = new Uint8Array(audioData);
+        
+        // MP3ヘッダー検出 (ID3タグまたはMPEGフレーム)
+        if ((view[0] === 0x49 && view[1] === 0x44 && view[2] === 0x33) || // ID3
+            (view[0] === 0xFF && (view[1] & 0xE0) === 0xE0)) { // MPEG frame
+            return 'audio/mpeg';
+        }
+        
+        // WAVヘッダー検出
+        if (view[0] === 0x52 && view[1] === 0x49 && view[2] === 0x46 && view[3] === 0x46) {
+            return 'audio/wav';
+        }
+        
+        // OGGヘッダー検出
+        if (view[0] === 0x4F && view[1] === 0x67 && view[2] === 0x67 && view[3] === 0x53) {
+            return 'audio/ogg';
+        }
+        
+        // デフォルトはWAV
+        return 'audio/wav';
     }
 
     // アプリ内音声再生
@@ -371,7 +344,10 @@ class AudioService {
         }
 
         try {
-            this.debugLog('アプリ内音声再生開始:', text ? text.substring(0, 30) + '...' : '');
+            this.debugLog('アプリ内音声再生開始:', {
+                text: text ? text.substring(0, 30) + '...' : '',
+                dataSize: audioData.byteLength
+            });
 
             // VRMリップシンク用に音声データを送信
             if (this.terminalApp.vrmIntegrationService) {
@@ -381,8 +357,11 @@ class AudioService {
             // 既存音声の安全なクリーンアップ
             await this.cleanupCurrentAudio();
 
-            // Blobを作成してAudioオブジェクトで再生
-            const audioBlob = new Blob([audioData], { type: 'audio/wav' });
+            // 動的MIMEタイプ検出でBlobを作成してAudioオブジェクトで再生
+            const mimeType = this.detectAudioFormat(audioData);
+            const audioBlob = new Blob([audioData], { type: mimeType });
+            
+            this.debugLog('音声形式検出:', { mimeType, dataSize: audioData.byteLength });
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
             
@@ -459,7 +438,8 @@ class AudioService {
             }
             
             // 音声データの形式を検証
-            const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            const mimeType = this.detectAudioFormat(arrayBuffer);
+            const audioBlob = new Blob([arrayBuffer], { type: mimeType });
             if (audioBlob.size === 0) {
                 this.debugLog('❌ 音声Blobが空です');
                 return;
