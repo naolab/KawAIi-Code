@@ -29,6 +29,21 @@ class ConversationLoggerMain {
             backoffFactor: 2
         };
         
+        // 監視設定（Phase3追加）
+        this.monitoring = {
+            enabled: true,
+            interval: 60000, // 1分間隔
+            healthCheckTimer: null,
+            recentErrors: []
+        };
+        
+        // デバッグモード（Phase3追加）
+        this.debugMode = process.env.DEBUG_LOGGER === 'true';
+        if (this.debugMode) {
+            console.log(`${this.logPrefix} デバッグモード有効`);
+            this.monitoring.interval = 30000; // デバッグ時は30秒間隔
+        }
+        
         // メモリキャッシュ
         this.cache = [];
         this.maxCacheSize = 100; // 最大100件をメモリに保持
@@ -694,9 +709,144 @@ class ConversationLoggerMain {
     }
 
     /**
+     * システム監視開始（Phase3追加）
+     */
+    startMonitoring() {
+        if (!this.monitoring.enabled) return;
+        
+        console.log(`${this.logPrefix} システム監視開始（間隔: ${this.monitoring.interval / 1000}秒）`);
+        
+        this.monitoring.healthCheckTimer = setInterval(async () => {
+            try {
+                const health = await this.performHealthCheck();
+                
+                if (health.status === 'error') {
+                    console.warn(`${this.logPrefix} システム異常検出:`, {
+                        status: health.status,
+                        lastError: health.lastError,
+                        capabilities: health.capabilities
+                    });
+                }
+                
+                // 統計情報の更新
+                this.updateMonitoringStats(health);
+                
+            } catch (error) {
+                console.error(`${this.logPrefix} 監視エラー:`, error);
+                this.addRecentError(error);
+            }
+        }, this.monitoring.interval);
+    }
+    
+    /**
+     * システム監視停止（Phase3追加）
+     */
+    stopMonitoring() {
+        if (this.monitoring.healthCheckTimer) {
+            clearInterval(this.monitoring.healthCheckTimer);
+            this.monitoring.healthCheckTimer = null;
+            console.log(`${this.logPrefix} システム監視停止`);
+        }
+    }
+    
+    /**
+     * 監視統計の更新（Phase3追加）
+     */
+    updateMonitoringStats(health) {
+        // デバッグモード時は常に詳細ログを出力
+        if (this.debugMode) {
+            console.log(`${this.logPrefix} 🩺 ヘルスチェック詳細:`, {
+                timestamp: health.timestamp,
+                status: health.status,
+                mode: health.mode,
+                uptime: Math.round(health.metrics.uptime / 1000) + 's',
+                totalLogs: health.metrics.totalLogs,
+                sessionLogs: health.metrics.sessionLogs,
+                cacheSize: health.metrics.cacheSize,
+                capabilities: health.capabilities
+            });
+        } else if (health.status !== 'healthy') {
+            // 通常モードでは異常時のみログ出力
+            console.log(`${this.logPrefix} 監視レポート:`, {
+                status: health.status,
+                mode: health.mode,
+                uptime: Math.round(health.metrics.uptime / 1000) + 's',
+                totalLogs: health.metrics.totalLogs,
+                cacheSize: health.metrics.cacheSize
+            });
+        }
+    }
+    
+    /**
+     * 最近のエラーを記録（Phase3追加）
+     */
+    addRecentError(error) {
+        this.monitoring.recentErrors.push({
+            timestamp: new Date().toISOString(),
+            message: error.message,
+            stack: error.stack?.split('\n').slice(0, 3).join('\n')
+        });
+        
+        // 最大10件まで保持
+        if (this.monitoring.recentErrors.length > 10) {
+            this.monitoring.recentErrors.shift();
+        }
+    }
+    
+    /**
+     * 詳細ステータスレポート生成（Phase3追加）
+     */
+    generateStatusReport() {
+        const report = {
+            timestamp: new Date().toISOString(),
+            operatingMode: this.operatingMode,
+            isInitialized: this.isInitialized,
+            fallbackMode: this.fallbackMode,
+            logPath: this.logPath,
+            stats: { ...this.stats },
+            cache: {
+                size: this.cache.length,
+                maxSize: this.maxCacheSize,
+                memoryUsage: this.estimateCacheMemoryUsage()
+            },
+            monitoring: {
+                enabled: this.monitoring.enabled,
+                interval: this.monitoring.interval,
+                isRunning: this.monitoring.healthCheckTimer !== null
+            },
+            errors: {
+                initialization: this.initializationError?.message,
+                recent: this.getRecentErrors()
+            }
+        };
+        
+        return report;
+    }
+    
+    /**
+     * キャッシュメモリ使用量推定（Phase3追加）
+     */
+    estimateCacheMemoryUsage() {
+        if (this.cache.length === 0) return 0;
+        
+        const sampleEntry = JSON.stringify(this.cache[0]);
+        return Math.round((sampleEntry.length * this.cache.length) / 1024) + ' KB';
+    }
+    
+    /**
+     * 最近のエラー取得（Phase3追加）
+     */
+    getRecentErrors() {
+        return this.monitoring.recentErrors.slice(-5); // 最新5件
+    }
+
+    /**
      * 終了処理
      */
     async close() {
+        // 監視停止
+        this.stopMonitoring();
+        
         if (this.isInitialized) {
             // 必要に応じてローテーション
             await this.rotateLogsIfNeeded();

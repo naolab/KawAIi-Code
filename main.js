@@ -343,45 +343,76 @@ app.whenReady().then(async () => {
 
   await startNextjsServer();
 
-  // ConversationLoggerの初期化（Phase2: リトライ機構付き）
-  try {
-    console.log('💾 ConversationLogger初期化開始（リトライ機構付き）...');
-    const result = await conversationLogger.initializeWithRetry();
-    
-    console.log('✅ ConversationLogger初期化完了');
-    console.log('💾 初期化結果:', {
-      success: result.success,
-      mode: result.mode,
-      fallback: result.fallback,
-      retriesExhausted: result.retriesExhausted,
-      totalLogs: result.totalLogs,
-      isInitialized: conversationLogger.isInitialized,
-      logPath: conversationLogger.logPath
-    });
-    
-    // ヘルスチェック実行
-    const health = await conversationLogger.performHealthCheck();
-    console.log('🩺 初期ヘルスチェック結果:', {
-      status: health.status,
-      capabilities: health.capabilities,
-      uptime: Math.round(health.metrics.uptime / 1000) + 's'
-    });
-    
-  } catch (error) {
-    // Phase2でも念のため最終的なエラーハンドリング
-    console.error('❌ ConversationLogger最終初期化失敗:', error);
-    console.error('❌ エラー詳細:', {
-      message: error.message,
-      code: error.code,
-      errno: error.errno,
-      path: error.path,
-      stack: error.stack?.split('\n').slice(0, 3).join('\n')
-    });
-    
-    console.warn('⚠️ ログ機能は完全に無効化されました');
-  }
+  // ConversationLoggerの非同期初期化（Phase3: パフォーマンス最適化）
+  const conversationLoggerPromise = (async () => {
+    try {
+      console.log('💾 ConversationLogger非同期初期化開始...');
+      const result = await conversationLogger.initializeWithRetry();
+      
+      console.log('✅ ConversationLogger初期化完了');
+      console.log('💾 初期化結果:', {
+        success: result.success,
+        mode: result.mode,
+        fallback: result.fallback,
+        retriesExhausted: result.retriesExhausted,
+        totalLogs: result.totalLogs,
+        isInitialized: conversationLogger.isInitialized,
+        logPath: conversationLogger.logPath
+      });
+      
+      // ヘルスチェック実行
+      const health = await conversationLogger.performHealthCheck();
+      console.log('🩺 初期ヘルスチェック結果:', {
+        status: health.status,
+        capabilities: health.capabilities,
+        uptime: Math.round(health.metrics.uptime / 1000) + 's'
+      });
+      
+      // Phase3: システム監視開始
+      conversationLogger.startMonitoring();
+      console.log('📊 システム監視を開始しました');
+      
+      return { success: true, mode: result.mode };
+      
+    } catch (error) {
+      console.error('❌ ConversationLogger最終初期化失敗:', error);
+      console.error('❌ エラー詳細:', {
+        message: error.message,
+        code: error.code,
+        errno: error.errno,
+        path: error.path,
+        stack: error.stack?.split('\n').slice(0, 3).join('\n')
+      });
+      
+      console.warn('⚠️ ログ機能は完全に無効化されました');
+      return { success: false, error: error.message };
+    }
+  })();
 
   createWindow();
+  
+  // Phase3: 非同期初期化完了後の通知
+  conversationLoggerPromise.then((result) => {
+    if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send('conversation-logger-ready', {
+        success: result.success,
+        mode: result.mode,
+        isInitialized: conversationLogger.isInitialized,
+        health: result.success ? conversationLogger.performHealthCheck() : null
+      });
+      console.log('📡 レンダラープロセスにConversationLogger準備完了を通知');
+    }
+  }).catch((error) => {
+    console.error('ConversationLogger非同期初期化でエラー:', error);
+    if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send('conversation-logger-ready', {
+        success: false,
+        error: error.message,
+        mode: 'error',
+        isInitialized: false
+      });
+    }
+  });
   
   // Hook通知監視開始
   startHookNotificationWatcher();
