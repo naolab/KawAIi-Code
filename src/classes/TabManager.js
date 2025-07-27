@@ -15,6 +15,9 @@ class TabManager {
         this.nextTabNumber = 1;
         this.draggedTabId = null; // ドラッグ中のタブID
         this.tabOrder = []; // タブの順序を管理する配列
+        
+        // イベントリスナー重複防止フラグ
+        this.isEventListenersInitialized = false;
     }
 
     initialize() {
@@ -27,6 +30,12 @@ class TabManager {
     }
 
     setupEventListeners() {
+        // 重複初期化の防止
+        if (this.isEventListenersInitialized) {
+            debugLog('🛡️ TabManager イベントリスナー重複初期化をスキップ');
+            return;
+        }
+
         // 新規タブボタン
         const newTabButton = document.getElementById('new-tab-button');
         if (newTabButton) {
@@ -45,6 +54,10 @@ class TabManager {
                 this.handleTabExit(tabId, exitCode);
             });
         }
+
+        // 初期化完了フラグを設定
+        this.isEventListenersInitialized = true;
+        debugLog('🛡️ TabManager イベントリスナー初期化完了（重複防止済み）');
     }
     
     handleTabData(tabId, data) {

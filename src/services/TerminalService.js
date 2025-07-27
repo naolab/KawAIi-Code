@@ -40,6 +40,9 @@ class TerminalService {
         this.isScrollingUp = false;
         this.scrollTimeout = null;
         
+        // イベントリスナー重複防止フラグ
+        this.isEventListenersInitialized = false;
+        
         debugLog('🖥️ TerminalService初期化完了');
     }
 
@@ -87,39 +90,8 @@ class TerminalService {
             }
         });
 
-        // Handle terminal data from backend
-        if (window.electronAPI && window.electronAPI.terminal) {
-            window.electronAPI.terminal.onData((data) => {
-                debugLog('📡 ターミナルデータ受信:', {
-                    dataLength: data.length,
-                    hasTerminal: !!this.terminal,
-                    dataPreview: data.substring(0, 50)
-                });
-                
-                // 高度なデータ処理（重複防止付き）
-                this.handleTerminalData(data);
-            });
-
-            // Handle Claude Code exit
-            window.electronAPI.terminal.onExit((exitCode) => {
-                this.terminal.write(`\r\n\x1b[91mClaude Code exited with code: ${exitCode}\x1b[0m\r\n`);
-                this.isTerminalRunning = false;
-                // 停止時のステータスメッセージを削除（シンプル化）
-                // this.terminalApp.updateStatus('Claude Code stopped');
-                this.terminalApp.updateButtons();
-            });
-        } else {
-            debugError('electronAPI not available');
-            this.terminalApp.updateStatus('ElectronAPI not available');
-        }
-
-        // Handle voice text available - DISABLED for bracket-only mode
-        if (window.electronAPI && window.electronAPI.voice) {
-            // Handle Hook conversation display
-            window.electronAPI.voice.onShowHookConversation((data) => {
-                this.terminalApp.displayHookConversation(data);
-            });
-        }
+        // イベントリスナー初期化（重複防止付き）
+        this.initializeEventListeners();
     }
 
     async startTerminal(aiType) {
@@ -418,6 +390,55 @@ class TerminalService {
         // 音声キュー処理完了（気分表示は削除済み）
         
         debugLog('🎵 processQuotedTexts完了');
+    }
+
+    /**
+     * イベントリスナー初期化（重複防止機構付き）
+     */
+    initializeEventListeners() {
+        // 重複初期化の防止
+        if (this.isEventListenersInitialized) {
+            debugLog('🛡️ イベントリスナー重複初期化をスキップ');
+            return;
+        }
+
+        // Handle terminal data from backend
+        if (window.electronAPI && window.electronAPI.terminal) {
+            window.electronAPI.terminal.onData((data) => {
+                debugLog('📡 ターミナルデータ受信:', {
+                    dataLength: data.length,
+                    hasTerminal: !!this.terminal,
+                    dataPreview: data.substring(0, 50)
+                });
+                
+                // 高度なデータ処理（重複防止付き）
+                this.handleTerminalData(data);
+            });
+
+            // Handle Claude Code exit
+            window.electronAPI.terminal.onExit((exitCode) => {
+                this.terminal.write(`\r\n\x1b[91mClaude Code exited with code: ${exitCode}\x1b[0m\r\n`);
+                this.isTerminalRunning = false;
+                // 停止時のステータスメッセージを削除（シンプル化）
+                // this.terminalApp.updateStatus('Claude Code stopped');
+                this.terminalApp.updateButtons();
+            });
+        } else {
+            debugError('electronAPI not available');
+            this.terminalApp.updateStatus('ElectronAPI not available');
+        }
+
+        // Handle voice text available - DISABLED for bracket-only mode
+        if (window.electronAPI && window.electronAPI.voice) {
+            // Handle Hook conversation display
+            window.electronAPI.voice.onShowHookConversation((data) => {
+                this.terminalApp.displayHookConversation(data);
+            });
+        }
+
+        // 初期化完了フラグを設定
+        this.isEventListenersInitialized = true;
+        debugLog('🛡️ イベントリスナー初期化完了（重複防止済み）');
     }
 
     async initializeVoiceMode() {
