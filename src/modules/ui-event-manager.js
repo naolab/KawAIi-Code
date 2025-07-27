@@ -35,13 +35,113 @@ class UIEventManager {
         // ターミナル表示状態の管理
         this.isTerminalVisible = true;
         
-        this.debugLog('UIEventManager initialized');
+        // === 重複防止システム ===
+        this.registeredListeners = new Map(); // リスナー管理：Map<elementId_eventType, {element, handler}>
+        this.isSetupComplete = false;          // 初期化完了フラグ
+        this.processingLocks = new Map();      // 処理中ロック：Map<lockId, boolean>
+        
+        this.debugLog('UIEventManager initialized with duplicate prevention system');
+    }
+
+    /**
+     * 安全なイベントリスナー登録（重複防止機能付き）
+     */
+    safeAddEventListener(element, eventType, handler, uniqueId = null) {
+        if (!element) {
+            this.debugLog(`⚠️ Element not found for ${uniqueId || 'unknown'}`);
+            return false;
+        }
+        
+        // ユニークIDを生成
+        const elementId = uniqueId || element.id || `${element.tagName}_${Math.random().toString(36).substr(2, 9)}`;
+        const listenerKey = `${elementId}_${eventType}`;
+        
+        // 既に登録済みかチェック
+        if (this.registeredListeners.has(listenerKey)) {
+            this.debugLog(`🛡️ 重複防止: ${listenerKey} already registered`);
+            return false;
+        }
+        
+        // 古いイベントリスナーを確実に削除
+        if (element._uiEventHandlers && element._uiEventHandlers[eventType]) {
+            element.removeEventListener(eventType, element._uiEventHandlers[eventType]);
+            delete element._uiEventHandlers[eventType];
+        }
+        
+        // 新しいイベントリスナーを登録
+        element.addEventListener(eventType, handler);
+        
+        // ハンドラーを要素に保存（削除用）
+        if (!element._uiEventHandlers) {
+            element._uiEventHandlers = {};
+        }
+        element._uiEventHandlers[eventType] = handler;
+        
+        // 登録情報を記録
+        this.registeredListeners.set(listenerKey, { element, handler, eventType });
+        
+        this.debugLog(`✅ Event listener registered: ${listenerKey}`);
+        return true;
+    }
+    
+    /**
+     * 処理実行の排他制御
+     */
+    async executeWithLock(lockId, asyncFunction) {
+        // 既に処理中なら無視
+        if (this.processingLocks.get(lockId)) {
+            this.debugLog(`🔒 Processing locked: ${lockId}`);
+            return null;
+        }
+        
+        this.processingLocks.set(lockId, true);
+        try {
+            this.debugLog(`🔓 Lock acquired: ${lockId}`);
+            return await asyncFunction();
+        } finally {
+            this.processingLocks.set(lockId, false);
+            this.debugLog(`🔒 Lock released: ${lockId}`);
+        }
+    }
+    
+    /**
+     * 全てのイベントリスナーをクリーンアップ
+     */
+    cleanupAllEventListeners() {
+        this.debugLog('🧹 Cleaning up all event listeners...');
+        
+        for (const [listenerKey, {element, handler, eventType}] of this.registeredListeners) {
+            try {
+                element.removeEventListener(eventType, handler);
+                if (element._uiEventHandlers) {
+                    delete element._uiEventHandlers[eventType];
+                }
+                this.debugLog(`🗑️ Removed listener: ${listenerKey}`);
+            } catch (error) {
+                this.debugError(`❌ Error removing listener ${listenerKey}:`, error);
+            }
+        }
+        
+        this.registeredListeners.clear();
+        this.processingLocks.clear();
+        this.isSetupComplete = false;
+        
+        this.debugLog('✅ Event listeners cleanup completed');
     }
 
     /**
      * 全てのイベントリスナーを設定
      */
     async setupEventListeners() {
+        // 重複初期化防止
+        if (this.isSetupComplete) {
+            this.debugLog('🛡️ Event listeners already setup, skipping...');
+            return;
+        }
+        
+        // 既存のリスナーをクリーンアップ
+        this.cleanupAllEventListeners();
+        
         await this.setupModalEventListeners();
         this.setupVoiceControlEventListeners();
         this.setupDirectorySelectionEventListeners();
@@ -52,7 +152,8 @@ class UIEventManager {
         this.updateVoiceControls();
         this.updateTerminalToggleButton();
         
-        this.debugLog('All event listeners setup completed');
+        this.isSetupComplete = true;
+        this.debugLog('✅ All event listeners setup completed with duplicate prevention');
     }
 
     /**
@@ -96,37 +197,45 @@ class UIEventManager {
             hooksInfoBtn: !!hooksInfoBtn,
         });
 
-        // ターミナル制御ボタン
+        // ターミナル制御ボタン（安全な登録方式）
         if (startBtn) {
-            startBtn.addEventListener('click', () => {
+            const startHandler = () => {
                 if (aiSelectModal) aiSelectModal.style.display = 'flex';
-            });
+            };
+            this.safeAddEventListener(startBtn, 'click', startHandler, 'start-ai-selection');
         }
-        if (stopBtn) stopBtn.addEventListener('click', () => this.handleStopButtonClick());
+        if (stopBtn) {
+            const stopHandler = () => this.handleStopButtonClick();
+            this.safeAddEventListener(stopBtn, 'click', stopHandler, 'stop-terminal');
+        }
         
-        // ターミナル切り替えボタン
+        // ターミナル切り替えボタン（安全な登録方式）
         const terminalToggleBtn = document.getElementById('terminal-toggle');
         if (terminalToggleBtn) {
-            terminalToggleBtn.addEventListener('click', () => this.toggleTerminalVisibility());
+            const terminalToggleHandler = () => this.toggleTerminalVisibility();
+            this.safeAddEventListener(terminalToggleBtn, 'click', terminalToggleHandler, 'terminal-toggle');
         }
 
-        // AI選択モーダルのイベント
+        // AI選択モーダルのイベント（安全な登録方式）
         if (closeAiSelectBtn && aiSelectModal) {
-            closeAiSelectBtn.addEventListener('click', () => {
+            const closeAiSelectHandler = () => {
                 aiSelectModal.style.display = 'none';
-            });
+            };
+            this.safeAddEventListener(closeAiSelectBtn, 'click', closeAiSelectHandler, 'close-ai-select');
         }
         if (startClaudeBtn && aiSelectModal) {
-            startClaudeBtn.addEventListener('click', () => {
+            const startClaudeHandler = () => {
                 this.app.startTerminal('claude');
                 aiSelectModal.style.display = 'none';
-            });
+            };
+            this.safeAddEventListener(startClaudeBtn, 'click', startClaudeHandler, 'start-claude');
         }
         if (startClaudeDangerousBtn && aiSelectModal) {
-            startClaudeDangerousBtn.addEventListener('click', () => {
+            const startClaudeDangerousHandler = () => {
                 this.app.startTerminal('claude-dangerous');
                 aiSelectModal.style.display = 'none';
-            });
+            };
+            this.safeAddEventListener(startClaudeDangerousBtn, 'click', startClaudeDangerousHandler, 'start-claude-dangerous');
         }
         if (aiSelectModal) {
             aiSelectModal.addEventListener('click', (e) => {
@@ -226,7 +335,7 @@ class UIEventManager {
         });
 
         if (voiceToggleModal) {
-            voiceToggleModal.addEventListener('change', (e) => {
+            const voiceToggleHandler = (e) => {
                 this.app.voiceEnabled = e.target.checked;
                 
                 // 音声オフに切り替えた場合は音声キューをクリア
@@ -237,11 +346,14 @@ class UIEventManager {
                 
                 this.updateVoiceControls();
                 this.debugLog('Voice enabled changed:', this.app.voiceEnabled);
-            });
+            };
+            
+            // 安全なイベントリスナー登録
+            this.safeAddEventListener(voiceToggleModal, 'change', voiceToggleHandler, 'voice-toggle-modal');
         }
 
         if (speakerSelectModal) {
-            speakerSelectModal.addEventListener('change', async (e) => {
+            const speakerSelectHandler = async (e) => {
                 this.app.selectedSpeaker = parseInt(e.target.value);
                 
                 // 設定を永続化
@@ -249,24 +361,33 @@ class UIEventManager {
                     await window.electronAPI.config.set('defaultSpeakerId', this.app.selectedSpeaker);
                 }
                 this.debugLog('Speaker setting updated:', this.app.selectedSpeaker);
-            });
+            };
+            
+            // 安全なイベントリスナー登録
+            this.safeAddEventListener(speakerSelectModal, 'change', speakerSelectHandler, 'speaker-select-modal');
         }
 
         if (refreshConnectionBtnModal) {
-            refreshConnectionBtnModal.addEventListener('click', async () => {
-                // ボタンを無効化してフィードバックを提供
-                refreshConnectionBtnModal.disabled = true;
-                refreshConnectionBtnModal.textContent = '接続中...';
-                
-                try {
-                    // 手動チェック（フルリトライ）を実行
-                    await this.app.checkVoiceConnection();
-                } finally {
-                    // ボタンを元に戻す
-                    refreshConnectionBtnModal.disabled = false;
-                    refreshConnectionBtnModal.textContent = '再接続';
-                }
-            });
+            const refreshConnectionHandler = async () => {
+                // 排他制御で重複実行を防止
+                return await this.executeWithLock('refresh-connection', async () => {
+                    // ボタンを無効化してフィードバックを提供
+                    refreshConnectionBtnModal.disabled = true;
+                    refreshConnectionBtnModal.textContent = '接続中...';
+                    
+                    try {
+                        // 手動チェック（フルリトライ）を実行
+                        await this.app.checkVoiceConnection();
+                    } finally {
+                        // ボタンを元に戻す
+                        refreshConnectionBtnModal.disabled = false;
+                        refreshConnectionBtnModal.textContent = '再接続';
+                    }
+                });
+            };
+            
+            // 安全なイベントリスナー登録
+            this.safeAddEventListener(refreshConnectionBtnModal, 'click', refreshConnectionHandler, 'refresh-connection-modal');
         }
 
         // 音声読み上げ間隔スライダー
@@ -275,13 +396,16 @@ class UIEventManager {
             // 初期値を設定から読み込み
             voiceIntervalSlider.value = this.app.voiceIntervalSeconds;
             
-            voiceIntervalSlider.addEventListener('input', async (e) => {
+            const voiceIntervalHandler = async (e) => {
                 const newValue = parseFloat(e.target.value);
                 this.app.voiceIntervalSeconds = newValue;
                 
                 // 統一設定システムに保存
                 await unifiedConfig.set('voiceIntervalSeconds', newValue);
-            });
+            };
+            
+            // 安全なイベントリスナー登録
+            this.safeAddEventListener(voiceIntervalSlider, 'input', voiceIntervalHandler, 'voice-interval-slider');
         }
 
         // 音量調整スライダー
@@ -297,7 +421,7 @@ class UIEventManager {
             };
             initVolume();
             
-            voiceVolumeSlider.addEventListener('input', async (e) => {
+            const voiceVolumeHandler = async (e) => {
                 const newValue = parseInt(e.target.value);
                 this.app.voiceVolume = newValue;
                 
@@ -307,7 +431,10 @@ class UIEventManager {
                 await unifiedConfig.set('voiceVolume', newValue);
                 
                 this.debugLog('Voice volume changed:', newValue);
-            });
+            };
+            
+            // 安全なイベントリスナー登録
+            this.safeAddEventListener(voiceVolumeSlider, 'input', voiceVolumeHandler, 'voice-volume-slider');
         }
 
         // Aivis Cloud API設定
@@ -342,7 +469,8 @@ class UIEventManager {
     setupDirectorySelectionEventListeners() {
         const selectClaudeCwdBtn = document.getElementById('select-claude-cwd-btn');
         if (selectClaudeCwdBtn) {
-            selectClaudeCwdBtn.addEventListener('click', () => this.app.handleSelectClaudeCwd());
+            const selectCwdHandler = () => this.app.handleSelectClaudeCwd();
+            this.safeAddEventListener(selectClaudeCwdBtn, 'click', selectCwdHandler, 'select-claude-cwd-btn');
             this.debugLog('Directory selection event listener setup completed');
         }
 
@@ -1128,116 +1256,134 @@ class UIEventManager {
             };
             initCloudApi();
 
-            // トグル変更時の処理
-            useCloudApiToggle.addEventListener('change', async (e) => {
-                const useCloudAPI = e.target.checked;
-                this.debugLog('Cloud API toggle clicked:', { 
-                    useCloudAPI, 
-                    cloudApiSettingsExists: !!cloudApiSettings 
-                });
-                
-                // 統一設定システムに保存（localStorage）
-                await unifiedConfig.set('useCloudAPI', useCloudAPI);
-                
-                // 実際の設定ファイルにも保存
-                try {
-                    await window.electronAPI.setUseCloudApi?.(useCloudAPI);
-                    console.log('✅ クラウドAPI使用設定を保存:', useCloudAPI);
-                } catch (error) {
-                    console.error('❌ クラウドAPI使用設定の保存エラー:', error);
-                }
-                
-                if (cloudApiSettings) {
-                    cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
-                    this.debugLog('Cloud API settings display changed to:', cloudApiSettings.style.display);
-                } else {
-                    this.debugLog('ERROR: cloudApiSettings element not found!');
-                }
-                
-                // 話者選択と音声エンジン接続状況の無効化/有効化
-                this.toggleLocalVoiceControls(!useCloudAPI);
-                
-                // AudioServiceの設定を更新
-                if (this.app.terminalApp && this.app.terminalApp.audioService) {
-                    await this.app.terminalApp.audioService.updateApiSettings();
-                }
-                
-                // 接続状態を再確認
-                await this.app.checkVoiceConnection();
-                
-                this.debugLog('Cloud API toggle changed:', useCloudAPI);
-            });
-        }
-
-        // 接続テストボタン
-        if (testCloudApiBtn) {
-            testCloudApiBtn.addEventListener('click', async () => {
-                if (!cloudApiKeyInput) return;
-                
-                const apiKey = cloudApiKeyInput.value.trim();
-                if (!apiKey) {
-                    this.showNotification('APIキーを入力してください', 'error');
-                    return;
-                }
-                
-                testCloudApiBtn.disabled = true;
-                testCloudApiBtn.textContent = 'テスト中...';
-                
-                try {
-                    // electronAPIを通してAPIキーを保存
-                    await window.electronAPI.setCloudApiKey?.(apiKey);
+            // トグル変更時の処理（安全な登録方式）
+            const toggleHandler = async (e) => {
+                // 排他制御で重複実行を防止
+                return await this.executeWithLock('cloud-api-toggle', async () => {
+                    const useCloudAPI = e.target.checked;
+                    this.debugLog('Cloud API toggle clicked:', { 
+                        useCloudAPI, 
+                        cloudApiSettingsExists: !!cloudApiSettings 
+                    });
                     
-                    if (this.app.audioService) {
-                        await this.app.audioService.updateApiSettings();
-                        
-                        // 実際の音声合成テストを実行（重複防止を回避）
-                        try {
-                            const testMessage = 'これはテスト用のメッセージです';
-                            // AudioServiceのsynthesizeTextOnlyを直接呼び出して重複チェックを回避
-                            const audioData = await this.app.audioService.synthesizeTextOnly(testMessage);
-                            if (audioData) {
-                                await this.app.audioService.playAppInternalAudio(audioData, testMessage);
-                            } else {
-                                this.showNotification('音声の生成に失敗しました', 'error');
-                            }
-                        } catch (testError) {
-                            const userFriendlyMessage = this.convertToUserFriendlyError(testError.message);
-                            this.showNotification(userFriendlyMessage, 'error');
-                        }
-                        // 成功時は通知なし（音声が聞こえれば成功がわかる）
-                    } else {
-                        this.showNotification('音声システムの初期化に失敗しました。アプリを再起動してください', 'error');
+                    // 統一設定システムに保存（localStorage）
+                    await unifiedConfig.set('useCloudAPI', useCloudAPI);
+                    
+                    // 実際の設定ファイルにも保存
+                    try {
+                        await window.electronAPI.setUseCloudApi?.(useCloudAPI);
+                        console.log('✅ クラウドAPI使用設定を保存:', useCloudAPI);
+                    } catch (error) {
+                        console.error('❌ クラウドAPI使用設定の保存エラー:', error);
                     }
-                } catch (error) {
-                    const userFriendlyMessage = this.convertToUserFriendlyError(error.message);
-                    this.showNotification(userFriendlyMessage, 'error');
-                } finally {
-                    testCloudApiBtn.disabled = false;
-                    testCloudApiBtn.textContent = '接続テスト';
-                }
-            });
-        }
-
-        // 保存ボタン
-        if (saveCloudApiBtn) {
-            saveCloudApiBtn.addEventListener('click', async () => {
-                if (!cloudApiKeyInput) return;
-                
-                const apiKey = cloudApiKeyInput.value.trim();
-                
-                try {
-                    // electronAPIを通してAPIキーを保存
-                    await window.electronAPI.setCloudApiKey?.(apiKey);
-                    this.showCloudApiStatus('success', '設定を保存しました');
+                    
+                    if (cloudApiSettings) {
+                        cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
+                        this.debugLog('Cloud API settings display changed to:', cloudApiSettings.style.display);
+                    } else {
+                        this.debugLog('ERROR: cloudApiSettings element not found!');
+                    }
+                    
+                    // 話者選択と音声エンジン接続状況の無効化/有効化
+                    this.toggleLocalVoiceControls(!useCloudAPI);
                     
                     // AudioServiceの設定を更新
                     if (this.app.terminalApp && this.app.terminalApp.audioService) {
                         await this.app.terminalApp.audioService.updateApiSettings();
                     }
-                } catch (error) {
-                    this.showCloudApiStatus('error', `保存エラー: ${error.message}`);
-                }
-            });
+                    
+                    // 接続状態を再確認
+                    await this.app.checkVoiceConnection();
+                    
+                    this.debugLog('Cloud API toggle changed:', useCloudAPI);
+                });
+            };
+            
+            // 安全なイベントリスナー登録
+            this.safeAddEventListener(useCloudApiToggle, 'change', toggleHandler, 'use-cloud-api-toggle');
+        }
+
+        // 接続テストボタン（安全な登録方式）
+        if (testCloudApiBtn) {
+            const testHandler = async () => {
+                // 排他制御で重複実行を防止
+                return await this.executeWithLock('test-cloud-api', async () => {
+                    if (!cloudApiKeyInput) return;
+                    
+                    const apiKey = cloudApiKeyInput.value.trim();
+                    if (!apiKey) {
+                        this.showNotification('APIキーを入力してください', 'error');
+                        return;
+                    }
+                    
+                    testCloudApiBtn.disabled = true;
+                    testCloudApiBtn.textContent = 'テスト中...';
+                    
+                    try {
+                        this.debugLog('🧪 Cloud API test started');
+                        
+                        // electronAPIを通してAPIキーを保存
+                        await window.electronAPI.setCloudApiKey?.(apiKey);
+                        
+                        if (this.app.audioService) {
+                            await this.app.audioService.updateApiSettings();
+                            
+                            // 実際の音声合成テストを実行（1回のみ保証）
+                            const testMessage = 'これはテスト用のメッセージです';
+                            this.debugLog('🎵 Synthesizing test audio...');
+                            
+                            const audioData = await this.app.audioService.synthesizeTextOnly(testMessage);
+                            if (audioData) {
+                                this.debugLog('✅ Audio synthesis successful, playing...');
+                                await this.app.audioService.playAppInternalAudio(audioData, testMessage);
+                            } else {
+                                this.showNotification('音声の生成に失敗しました', 'error');
+                            }
+                        } else {
+                            this.showNotification('音声システムの初期化に失敗しました。アプリを再起動してください', 'error');
+                        }
+                    } catch (error) {
+                        this.debugError('❌ Cloud API test error:', error);
+                        const userFriendlyMessage = this.convertToUserFriendlyError(error.message);
+                        this.showNotification(userFriendlyMessage, 'error');
+                    } finally {
+                        testCloudApiBtn.disabled = false;
+                        testCloudApiBtn.textContent = '接続テスト';
+                        this.debugLog('🏁 Cloud API test completed');
+                    }
+                });
+            };
+            
+            // 安全なイベントリスナー登録
+            this.safeAddEventListener(testCloudApiBtn, 'click', testHandler, 'test-cloud-api-btn');
+        }
+
+        // 保存ボタン（安全な登録方式）
+        if (saveCloudApiBtn) {
+            const saveHandler = async () => {
+                // 排他制御で重複実行を防止
+                return await this.executeWithLock('save-cloud-api', async () => {
+                    if (!cloudApiKeyInput) return;
+                    
+                    const apiKey = cloudApiKeyInput.value.trim();
+                    
+                    try {
+                        // electronAPIを通してAPIキーを保存
+                        await window.electronAPI.setCloudApiKey?.(apiKey);
+                        this.showCloudApiStatus('success', '設定を保存しました');
+                        
+                        // AudioServiceの設定を更新
+                        if (this.app.terminalApp && this.app.terminalApp.audioService) {
+                            await this.app.terminalApp.audioService.updateApiSettings();
+                        }
+                    } catch (error) {
+                        this.showCloudApiStatus('error', `保存エラー: ${error.message}`);
+                    }
+                });
+            };
+            
+            // 安全なイベントリスナー登録
+            this.safeAddEventListener(saveCloudApiBtn, 'click', saveHandler, 'save-cloud-api-btn');
         }
     }
 
