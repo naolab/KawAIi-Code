@@ -74,44 +74,44 @@ class VoiceHookService {
         }
     }
 
-    // 重複チェック用ファイル処理は削除済み（VoiceQueueに統合）
-    // getLastProcessedText() {
-    //     try {
-    //         const files = fs.readdirSync(this.tempDir);
-    //         const notificationFiles = files.filter(f => f.startsWith('notification_') && f.endsWith('.json'));
-    //         
-    //         if (notificationFiles.length === 0) {
-    //             return null;
-    //         }
-    //         
-    //         // 最新のnotificationファイルを取得
-    //         const latestFile = notificationFiles.sort().pop();
-    //         const notificationPath = path.join(this.tempDir, latestFile);
-    //         
-    //         if (fs.existsSync(notificationPath)) {
-    //             const notification = JSON.parse(fs.readFileSync(notificationPath, 'utf8'));
-    //             console.log(`前回処理済みテキスト: ${notification.text}`);
-    //             return notification.text;
-    //         }
-    //     } catch (error) {
-    //         console.error('前回テキスト取得エラー:', error);
-    //     }
-    //     return null;
-    // }
+    // 重複チェック（緊急修正：シンプル実装）
+    getLastProcessedText() {
+        try {
+            const files = fs.readdirSync(this.tempDir);
+            const notificationFiles = files.filter(f => f.startsWith('notification_') && f.endsWith('.json'));
+            
+            if (notificationFiles.length === 0) {
+                return null;
+            }
+            
+            // 最新のnotificationファイルを取得
+            const latestFile = notificationFiles.sort().pop();
+            const notificationPath = path.join(this.tempDir, latestFile);
+            
+            if (fs.existsSync(notificationPath)) {
+                const notification = JSON.parse(fs.readFileSync(notificationPath, 'utf8'));
+                console.log(`前回処理済みテキスト: ${notification.text}`);
+                return notification.text;
+            }
+        } catch (error) {
+            console.error('前回テキスト取得エラー:', error);
+        }
+        return null;
+    }
 
-    // 重複チェック機能は削除済み（VoiceQueueに統合）
-    // isDuplicateText(text) {
-    //     const lastText = this.getLastProcessedText();
-    //     if (!lastText) {
-    //         return false;
-    //     }
-    //     
-    //     const isDuplicate = text === lastText;
-    //     if (isDuplicate) {
-    //         console.log(`重複テキストのため音声合成をスキップ: ${text}`);
-    //     }
-    //     return isDuplicate;
-    // }
+    // 重複チェック機能（緊急修正：有効化）
+    isDuplicateText(text) {
+        const lastText = this.getLastProcessedText();
+        if (!lastText) {
+            return false;
+        }
+        
+        const isDuplicate = text === lastText;
+        if (isDuplicate) {
+            console.log(`重複テキストのため音声合成をスキップ: ${text}`);
+        }
+        return isDuplicate;
+    }
 
     // AivisSpeechとの接続確認
     async checkConnection() {
@@ -421,10 +421,9 @@ class VoiceHookService {
             const bracketText = processMatches[i];
             console.log(`処理中 (${i + 1}/${processMatches.length}): ${bracketText}`);
 
-            // 重複チェック（最後の1つのみチェック）
-            // 重複チェックは削除（VoiceQueueで処理）
-            if (false) { // 旧: this.isDuplicateText(bracketText) - 無効化
-                console.log('最後のテキストが重複のためスキップ');
+            // 重複チェック（緊急修正：重複防止システムを有効化）
+            if (this.isDuplicateText && this.isDuplicateText(bracketText)) {
+                console.log('重複テキストのためスキップ:', bracketText.substring(0, 50));
                 continue;
             }
 
