@@ -343,8 +343,31 @@ app.whenReady().then(async () => {
 
   await startNextjsServer();
 
-  // ConversationLoggerの初期化
-  await conversationLogger.initialize();
+  // ConversationLoggerの初期化（エラーハンドリング強化）
+  try {
+    console.log('💾 ConversationLogger初期化開始...');
+    await conversationLogger.initialize();
+    console.log('✅ ConversationLogger初期化成功');
+    console.log('💾 初期化状態:', {
+      isInitialized: conversationLogger.isInitialized,
+      logPath: conversationLogger.logPath,
+      mode: conversationLogger.operatingMode || 'unknown'
+    });
+  } catch (error) {
+    // 本番環境でも必ずエラーを表示（重要なシステムエラーのため）
+    console.error('❌ ConversationLogger初期化失敗:', error);
+    console.error('❌ エラー詳細:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno,
+      path: error.path,
+      stack: error.stack?.split('\n').slice(0, 3).join('\n') // スタックトレースの最初の3行のみ
+    });
+    
+    // エラーでもアプリは継続動作
+    console.warn('⚠️ ログ機能は制限されますが、アプリは正常に動作します');
+    console.log('💡 ログはメモリ内のみに保存されます（アプリ終了時に消失）');
+  }
 
   createWindow();
   
