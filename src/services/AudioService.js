@@ -720,58 +720,80 @@ class AudioService {
     }
 
     /**
-     * 現在の音声を安全にクリーンアップ
+     * 現在の音声を安全にクリーンアップ（メモリリーク対策強化版）
      */
     async cleanupCurrentAudio() {
         const currentState = this.terminalApp.voicePlayingState;
         
-        // 既に停止中または再生中でない場合はスキップ
-        if (!currentState.currentAudio) {
-            return;
-        }
+        // 既に停止中または再生中でない場合でもBlobURLクリーンアップは実行
+        this.debugLog('🧹 音声クリーンアップ開始:', {
+            hasAudio: !!currentState.currentAudio,
+            hasUrl: !!currentState.currentAudioUrl,
+            hasEndedHandler: !!currentState.currentEndedHandler,
+            hasErrorHandler: !!currentState.currentErrorHandler
+        });
         
         try {
-            // イベントリスナーを削除
-            if (currentState.currentEndedHandler) {
-                currentState.currentAudio.removeEventListener('ended', currentState.currentEndedHandler);
-                currentState.currentEndedHandler = null;
+            // Audio要素の完全停止とイベントリスナー削除
+            if (currentState.currentAudio) {
+                // 全イベントリスナーを削除（メモリリーク防止）
+                if (currentState.currentEndedHandler) {
+                    currentState.currentAudio.removeEventListener('ended', currentState.currentEndedHandler);
+                    currentState.currentEndedHandler = null;
+                }
+                if (currentState.currentErrorHandler) {
+                    currentState.currentAudio.removeEventListener('error', currentState.currentErrorHandler);
+                    currentState.currentErrorHandler = null;
+                }
+                
+                // その他の可能なイベントリスナーも削除
+                ['loadstart', 'loadeddata', 'canplay', 'play', 'pause', 'abort', 'stalled'].forEach(eventType => {
+                    try {
+                        currentState.currentAudio.removeEventListener(eventType, () => {});
+                    } catch (e) {
+                        // イベントリスナーが存在しない場合は無視
+                    }
+                });
+                
+                // 音声を完全停止
+                try {
+                    currentState.currentAudio.pause();
+                    currentState.currentAudio.currentTime = 0;
+                    currentState.currentAudio.src = '';
+                    currentState.currentAudio.load(); // リソースを解放
+                } catch (audioError) {
+                    this.debugError('Audio要素停止時エラー:', audioError);
+                }
+                
+                // VRMに中断通知
+                if (this.terminalApp.vrmIntegrationService) {
+                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('interrupted');
+                }
             }
-            if (currentState.currentErrorHandler) {
-                currentState.currentAudio.removeEventListener('error', currentState.currentErrorHandler);
-                currentState.currentErrorHandler = null;
-            }
-            
-            // 音声を停止
-            currentState.currentAudio.pause();
-            currentState.currentAudio.currentTime = 0;
-            
-            // VRMに中断通知
-            if (this.terminalApp.vrmIntegrationService) {
-                this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('interrupted');
-            }
-            
-            this.debugLog('現在の音声を安全に停止完了');
             
         } catch (error) {
             this.debugError('音声停止時エラー（継続）:', error);
             // エラーが発生しても処理を継続
         }
         
-        // Blob URLをクリーンアップ
+        // 【重要】Blob URLを確実にクリーンアップ（メモリリーク対策）
         if (currentState.currentAudioUrl) {
             try {
                 URL.revokeObjectURL(currentState.currentAudioUrl);
+                this.debugLog('✅ Blob URL解放完了:', currentState.currentAudioUrl.substring(0, 50) + '...');
             } catch (error) {
-                this.debugError('Blob URLクリーンアップエラー:', error);
+                this.debugError('❌ Blob URLクリーンアップエラー:', error);
             }
         }
         
-        // 状態を確実にリセット
+        // 状態を完全にリセット（ガベージコレクション促進）
         currentState.currentAudio = null;
         currentState.currentAudioUrl = null;
         currentState.currentEndedHandler = null;
         currentState.currentErrorHandler = null;
         currentState.isPlaying = false;
+        
+        this.debugLog('🧹 音声クリーンアップ完了');
     }
 
     /**

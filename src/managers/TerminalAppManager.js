@@ -290,6 +290,20 @@ class TerminalAppManager {
         // リソース管理：定期クリーンアップ開始
         this.terminalApp.resourceManager.startPeriodicCleanup(AppConstants.AUDIO.DEFAULT_INTERVAL * 20);
         
+        // メモリモニター開始（メモリリーク対策）
+        if (typeof MemoryMonitor !== 'undefined') {
+            this.terminalApp.memoryMonitor = new MemoryMonitor({
+                name: 'TerminalAppMemoryMonitor',
+                warningThreshold: 0.75,  // 75%で警告
+                criticalThreshold: 0.85, // 85%で緊急対応
+                monitoringInterval: 30000 // 30秒間隔
+            });
+            this.terminalApp.memoryMonitor.startMonitoring();
+            debugLog('🧠 メモリモニター開始完了');
+        } else {
+            debugError('⚠️ MemoryMonitor未利用 - メモリ監視機能無効');
+        }
+        
         // 処理キャッシュ：定期クリーンアップ開始
         this.terminalApp.resourceManager.setInterval(() => {
             this.terminalApp.processingCache.cleanupExpiredEntries();

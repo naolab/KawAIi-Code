@@ -91,16 +91,22 @@ class VoiceQueue {
             return;
         }
         
-        // キューサイズ制限チェック（最大10個）
+        // キューサイズ制限チェック（メモリリーク対策強化版）
         const MAX_QUEUE_SIZE = 10;
         
         if (this.queue.length >= MAX_QUEUE_SIZE) {
-            // 古いエントリを削除して新しいものを追加
-            const removedText = this.queue.shift();
-            this.debugLog('🎵 キュー容量超過のため古いエントリを削除:', { 
-                removed: removedText.substring(0, 30) + '...', 
+            // 古いエントリを削除して新しいものを追加（メモリリーク対策）
+            const removedItems = this.queue.splice(0, this.queue.length - MAX_QUEUE_SIZE + 1);
+            this.debugLog('🎵 キュー容量超過のため古いエントリを一括削除:', { 
+                removedCount: removedItems.length,
                 queueLength: this.queue.length 
             });
+            
+            // 削除されたアイテムを明示的にnullにしてガベージコレクションを促進
+            removedItems.forEach((item, index) => {
+                removedItems[index] = null;
+            });
+            removedItems.length = 0;
         }
         
         this.queue.push(text);
@@ -206,11 +212,16 @@ class VoiceQueue {
         });
     }
     
-    // キューをクリア
+    // キューをクリア（メモリリーク対策強化版）
     clear() {
+        // 既存のキューアイテムを明示的にnullにしてメモリリークを防止
+        this.queue.forEach((item, index) => {
+            this.queue[index] = null;
+        });
+        this.queue.length = 0;
         this.queue = [];
         this.isProcessing = false;
-        this.debugLog('🎵 音声キューをクリア');
+        this.debugLog('🎵 音声キューを完全クリア（メモリリーク対策済み）');
     }
     
     // キューの状態を取得
