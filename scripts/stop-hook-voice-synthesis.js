@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // プロジェクトパス（環境変数から取得）
-const PROJECT_PATH = process.env.KAWAII_PROJECT_PATH || '/Users/nao/Desktop/develop/AI-Kawaii-Project';
+const PROJECT_PATH = process.env.KAWAII_PROJECT_PATH || '/Users/nao/Desktop/develop/KawAIi-Code';
 
 class VoiceStopService {
     constructor() {

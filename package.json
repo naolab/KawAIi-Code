@@ -65,11 +65,13 @@
       "hardenedRuntime": true,
       "entitlements": "entitlements.plist",
       "entitlementsInherit": "entitlements.plist",
-      "identity": null,
-      "notarize": false,
+      "identity": "NAO TSUYOSHI (R5829GY53J)",
+      "notarize": {
+        "teamId": "R5829GY53J"
+      },
       "target": [
         {
-          "target": "dir",
+          "target": "dmg",
           "arch": [
             "arm64",
             "x64"

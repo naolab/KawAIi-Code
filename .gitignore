@@ -28,6 +28,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+aivispeech.log
 
 # Runtime data
 pids/
@@ -62,3 +63,6 @@ next-env.d.ts
 
 # External repositories (reference only)
 ChatVRM/
+
+# Private configuration files
+CLAUDE.md
