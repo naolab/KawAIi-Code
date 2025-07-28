@@ -1906,26 +1906,44 @@ class UIEventManager {
      * 簡易マークダウンからHTMLへの変換
      */
     convertMarkdownToHtml(markdown) {
-        let html = markdown
-            // エスケープHTMLタグ
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            // 見出し
+        // まず、リストアイテムをグループ化する
+        let processedMarkdown = markdown.replace(/^(- .+)(\n- .+)*/gm, (match) => {
+            const items = match.split('\n').map(item => `<li>${item.substring(2)}</li>`).join('\n');
+            return `<ul>\n${items}\n</ul>`;
+        });
+        
+        let html = processedMarkdown
+            // 見出し（先に処理）
+            .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
             .replace(/^### (.*$)/gim, '<h3>$1</h3>')
             .replace(/^## (.*$)/gim, '<h2>$1</h2>')
             .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            // 水平線
+            .replace(/^---$/gim, '<hr>')
             // 太字
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             // リンク
             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-            // リスト（簡易版）
-            .replace(/^- (.*$)/gim, '<li>$1</li>')
-            // 改行をBRタグに
-            .replace(/\n/g, '<br>');
+            // 段落の処理（2つ以上の改行で段落区切り）
+            .replace(/\n\n+/g, '</p><p>')
+            // 単一改行は改行として保持（ただし見出しやリストの後は除く）
+            .replace(/(?<!<\/h[1-4]>)(?<!<\/li>)(?<!<\/ul>)\n(?!<)/g, '<br>');
         
-        // リストをULタグで囲む（簡易版）
-        html = html.replace(/(<li>.*?<\/li>)/g, '<ul>$1</ul>');
+        // 全体を段落で囲む
+        html = `<p>${html}</p>`;
+        
+        // 空の段落を削除
+        html = html.replace(/<p>\s*<\/p>/g, '');
+        
+        // スタイルを適用して行間を調整
+        html = html
+            .replace(/<p>/g, '<p style="margin: 0.5em 0; line-height: 1.6;">')
+            .replace(/<h1>/g, '<h1 style="margin: 1em 0 0.5em 0; font-size: 1.8em;">')
+            .replace(/<h2>/g, '<h2 style="margin: 1em 0 0.5em 0; font-size: 1.5em;">')
+            .replace(/<h3>/g, '<h3 style="margin: 1em 0 0.5em 0; font-size: 1.3em;">')
+            .replace(/<h4>/g, '<h4 style="margin: 1em 0 0.5em 0; font-size: 1.1em;">')
+            .replace(/<ul>/g, '<ul style="margin: 0.5em 0; padding-left: 2em;">')
+            .replace(/<li>/g, '<li style="margin: 0.25em 0;">');
         
         return html;
     }
