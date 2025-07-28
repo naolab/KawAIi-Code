@@ -608,6 +608,100 @@
         
     </div>
 
+    <!-- 初回同意画面 -->
+    <div id="initial-consent-modal" class="settings-modal" style="display: none;">
+        <div class="settings-content" style="max-width: 800px; max-height: 90vh;">
+            <div class="settings-header">
+                <h3>初回利用時の同意確認</h3>
+            </div>
+            <div class="settings-body" style="padding: 20px; overflow-y: auto; max-height: 600px;">
+                <div style="margin-bottom: 20px; padding: 15px; background: #fff8dc; border: 1px solid #e0d090; border-radius: 8px;">
+                    <h4 style="color: #d2691e; margin: 0 0 10px 0;">📋 ご利用前の確認事項</h4>
+                    <p style="margin: 0; color: #8b4513; font-size: 14px; line-height: 1.5;">
+                        このアプリは外部AIサービス（Claude Code）や音声合成サービス（AivisSpeech）と連携し、<br>
+                        ローカルデータの保存を行います。以下のドキュメントをご確認の上、同意してください。
+                    </p>
+                </div>
+
+                <!-- ドキュメント表示エリア -->
+                <div class="consent-documents">
+                    <!-- 利用規約 -->
+                    <div class="document-section">
+                        <div class="document-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <input type="checkbox" id="terms-consent-checkbox" class="consent-checkbox">
+                            <label for="terms-consent-checkbox" style="font-weight: bold; color: #333;">利用規約に同意する</label>
+                        </div>
+                        <div class="document-content" style="background: #f8f8f8; padding: 15px; border-radius: 6px; max-height: 150px; overflow-y: auto; border: 1px solid #e0e0e0; margin-bottom: 15px;">
+                            <div id="terms-preview" style="font-size: 13px; line-height: 1.4; color: #555;">
+                                読み込み中...
+                            </div>
+                        </div>
+                        <div style="text-align: right; margin-bottom: 20px;">
+                            <button id="show-full-terms" class="simple-btn" style="font-size: 12px; padding: 6px 12px;">全文を表示</button>
+                        </div>
+                    </div>
+
+                    <!-- プライバシーポリシー -->
+                    <div class="document-section">
+                        <div class="document-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <input type="checkbox" id="privacy-consent-checkbox" class="consent-checkbox">
+                            <label for="privacy-consent-checkbox" style="font-weight: bold; color: #333;">プライバシーポリシーに同意する</label>
+                        </div>
+                        <div class="document-content" style="background: #f8f8f8; padding: 15px; border-radius: 6px; max-height: 150px; overflow-y: auto; border: 1px solid #e0e0e0; margin-bottom: 15px;">
+                            <div id="privacy-preview" style="font-size: 13px; line-height: 1.4; color: #555;">
+                                読み込み中...
+                            </div>
+                        </div>
+                        <div style="text-align: right; margin-bottom: 20px;">
+                            <button id="show-full-privacy" class="simple-btn" style="font-size: 12px; padding: 6px 12px;">全文を表示</button>
+                        </div>
+                    </div>
+
+                    <!-- ライセンス -->
+                    <div class="document-section">
+                        <div class="document-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <input type="checkbox" id="license-consent-checkbox" class="consent-checkbox">
+                            <label for="license-consent-checkbox" style="font-weight: bold; color: #333;">ライセンス条項に同意する</label>
+                        </div>
+                        <div class="document-content" style="background: #f8f8f8; padding: 15px; border-radius: 6px; max-height: 150px; overflow-y: auto; border: 1px solid #e0e0e0; margin-bottom: 15px;">
+                            <div id="license-preview" style="font-size: 13px; line-height: 1.4; color: #555;">
+                                読み込み中...
+                            </div>
+                        </div>
+                        <div style="text-align: right; margin-bottom: 20px;">
+                            <button id="show-full-license" class="simple-btn" style="font-size: 12px; padding: 6px 12px;">全文を表示</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 同意ボタン -->
+                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                    <button id="consent-agree-btn" class="simple-btn" style="background-color: #28a745; color: white; font-size: 16px; padding: 12px 40px;" disabled>
+                        すべてに同意してアプリを開始
+                    </button>
+                    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                        すべてのチェックボックスにチェックを入れると、同意ボタンが有効になります
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全文表示モーダル -->
+    <div id="full-document-modal" class="settings-modal" style="display: none;">
+        <div class="settings-content" style="max-width: 900px; max-height: 90vh;">
+            <div class="settings-header">
+                <h3 id="full-document-title">ドキュメント全文</h3>
+                <button id="close-full-document" class="close-btn">×</button>
+            </div>
+            <div class="settings-body" style="padding: 20px; overflow-y: auto; max-height: 70vh;">
+                <div id="full-document-content" style="font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
+                    読み込み中...
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- xterm.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
@@ -632,6 +726,9 @@
     
     <!-- AudioServiceクラス -->
     <script src="services/AudioService.js"></script>
+    
+    <!-- ConsentServiceクラス -->
+    <script src="services/ConsentService.js"></script>
     
     <!-- HookServiceクラス -->
     <script src="services/HookService.js"></script>

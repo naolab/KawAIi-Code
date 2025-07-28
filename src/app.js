@@ -54,6 +54,9 @@ class TerminalApp {
         this.claudeWorkingDir = '';
         this.speakerInitialized = false;
         
+        // ConsentService初期化
+        this.consentService = new ConsentService();
+        
         // 音声再生状態の統一管理（全サービス共通）
         this.voicePlayingState = {
             isPlaying: false,           // アプリ内音声再生中フラグ
@@ -88,6 +91,16 @@ class TerminalApp {
             return;
         }
         
+        // ConsentService初期化
+        await this.consentService.initialize();
+        
+        // 初回同意チェック
+        const consentGiven = await this.consentService.checkAndShowConsent();
+        if (!consentGiven) {
+            debugLog('🔒 初回同意待ち - アプリ初期化を一時停止');
+            return; // 同意が完了するまで初期化を停止
+        }
+        
         // Claude Codeの作業ディレクトリを初期化時に取得
         await this.initializeWorkingDirectory();
         
@@ -119,6 +132,42 @@ class TerminalApp {
         this.appManager.startPeriodicTasks();
         
         debugLog('🚀 TerminalApp初期化完了');
+    }
+
+    // 同意完了後の初期化継続
+    async continueInitialization() {
+        debugLog('🔒 同意完了 - アプリ初期化を継続');
+        
+        // Claude Codeの作業ディレクトリを初期化時に取得
+        await this.initializeWorkingDirectory();
+        
+        // サービスマネージャーで全サービスを初期化
+        await this.appManager.initializeAllServices();
+        
+        // チャットインターフェースを設定
+        this.setupChatInterface();
+        
+        // 初期設定の読み込み
+        await this.appManager.loadInitialSettings();
+        
+        // 音声モード初期化
+        await this.appManager.initializeVoiceMode();
+        
+        // ステータスを更新
+        this.updateStatus('Ready');
+        
+        // DOM要素の準備完了を待機
+        await this.waitForDOMElements();
+        
+        // 音声接続チェック
+        debugLog('🔊 初期化: 音声接続チェック開始');
+        await this.appManager.checkVoiceConnection();
+        debugLog('🔊 初期化: 音声接続チェック完了');
+        
+        // 定期タスクの開始
+        this.appManager.startPeriodicTasks();
+        
+        debugLog('🚀 TerminalApp初期化完了（同意後）');
     }
 
     // DOM要素の準備完了を待機
@@ -663,6 +712,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         try {
             const app = new TerminalApp();
+            // グローバル参照を保存（ConsentServiceから参照するため）
+            window.terminalApp = app;
             
             // デバッグ統計ボタンのイベントリスナーを追加
             const debugStatsBtn = document.getElementById('debug-stats-btn');
