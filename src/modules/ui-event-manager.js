@@ -1838,6 +1838,9 @@ class UIEventManager {
             // 利用規約を読み込み
             this.loadDocumentIntoSection('terms', 'TERMS_OF_SERVICE.md', 'terms-content');
             
+            // アップデート情報を読み込み
+            this.loadDocumentIntoSection('updates', 'UPDATE_LOG.md', 'updates-content');
+            
             this.debugLog('法的ドキュメント読み込み開始');
         } catch (error) {
             this.debugError('法的ドキュメント読み込みエラー:', error);
