@@ -1863,6 +1863,11 @@ class UIEventManager {
                 // マークダウンを簡易的にHTMLに変換
                 const htmlContent = this.convertMarkdownToHtml(content);
                 contentElement.innerHTML = htmlContent;
+                
+                // デバッグ用: 実際のHTMLをコンソールに出力
+                if (type === 'privacy') {
+                    console.log('プライバシーポリシーHTML:', htmlContent.substring(0, 2000));
+                }
             } else {
                 contentElement.innerHTML = '<div style="text-align: center; color: #ff6b35;">ドキュメントの読み込みに失敗しました</div>';
             }
@@ -1906,44 +1911,69 @@ class UIEventManager {
      * 簡易マークダウンからHTMLへの変換
      */
     convertMarkdownToHtml(markdown) {
-        // まず、リストアイテムをグループ化する
-        let processedMarkdown = markdown.replace(/^(- .+)(\n- .+)*/gm, (match) => {
-            const items = match.split('\n').map(item => `<li>${item.substring(2)}</li>`).join('\n');
-            return `<ul>\n${items}\n</ul>`;
+        // リストアイテムをより正確にグループ化
+        let processedMarkdown = markdown.replace(/(^|\n)(- .+(\n- .+)*)/gm, (match, prefix) => {
+            const items = match.trim().split('\n')
+                .filter(item => item.trim().startsWith('-'))
+                .map(item => {
+                    const content = item.substring(2).trim();
+                    return `<li>${content}</li>`;
+                })
+                .join('');
+            return (prefix || '') + `<ul>${items}</ul>`;
         });
         
-        let html = processedMarkdown
-            // 見出し（先に処理）
-            .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
-            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-            // 水平線
-            .replace(/^---$/gim, '<hr>')
-            // 太字
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            // リンク
-            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-            // 段落の処理（2つ以上の改行で段落区切り）
-            .replace(/\n\n+/g, '</p><p>')
-            // 単一改行は改行として保持（ただし見出しやリストの後は除く）
-            .replace(/(?<!<\/h[1-4]>)(?<!<\/li>)(?<!<\/ul>)\n(?!<)/g, '<br>');
+        // 段落を処理（2つ以上の改行で段落区切り）
+        const paragraphs = processedMarkdown.split(/\n\n+/);
         
-        // 全体を段落で囲む
-        html = `<p>${html}</p>`;
+        let html = paragraphs.map((paragraph, index) => {
+            // 各段落内で処理
+            let processed = paragraph.trim()
+                // 見出し（先に処理）
+                .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                // 水平線
+                .replace(/^---$/gim, '<hr>')
+                // 太字
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // リンク
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            
+            // 見出し、リスト、水平線以外は段落タグで囲む
+            if (!processed.match(/^<[hul]|^<hr/) && processed.length > 0) {
+                // 段落内の改行を<br>に変換
+                processed = '<p>' + processed.replace(/\n/g, '<br>') + '</p>';
+            }
+            
+            return processed;
+        }).filter(p => p.length > 0).join('');
         
-        // 空の段落を削除
-        html = html.replace(/<p>\s*<\/p>/g, '');
+        // 空の段落やbrタグを削除
+        html = html
+            .replace(/<p>\s*<\/p>/g, '')
+            .replace(/<p><br><\/p>/g, '')
+            .replace(/<br><\/p>/g, '</p>')
+            .replace(/<p><br>/g, '<p>');
         
         // スタイルを適用して行間を調整
         html = html
-            .replace(/<p>/g, '<p style="margin: 0.5em 0; line-height: 1.6;">')
-            .replace(/<h1>/g, '<h1 style="margin: 1em 0 0.5em 0; font-size: 1.8em;">')
-            .replace(/<h2>/g, '<h2 style="margin: 1em 0 0.5em 0; font-size: 1.5em;">')
-            .replace(/<h3>/g, '<h3 style="margin: 1em 0 0.5em 0; font-size: 1.3em;">')
-            .replace(/<h4>/g, '<h4 style="margin: 1em 0 0.5em 0; font-size: 1.1em;">')
-            .replace(/<ul>/g, '<ul style="margin: 0.5em 0; padding-left: 2em;">')
-            .replace(/<li>/g, '<li style="margin: 0.25em 0;">');
+            .replace(/<p>/g, '<p style="margin: 0.5em 0; line-height: 1.5;">')
+            // 見出しは上により大きなマージンを設定
+            .replace(/<h1>/g, '<h1 style="margin: 1.8em 0 0.5em 0; font-size: 1.8em;">')
+            .replace(/<h2>/g, '<h2 style="margin: 1.6em 0 0.4em 0; font-size: 1.5em;">')
+            .replace(/<h3>/g, '<h3 style="margin: 1.4em 0 0.3em 0; font-size: 1.3em;">')
+            .replace(/<h4>/g, '<h4 style="margin: 1.2em 0 0.3em 0; font-size: 1.1em;">')
+            // リストとリスト項目
+            .replace(/<ul>/g, '<ul style="margin: 0.3em 0; padding-left: 1.8em; list-style-type: disc;">')
+            .replace(/<li>/g, '<li style="margin: 0; padding: 0; line-height: 1.3;">');
+        
+        // リストの直後の段落のマージンを調整
+        html = html.replace(/(<\/ul>)(<p)/g, '$1<p style="margin: 0.3em 0; line-height: 1.5;"');
+        
+        // リストの後の見出しにスペースを追加
+        html = html.replace(/(<\/ul>)\s*(<h[1-4])/g, '$1$2');
         
         return html;
     }
