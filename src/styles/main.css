@@ -1227,7 +1227,7 @@ body.loaded {
 .help-content-main p {
     margin: 16px 0;
     line-height: 1.8;
-    color: #495057;
+    color: #555555;
     font-size: 15px;
 }
 
@@ -1240,7 +1240,7 @@ body.loaded {
 .help-content-main li {
     margin: 10px 0;
     line-height: 1.8;
-    color: #495057;
+    color: #555555;
     font-size: 15px;
 }
 

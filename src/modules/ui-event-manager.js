@@ -1971,7 +1971,7 @@ class UIEventManager {
         
         // スタイルを適用して行間を調整
         html = html
-            .replace(/<p>/g, '<p style="margin: 0.5em 0; line-height: 1.5;">')
+            .replace(/<p>/g, '<p style="margin: 0.5em 0; line-height: 1.5; color: #555555;">')
             // 見出しは上により大きなマージンを設定
             .replace(/<h1>/g, '<h1 style="margin: 1.8em 0 0.5em 0; font-size: 1.8em;">')
             .replace(/<h2>/g, '<h2 style="margin: 1.6em 0 0.4em 0; font-size: 1.5em;">')
@@ -1979,10 +1979,10 @@ class UIEventManager {
             .replace(/<h4>/g, '<h4 style="margin: 1.2em 0 0.3em 0; font-size: 1.1em;">')
             // リストとリスト項目
             .replace(/<ul>/g, '<ul style="margin: 0.3em 0; padding-left: 1.8em; list-style-type: disc;">')
-            .replace(/<li>/g, '<li style="margin: 0; padding: 0; line-height: 1.3;">');
+            .replace(/<li>/g, '<li style="margin: 0; padding: 0; line-height: 1.3; color: #555555;">');
         
         // リストの直後の段落のマージンを調整
-        html = html.replace(/(<\/ul>)(<p)/g, '$1<p style="margin: 0.3em 0; line-height: 1.5;"');
+        html = html.replace(/(<\/ul>)(<p)/g, '$1<p style="margin: 0.3em 0; line-height: 1.5; color: #555555;"');
         
         // リストの後の見出しにスペースを追加
         html = html.replace(/(<\/ul>)\s*(<h[1-4])/g, '$1$2');
