@@ -273,6 +273,7 @@ class UIEventManager {
             helpBtn.addEventListener('click', () => {
                 helpModal.style.display = 'flex';
                 this.initHelpNavigation();
+                this.loadLegalDocuments();
             });
         }
         
@@ -281,6 +282,7 @@ class UIEventManager {
                 helpModal.style.display = 'none';
             });
         }
+        
         
         if (helpModal) {
             helpModal.addEventListener('click', (e) => {
@@ -1820,6 +1822,112 @@ class UIEventManager {
         } catch (error) {
             this.debugError('ヘルプナビゲーション初期化エラー:', error);
         }
+    }
+
+    /**
+     * 法的ドキュメントを読み込んで各セクションに表示
+     */
+    async loadLegalDocuments() {
+        try {
+            // ライセンスを読み込み
+            this.loadDocumentIntoSection('license', 'LICENSE.md', 'license-content');
+            
+            // プライバシーポリシーを読み込み
+            this.loadDocumentIntoSection('privacy', 'PRIVACY_POLICY.md', 'privacy-content');
+            
+            // 利用規約を読み込み
+            this.loadDocumentIntoSection('terms', 'TERMS_OF_SERVICE.md', 'terms-content');
+            
+            this.debugLog('法的ドキュメント読み込み開始');
+        } catch (error) {
+            this.debugError('法的ドキュメント読み込みエラー:', error);
+        }
+    }
+
+    /**
+     * 特定のドキュメントを読み込んで指定されたセクションに表示
+     */
+    async loadDocumentIntoSection(type, fileName, contentElementId) {
+        try {
+            const contentElement = document.getElementById(contentElementId);
+            
+            if (!contentElement) {
+                this.debugError(`要素が見つかりません: ${contentElementId}`);
+                return;
+            }
+            
+            // ドキュメントを読み込み
+            const content = await this.requestFileContent(`docs/${fileName}`);
+            
+            if (content) {
+                // マークダウンを簡易的にHTMLに変換
+                const htmlContent = this.convertMarkdownToHtml(content);
+                contentElement.innerHTML = htmlContent;
+            } else {
+                contentElement.innerHTML = '<div style="text-align: center; color: #ff6b35;">ドキュメントの読み込みに失敗しました</div>';
+            }
+            
+            this.debugLog(`法的ドキュメント読み込み完了: ${type}`);
+        } catch (error) {
+            this.debugError(`ドキュメント読み込みエラー (${type}):`, error);
+            
+            const contentElement = document.getElementById(contentElementId);
+            if (contentElement) {
+                contentElement.innerHTML = '<div style="text-align: center; color: #ff6b35;">エラーが発生しました</div>';
+            }
+        }
+    }
+
+
+    /**
+     * Electronのメインプロセスにファイル読み込みを要求
+     */
+    async requestFileContent(filePath) {
+        try {
+            // ElectronのIPCを使用してファイルを読み込み
+            if (window.electronAPI && window.electronAPI.readFile) {
+                return await window.electronAPI.readFile(filePath);
+            }
+            
+            // フォールバック: fetchを使用（開発時など）
+            const response = await fetch(`../${filePath}`);
+            if (response.ok) {
+                return await response.text();
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        } catch (error) {
+            this.debugError('ファイル読み込みエラー:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 簡易マークダウンからHTMLへの変換
+     */
+    convertMarkdownToHtml(markdown) {
+        let html = markdown
+            // エスケープHTMLタグ
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            // 見出し
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            // 太字
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // リンク
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+            // リスト（簡易版）
+            .replace(/^- (.*$)/gim, '<li>$1</li>')
+            // 改行をBRタグに
+            .replace(/\n/g, '<br>');
+        
+        // リストをULタグで囲む（簡易版）
+        html = html.replace(/(<li>.*?<\/li>)/g, '<ul>$1</ul>');
+        
+        return html;
     }
 }
 

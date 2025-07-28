@@ -205,6 +205,9 @@ window.electronAPI = {
   getUseCloudApi: () => ipcRenderer.invoke('get-use-cloud-api'),
   setUseCloudApi: (useCloudAPI) => ipcRenderer.invoke('set-use-cloud-api', useCloudAPI),
 
+  // ファイル読み込み
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  
   fs: require('fs'), // fsモジュールを公開
   path: require('path'), // pathモジュールを公開
   os: require('os') // osモジュールを公開

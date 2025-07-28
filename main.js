@@ -1078,6 +1078,32 @@ ipcMain.handle('wallpaper-delete', async (event, filename) => {
   }
 });
 
+// ★ 新しいIPCハンドラ: ファイル読み込み（法的ドキュメント用）
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    // セキュリティ: アプリケーションディレクトリ内のファイルのみ許可
+    const appPath = app.getAppPath();
+    const fullPath = path.resolve(appPath, filePath);
+    
+    // パストラバーサル攻撃防止：アプリケーションディレクトリ外へのアクセスを禁止
+    if (!fullPath.startsWith(appPath)) {
+      throw new Error('不正なファイルパスです');
+    }
+    
+    // ファイルの存在確認
+    if (!fs.existsSync(fullPath)) {
+      throw new Error('ファイルが見つかりません');
+    }
+    
+    // ファイル読み込み
+    const content = fs.readFileSync(fullPath, 'utf8');
+    return content;
+  } catch (error) {
+    console.error('ファイル読み込みエラー:', error);
+    throw error;
+  }
+});
+
 // ★ 新しいIPCハンドラ: ユーザーデータディレクトリのパスを取得
 ipcMain.handle('get-user-data-path', () => {
   try {
