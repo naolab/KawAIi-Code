@@ -1869,7 +1869,7 @@ class UIEventManager {
             }
             
             // ドキュメントを読み込み
-            const content = await this.requestFileContent(`docs/${fileName}`);
+            const content = await this.requestFileContent(`docs/legal/${fileName}`);
             
             if (content) {
                 // マークダウンを簡易的にHTMLに変換

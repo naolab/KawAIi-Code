@@ -26,9 +26,9 @@ class ConsentService {
             
             // Electron APIを使ってドキュメントを読み込み
             const results = await Promise.all([
-                window.electronAPI.readFile('docs/TERMS_OF_SERVICE.md'),
-                window.electronAPI.readFile('docs/PRIVACY_POLICY.md'),  
-                window.electronAPI.readFile('docs/LICENSE.md')
+                window.electronAPI.readFile('docs/legal/TERMS_OF_SERVICE.md'),
+                window.electronAPI.readFile('docs/legal/PRIVACY_POLICY.md'),  
+                window.electronAPI.readFile('docs/legal/LICENSE.md')
             ]);
 
             // APIは文字列を直接返すので、そのまま設定
@@ -55,13 +55,13 @@ class ConsentService {
         const licensePreview = document.getElementById('license-preview');
 
         if (termsPreview) {
-            termsPreview.textContent = '利用規約: このアプリケーションを使用することで、利用規約に同意したものとみなされます。詳細はdocs/TERMS_OF_SERVICE.mdをご確認ください。';
+            termsPreview.textContent = '利用規約: このアプリケーションを使用することで、利用規約に同意したものとみなされます。詳細はdocs/legal/TERMS_OF_SERVICE.mdをご確認ください。';
         }
         if (privacyPreview) {
-            privacyPreview.textContent = 'プライバシーポリシー: このアプリケーションのプライバシー保護について。詳細はdocs/PRIVACY_POLICY.mdをご確認ください。';
+            privacyPreview.textContent = 'プライバシーポリシー: このアプリケーションのプライバシー保護について。詳細はdocs/legal/PRIVACY_POLICY.mdをご確認ください。';
         }
         if (licensePreview) {
-            licensePreview.textContent = 'ライセンス: このソフトウェアはMITライセンスの下で配布されています。詳細はdocs/LICENSE.mdをご確認ください。';
+            licensePreview.textContent = 'ライセンス: このソフトウェアはMITライセンスの下で配布されています。詳細はdocs/legal/LICENSE.mdをご確認ください。';
         }
     }
 
