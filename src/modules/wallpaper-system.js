@@ -13,7 +13,7 @@ class WallpaperSystem {
         this.wallpaperTimer = null;
         this.currentWallpaperOption = 'default';
         this.currentAppliedWallpaperFileName = null;
-        this.wallpaperAnimationEnabled = true;
+        this.wallpaperAnimationEnabled = false;
         this.messageCallback = null; // 音声メッセージ用コールバック
         
         // 統一設定システムから設定を復元
