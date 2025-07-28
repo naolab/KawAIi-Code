@@ -550,8 +550,6 @@ class UIEventManager {
         const claudeMdDefaultBtn = document.getElementById('claude-md-default-btn');
         const claudeMdGenerateBtn = document.getElementById('claude-md-generate-btn');
         const claudeMdInfoBtn = document.getElementById('claude-md-info-btn');
-        const claudeMdGuideModal = document.getElementById('claude-md-guide-modal');
-        const closeClaludeMdGuideBtn = document.getElementById('close-claude-md-guide');
 
         this.debugLog('CLAUDE.md control elements check:', {
             claudeMdContentEditor: !!claudeMdContentEditor,
@@ -559,9 +557,7 @@ class UIEventManager {
             claudeMdLoadBtn: !!claudeMdLoadBtn,
             claudeMdDefaultBtn: !!claudeMdDefaultBtn,
             claudeMdGenerateBtn: !!claudeMdGenerateBtn,
-            claudeMdInfoBtn: !!claudeMdInfoBtn,
-            claudeMdGuideModal: !!claudeMdGuideModal,
-            closeClaludeMdGuideBtn: !!closeClaludeMdGuideBtn
+            claudeMdInfoBtn: !!claudeMdInfoBtn
         });
 
         // デフォルト内容を読み込みと作業パス表示を更新
@@ -672,29 +668,42 @@ class UIEventManager {
             });
         }
 
-        // 情報ボタンのイベント
-        if (claudeMdInfoBtn && claudeMdGuideModal) {
+        // 情報ボタンのイベント - 使い方ガイドのClaude Code項目を開く
+        if (claudeMdInfoBtn) {
             claudeMdInfoBtn.addEventListener('click', () => {
-                claudeMdGuideModal.style.display = 'flex';
-                this.debugLog('CLAUDE.md設定ガイドモーダル表示');
-            });
-        }
-
-        // ガイドモーダルの閉じるボタン
-        if (closeClaludeMdGuideBtn && claudeMdGuideModal) {
-            closeClaludeMdGuideBtn.addEventListener('click', () => {
-                claudeMdGuideModal.style.display = 'none';
-                this.debugLog('CLAUDE.md設定ガイドモーダル非表示');
-            });
-        }
-
-        // ガイドモーダルの外クリック
-        if (claudeMdGuideModal) {
-            claudeMdGuideModal.addEventListener('click', (e) => {
-                if (e.target === claudeMdGuideModal) {
-                    claudeMdGuideModal.style.display = 'none';
-                    this.debugLog('CLAUDE.md設定ガイドモーダル非表示（外クリック）');
+                // 設定モーダルを閉じる
+                const settingsModal = document.getElementById('settings-modal');
+                if (settingsModal) {
+                    settingsModal.style.display = 'none';
                 }
+                
+                // 使い方ガイドを開いてClaude Code項目に移動
+                const helpModal = document.getElementById('help-modal');
+                if (helpModal) {
+                    helpModal.style.display = 'flex';
+                    
+                    // ヘルプガイドの初期化処理を実行
+                    this.initHelpNavigation();
+                    this.loadLegalDocuments();
+                    
+                    // Claude Codeセクションをアクティブにする
+                    const navItems = document.querySelectorAll('.help-nav-item');
+                    const sections = document.querySelectorAll('.help-section');
+                    
+                    // 全てのナビアイテムから active クラスを削除
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    // 全てのセクションを非表示
+                    sections.forEach(section => section.classList.remove('active'));
+                    
+                    // Claude Codeのナビアイテムとセクションをアクティブにする
+                    const claudeNavItem = document.querySelector('[data-section="claude"]');
+                    const claudeSection = document.getElementById('help-section-claude');
+                    
+                    if (claudeNavItem) claudeNavItem.classList.add('active');
+                    if (claudeSection) claudeSection.classList.add('active');
+                }
+                
+                this.debugLog('CLAUDE.md情報ボタン → 使い方ガイドのClaude Code項目を表示');
             });
         }
 

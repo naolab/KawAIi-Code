@@ -236,6 +236,14 @@
                             <label for="wallpaper-animation-toggle" class="switch-label"></label>
                         </div>
                     </div>
+                    
+                    <!-- アプリについて -->
+                    <div class="setting-group">
+                        <label>アプリについて</label>
+                        <div style="font-size: 13px; color: #ff6b35; margin-top: 5px; font-weight: 500;">
+                            バージョン: 開発版（ベータ）
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -268,6 +276,9 @@
                             </a>
                             <a href="#" class="help-nav-item" data-section="controls">
                                 操作ボタン
+                            </a>
+                            <a href="#" class="help-nav-item" data-section="contact">
+                                お問い合わせ
                             </a>
                             <a href="#" class="help-nav-item" data-section="license">
                                 ライセンス
@@ -353,7 +364,9 @@
                             </div>
                             <div class="help-item">
                                 <h3>CLAUDE.md設定（手動）</h3>
-                                <p>設定画面からCLAUDE.mdの内容を編集できます。「生成」ボタンで作業ディレクトリにCLAUDE.mdを作成し、プロジェクト固有のAI指示を設定できます。</p>
+                                <p>Claude Codeにモネの魂を吹き込むため、作業ディレクトリにCLAUDE.mdファイルを生成する必要があります。このファイルがないと音声読み上げ機能（『』で囲まれた部分の読み上げ）が正常に動作しません。</p>
+                                <p>キャラクター設定は自由に変更できますが、このアプリはモネを想定して作られているため（表情連動など）、他のキャラクター設定では一部機能が正常に動作しない可能性があります。</p>
+                                <p>設定画面からCLAUDE.mdの内容を編集し、「生成」ボタンで作業ディレクトリに作成できます。</p>
                             </div>
                         </div>
 
@@ -387,6 +400,47 @@
                                     <tr><td><strong>設定ボタン</strong></td><td>音声・VRM・壁紙・ディレクトリ設定</td></tr>
                                     <tr><td><strong>ヘルプボタン</strong></td><td>この使い方ガイドを表示</td></tr>
                                 </table>
+                            </div>
+                        </div>
+
+                        <!-- お問い合わせ -->
+                        <div id="help-section-contact" class="help-section">
+                            <h2>お問い合わせ</h2>
+                            <div class="help-item">
+                                <h3>カジュアルな質問・感想</h3>
+                                <p>アプリについての感想や気軽な質問は、開発者のX (Twitter) へDMでお気軽にお送りください。</p>
+                                <div style="margin: 10px 0;">
+                                    <a href="https://x.com/nao_u7589422" target="_blank" style="color: #ff6b35; text-decoration: none; font-weight: 500;">
+                                        @nao_u7589422 (開発者X)
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="help-item">
+                                <h3>バグ報告・機能要望</h3>
+                                <p>バグを発見した場合や新機能のご要望がございましたら、GitHubリポジトリのIssuesページよりお知らせください。</p>
+                                <div style="margin: 10px 0;">
+                                    <a href="https://github.com/AI-Kawaii-Project/KawAIi-Code/issues" target="_blank" style="color: #ff6b35; text-decoration: none; font-weight: 500;">
+                                        GitHub Issues
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="help-item">
+                                <h3>ディスカッション・質問</h3>
+                                <p>使い方に関する質問や機能についてのディスカッションは、GitHubのDiscussionsページをご利用ください。</p>
+                                <div style="margin: 10px 0;">
+                                    <a href="https://github.com/AI-Kawaii-Project/KawAIi-Code/discussions" target="_blank" style="color: #ff6b35; text-decoration: none; font-weight: 500;">
+                                        GitHub Discussions
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="help-item">
+                                <h3>プロジェクト情報</h3>
+                                <p>プロジェクトの最新情報やソースコードは、GitHubリポジトリでご確認いただけます。</p>
+                                <div style="margin: 10px 0;">
+                                    <a href="https://github.com/AI-Kawaii-Project/KawAIi-Code" target="_blank" style="color: #ff6b35; text-decoration: none; font-weight: 500;">
+                                        GitHub リポジトリ
+                                    </a>
+                                </div>
                             </div>
                         </div>
 
@@ -551,50 +605,6 @@
             </div>
         </div>
         -->
-        
-        <!-- CLAUDE.md設定ガイド -->
-        <div id="claude-md-guide-modal" class="help-modal" style="display: none;">
-            <div class="help-content">
-                <div class="help-header">
-                    <h3>CLAUDE.md設定について</h3>
-                    <button id="close-claude-md-guide" class="close-btn">×</button>
-                </div>
-                <div class="help-body">
-                    <div class="help-section">
-                        <h4>機能概要</h4>
-                        <p>AIの性格・話し方をカスタマイズして、作業ディレクトリに保存する機能です。</p>
-                    </div>
-                    
-                    <div class="help-section">
-                        <h4>使い方</h4>
-                        <div class="help-item">
-                            <span class="help-icon">1️⃣</span>
-                            <strong>読み込み</strong> → 既存ファイルまたはテンプレートを取得
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">2️⃣</span>
-                            <strong>編集</strong> → テキストエリアでカスタマイズ
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">3️⃣</span>
-                            <strong>生成</strong> → 設定を保存
-                        </div>
-                    </div>
-                    
-                    <div class="help-section">
-                        <h4>⚠️ 重要</h4>
-                        <div class="help-item">
-                            <span class="help-icon">🚫</span>
-                            <strong>音声ルール部分は変更禁止</strong>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">✅</span>
-                            <strong>キャラクター設定部分は編集OK</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
         
     </div>
 

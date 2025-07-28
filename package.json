@@ -1,5 +1,5 @@
 {
-  "name": "ai-kawaii-terminal",
+  "name": "kawaii-code",
   "version": "1.0.0",
   "description": "AI Character Chat Terminal App",
   "main": "main.js",
@@ -35,7 +35,7 @@
     "node-pty": "^1.0.0"
   },
   "build": {
-    "appId": "com.ai-kawaii.terminal",
+    "appId": "com.ai-kawaii-project.kawaii-code",
     "productName": "KawAIi Code",
     "directories": {
       "output": "dist"
