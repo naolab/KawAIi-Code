@@ -76,6 +76,12 @@ class TabManager {
         if (this.isParentTab(tabId) && this.deps.messageAccumulator) {
             debugLog(`🎵 親タブ${tabId}のデータを音声処理パイプラインに送信:`, data.substring(0, 50) + '...');
             this.deps.messageAccumulator.addChunk(data);
+            
+            // タブシステム使用時も音声処理を確実に実行
+            if (this.deps.terminalService && this.deps.terminalService.processTerminalData) {
+                debugLog(`🎤 親タブ${tabId}の音声処理を直接実行`);
+                this.deps.terminalService.processTerminalData(data);
+            }
         } else if (!this.isParentTab(tabId)) {
             debugLog(`🔇 非親タブ${tabId}のデータは音声処理をスキップ:`, data.substring(0, 30) + '...');
         }
