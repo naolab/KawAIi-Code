@@ -5,8 +5,8 @@ const axios = require('axios');
 const { app } = require('electron');
 const EmotionAnalyzer = require('../src/emotionAnalyzer');
 
-// プロジェクトパス（環境変数から取得）
-const PROJECT_PATH = process.env.KAWAII_PROJECT_PATH || '/Users/nao/Desktop/develop/KawAIi-Code';
+// プロジェクトパス（環境変数から取得、デフォルトは現在のディレクトリ）
+const PROJECT_PATH = process.env.KAWAII_PROJECT_PATH || process.cwd();
 
 // VoiceServiceを直接importできないので、必要な機能のみ実装
 class VoiceHookService {
