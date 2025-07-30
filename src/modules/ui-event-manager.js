@@ -1868,8 +1868,9 @@ class UIEventManager {
                 return;
             }
             
-            // ドキュメントを読み込み
-            const content = await this.requestFileContent(`docs/legal/${fileName}`);
+            // ドキュメントを読み込み（UPDATE_LOG.mdのみ特別パス）
+            const filePath = fileName === 'UPDATE_LOG.md' ? `docs/${fileName}` : `docs/legal/${fileName}`;
+            const content = await this.requestFileContent(filePath);
             
             if (content) {
                 // マークダウンを簡易的にHTMLに変換
