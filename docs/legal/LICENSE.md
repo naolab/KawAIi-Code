@@ -63,10 +63,16 @@ Copyright (c) 2025 AI Kawaii Project
 ## アセットのライセンス
 
 ### デフォルトキャラクター「モネ」
-- Created by Nao (AI Kawaii Project開発者)
+- Created by Nao (AI Kawaii Project開発者) with VRoid Studio assets
 - Copyright (c) 2025 Nao
 - All rights reserved
 - 本プロジェクトでの使用が許可されています
+
+#### 使用素材
+- **髪の毛**: VRoid Studio AvatarSample_M の髪型アセットを改変して使用
+  - Copyright (c) 2018 pixiv Inc.
+  - VRoid Studio利用規約に基づき、改変・再配布・商用利用が許可されています
+  - 詳細: https://vroid.com/studio/terms
 
 ### アプリケーションアイコン
 - Created by Nao (AI Kawaii Project開発者)
