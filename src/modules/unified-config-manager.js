@@ -335,7 +335,7 @@ class UnifiedConfigManager {
     
     _determineLevel(key) {
         // システム設定
-        if (['claudeWorkingDir', 'voiceSynthesisEnabled', 'defaultSpeakerId', 'voiceCooldownSeconds', 'voiceIntervalSeconds'].includes(key)) {
+        if (['claudeWorkingDir', 'voiceSynthesisEnabled', 'defaultSpeakerId', 'voiceCooldownSeconds', 'voiceIntervalSeconds', 'initial_consent_given'].includes(key)) {
             return 'user';
         }
         
