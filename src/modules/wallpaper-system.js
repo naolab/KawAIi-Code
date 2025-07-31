@@ -205,30 +205,11 @@ class WallpaperSystem {
     async applyWallpaper() {
         const body = document.body;
 
-        const currentHour = new Date().getHours();
-        let baseFileName = '';
-
-        // 時間帯に応じたベースファイル名決定
-        if (currentHour >= 4 && currentHour < 6) {
-            baseFileName = 'default_morning_evening';
-        } else if (currentHour >= 6 && currentHour < 17) {
-            baseFileName = 'default_noon';
-        } else if (currentHour >= 17 && currentHour < 19) {
-            baseFileName = 'default_morning_evening';
-        } else if (currentHour >= 19 && currentHour <= 23) { // 19:00 - 23:59
-            baseFileName = 'default_night';
-        } else { // 0:00 - 3:59
-            baseFileName = 'default_latenight';
-        }
-
         let newWallpaperPath = null;
 
         if (this.currentWallpaperOption === 'default') {
-            if (this.wallpaperAnimationEnabled) {
-                newWallpaperPath = `assets/wallpapers/default/${baseFileName}.mp4`;
-            } else {
-                newWallpaperPath = `assets/wallpapers/default/${baseFileName}.jpg`;
-            }
+            // 全時間帯で同じ壁紙を使用（再配布禁止のため）
+            newWallpaperPath = `assets/wallpapers/default/default.png`;
         } else if (this.currentWallpaperOption === 'uploaded') {
             // ユーザー壁紙の場合は、最新のアップロードされた壁紙のパスを取得する
             const response = await window.electronAPI.wallpaper.getWallpaperList();
@@ -245,11 +226,7 @@ class WallpaperSystem {
                 document.getElementById('wallpaper-default-radio').checked = true;
                 this.addVoiceMessage('モネ', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
                 // ここでnewWallpaperPathを更新し、下の比較ロジックで再適用されるようにする
-                if (this.wallpaperAnimationEnabled) {
-                    newWallpaperPath = `assets/wallpapers/default/${baseFileName}.mp4`;
-                } else {
-                    newWallpaperPath = `assets/wallpapers/default/${baseFileName}.jpg`;
-                }
+                newWallpaperPath = `assets/wallpapers/default/default.png`;
             }
         }
 
