@@ -268,6 +268,7 @@ class ConsentService {
     async resetConsent() {
         try {
             const unifiedConfig = getSafeUnifiedConfig();
+            // 統一設定システムを使って削除（設定保存と同じ方法で削除）
             await unifiedConfig.set(this.CONSENT_STORAGE_KEY, null);
             debugLog('🔒 同意データをリセットしました');
         } catch (error) {
