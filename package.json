@@ -47,6 +47,7 @@
       "main.js",
       "src/**/*",
       "assets/**/*",
+      "!src/assets/wallpapers/default/*.mp4",
       "docs/**/*",
       "ai-kawaii-nextjs/out/**/*",
       "ai-kawaii-nextjs/websocket-server.js",

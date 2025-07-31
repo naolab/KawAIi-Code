@@ -13,7 +13,7 @@ class WallpaperSystem {
         this.wallpaperTimer = null;
         this.currentWallpaperOption = 'default';
         this.currentAppliedWallpaperFileName = null;
-        this.wallpaperAnimationEnabled = false;
+        this.wallpaperAnimationEnabled = false; // 永続的に無効化（再配布禁止のため）
         this.messageCallback = null; // 音声メッセージ用コールバック
         
         // 統一設定システムから設定を復元
@@ -27,7 +27,8 @@ class WallpaperSystem {
 
     // 統一設定システムから設定を読み込み
     async loadSettings() {
-        this.wallpaperAnimationEnabled = await unifiedConfig.get('wallpaperAnimationEnabled', this.wallpaperAnimationEnabled);
+        // アニメーション機能は永続的に無効化
+        this.wallpaperAnimationEnabled = false;
     }
 
     // 音声メッセージ用コールバックを設定
@@ -53,7 +54,8 @@ class WallpaperSystem {
     syncUIElements() {
         const wallpaperAnimationToggle = document.getElementById('wallpaper-animation-toggle');
         if (wallpaperAnimationToggle) {
-            wallpaperAnimationToggle.checked = this.wallpaperAnimationEnabled;
+            wallpaperAnimationToggle.checked = false;
+            wallpaperAnimationToggle.disabled = true; // UI上でも無効化
         }
     }
 
@@ -194,9 +196,8 @@ class WallpaperSystem {
         // 壁紙アニメーション切り替えボタン
         const wallpaperAnimationToggle = document.getElementById('wallpaper-animation-toggle');
         if (wallpaperAnimationToggle) {
-            wallpaperAnimationToggle.addEventListener('change', async () => {
-                await this.setWallpaperAnimationEnabled(wallpaperAnimationToggle.checked);
-            });
+            wallpaperAnimationToggle.disabled = true; // イベントリスナーも無効化
+            // await this.setWallpaperAnimationEnabled(false); // 強制的に無効
         }
     }
 
@@ -414,8 +415,9 @@ class WallpaperSystem {
 
     // 壁紙アニメーション設定
     async setWallpaperAnimationEnabled(enabled) {
-        this.wallpaperAnimationEnabled = enabled;
-        await unifiedConfig.set('wallpaperAnimationEnabled', enabled);
+        // 常に無効に設定
+        this.wallpaperAnimationEnabled = false;
+        await unifiedConfig.set('wallpaperAnimationEnabled', false);
         // 現在の壁紙に変更を反映
         if (this.currentWallpaperOption === 'default') {
             this.applyWallpaper();
