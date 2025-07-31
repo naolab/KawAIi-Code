@@ -22,6 +22,26 @@ Claude CodeとアニメキャラクターVRMが対話するデスクトップア
 
 ## 📥 インストール（ユーザー向け）
 
+### ⚠️ 前提条件（必須）
+
+このアプリを使用するには、事前に以下のソフトウェアが必要です：
+
+#### 1. Claude Code のインストール
+```bash
+# Claude Code（Anthropic公式CLI）をインストール
+# 公式サイト: https://claude.ai/cli
+# または Homebrew（推奨）
+brew install anthropics/claude/claude
+
+# インストール確認
+claude --version
+```
+
+#### 2. 音声機能（オプション）
+音声読み上げを使用する場合、以下のいずれかが必要：
+- **AivisSpeech Engine** (無料): [公式サイト](https://aivis-project.com/)からダウンロード
+- **Aivis Cloud API** (有料): APIキーを取得して設定画面で設定
+
 ### 配布版ダウンロード
 1. GoogleドライブまたはGitHub Releasesから最新の`KawAIi-Code-1.0.0-arm64.dmg`をダウンロード
 
@@ -38,10 +58,12 @@ Claude CodeとアニメキャラクターVRMが対話するデスクトップア
 このアプリは署名付きでビルドされているため、macOSの標準的なDMGインストーラーから直接インストールできます。従来の隔離属性削除手順は不要になりました。
 
 ### システム要件
-- macOS 10.15 (Catalina) 以降
-- Apple Silicon (M1/M2/M3) または Intel 64-bit
-- 2GB以上の空きディスク容量
-- 4GB以上のRAM推奨
+- **macOS 10.15 (Catalina) 以降**
+- **Apple Silicon (M1/M2/M3) または Intel 64-bit**
+- **Claude Code CLI**（必須）
+- **2GB以上の空きディスク容量**
+- **4GB以上のRAM推奨**
+- **インターネット接続**（Claude Code API通信用）
 
 ## 🎯 使い方ガイド
 
@@ -53,11 +75,16 @@ Claude CodeとアニメキャラクターVRMが対話するデスクトップア
 <summary>📱 <strong>3分で始める KawAIi Code</strong></summary>
 
 #### 最初のAI会話
-1. **▶️ 開始ボタン**（右向き三角形）をクリック
-2. ターミナル画面でClaude Codeと会話開始！
-3. 右側の3Dキャラクター（モネ）がAIの返答に合わせて表情変化
+1. **Claude Code CLI が正常にインストールされていることを確認**
+   ```bash
+   claude --version
+   ```
+2. **▶️ 開始ボタン**（右向き三角形）をクリック
+3. ターミナル画面でClaude Codeと会話開始！
+4. 右側の3Dキャラクター（モネ）がAIの返答に合わせて表情変化
 
 #### 音声機能を有効にする（オプション）
+- AivisSpeech Engine を起動 (`127.0.0.1:10101`)
 - 音声機能を有効にすると、キャラクターが返答を読み上げます
 - 感情に応じた自然な表情変化を楽しめます
 
@@ -356,7 +383,15 @@ which claude
 
 # 権限確認
 chmod +x $(which claude)
+
+# Homebrewでインストールしていない場合
+# 公式サイトからダウンロード: https://claude.ai/cli
 ```
+
+**「Claude Code が見つかりません」エラーの場合：**
+1. Claude Code CLI がインストールされていることを確認
+2. ターミナルで `claude --version` が実行できることを確認
+3. PATHにclaude コマンドが含まれていることを確認
 
 ### 音声機能
 **音声が再生されない場合：**
