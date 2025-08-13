@@ -1249,7 +1249,19 @@ class UIEventManager {
         if (useCloudApiToggle) {
             // 初期値を設定から読み込み
             const initCloudApi = async () => {
-                const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                // ElectronのappConfigから読み込む（実際の保存先）
+                let useCloudAPI = false;
+                try {
+                    if (window.electronAPI && window.electronAPI.getUseCloudApi) {
+                        useCloudAPI = await window.electronAPI.getUseCloudApi();
+                    } else {
+                        // フォールバック：unifiedConfigから読み込み
+                        useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                    }
+                } catch (error) {
+                    this.debugLog('Cloud API設定読み込みエラー:', error);
+                    useCloudAPI = false;
+                }
                 useCloudApiToggle.checked = useCloudAPI;
                 if (cloudApiSettings) {
                     cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
@@ -1305,8 +1317,8 @@ class UIEventManager {
                     this.toggleLocalVoiceControls(!useCloudAPI);
                     
                     // AudioServiceの設定を更新
-                    if (this.app.terminalApp && this.app.terminalApp.audioService) {
-                        await this.app.terminalApp.audioService.updateApiSettings();
+                    if (this.app && this.app.audioService) {
+                        await this.app.audioService.updateApiSettings();
                     }
                     
                     // 接続状態を再確認
@@ -1342,7 +1354,7 @@ class UIEventManager {
                         // electronAPIを通してAPIキーを保存
                         await window.electronAPI.setCloudApiKey?.(apiKey);
                         
-                        if (this.app.audioService) {
+                        if (this.app && this.app.audioService) {
                             await this.app.audioService.updateApiSettings();
                             
                             // 実際の音声合成テストを実行（1回のみ保証）
@@ -1390,8 +1402,8 @@ class UIEventManager {
                         this.showCloudApiStatus('success', '設定を保存しました');
                         
                         // AudioServiceの設定を更新
-                        if (this.app.terminalApp && this.app.terminalApp.audioService) {
-                            await this.app.terminalApp.audioService.updateApiSettings();
+                        if (this.app && this.app.audioService) {
+                            await this.app.audioService.updateApiSettings();
                         }
                     } catch (error) {
                         this.showCloudApiStatus('error', `保存エラー: ${error.message}`);
@@ -1667,7 +1679,7 @@ class UIEventManager {
         if (voiceToggleModal) voiceToggleModal.checked = this.app.voiceEnabled;
         
         // 話者選択の更新をAudioServiceに委譲
-        if (this.app.audioService) {
+        if (this.app && this.app.audioService) {
             await this.app.audioService.updateSpeakerSelect();
         }
         
