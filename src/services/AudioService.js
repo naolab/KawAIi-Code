@@ -398,21 +398,26 @@ class AudioService {
             
             if (this.useCloudAPI) {
                 const originalFormat = this.detectAudioFormat(audioData);
-                processedAudioData = this.amplifyAudioData(audioData, 1.8);
-                this.debugLog('🔊 API音声の音量を増幅:', {
+                // Cloud APIのMP3音声は増幅処理をスキップして、そのまま使用
+                // （MP3の振幅調整は複雑なため、VRM側で対応する方が良い）
+                this.debugLog('🔊 Cloud API音声（MP3）検出:', {
                     originalFormat: originalFormat,
                     originalSize: audioData.byteLength,
-                    processedSize: processedAudioData.byteLength,
-                    gainFactor: 1.8,
-                    amplified: processedAudioData !== audioData
+                    note: 'MP3音声はそのまま使用（VRM側で振幅調整）'
                 });
+                // 将来的にMP3の振幅増幅を実装する場合はここに処理を追加
             } else {
                 this.debugLog('🎵 ローカル音声のため増幅スキップ');
             }
 
             // VRMリップシンク用に音声データを送信
             if (this.terminalApp.vrmIntegrationService) {
-                this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData);
+                // Cloud APIの場合は振幅増幅フラグを付けて送信
+                if (this.useCloudAPI) {
+                    this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData, { amplifyLipSync: true });
+                } else {
+                    this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData);
+                }
             }
 
             // 既存音声の安全なクリーンアップ

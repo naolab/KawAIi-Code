@@ -6,6 +6,7 @@ export class LipSync {
   public readonly audio: AudioContext;
   public readonly analyser: AnalyserNode;
   public readonly timeDomainData: Float32Array;
+  private amplifyMode: boolean = false; // Cloud API用の振幅増幅モード
 
   public constructor(audio: AudioContext) {
     this.audio = audio;
@@ -14,12 +15,22 @@ export class LipSync {
     this.timeDomainData = new Float32Array(TIME_DOMAIN_DATA_LENGTH);
   }
 
+  // Cloud API用の振幅増幅モードを設定
+  public setAmplifyMode(enabled: boolean) {
+    this.amplifyMode = enabled;
+  }
+
   public update(): LipSyncAnalyzeResult {
     this.analyser.getFloatTimeDomainData(this.timeDomainData);
 
     let volume = 0.0;
     for (let i = 0; i < TIME_DOMAIN_DATA_LENGTH; i++) {
       volume = Math.max(volume, Math.abs(this.timeDomainData[i]));
+    }
+
+    // Cloud API用の振幅増幅処理
+    if (this.amplifyMode) {
+      volume = volume * 2.5; // Cloud API音声の振幅を2.5倍に増幅
     }
 
     // cook

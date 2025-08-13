@@ -89,7 +89,7 @@ class VRMIntegrationService {
     }
 
     // VRMビューワーに音声データを送信
-    sendAudioToVRM(audioData) {
+    sendAudioToVRM(audioData, options = {}) {
         if (!this.vrmViewerReady || !this.vrmIframeElement) {
             this.debugLog('🎭 VRMビューワー未準備 - 音声データ送信スキップ');
             return false;
@@ -103,7 +103,9 @@ class VRMIntegrationService {
                 type: 'lipSync',
                 audioData: audioArray,
                 format: 'wav',
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                // Cloud APIの場合は振幅増幅フラグを追加
+                amplifyLipSync: options.amplifyLipSync || false
             };
 
             // postMessageでVRMビューワーに送信

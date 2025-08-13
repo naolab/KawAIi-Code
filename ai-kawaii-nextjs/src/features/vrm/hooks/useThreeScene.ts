@@ -232,10 +232,23 @@ export const useThreeScene = ({
       if (event.origin !== 'file://') return // Electronからのメッセージのみ受信
       
       if (event.data.type === 'lipSync' && event.data.audioData) {
-        debugLog('🎭 postMessageで音声データ受信, サイズ:', event.data.audioData.length)
+        debugLog('🎭 postMessageで音声データ受信, サイズ:', event.data.audioData.length, 'amplifyLipSync:', event.data.amplifyLipSync)
         const audioBuffer = new Uint8Array(event.data.audioData).buffer
         if (lipSyncRef.current) {
+          // Cloud APIの場合は振幅増幅フラグを適用
+          if (event.data.amplifyLipSync) {
+            // LipSyncクラスに振幅増幅フラグを設定
+            if ('setAmplifyMode' in lipSyncRef.current) {
+              (lipSyncRef.current as any).setAmplifyMode(true)
+            }
+          }
           lipSyncRef.current.playFromArrayBuffer(audioBuffer)
+          // 処理後にフラグをリセット
+          if (event.data.amplifyLipSync && 'setAmplifyMode' in lipSyncRef.current) {
+            setTimeout(() => {
+              (lipSyncRef.current as any).setAmplifyMode(false)
+            }, 100)
+          }
         }
       }
       
