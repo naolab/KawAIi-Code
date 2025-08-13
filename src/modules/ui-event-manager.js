@@ -396,8 +396,13 @@ class UIEventManager {
         // 音声読み上げ間隔スライダー
         const voiceIntervalSlider = document.getElementById('voice-interval-slider');
         if (voiceIntervalSlider) {
-            // 初期値を設定から読み込み
-            voiceIntervalSlider.value = this.app.voiceIntervalSeconds;
+            // 初期値を統一設定システムから読み込み
+            const initInterval = async () => {
+                const savedInterval = await unifiedConfig.get('voiceIntervalSeconds', this.app.voiceIntervalSeconds);
+                this.app.voiceIntervalSeconds = savedInterval;
+                voiceIntervalSlider.value = savedInterval;
+            };
+            initInterval();
             
             const voiceIntervalHandler = async (e) => {
                 const newValue = parseFloat(e.target.value);
@@ -1713,6 +1718,14 @@ class UIEventManager {
             const unifiedConfig = window.getSafeUnifiedConfig();
             await unifiedConfig.set('voiceEnabled', this.app.voiceEnabled);
             await unifiedConfig.set('selectedSpeaker', this.app.selectedSpeaker);
+            await unifiedConfig.set('voiceIntervalSeconds', this.app.voiceIntervalSeconds);
+            await unifiedConfig.set('voiceVolume', this.app.voiceVolume);
+            
+            // Cloud API設定も保存（フラグのみ、APIキーは別途Electron側で管理）
+            const useCloudApiToggle = document.getElementById('use-cloud-api-toggle');
+            if (useCloudApiToggle) {
+                await unifiedConfig.set('useCloudAPI', useCloudApiToggle.checked);
+            }
 
             // 壁紙設定の復元は WallpaperSystem モジュールで処理
 

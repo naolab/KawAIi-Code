@@ -334,18 +334,16 @@ class UnifiedConfigManager {
     }
     
     _determineLevel(key) {
-        // システム設定
-        if (['claudeWorkingDir', 'voiceSynthesisEnabled', 'defaultSpeakerId', 'voiceCooldownSeconds', 'voiceIntervalSeconds', 'initial_consent_given'].includes(key)) {
-            return 'user';
+        // 一時的なランタイム設定のみメモリに保存
+        const runtimeOnlyKeys = ['tempData', 'sessionInfo', 'currentTabId', 'activeTerminal'];
+        
+        if (runtimeOnlyKeys.includes(key)) {
+            return 'runtime';
         }
         
-        // UI状態
-        if (['voiceEnabled', 'selectedSpeaker', 'wallpaperAnimationEnabled', 'selectedWallpaperChoice', 'lastUploadedWallpaper', 'speechHistoryKey'].includes(key)) {
-            return 'ui';
-        }
-        
-        // 一時的な設定
-        return 'runtime';
+        // それ以外の全ての設定をElectronStore（永続化）に保存
+        // これにより、アプリ再起動後も全ての設定が保持される
+        return 'user';
     }
     
     // マイグレーション機能は削除済み

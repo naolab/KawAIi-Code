@@ -110,6 +110,9 @@ class TerminalAppManager {
         this.terminalApp.audioService = new AudioService(this.terminalApp);
         this.services.audioService = this.terminalApp.audioService;
         
+        // AudioServiceのAPI設定を初期化（Cloud API設定を反映）
+        await this.terminalApp.audioService.updateApiSettings();
+        
         // VRMIntegrationService（HookServiceより先に初期化）
         this.terminalApp.vrmIntegrationService = new VRMIntegrationService(this.terminalApp);
         this.services.vrmIntegrationService = this.terminalApp.vrmIntegrationService;
