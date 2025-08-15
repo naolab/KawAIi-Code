@@ -1287,14 +1287,25 @@ class UIEventManager {
 
             // トグル変更時の処理（安全な登録方式）
             const toggleHandler = async (e) => {
-                // 排他制御で重複実行を防止
-                return await this.executeWithLock('cloud-api-toggle', async () => {
-                    const useCloudAPI = e.target.checked;
-                    this.debugLog('Cloud API toggle clicked:', { 
-                        useCloudAPI, 
-                        cloudApiSettingsExists: !!cloudApiSettings 
-                    });
-                    
+                const useCloudAPI = e.target.checked;
+                this.debugLog('Cloud API toggle clicked:', { 
+                    useCloudAPI, 
+                    cloudApiSettingsExists: !!cloudApiSettings 
+                });
+                
+                // UIを即座に更新（排他制御なし）
+                if (cloudApiSettings) {
+                    cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
+                    this.debugLog('Cloud API settings display changed to:', cloudApiSettings.style.display);
+                } else {
+                    this.debugLog('ERROR: cloudApiSettings element not found!');
+                }
+                
+                // 話者選択と音声エンジン接続状況の無効化/有効化
+                this.toggleLocalVoiceControls(!useCloudAPI);
+                
+                // 設定の保存は非同期で実行（UIをブロックしない）
+                (async () => {
                     // 統一設定システムに保存（localStorage）
                     await unifiedConfig.set('useCloudAPI', useCloudAPI);
                     
@@ -1306,16 +1317,6 @@ class UIEventManager {
                         console.error('❌ クラウドAPI使用設定の保存エラー:', error);
                     }
                     
-                    if (cloudApiSettings) {
-                        cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
-                        this.debugLog('Cloud API settings display changed to:', cloudApiSettings.style.display);
-                    } else {
-                        this.debugLog('ERROR: cloudApiSettings element not found!');
-                    }
-                    
-                    // 話者選択と音声エンジン接続状況の無効化/有効化
-                    this.toggleLocalVoiceControls(!useCloudAPI);
-                    
                     // AudioServiceの設定を更新
                     if (this.app && this.app.audioService) {
                         await this.app.audioService.updateApiSettings();
@@ -1325,7 +1326,7 @@ class UIEventManager {
                     await this.app.checkVoiceConnection();
                     
                     this.debugLog('Cloud API toggle changed:', useCloudAPI);
-                });
+                })();
             };
             
             // 安全なイベントリスナー登録
@@ -1793,6 +1794,12 @@ class UIEventManager {
             const cloudApiToggle = document.getElementById('use-cloud-api-toggle');
             if (cloudApiToggle) {
                 cloudApiToggle.checked = useCloudAPI;
+            }
+            
+            // API設定エリアの表示/非表示を更新
+            const cloudApiSettings = document.getElementById('cloud-api-settings');
+            if (cloudApiSettings) {
+                cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
             }
             
             // APIキー入力欄の更新
