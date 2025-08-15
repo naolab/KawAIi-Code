@@ -1340,7 +1340,24 @@ class UIEventManager {
                 return await this.executeWithLock('test-cloud-api', async () => {
                     if (!cloudApiKeyInput) return;
                     
-                    const apiKey = cloudApiKeyInput.value.trim();
+                    let apiKey = cloudApiKeyInput.value.trim();
+                    
+                    // 表示用のマスクされたキーの場合は、既存のAPIキーを取得
+                    if (apiKey.startsWith('sk-') && apiKey.includes('*')) {
+                        try {
+                            const existingKey = await window.electronAPI.getCloudApiKey?.();
+                            if (existingKey) {
+                                apiKey = existingKey;
+                            } else {
+                                this.showNotification('APIキーを入力してください', 'error');
+                                return;
+                            }
+                        } catch (error) {
+                            this.showNotification('APIキーの取得に失敗しました', 'error');
+                            return;
+                        }
+                    }
+                    
                     if (!apiKey) {
                         this.showNotification('APIキーを入力してください', 'error');
                         return;
@@ -1391,25 +1408,33 @@ class UIEventManager {
         // 保存ボタン（安全な登録方式）
         if (saveCloudApiBtn) {
             const saveHandler = async () => {
-                // 排他制御で重複実行を防止
-                return await this.executeWithLock('save-cloud-api', async () => {
-                    if (!cloudApiKeyInput) return;
+                if (!cloudApiKeyInput) return;
+                
+                let apiKey = cloudApiKeyInput.value.trim();
+                
+                // 表示用のマスクされたキーの場合は保存をスキップ
+                if (apiKey.startsWith('sk-') && apiKey.includes('*')) {
+                    this.showCloudApiStatus('info', '既存のAPIキーが設定済みです');
+                    return;
+                }
+                
+                if (!apiKey) {
+                    this.showCloudApiStatus('error', 'APIキーを入力してください');
+                    return;
+                }
+                
+                try {
+                    // electronAPIを通してAPIキーを保存
+                    await window.electronAPI.setCloudApiKey?.(apiKey);
+                    this.showCloudApiStatus('success', '設定を保存しました');
                     
-                    const apiKey = cloudApiKeyInput.value.trim();
-                    
-                    try {
-                        // electronAPIを通してAPIキーを保存
-                        await window.electronAPI.setCloudApiKey?.(apiKey);
-                        this.showCloudApiStatus('success', '設定を保存しました');
-                        
-                        // AudioServiceの設定を更新
-                        if (this.app && this.app.audioService) {
-                            await this.app.audioService.updateApiSettings();
-                        }
-                    } catch (error) {
-                        this.showCloudApiStatus('error', `保存エラー: ${error.message}`);
+                    // AudioServiceの設定を更新
+                    if (this.app && this.app.audioService) {
+                        await this.app.audioService.updateApiSettings();
                     }
-                });
+                } catch (error) {
+                    this.showCloudApiStatus('error', `保存エラー: ${error.message}`);
+                }
             };
             
             // 安全なイベントリスナー登録

@@ -239,6 +239,7 @@ export const useThreeScene = ({
           if (event.data.amplifyLipSync) {
             // LipSyncクラスに振幅増幅フラグを設定
             if ('setAmplifyMode' in lipSyncRef.current) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (lipSyncRef.current as any).setAmplifyMode(true)
             }
           }
@@ -246,6 +247,7 @@ export const useThreeScene = ({
           // 処理後にフラグをリセット
           if (event.data.amplifyLipSync && 'setAmplifyMode' in lipSyncRef.current) {
             setTimeout(() => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (lipSyncRef.current as any).setAmplifyMode(false)
             }, 100)
           }

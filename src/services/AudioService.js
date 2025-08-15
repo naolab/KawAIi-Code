@@ -23,7 +23,7 @@ class AudioService {
         this.cloudApiKey = '';
         
         // 音声再生状態は統一管理システムを使用（app.js）
-        this.updateApiSettings();
+        // 注意: updateApiSettings()はTerminalAppManager.jsで明示的に呼ばれる
     }
 
     // API設定を更新
@@ -36,6 +36,11 @@ class AudioService {
                 // APIキーは暗号化されているため、window.electronAPI経由で復号化されたキーを取得
                 if (window.electronAPI && window.electronAPI.getCloudApiKey) {
                     this.cloudApiKey = await window.electronAPI.getCloudApiKey();
+                    this.debugLog('APIキー取得:', { 
+                        hasKey: !!this.cloudApiKey, 
+                        keyLength: this.cloudApiKey ? this.cloudApiKey.length : 0,
+                        keyPrefix: this.cloudApiKey ? this.cloudApiKey.substring(0, 10) + '...' : 'なし'
+                    });
                 }
             }
             this.debugLog('API設定を更新:', { useCloudAPI: this.useCloudAPI, endpoint: this.getApiEndpoint() });
@@ -668,14 +673,34 @@ class AudioService {
             const endpoint = this.getApiEndpoint();
             const headers = this.getRequestHeaders();
             
-            // ローカルAPIのみ /version エンドポイントを使用
-            // クラウドAPIは現在開発中のため、接続テストをスキップ
             if (this.useCloudAPI) {
-                // クラウドAPIが設定されている場合は仮に接続成功とする
-                this.connectionStatus = 'connected';
-                this.terminalApp.connectionStatus = 'connected';
-                this.debugLog('クラウドAPI使用中（接続テストスキップ）');
-                return { success: true };
+                // クラウドAPIの場合は/speakersエンドポイントで接続テスト
+                try {
+                    const testEndpoint = `${endpoint}/speakers`;
+                    const response = await fetch(testEndpoint, { headers });
+                    
+                    if (response.ok) {
+                        this.connectionStatus = 'connected';
+                        this.terminalApp.connectionStatus = 'connected';
+                        this.debugLog('クラウドAPI接続成功');
+                        return { success: true };
+                    } else {
+                        const errorText = await response.text();
+                        this.connectionStatus = 'disconnected';
+                        this.terminalApp.connectionStatus = 'disconnected';
+                        this.debugLog('クラウドAPI接続失敗:', {
+                            status: response.status,
+                            statusText: response.statusText,
+                            errorText
+                        });
+                        return { success: false, error: `API接続失敗: ${response.status} - ${errorText}` };
+                    }
+                } catch (error) {
+                    this.connectionStatus = 'error';
+                    this.terminalApp.connectionStatus = 'error';
+                    this.debugLog('クラウドAPI接続エラー:', error.message);
+                    return { success: false, error: error.message };
+                }
             }
             
             const testEndpoint = `${endpoint}/version`;
