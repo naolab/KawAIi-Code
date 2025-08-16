@@ -355,7 +355,9 @@ body.loaded {
     border-radius: 20px;
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(10px);
-    font-size: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #FF8C42;
     transition: all 0.3s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -1577,6 +1579,13 @@ input[type="checkbox"]:checked::before {
 
 .cooldown-input {
     width: 100px;
+}
+
+/* 入力フィールドのプレースホルダーを薄いグレーに */
+#cloud-api-key-input::placeholder,
+#model-uuid-input::placeholder {
+    color: #ccc;
+    opacity: 1;
 }
 
 /* 接続状況の表示 */
