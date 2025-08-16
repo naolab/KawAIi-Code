@@ -126,8 +126,19 @@ class AudioService {
                 // SSML強化テキスト処理
                 const enhancedText = this.enhanceTextWithSSML(text, emotion);
                 
-                // 感情に応じたパラメータ構築
-                const cloudPayload = this.buildCloudApiParams(enhancedText.text, emotion, speed, volume);
+                // 話者選択を取得（クラウドAPI用）
+                let cloudSpeakerId = 'default';
+                try {
+                    const speakerSelect = document.getElementById('speaker-select-modal');
+                    if (speakerSelect && speakerSelect.value) {
+                        cloudSpeakerId = speakerSelect.value;
+                    }
+                } catch (error) {
+                    this.debugError('話者選択取得エラー:', error);
+                }
+                
+                // 感情に応じたパラメータ構築（話者IDを含む）
+                const cloudPayload = await this.buildCloudApiParams(enhancedText.text, emotion, speed, volume, cloudSpeakerId);
                 cloudPayload.use_ssml = enhancedText.use_ssml;
                 
                 // 用途別プリセット適用
@@ -292,11 +303,29 @@ class AudioService {
         return AUDIO_PRESETS[presetName] || AUDIO_PRESETS.realtime;
     }
 
-    // クラウドAPIパラメータ構築（最小限版）
-    buildCloudApiParams(text, emotion, speed, volume) {
-        // 文字数節約のため、必要最小限のパラメータのみ使用
+    // クラウドAPIパラメータ構築（話者選択対応版）
+    async buildCloudApiParams(text, emotion, speed, volume, speakerId = null) {
+        // 選択された話者に応じてmodel_uuidを決定
+        let modelUuid = 'a59cb814-0083-4369-8542-f51a29e72af7'; // デフォルト
+        
+        try {
+            if (speakerId === 'custom') {
+                // カスタムモデルが選択された場合
+                const unifiedConfig = getSafeUnifiedConfig();
+                const customModelUuid = await unifiedConfig.get('cloudCustomModelUuid', modelUuid);
+                modelUuid = customModelUuid;
+                this.debugLog('カスタムモデルUUID使用:', customModelUuid);
+            } else if (speakerId === 'default' || !speakerId) {
+                // デフォルトモデル使用（既に設定済み）
+                this.debugLog('デフォルトモデルUUID使用:', modelUuid);
+            }
+        } catch (error) {
+            this.debugError('モデルUUID取得エラー:', error);
+            // エラー時はデフォルトを使用
+        }
+
         return {
-            model_uuid: 'a59cb814-0083-4369-8542-f51a29e72af7',
+            model_uuid: modelUuid,
             text: text,
             use_ssml: false,
             output_audio_channels: "mono",

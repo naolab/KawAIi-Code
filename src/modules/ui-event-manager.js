@@ -357,13 +357,36 @@ class UIEventManager {
 
         if (speakerSelectModal) {
             const speakerSelectHandler = async (e) => {
-                this.app.selectedSpeaker = parseInt(e.target.value);
+                const selectedValue = e.target.value;
                 
-                // 設定を永続化
-                if (window.electronAPI && window.electronAPI.config) {
-                    await window.electronAPI.config.set('defaultSpeakerId', this.app.selectedSpeaker);
+                // 現在のエンジンタイプを確認
+                let useCloudAPI = false;
+                try {
+                    if (window.electronAPI && window.electronAPI.getUseCloudApi) {
+                        useCloudAPI = await window.electronAPI.getUseCloudApi();
+                    } else {
+                        useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                    }
+                } catch (error) {
+                    this.debugError('エンジン設定取得エラー:', error);
                 }
-                this.debugLog('Speaker setting updated:', this.app.selectedSpeaker);
+                
+                if (useCloudAPI) {
+                    // クラウドAPI使用時：話者選択値をそのまま保存（'default' or 'custom'）
+                    this.debugLog('Cloud API speaker selection:', selectedValue);
+                    
+                    // カスタムモデルが選択された場合の処理は不要（buildCloudApiParamsで処理）
+                    // 設定は音声合成時にリアルタイムで取得
+                } else {
+                    // ローカルエンジン使用時：数値IDを使用（従来通り）
+                    this.app.selectedSpeaker = parseInt(selectedValue);
+                    
+                    // 設定を永続化
+                    if (window.electronAPI && window.electronAPI.config) {
+                        await window.electronAPI.config.set('defaultSpeakerId', this.app.selectedSpeaker);
+                    }
+                    this.debugLog('Local speaker setting updated:', this.app.selectedSpeaker);
+                }
             };
             
             // 安全なイベントリスナー登録
@@ -1273,8 +1296,8 @@ class UIEventManager {
                     cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
                 }
                 
-                // 話者選択と音声エンジン接続状況の初期状態設定
-                this.toggleLocalVoiceControls(!useCloudAPI);
+                // 話者選択の更新と音声エンジン接続状況の初期状態設定
+                this.updateVoiceControlsForEngine(useCloudAPI);
                 
                 // APIキーも読み込み（復号化は内部で処理）
                 if (cloudApiKeyInput && useCloudAPI) {
@@ -1308,8 +1331,8 @@ class UIEventManager {
                     this.debugLog('ERROR: cloudApiSettings element not found!');
                 }
                 
-                // 話者選択と音声エンジン接続状況の無効化/有効化
-                this.toggleLocalVoiceControls(!useCloudAPI);
+                // 話者選択の更新と音声エンジン接続状況の制御
+                this.updateVoiceControlsForEngine(useCloudAPI);
                 
                 // 設定の保存は非同期で実行（UIをブロックしない）
                 (async () => {
@@ -1478,28 +1501,16 @@ class UIEventManager {
     }
 
     /**
-     * ローカル音声コントロールの有効化/無効化
+     * 音声エンジンに応じた音声コントロールの更新
      */
-    toggleLocalVoiceControls(enabled) {
-        // 話者選択を制御
-        const speakerSelect = document.getElementById('speaker-select-modal');
-        if (speakerSelect) {
-            speakerSelect.disabled = !enabled;
-            if (enabled) {
-                speakerSelect.style.opacity = '1';
-                speakerSelect.style.cursor = 'pointer';
-                speakerSelect.style.pointerEvents = 'auto';
-            } else {
-                speakerSelect.style.opacity = '0.5';
-                speakerSelect.style.cursor = 'not-allowed';
-                speakerSelect.style.pointerEvents = 'none';
-            }
-        }
+    async updateVoiceControlsForEngine(useCloudAPI) {
+        // 話者選択ドロップダウンを更新
+        await this.updateSpeakerSelectForEngine(useCloudAPI);
         
-        // 音声エンジン接続状況グループを制御
+        // 音声エンジン接続状況グループを制御（ローカル時のみ有効）
         const connectionStatusGroup = document.querySelector('.connection-status-group');
         if (connectionStatusGroup) {
-            if (enabled) {
+            if (!useCloudAPI) {
                 connectionStatusGroup.style.opacity = '1';
                 connectionStatusGroup.style.pointerEvents = 'auto';
             } else {
@@ -1508,11 +1519,11 @@ class UIEventManager {
             }
         }
         
-        // 再接続ボタンを制御
+        // 再接続ボタンを制御（ローカル時のみ有効）
         const refreshConnectionBtn = document.getElementById('refresh-connection-modal');
         if (refreshConnectionBtn) {
-            refreshConnectionBtn.disabled = !enabled;
-            if (enabled) {
+            refreshConnectionBtn.disabled = useCloudAPI;
+            if (!useCloudAPI) {
                 refreshConnectionBtn.style.opacity = '1';
                 refreshConnectionBtn.style.cursor = 'pointer';
             } else {
@@ -1521,7 +1532,99 @@ class UIEventManager {
             }
         }
         
-        this.debugLog('Local voice controls toggled:', { enabled });
+        this.debugLog('Voice controls updated for engine:', { useCloudAPI });
+    }
+
+    /**
+     * 音声エンジンに応じた話者選択ドロップダウンの更新
+     */
+    async updateSpeakerSelectForEngine(useCloudAPI) {
+        const speakerSelect = document.getElementById('speaker-select-modal');
+        if (!speakerSelect) return;
+
+        try {
+            if (useCloudAPI) {
+                // クラウドAPI使用時：設定されているモデルのみを表示
+                await this.populateCloudApiSpeakers(speakerSelect);
+            } else {
+                // ローカルエンジン使用時：全話者を表示（従来通り）
+                if (this.app && this.app.audioService) {
+                    await this.app.audioService.updateSpeakerSelect();
+                }
+            }
+            
+            // 話者選択を有効化（両エンジンで使用可能）
+            speakerSelect.disabled = false;
+            speakerSelect.style.opacity = '1';
+            speakerSelect.style.cursor = 'pointer';
+            speakerSelect.style.pointerEvents = 'auto';
+            
+        } catch (error) {
+            this.debugError('話者選択更新エラー:', error);
+            
+            // エラー時は無効化
+            speakerSelect.disabled = true;
+            speakerSelect.style.opacity = '0.5';
+            speakerSelect.style.cursor = 'not-allowed';
+            speakerSelect.style.pointerEvents = 'none';
+        }
+    }
+
+    /**
+     * クラウドAPI用の話者選択を設定
+     */
+    async populateCloudApiSpeakers(speakerSelect) {
+        try {
+            // 既存のオプションをクリア
+            speakerSelect.innerHTML = '';
+            
+            // 設定されているカスタムモデルUUIDを取得
+            const unifiedConfig = getSafeUnifiedConfig();
+            const customModelUuid = await unifiedConfig.get('cloudCustomModelUuid', 'a59cb814-0083-4369-8542-f51a29e72af7');
+            
+            // クラウドAPIで利用可能なモデル一覧（固定リスト）
+            const cloudModels = [
+                { id: 'default', name: 'Anneli（ノーマル）', uuid: 'a59cb814-0083-4369-8542-f51a29e72af7' },
+                { id: 'custom', name: 'カスタムモデル', uuid: customModelUuid }
+            ];
+            
+            // オプションを追加
+            cloudModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                
+                // カスタムモデルがデフォルトと同じ場合は非表示
+                if (model.id === 'custom' && model.uuid === cloudModels[0].uuid) {
+                    return;
+                }
+                
+                speakerSelect.appendChild(option);
+            });
+            
+            // デフォルト選択
+            speakerSelect.value = 'default';
+            
+            this.debugLog('クラウドAPI話者選択を設定:', { customModelUuid, optionCount: speakerSelect.options.length });
+            
+        } catch (error) {
+            this.debugError('クラウドAPI話者選択設定エラー:', error);
+            
+            // フォールバック：デフォルトのみ表示
+            speakerSelect.innerHTML = '';
+            const defaultOption = document.createElement('option');
+            defaultOption.value = 'default';
+            defaultOption.textContent = 'Anneli（ノーマル）';
+            speakerSelect.appendChild(defaultOption);
+            speakerSelect.value = 'default';
+        }
+    }
+
+    /**
+     * ローカル音声コントロールの有効化/無効化（互換性維持用）
+     */
+    toggleLocalVoiceControls(enabled) {
+        this.updateVoiceControlsForEngine(!enabled);
     }
 
     /**
