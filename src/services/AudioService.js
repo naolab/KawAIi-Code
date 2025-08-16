@@ -309,15 +309,19 @@ class AudioService {
         let modelUuid = 'a59cb814-0083-4369-8542-f51a29e72af7'; // デフォルト
         
         try {
-            if (speakerId === 'custom') {
-                // カスタムモデルが選択された場合
-                const unifiedConfig = getSafeUnifiedConfig();
-                const customModelUuid = await unifiedConfig.get('cloudCustomModelUuid', modelUuid);
-                modelUuid = customModelUuid;
-                this.debugLog('カスタムモデルUUID使用:', customModelUuid);
-            } else if (speakerId === 'default' || !speakerId) {
+            if (speakerId === 'default' || !speakerId) {
                 // デフォルトモデル使用（既に設定済み）
                 this.debugLog('デフォルトモデルUUID使用:', modelUuid);
+            } else {
+                // カスタムモデルが選択された場合（speakerIdがUUID）
+                // UUID形式チェック
+                const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (uuidPattern.test(speakerId)) {
+                    modelUuid = speakerId;
+                    this.debugLog('選択されたカスタムモデルUUID使用:', speakerId);
+                } else {
+                    this.debugLog('無効なspeakerId、デフォルトモデル使用:', speakerId);
+                }
             }
         } catch (error) {
             this.debugError('モデルUUID取得エラー:', error);

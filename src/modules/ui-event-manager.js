@@ -372,11 +372,14 @@ class UIEventManager {
                 }
                 
                 if (useCloudAPI) {
-                    // クラウドAPI使用時：話者選択値をそのまま保存（'default' or 'custom'）
+                    // クラウドAPI使用時：選択されたモデル（'default' または UUID）を保存
+                    this.app.selectedSpeaker = selectedValue;
                     this.debugLog('Cloud API speaker selection:', selectedValue);
                     
-                    // カスタムモデルが選択された場合の処理は不要（buildCloudApiParamsで処理）
-                    // 設定は音声合成時にリアルタイムで取得
+                    // 設定を永続化（クラウドAPI用の選択値として保存）
+                    if (window.electronAPI && window.electronAPI.config) {
+                        await window.electronAPI.config.set('cloudSelectedModel', selectedValue);
+                    }
                 } else {
                     // ローカルエンジン使用時：数値IDを使用（従来通り）
                     this.app.selectedSpeaker = parseInt(selectedValue);
@@ -1259,6 +1262,8 @@ class UIEventManager {
         const testCloudApiBtn = document.getElementById('test-cloud-api-btn');
         const saveCloudApiBtn = document.getElementById('save-cloud-api-btn');
         const cloudApiStatus = document.getElementById('cloud-api-status');
+        const modelUuidInput = document.getElementById('model-uuid-input');
+        const addModelBtn = document.getElementById('add-model-btn');
         
         // デバッグ用：要素の取得状況をチェック
         this.debugLog('Voice Engine Radio elements check:', {
@@ -1268,7 +1273,9 @@ class UIEventManager {
             cloudApiKeyInput: !!cloudApiKeyInput,
             testCloudApiBtn: !!testCloudApiBtn,
             saveCloudApiBtn: !!saveCloudApiBtn,
-            cloudApiStatus: !!cloudApiStatus
+            cloudApiStatus: !!cloudApiStatus,
+            modelUuidInput: !!modelUuidInput,
+            addModelBtn: !!addModelBtn
         });
 
         if (voiceEngineLocalRadio && voiceEngineCloudRadio) {
@@ -1471,6 +1478,44 @@ class UIEventManager {
             // 安全なイベントリスナー登録
             this.safeAddEventListener(saveCloudApiBtn, 'click', saveHandler, 'save-cloud-api-btn');
         }
+        
+        // モデル追加ボタンのイベントリスナー
+        if (addModelBtn && modelUuidInput) {
+            const addModelHandler = async () => {
+                const uuidInput = modelUuidInput.value.trim();
+                
+                if (!uuidInput) {
+                    this.showCustomModelStatus('error', 'モデルUUIDを入力してください');
+                    return;
+                }
+                
+                // UUID形式の簡易チェック（36文字のハイフン区切り）
+                const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (!uuidPattern.test(uuidInput)) {
+                    this.showCustomModelStatus('error', '有効なUUID形式を入力してください');
+                    return;
+                }
+                
+                try {
+                    // カスタムモデルリストに追加
+                    await this.addCustomModel(uuidInput);
+                    
+                    // 話者選択ドロップダウンを更新
+                    await this.refreshCloudApiSpeakers();
+                    
+                    // 入力フィールドをクリア
+                    modelUuidInput.value = '';
+                    
+                    this.showCustomModelStatus('success', 'モデルを追加しました');
+                    
+                } catch (error) {
+                    this.debugError('モデル追加エラー:', error);
+                    this.showCustomModelStatus('error', `モデル追加エラー: ${error.message}`);
+                }
+            };
+            
+            this.safeAddEventListener(addModelBtn, 'click', addModelHandler, 'add-model-btn');
+        }
     }
 
     /**
@@ -1501,11 +1546,44 @@ class UIEventManager {
     }
 
     /**
+     * カスタムモデルステータス表示
+     */
+    showCustomModelStatus(type, message) {
+        const customModelStatus = document.getElementById('custom-model-status');
+        if (!customModelStatus) return;
+        
+        customModelStatus.style.display = 'block';
+        customModelStatus.textContent = message;
+        
+        // タイプに応じた色分け
+        if (type === 'success') {
+            customModelStatus.style.backgroundColor = '#d4edda';
+            customModelStatus.style.color = '#155724';
+            customModelStatus.style.border = '1px solid #c3e6cb';
+        } else if (type === 'error') {
+            customModelStatus.style.backgroundColor = '#f8d7da';
+            customModelStatus.style.color = '#721c24';
+            customModelStatus.style.border = '1px solid #f5c6cb';
+        }
+        
+        // 5秒後に自動非表示
+        setTimeout(() => {
+            customModelStatus.style.display = 'none';
+        }, 5000);
+    }
+
+    /**
      * 音声エンジンに応じた音声コントロールの更新
      */
     async updateVoiceControlsForEngine(useCloudAPI) {
         // 話者選択ドロップダウンを更新
         await this.updateSpeakerSelectForEngine(useCloudAPI);
+        
+        // カスタムモデルセクションの表示制御（クラウドAPI時のみ表示）
+        const customModelSection = document.getElementById('custom-model-section');
+        if (customModelSection) {
+            customModelSection.style.display = useCloudAPI ? 'block' : 'none';
+        }
         
         // 音声エンジン接続状況グループを制御（ローカル時のみ有効）
         const connectionStatusGroup = document.querySelector('.connection-status-group');
@@ -1575,37 +1653,55 @@ class UIEventManager {
      */
     async populateCloudApiSpeakers(speakerSelect) {
         try {
+            this.debugLog('populateCloudApiSpeakers開始');
+            
             // 既存のオプションをクリア
             speakerSelect.innerHTML = '';
             
-            // 設定されているカスタムモデルUUIDを取得
             const unifiedConfig = getSafeUnifiedConfig();
-            const customModelUuid = await unifiedConfig.get('cloudCustomModelUuid', 'a59cb814-0083-4369-8542-f51a29e72af7');
+            this.debugLog('unifiedConfig取得完了');
             
-            // クラウドAPIで利用可能なモデル一覧（固定リスト）
-            const cloudModels = [
-                { id: 'default', name: 'Anneli（ノーマル）', uuid: 'a59cb814-0083-4369-8542-f51a29e72af7' },
-                { id: 'custom', name: 'カスタムモデル', uuid: customModelUuid }
-            ];
+            // デフォルトモデルを追加
+            const defaultOption = document.createElement('option');
+            defaultOption.value = 'default';
+            defaultOption.textContent = 'Anneli（ノーマル）';
+            speakerSelect.appendChild(defaultOption);
             
-            // オプションを追加
-            cloudModels.forEach(model => {
+            // カスタムモデルリストを取得
+            const customModels = await unifiedConfig.get('cloudCustomModels', []);
+            this.debugLog('カスタムモデルリスト取得:', { count: customModels.length, models: customModels });
+            
+            // カスタムモデルをドロップダウンに追加
+            customModels.forEach((model, index) => {
                 const option = document.createElement('option');
-                option.value = model.id;
+                option.value = model.uuid;  // UUIDをvalueに設定
                 option.textContent = model.name;
-                
-                // カスタムモデルがデフォルトと同じ場合は非表示
-                if (model.id === 'custom' && model.uuid === cloudModels[0].uuid) {
-                    return;
-                }
-                
+                option.dataset.uuid = model.uuid;  // data属性としてもUUIDを保存
                 speakerSelect.appendChild(option);
             });
             
-            // デフォルト選択
-            speakerSelect.value = 'default';
+            // 保存された選択値を復元（なければデフォルト）
+            let savedSelection = 'default';
+            try {
+                if (window.electronAPI && window.electronAPI.config) {
+                    savedSelection = await window.electronAPI.config.get('cloudSelectedModel') || 'default';
+                } else {
+                    savedSelection = await unifiedConfig.get('cloudSelectedModel', 'default');
+                }
+            } catch (error) {
+                this.debugError('保存された選択値取得エラー:', error);
+            }
             
-            this.debugLog('クラウドAPI話者選択を設定:', { customModelUuid, optionCount: speakerSelect.options.length });
+            // 選択値を設定（存在しない場合はdefaultにフォールバック）
+            const optionExists = Array.from(speakerSelect.options).some(option => option.value === savedSelection);
+            speakerSelect.value = optionExists ? savedSelection : 'default';
+            
+            this.debugLog('クラウドAPI話者選択を設定完了:', { 
+                customModelCount: customModels.length, 
+                optionCount: speakerSelect.options.length,
+                savedSelection,
+                finalValue: speakerSelect.value
+            });
             
         } catch (error) {
             this.debugError('クラウドAPI話者選択設定エラー:', error);
@@ -2159,6 +2255,72 @@ class UIEventManager {
         html = html.replace(/(<\/ul>)\s*(<h[1-4])/g, '$1$2');
         
         return html;
+    }
+
+    /**
+     * カスタムモデルをリストに追加
+     */
+    async addCustomModel(uuid) {
+        try {
+            const unifiedConfig = getSafeUnifiedConfig();
+            
+            // 既存のカスタムモデルリストを取得
+            const existingModels = await unifiedConfig.get('cloudCustomModels', []);
+            
+            // 重複チェック
+            const isDuplicate = existingModels.some(model => model.uuid === uuid);
+            if (isDuplicate) {
+                throw new Error('このモデルは既に追加されています');
+            }
+            
+            // 新しいモデルを追加（短いUUIDをnameに使用）
+            const shortUuid = uuid.substring(0, 8) + '...';
+            const newModel = {
+                uuid: uuid,
+                name: `カスタム (${shortUuid})`,
+                addedAt: Date.now()
+            };
+            
+            const updatedModels = [...existingModels, newModel];
+            await unifiedConfig.set('cloudCustomModels', updatedModels);
+            
+            this.debugLog('カスタムモデル追加:', newModel);
+            
+        } catch (error) {
+            this.debugError('カスタムモデル追加エラー:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * クラウドAPI話者選択を更新
+     */
+    async refreshCloudApiSpeakers() {
+        try {
+            const speakerSelect = document.getElementById('speaker-select-modal');
+            if (!speakerSelect) return;
+            
+            // クラウドAPI使用中かチェック
+            let useCloudAPI = false;
+            try {
+                if (window.electronAPI && window.electronAPI.getUseCloudApi) {
+                    useCloudAPI = await window.electronAPI.getUseCloudApi();
+                } else {
+                    const unifiedConfig = getSafeUnifiedConfig();
+                    useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                }
+            } catch (error) {
+                this.debugError('エンジン設定取得エラー:', error);
+            }
+            
+            if (useCloudAPI) {
+                await this.populateCloudApiSpeakers(speakerSelect);
+            }
+            
+        } catch (error) {
+            this.debugError('話者選択更新エラー:', error);
+            throw error;
+        }
     }
 }
 

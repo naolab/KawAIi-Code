@@ -140,6 +140,17 @@
                         </div>
                     </div>
                     
+                    <div class="setting-group" id="custom-model-section" style="display: none;">
+                        <label>音声合成モデルを追加(Aivis Cloud API使用時)</label>
+                        <div style="margin-top: 8px;">
+                            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                <input type="text" id="model-uuid-input" placeholder="モデルUUIDを入力" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                                <button id="add-model-btn" class="simple-btn" style="white-space: nowrap;">追加</button>
+                            </div>
+                            <div id="custom-model-status" style="font-size: 12px; padding: 8px; border-radius: 4px; display: none;"></div>
+                        </div>
+                    </div>
+                    
                     <div class="setting-group">
                         <label for="speaker-select-modal">話者選択</label>
                         <select id="speaker-select-modal" class="speaker-select">
