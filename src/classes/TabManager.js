@@ -208,7 +208,16 @@ class TabManager {
                 return false;
             }
 
-            const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
+            let aiName;
+            if (aiType === 'claude') {
+                aiName = 'Claude Code';
+            } else if (aiType === 'claude-dangerous') {
+                aiName = 'Claude Code (Dangerous)';
+            } else if (aiType === 'gemini') {
+                aiName = 'Gemini CLI';
+            } else {
+                aiName = aiType; // フォールバック
+            }
             debugLog(`Starting ${aiName} for tab ${tabId}`);
             
             // 既存のイベントリスナーをクリーンアップ（重複防止）

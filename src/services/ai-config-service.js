@@ -13,6 +13,10 @@ class AIConfigService {
                 name: 'Claude Code (Dangerous)',
                 possiblePaths: this.generateClaudePaths(),
                 arguments: ['--dangerously-skip-permissions']
+            },
+            'gemini': {
+                name: 'Gemini CLI',
+                possiblePaths: this.generateGeminiPaths()
             }
         };
     }
@@ -71,6 +75,68 @@ class AIConfigService {
         // 4. 最後の手段としてPATH上の claude
         if (!paths.includes('claude')) {
             paths.push('claude');
+        }
+        
+        // 重複を除去してフィルタ
+        return [...new Set(paths)].filter(p => p);
+    }
+
+    /**
+     * Gemini CLIの可能なパスを動的に生成
+     * @returns {string[]} 検索するパスの配列
+     */
+    generateGeminiPaths() {
+        const paths = [];
+        
+        // 1. 環境変数を最優先
+        if (process.env.GEMINI_PATH) {
+            paths.push(process.env.GEMINI_PATH);
+        }
+        
+        // 2. whichコマンドで現在のPATHから検索
+        try {
+            const whichResult = execSync('which gemini 2>/dev/null', { 
+                encoding: 'utf8',
+                stdio: ['pipe', 'pipe', 'ignore'] // stderrを無視
+            }).trim();
+            if (whichResult && !paths.includes(whichResult)) {
+                paths.push(whichResult);
+            }
+        } catch (e) {
+            // whichコマンドが失敗した場合は続行
+        }
+        
+        // 3. プラットフォーム別の既知のパス
+        if (process.platform === 'darwin') {
+            // macOS
+            paths.push(
+                '/opt/homebrew/bin/gemini',  // Apple Silicon
+                '/usr/local/bin/gemini',     // Intel Mac
+                '/usr/bin/gemini'
+            );
+        } else if (process.platform === 'win32') {
+            // Windows
+            paths.push(
+                'C:\\Program Files\\nodejs\\gemini.cmd',
+                'C:\\Program Files (x86)\\nodejs\\gemini.cmd',
+                path.join(process.env.USERPROFILE || '', 'AppData', 'Roaming', 'npm', 'gemini.cmd'),
+                'gemini.cmd',
+                'gemini.exe'
+            );
+        } else if (process.platform === 'linux') {
+            // Linux
+            paths.push(
+                '/usr/local/bin/gemini',
+                '/usr/bin/gemini',
+                '/opt/gemini/bin/gemini',
+                path.join(process.env.HOME || '', '.local', 'bin', 'gemini'),
+                path.join(process.env.HOME || '', '.npm-global', 'bin', 'gemini')
+            );
+        }
+        
+        // 4. 最後の手段としてPATH上の gemini
+        if (!paths.includes('gemini')) {
+            paths.push('gemini');
         }
         
         // 重複を除去してフィルタ

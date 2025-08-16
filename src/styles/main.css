@@ -1805,5 +1805,61 @@ input[type="checkbox"]:checked::before {
     height: 0 !important;
 }
 
+/* CLI選択トグルスイッチのスタイル */
+.cli-toggle-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    gap: 12px;
+    padding: 8px 0;
+    user-select: none;
+    transition: opacity 0.2s ease;
+}
+
+.cli-toggle-label:hover {
+    opacity: 0.8;
+}
+
+.cli-toggle-label input[type="checkbox"] {
+    display: none;
+}
+
+.cli-toggle-switch {
+    position: relative;
+    width: 52px;
+    height: 28px;
+    background-color: #ccc;
+    border-radius: 14px;
+    transition: background-color 0.3s ease;
+    flex-shrink: 0;
+}
+
+.cli-toggle-switch::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 24px;
+    height: 24px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cli-toggle-label input[type="checkbox"]:checked + .cli-toggle-switch {
+    background-color: #FF8C42;
+}
+
+.cli-toggle-label input[type="checkbox"]:checked + .cli-toggle-switch::before {
+    transform: translateX(24px);
+}
+
+.cli-toggle-label span:last-child {
+    font-size: 14px;
+    font-weight: 500;
+    color: #FF8C42;
+}
+
 
 

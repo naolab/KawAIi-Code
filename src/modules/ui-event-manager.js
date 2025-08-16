@@ -130,6 +130,34 @@ class UIEventManager {
     }
 
     /**
+     * 個別のイベントリスナーを削除
+     * @param {Element} element - 対象要素
+     * @param {string} listenerKey - リスナーキー
+     */
+    removeEventListener(element, listenerKey) {
+        if (!element || !listenerKey) {
+            this.debugError('❌ removeEventListener: Invalid parameters');
+            return;
+        }
+
+        const listenerData = this.registeredListeners.get(listenerKey);
+        if (listenerData) {
+            try {
+                element.removeEventListener(listenerData.eventType, listenerData.handler);
+                if (element._uiEventHandlers) {
+                    delete element._uiEventHandlers[listenerData.eventType];
+                }
+                this.registeredListeners.delete(listenerKey);
+                this.debugLog(`🗑️ Removed listener: ${listenerKey}`);
+            } catch (error) {
+                this.debugError(`❌ Error removing listener ${listenerKey}:`, error);
+            }
+        } else {
+            this.debugLog(`⚠️ Listener not found: ${listenerKey}`);
+        }
+    }
+
+    /**
      * 全てのイベントリスナーを設定
      */
     async setupEventListeners() {
@@ -176,6 +204,7 @@ class UIEventManager {
         const closeAiSelectBtn = document.getElementById('close-ai-select');
         const startClaudeBtn = document.getElementById('start-claude');
         const startClaudeDangerousBtn = document.getElementById('start-claude-dangerous');
+        const startGeminiBtn = document.getElementById('start-gemini');
         
         // Claude Code Hooks情報ボタン
         const hooksInfoBtn = document.getElementById('hooks-info-btn');
@@ -194,12 +223,15 @@ class UIEventManager {
             closeAiSelectBtn: !!closeAiSelectBtn,
             startClaudeBtn: !!startClaudeBtn,
             startClaudeDangerousBtn: !!startClaudeDangerousBtn,
+            startGeminiBtn: !!startGeminiBtn,
             hooksInfoBtn: !!hooksInfoBtn,
         });
 
         // ターミナル制御ボタン（安全な登録方式）
         if (startBtn) {
-            const startHandler = () => {
+            const startHandler = async () => {
+                // 動的CLI表示を更新
+                await this.updateAiSelectModalButtons();
                 if (aiSelectModal) aiSelectModal.style.display = 'flex';
             };
             this.safeAddEventListener(startBtn, 'click', startHandler, 'start-ai-selection');
@@ -237,6 +269,13 @@ class UIEventManager {
             };
             this.safeAddEventListener(startClaudeDangerousBtn, 'click', startClaudeDangerousHandler, 'start-claude-dangerous');
         }
+        if (startGeminiBtn && aiSelectModal) {
+            const startGeminiHandler = () => {
+                this.app.startTerminal('gemini');
+                aiSelectModal.style.display = 'none';
+            };
+            this.safeAddEventListener(startGeminiBtn, 'click', startGeminiHandler, 'start-gemini');
+        }
         if (aiSelectModal) {
             aiSelectModal.addEventListener('click', (e) => {
                 if (e.target === aiSelectModal) {
@@ -252,6 +291,9 @@ class UIEventManager {
                 this.app.syncSettingsToModal();
             });
         }
+        
+        // CLI選択設定のイベントリスナー
+        await this.setupCliSelectionEventListeners();
         
         if (closeSettingsBtn && settingsModal) {
             closeSettingsBtn.addEventListener('click', () => {
@@ -1931,6 +1973,9 @@ class UIEventManager {
         // クラウドAPI設定の同期
         await this.syncCloudApiSettings();
 
+        // CLI選択設定の同期
+        await this.loadCliSelectionSettings();
+
         // Claude Code 作業ディレクトリ設定の同期
         const claudeCwdDisplay = document.getElementById('claude-cwd-display');
         const claudeCwdMessage = document.getElementById('claude-cwd-message');
@@ -2324,6 +2369,176 @@ class UIEventManager {
         } catch (error) {
             this.debugError('話者選択更新エラー:', error);
             throw error;
+        }
+    }
+
+    /**
+     * CLI選択設定のイベントリスナー
+     */
+    async setupCliSelectionEventListeners() {
+        const cliToggles = document.querySelectorAll('input[data-cli]');
+        const errorElement = document.getElementById('cli-selection-error');
+        
+        // 各CLI選択トグルにイベントリスナーを追加
+        cliToggles.forEach(toggle => {
+            this.safeAddEventListener(toggle, 'change', async () => {
+                await this.handleCliToggleChange();
+            }, `cli-toggle-${toggle.dataset.cli}`);
+        });
+        
+        // 初期設定を読み込み
+        await this.loadCliSelectionSettings();
+    }
+
+    /**
+     * CLI選択変更ハンドラー
+     */
+    async handleCliToggleChange() {
+        const cliToggles = document.querySelectorAll('input[data-cli]');
+        const errorElement = document.getElementById('cli-selection-error');
+        const checkedToggles = Array.from(cliToggles).filter(toggle => toggle.checked);
+        
+        // 最低1つ選択の検証
+        if (checkedToggles.length === 0) {
+            // 最後の1つを無効化させない
+            event.target.checked = true;
+            if (errorElement) {
+                errorElement.style.display = 'block';
+                setTimeout(() => {
+                    errorElement.style.display = 'none';
+                }, 3000);
+            }
+            return;
+        }
+        
+        // エラー表示を隠す
+        if (errorElement) {
+            errorElement.style.display = 'none';
+        }
+        
+        // 設定を保存
+        const enabledCLIs = checkedToggles.map(toggle => toggle.dataset.cli);
+        const unifiedConfig = getSafeUnifiedConfig();
+        await unifiedConfig.set('enabledCLIs', enabledCLIs);
+        
+        this.debugLog('CLI選択更新:', enabledCLIs);
+        
+        // メイン画面のボタン表示を更新
+        await this.updateMainCliButtons();
+    }
+
+    /**
+     * CLI選択設定を読み込み
+     */
+    async loadCliSelectionSettings() {
+        try {
+            const unifiedConfig = getSafeUnifiedConfig();
+            // 既存の設定を読み込み、なければnullを返す
+            let enabledCLIs = await unifiedConfig.get('enabledCLIs');
+            
+            // 設定が存在しない場合のみデフォルト値を設定
+            if (!enabledCLIs) {
+                enabledCLIs = ['claude', 'claude-dangerous', 'gemini'];
+                await unifiedConfig.set('enabledCLIs', enabledCLIs);
+            }
+            
+            // UIに反映
+            const cliToggles = document.querySelectorAll('input[data-cli]');
+            cliToggles.forEach(toggle => {
+                toggle.checked = enabledCLIs.includes(toggle.dataset.cli);
+            });
+            
+            this.debugLog('CLI設定読み込み:', enabledCLIs);
+            
+            // メイン画面のボタン表示を更新
+            await this.updateMainCliButtons();
+            
+        } catch (error) {
+            this.debugError('CLI設定読み込みエラー:', error);
+        }
+    }
+
+    /**
+     * メイン画面のCLIボタン表示を更新
+     */
+    async updateMainCliButtons() {
+        try {
+            const unifiedConfig = getSafeUnifiedConfig();
+            const enabledCLIs = await unifiedConfig.get('enabledCLIs', ['claude', 'claude-dangerous', 'gemini']);
+            
+            // 各CLIボタンの表示制御
+            const cliButtons = {
+                'claude': document.getElementById('start-claude'),
+                'claude-dangerous': document.getElementById('start-claude-dangerous'),
+                'gemini': document.getElementById('start-gemini')
+            };
+            
+            Object.entries(cliButtons).forEach(([cliType, button]) => {
+                if (button) {
+                    button.style.display = enabledCLIs.includes(cliType) ? 'block' : 'none';
+                }
+            });
+            
+            // 常にAI選択画面を表示（スマート起動を一時的に無効化）
+            const startBtn = document.getElementById('start-ai-selection');
+            if (startBtn) {
+                // 既存のイベントリスナーを削除
+                this.removeEventListener(startBtn, 'start-ai-selection');
+                this.removeEventListener(startBtn, 'start-ai-selection-direct');
+                // 常に選択画面を表示
+                this.safeAddEventListener(startBtn, 'click', () => {
+                    const aiSelectModal = document.getElementById('ai-select-modal');
+                    if (aiSelectModal) aiSelectModal.style.display = 'flex';
+                }, 'start-ai-selection');
+            }
+            
+            // // 1つのCLIのみ有効の場合、直接起動ボタンの動作を変更
+            // const startBtn = document.getElementById('start-ai-selection');
+            // if (startBtn && enabledCLIs.length === 1) {
+            //     // 既存のイベントリスナーを削除して新しいものを追加
+            //     this.removeEventListener(startBtn, 'start-ai-selection');
+            //     this.safeAddEventListener(startBtn, 'click', () => {
+            //         this.app.startTerminal(enabledCLIs[0]);
+            //     }, 'start-ai-selection-direct');
+            // } else if (startBtn && enabledCLIs.length > 1) {
+            //     // 複数CLI選択時は選択画面を表示
+            //     this.removeEventListener(startBtn, 'start-ai-selection-direct');
+            //     this.safeAddEventListener(startBtn, 'click', () => {
+            //         const aiSelectModal = document.getElementById('ai-select-modal');
+            //         if (aiSelectModal) aiSelectModal.style.display = 'flex';
+            //     }, 'start-ai-selection');
+            // }
+            
+        } catch (error) {
+            this.debugError('メインCLIボタン更新エラー:', error);
+        }
+    }
+
+    /**
+     * AI選択モーダルのボタン表示を更新
+     */
+    async updateAiSelectModalButtons() {
+        try {
+            const unifiedConfig = getSafeUnifiedConfig();
+            const enabledCLIs = await unifiedConfig.get('enabledCLIs', ['claude', 'claude-dangerous', 'gemini']);
+            
+            // 各CLIボタンの表示制御
+            const cliButtons = {
+                'claude': document.getElementById('start-claude'),
+                'claude-dangerous': document.getElementById('start-claude-dangerous'),
+                'gemini': document.getElementById('start-gemini')
+            };
+            
+            Object.entries(cliButtons).forEach(([cliType, button]) => {
+                if (button) {
+                    button.style.display = enabledCLIs.includes(cliType) ? 'inline-block' : 'none';
+                }
+            });
+            
+            this.debugLog('AI選択モーダルボタン更新:', enabledCLIs);
+            
+        } catch (error) {
+            this.debugError('AI選択モーダルボタン更新エラー:', error);
         }
     }
 }
