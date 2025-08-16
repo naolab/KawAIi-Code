@@ -227,15 +227,8 @@ class UIEventManager {
             hooksInfoBtn: !!hooksInfoBtn,
         });
 
-        // ターミナル制御ボタン（安全な登録方式）
-        if (startBtn) {
-            const startHandler = async () => {
-                // 動的CLI表示を更新
-                await this.updateAiSelectModalButtons();
-                if (aiSelectModal) aiSelectModal.style.display = 'flex';
-            };
-            this.safeAddEventListener(startBtn, 'click', startHandler, 'start-ai-selection');
-        }
+        // ターミナル制御ボタン（初期設定は削除、updateMainCliButtons()で動的に設定）
+        // startBtnのイベントリスナーはupdateMainCliButtons()で設定
         if (stopBtn) {
             const stopHandler = () => this.handleStopButtonClick();
             this.safeAddEventListener(stopBtn, 'click', stopHandler, 'stop-terminal');
@@ -2479,35 +2472,36 @@ class UIEventManager {
                 }
             });
             
-            // 常にAI選択画面を表示（スマート起動を一時的に無効化）
+            // スマート起動機能：1つのCLIのみ有効の場合は直接起動
             const startBtn = document.getElementById('start-ai-selection');
             if (startBtn) {
-                // 既存のイベントリスナーを削除
+                // 既存のイベントリスナーを完全に削除
                 this.removeEventListener(startBtn, 'start-ai-selection');
                 this.removeEventListener(startBtn, 'start-ai-selection-direct');
-                // 常に選択画面を表示
-                this.safeAddEventListener(startBtn, 'click', () => {
-                    const aiSelectModal = document.getElementById('ai-select-modal');
-                    if (aiSelectModal) aiSelectModal.style.display = 'flex';
-                }, 'start-ai-selection');
+                
+                // onclickも削除
+                startBtn.onclick = null;
+                
+                // registeredListenersからも強制削除
+                this.registeredListeners.delete('start-ai-selection_click');
+                this.registeredListeners.delete('start-ai-selection-direct_click');
+                
+                if (enabledCLIs.length === 1) {
+                    // 直接起動（onclickのみ使用）
+                    startBtn.onclick = () => {
+                        this.app.startTerminal(enabledCLIs[0]);
+                    };
+                    this.debugLog(`スマート起動有効: ${enabledCLIs[0]} を直接起動`);
+                } else if (enabledCLIs.length > 1) {
+                    // 選択画面表示（onclickのみ使用）
+                    startBtn.onclick = async () => {
+                        await this.updateAiSelectModalButtons();
+                        const aiSelectModal = document.getElementById('ai-select-modal');
+                        if (aiSelectModal) aiSelectModal.style.display = 'flex';
+                    };
+                    this.debugLog(`複数CLI選択: AI選択画面を表示 (${enabledCLIs.length}個のCLI)`);
+                }
             }
-            
-            // // 1つのCLIのみ有効の場合、直接起動ボタンの動作を変更
-            // const startBtn = document.getElementById('start-ai-selection');
-            // if (startBtn && enabledCLIs.length === 1) {
-            //     // 既存のイベントリスナーを削除して新しいものを追加
-            //     this.removeEventListener(startBtn, 'start-ai-selection');
-            //     this.safeAddEventListener(startBtn, 'click', () => {
-            //         this.app.startTerminal(enabledCLIs[0]);
-            //     }, 'start-ai-selection-direct');
-            // } else if (startBtn && enabledCLIs.length > 1) {
-            //     // 複数CLI選択時は選択画面を表示
-            //     this.removeEventListener(startBtn, 'start-ai-selection-direct');
-            //     this.safeAddEventListener(startBtn, 'click', () => {
-            //         const aiSelectModal = document.getElementById('ai-select-modal');
-            //         if (aiSelectModal) aiSelectModal.style.display = 'flex';
-            //     }, 'start-ai-selection');
-            // }
             
         } catch (error) {
             this.debugError('メインCLIボタン更新エラー:', error);
