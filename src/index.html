@@ -111,12 +111,18 @@
                         </div>
                     </div>
                     
-                    <!-- Aivis Cloud API設定セクション -->
+                    <!-- 音声エンジン選択セクション -->
                     <div class="setting-group">
-                        <label for="use-cloud-api-toggle">Aivis Cloud APIを使用</label>
-                        <div class="setting-switch">
-                            <input type="checkbox" id="use-cloud-api-toggle">
-                            <label for="use-cloud-api-toggle" class="switch-label"></label>
+                        <label>音声エンジン選択</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                            <label class="radio-label">
+                                <input type="radio" name="voice-engine" id="voice-engine-local" value="local" checked>
+                                <span>ローカルエンジン（AivisSpeech）</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="voice-engine" id="voice-engine-cloud" value="cloud">
+                                <span>クラウドAPI（Aivis Cloud API）</span>
+                            </label>
                         </div>
                         
                         <div id="cloud-api-settings" style="display: none;">
@@ -142,7 +148,7 @@
                     </div>
                     
                     <div class="setting-group connection-status-group">
-                        <span>音声エンジン接続状況</span>
+                        <span>ローカル音声エンジン接続状況</span>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <span id="connection-status-modal">接続確認中...</span>
                             <button id="refresh-connection-modal" class="simple-btn">再接続</button>

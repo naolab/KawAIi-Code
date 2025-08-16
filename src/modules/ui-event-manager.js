@@ -1228,8 +1228,9 @@ class UIEventManager {
      * Cloud API設定のイベントリスナー設定
      */
     setupCloudApiControls() {
-        // グローバル変数として読み込み済み
-        const useCloudApiToggle = document.getElementById('use-cloud-api-toggle');
+        // ラジオボタンに変更
+        const voiceEngineLocalRadio = document.getElementById('voice-engine-local');
+        const voiceEngineCloudRadio = document.getElementById('voice-engine-cloud');
         const cloudApiSettings = document.getElementById('cloud-api-settings');
         const cloudApiKeyInput = document.getElementById('cloud-api-key-input');
         const testCloudApiBtn = document.getElementById('test-cloud-api-btn');
@@ -1237,8 +1238,9 @@ class UIEventManager {
         const cloudApiStatus = document.getElementById('cloud-api-status');
         
         // デバッグ用：要素の取得状況をチェック
-        this.debugLog('Cloud API elements check:', {
-            useCloudApiToggle: !!useCloudApiToggle,
+        this.debugLog('Voice Engine Radio elements check:', {
+            voiceEngineLocalRadio: !!voiceEngineLocalRadio,
+            voiceEngineCloudRadio: !!voiceEngineCloudRadio,
             cloudApiSettings: !!cloudApiSettings,
             cloudApiKeyInput: !!cloudApiKeyInput,
             testCloudApiBtn: !!testCloudApiBtn,
@@ -1246,9 +1248,9 @@ class UIEventManager {
             cloudApiStatus: !!cloudApiStatus
         });
 
-        if (useCloudApiToggle) {
+        if (voiceEngineLocalRadio && voiceEngineCloudRadio) {
             // 初期値を設定から読み込み
-            const initCloudApi = async () => {
+            const initVoiceEngine = async () => {
                 // ElectronのappConfigから読み込む（実際の保存先）
                 let useCloudAPI = false;
                 try {
@@ -1262,7 +1264,11 @@ class UIEventManager {
                     this.debugLog('Cloud API設定読み込みエラー:', error);
                     useCloudAPI = false;
                 }
-                useCloudApiToggle.checked = useCloudAPI;
+                
+                // ラジオボタンの状態を設定
+                voiceEngineLocalRadio.checked = !useCloudAPI;
+                voiceEngineCloudRadio.checked = useCloudAPI;
+                
                 if (cloudApiSettings) {
                     cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
                 }
@@ -1283,12 +1289,13 @@ class UIEventManager {
                     }
                 }
             };
-            initCloudApi();
+            initVoiceEngine();
 
-            // トグル変更時の処理（安全な登録方式）
-            const toggleHandler = async (e) => {
-                const useCloudAPI = e.target.checked;
-                this.debugLog('Cloud API toggle clicked:', { 
+            // ラジオボタン変更時の処理
+            const radioChangeHandler = async (e) => {
+                const useCloudAPI = e.target.value === 'cloud';
+                this.debugLog('Voice engine radio changed:', { 
+                    selectedValue: e.target.value,
                     useCloudAPI, 
                     cloudApiSettingsExists: !!cloudApiSettings 
                 });
@@ -1312,9 +1319,9 @@ class UIEventManager {
                     // 実際の設定ファイルにも保存
                     try {
                         await window.electronAPI.setUseCloudApi?.(useCloudAPI);
-                        console.log('✅ クラウドAPI使用設定を保存:', useCloudAPI);
+                        console.log('✅ 音声エンジン設定を保存:', useCloudAPI ? 'クラウド' : 'ローカル');
                     } catch (error) {
-                        console.error('❌ クラウドAPI使用設定の保存エラー:', error);
+                        console.error('❌ 音声エンジン設定の保存エラー:', error);
                     }
                     
                     // AudioServiceの設定を更新
@@ -1325,12 +1332,13 @@ class UIEventManager {
                     // 接続状態を再確認
                     await this.app.checkVoiceConnection();
                     
-                    this.debugLog('Cloud API toggle changed:', useCloudAPI);
+                    this.debugLog('Voice engine changed:', useCloudAPI ? 'クラウド' : 'ローカル');
                 })();
             };
             
             // 安全なイベントリスナー登録
-            this.safeAddEventListener(useCloudApiToggle, 'change', toggleHandler, 'use-cloud-api-toggle');
+            this.safeAddEventListener(voiceEngineLocalRadio, 'change', radioChangeHandler, 'voice-engine-local');
+            this.safeAddEventListener(voiceEngineCloudRadio, 'change', radioChangeHandler, 'voice-engine-cloud');
         }
 
         // 接続テストボタン（安全な登録方式）
@@ -1759,10 +1767,10 @@ class UIEventManager {
             await unifiedConfig.set('voiceIntervalSeconds', this.app.voiceIntervalSeconds);
             await unifiedConfig.set('voiceVolume', this.app.voiceVolume);
             
-            // Cloud API設定も保存（フラグのみ、APIキーは別途Electron側で管理）
-            const useCloudApiToggle = document.getElementById('use-cloud-api-toggle');
-            if (useCloudApiToggle) {
-                await unifiedConfig.set('useCloudAPI', useCloudApiToggle.checked);
+            // 音声エンジン設定も保存（フラグのみ、APIキーは別途Electron側で管理）
+            const voiceEngineCloudRadio = document.getElementById('voice-engine-cloud');
+            if (voiceEngineCloudRadio) {
+                await unifiedConfig.set('useCloudAPI', voiceEngineCloudRadio.checked);
             }
 
             // 壁紙設定の復元は WallpaperSystem モジュールで処理
@@ -1796,7 +1804,7 @@ class UIEventManager {
     }
     
     /**
-     * クラウドAPI設定を同期
+     * 音声エンジン設定を同期
      */
     async syncCloudApiSettings() {
         try {
@@ -1815,10 +1823,12 @@ class UIEventManager {
                 encryptedApiKey = await unifiedConfig.get('aivisCloudApiKey', '');
             }
             
-            // トグルボタンの状態を更新
-            const cloudApiToggle = document.getElementById('use-cloud-api-toggle');
-            if (cloudApiToggle) {
-                cloudApiToggle.checked = useCloudAPI;
+            // ラジオボタンの状態を更新
+            const voiceEngineLocalRadio = document.getElementById('voice-engine-local');
+            const voiceEngineCloudRadio = document.getElementById('voice-engine-cloud');
+            if (voiceEngineLocalRadio && voiceEngineCloudRadio) {
+                voiceEngineLocalRadio.checked = !useCloudAPI;
+                voiceEngineCloudRadio.checked = useCloudAPI;
             }
             
             // API設定エリアの表示/非表示を更新
