@@ -9,7 +9,7 @@ Claude CodeとアニメキャラクターVRMが対話するデスクトップア
 ## ✨ 特徴
 
 - 🎀 **カワイイデザイン**: 3D VRMキャラクターとアニメUI
-- 💬 **AIアシスタント選択**: Claude CodeとGemini Code Assistを切り替えて利用可能
+- 💬 **AIアシスタント選択**: Claude Code、Claude Code (Dangerous)、Gemini CLIから選択可能
 - 🖥️ **デスクトップアプリ**: Electronベースのネイティブアプリ
 - 🔄 **リアルタイム応答**: AIアシスタントとのライブ通信
 - 🎨 **3D VRMビューワー**: Three.js/VRM対応の3Dキャラクター表示
@@ -26,16 +26,32 @@ Claude CodeとアニメキャラクターVRMが対話するデスクトップア
 
 このアプリを使用するには、事前に以下のソフトウェアが必要です：
 
-#### 1. Claude Code のインストール
+#### 1. AIアシスタントCLIツールのインストール
+
+以下から使用したいAIアシスタントをインストールしてください：
+
+**Claude Code（推奨）**
 ```bash
 # Claude Code（Anthropic公式CLI）をインストール
-# 公式サイト: https://claude.ai/cli
+# 公式サイト: https://claude.ai/code
 # または Homebrew（推奨）
 brew install anthropics/claude/claude
 
 # インストール確認
 claude --version
 ```
+
+**Gemini CLI**
+```bash
+# Gemini CLI（Google公式CLI）をインストール
+# 公式サイト: https://github.com/gemini-cli/gemini-cli
+npm install -g @gemini-cli/cli
+
+# インストール確認
+gemini --version
+```
+
+※ 設定画面で使用するAIアシスタントを選択できます。複数インストールすることも可能です。
 
 #### 2. 音声機能（オプション）
 音声読み上げを使用する場合、以下のいずれかが必要：
@@ -60,7 +76,7 @@ claude --version
 ### システム要件
 - **macOS 10.15 (Catalina) 以降**
 - **Apple Silicon (M1/M2/M3) または Intel 64-bit**
-- **Claude Code CLI**（必須）
+- **AIアシスタントCLI**（Claude Code、Gemini CLI等のいずれか必須）
 - **2GB以上の空きディスク容量**
 - **4GB以上のRAM推奨**
 - **インターネット接続**（Claude Code API通信用）

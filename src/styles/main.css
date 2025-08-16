@@ -1858,7 +1858,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 .cli-toggle-label span:last-child {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: #FF8C42;
 }

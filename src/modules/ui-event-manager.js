@@ -715,18 +715,22 @@ class UIEventManager {
                     
                     this.debugLog('手動CLAUDE.md生成開始');
                     
-                    const result = await this.generateCustomClaudeMd();
+                    // 選択されたMDファイル名を取得
+                    const mdFileSelect = document.getElementById('md-file-select');
+                    const selectedFileName = mdFileSelect ? mdFileSelect.value : 'CLAUDE.md';
+                    
+                    const result = await this.generateCustomMdFile(selectedFileName);
                     
                     if (result.success) {
-                        this.showNotification('CLAUDE.mdファイルを生成しました', 'success');
-                        this.debugLog('手動CLAUDE.md生成成功');
+                        this.showNotification(`${selectedFileName}ファイルを生成しました`, 'success');
+                        this.debugLog(`手動${selectedFileName}生成成功`);
                     } else {
-                        this.showNotification(result.message || 'CLAUDE.mdファイルの生成に失敗しました', 'error');
-                        this.debugError('手動CLAUDE.md生成失敗:', result);
+                        this.showNotification(result.message || `${selectedFileName}ファイルの生成に失敗しました`, 'error');
+                        this.debugError(`手動${selectedFileName}生成失敗:`, result);
                     }
                 } catch (error) {
-                    this.debugError('手動CLAUDE.md生成エラー:', error);
-                    this.showNotification('CLAUDE.mdファイルの生成中にエラーが発生しました', 'error');
+                    this.debugError('手動MDファイル生成エラー:', error);
+                    this.showNotification('MDファイルの生成中にエラーが発生しました', 'error');
                 } finally {
                     claudeMdGenerateBtn.disabled = false;
                     claudeMdGenerateBtn.textContent = '生成';
@@ -947,9 +951,9 @@ class UIEventManager {
     }
 
     /**
-     * カスタムCLAUDE.mdを生成（作業ディレクトリのみ）
+     * カスタムMDファイルを生成（作業ディレクトリのみ）
      */
-    async generateCustomClaudeMd() {
+    async generateCustomMdFile(fileName = 'CLAUDE.md') {
         try {
             const claudeMdContentEditor = document.getElementById('claude-md-content-editor');
             
@@ -959,7 +963,7 @@ class UIEventManager {
             
             const content = claudeMdContentEditor.value.trim();
             if (!content) {
-                return { success: false, message: 'CLAUDE.mdの内容が空です' };
+                return { success: false, message: 'MDファイルの内容が空です' };
             }
             
             // 作業ディレクトリに生成
@@ -968,18 +972,25 @@ class UIEventManager {
                 return { success: false, message: '作業ディレクトリが設定されていません' };
             }
             
-            const targetPath = workspaceResult.cwd + '/CLAUDE.md';
+            const targetPath = workspaceResult.cwd + '/' + fileName;
             
             // ファイルを書き込み
             const { fs } = window.electronAPI;
             await fs.promises.writeFile(targetPath, content, 'utf8');
             
-            this.debugLog('CLAUDE.md生成完了:', targetPath);
+            this.debugLog(`${fileName}生成完了:`, targetPath);
             return { success: true, path: targetPath };
         } catch (error) {
-            this.debugError('カスタムCLAUDE.md生成エラー:', error);
+            this.debugError(`カスタム${fileName}生成エラー:`, error);
             return { success: false, message: 'ファイルの生成に失敗しました' };
         }
+    }
+
+    /**
+     * カスタムCLAUDE.mdを生成（作業ディレクトリのみ）
+     */
+    async generateCustomClaudeMd() {
+        return await this.generateCustomMdFile('CLAUDE.md');
     }
 
     /**

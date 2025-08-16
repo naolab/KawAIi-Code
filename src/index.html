@@ -223,9 +223,18 @@
                         </div>
                     </div>
                     
-                    <!-- CLAUDE.md設定セクション -->
+                    <!-- マークダウン設定セクション -->
                     <div class="setting-group">
-                        <label>CLAUDE.md設定</label>
+                        <label>マークダウン設定</label>
+                        
+                        <!-- MDファイル選択 -->
+                        <div class="setting-item" style="margin-top: 8px;">
+                            <label for="md-file-select" style="display: block; margin-bottom: 5px; font-size: 13px;">生成するMDファイルを選択</label>
+                            <select id="md-file-select" class="speaker-select" style="width: 100%; margin-bottom: 8px;">
+                                <option value="CLAUDE.md">CLAUDE.md</option>
+                                <option value="GEMINI.md">GEMINI.md</option>
+                            </select>
+                        </div>
                         
                         <!-- 生成先表示 -->
                         <div class="setting-item" style="margin-top: 8px;">
@@ -243,7 +252,7 @@
                         
                         <!-- 内容編集エリア -->
                         <div class="setting-item" style="margin-top: 10px;">
-                            <label for="claude-md-content-editor" style="display: block; margin-bottom: 5px; font-size: 13px;">CLAUDE.md内容</label>
+                            <label for="claude-md-content-editor" style="display: block; margin-bottom: 5px; font-size: 13px;">MDファイル内容</label>
                             <textarea id="claude-md-content-editor" 
                                       style="width: 100%; height: 300px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;"
                                       placeholder="CLAUDE.mdの内容を編集してください..."></textarea>
@@ -251,7 +260,7 @@
                         
                         <!-- 読み込みボタン群 -->
                         <div class="claude-md-load-buttons" style="display: flex; gap: 6px; margin-top: 10px;">
-                            <button id="claude-md-load-btn" class="simple-btn" style="flex: 1; min-width: 140px;">現在の内容を読み込み</button>
+                            <button id="claude-md-load-btn" class="simple-btn" style="flex: 1; min-width: 140px;">作業ディレクトリの内容を読み込み</button>
                             <button id="claude-md-default-btn" class="simple-btn" style="flex: 1; min-width: 140px;">デフォルト内容を読み込み</button>
                         </div>
                     </div>
@@ -308,7 +317,7 @@
                                 VRMキャラクター
                             </a>
                             <a href="#" class="help-nav-item" data-section="claude">
-                                Claude Code機能
+                                AIアシスタント機能
                             </a>
                             <a href="#" class="help-nav-item" data-section="customize">
                                 カスタマイズ
@@ -363,6 +372,8 @@
                             <div class="help-item">
                                 <h3>Aivis Cloud API（クラウド）</h3>
                                 <p>設定画面から「クラウドAPI使用」を有効化し、Aivis Cloud APIキーを設定してください。インターネット経由で高品質な音声合成を利用できます。ローカルソフト不要でシステムリソース使用量が少ないのが利点です。</p>
+                                <h4>音声合成モデルの追加</h4>
+                                <p>Aivis Cloud API使用時は、カスタム音声合成モデルを追加できます。<a href="https://hub.aivis-project.com/" target="_blank">AivisHub</a>からお好みの音声モデルを探し、モデルUUIDをコピーしてください。設定画面の「音声合成モデルを追加」でモデルUUIDを入力し、「追加」ボタンをクリックしてください。追加されたモデルは話者選択のドロップダウンに表示され、いつでも利用可能になります。</p>
                             </div>
                         </div>
 
@@ -390,22 +401,26 @@
                             </div>
                         </div>
 
-                        <!-- Claude Code機能 -->
+                        <!-- AIアシスタント機能 -->
                         <div id="help-section-claude" class="help-section">
-                            <h2>Claude Code機能</h2>
+                            <h2>AIアシスタント機能</h2>
                             <div class="help-item">
-                                <h3>通常モード</h3>
-                                <p>一般的なプログラミング支援、コードレビューに使用します。安全性重視で権限チェックありのため、通常の開発作業全般に推奨されます。</p>
+                                <h3>Claude Code</h3>
+                                <p>Anthropic社のClaude Code CLIツールを使用します。一般的なプログラミング支援、コードレビューに使用でき、安全性重視で権限チェックありのため、通常の開発作業全般に推奨されます。</p>
                             </div>
                             <div class="help-item">
-                                <h3>Dangerousモード</h3>
-                                <p>システム設定変更、高度な操作に使用します。権限チェックをスキップしてより自由度が高い操作が可能ですが、上級者向けのため慎重に使用してください。</p>
+                                <h3>Claude Code (Dangerous)</h3>
+                                <p>Claude Codeの上級者向けモードです。システム設定変更、高度な操作に使用します。権限チェックをスキップしてより自由度が高い操作が可能ですが、慎重に使用してください。</p>
                             </div>
                             <div class="help-item">
-                                <h3>CLAUDE.md設定（手動）</h3>
-                                <p>Claude Codeにモネの魂を吹き込むため、作業ディレクトリにCLAUDE.mdファイルを生成する必要があります。このファイルがないと音声読み上げ機能（『』で囲まれた部分の読み上げ）が正常に動作しません。</p>
+                                <h3>Gemini CLI</h3>
+                                <p>Google社のGemini CLIツールを使用します。プログラミング支援や質問応答など、幅広いタスクに対応できます。今後さらに多くのAIアシスタントツールが追加予定です。</p>
+                            </div>
+                            <div class="help-item">
+                                <h3>マークダウン設定（手動）</h3>
+                                <p>各AIアシスタントにモネの魂を吹き込むため、作業ディレクトリにマークダウンファイル（CLAUDE.md、GEMINI.md等）を生成する必要があります。このファイルがないと音声読み上げ機能（『』で囲まれた部分の読み上げ）が正常に動作しません。</p>
                                 <p>キャラクター設定は自由に変更できますが、このアプリはモネを想定して作られているため（表情連動など）、他のキャラクター設定では一部機能が正常に動作しない可能性があります。</p>
-                                <p>設定画面からCLAUDE.mdの内容を編集し、「生成」ボタンで作業ディレクトリに作成できます。</p>
+                                <p>設定画面の「マークダウン設定」から各ファイルの内容を編集し、「生成」ボタンで作業ディレクトリに作成できます。</p>
                             </div>
                         </div>
 
@@ -414,16 +429,15 @@
                             <h2>カスタマイズ</h2>
                             <div class="help-item">
                                 <h3>壁紙システム</h3>
-                                <p>時間帯に応じて自動で壁紙が切り替わります。朝（6-12時）は爽やかなブルー系、昼（12-18時）は明るいイエロー系、夕（18-21時）は温かなオレンジ系、夜（21-6時）は落ち着いたパープル系になります。</p>
-                                <p>設定画面から「壁紙アップロード」でカスタム壁紙を設定できます。JPG、PNG、MP4（動画壁紙）に対応しており、推奨解像度は1920x1080以上です。</p>
+                                <p>設定画面から「壁紙アップロード」でカスタム壁紙を設定できます。JPG、PNGに対応しており、ファイルサイズは5MB以下、推奨解像度は1920x1080以上です。</p>
                             </div>
                             <div class="help-item">
                                 <h3>ターミナル設定</h3>
-                                <p>最大4つのターミナルを同時実行できるタブ機能があります。眼のアイコンで表示/非表示を切り替え、フォントサイズは設定画面で調整可能です。</p>
+                                <p>最大4つのターミナルを同時実行できるタブ機能があります。眼のアイコンで表示/非表示を切り替えできます。</p>
                             </div>
                             <div class="help-item">
                                 <h3>プロジェクト設定</h3>
-                                <p>プロジェクトごとに異なる作業ディレクトリを設定できます。CLAUDE.mdは設定画面で内容を編集し手動で生成、キャラクター設定もプロジェクト別に割り当て可能です。</p>
+                                <p>プロジェクトごとに異なる作業ディレクトリを設定できます。MDファイル（CLAUDE.mdまたはGEMINI.md）は設定画面で内容を編集し手動で生成、キャラクター設定もプロジェクト別に割り当て可能です。</p>
                             </div>
                         </div>
 
@@ -517,8 +531,10 @@
                         <div id="help-section-updates" class="help-section">
                             <h2>アップデート情報</h2>
                             <div class="help-item">
-                                <div id="updates-content" style="background: #f8f8f8; padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid #e0e0e0;">
-                                    <div style="text-align: center; color: #666;">読み込み中...</div>
+                                <div style="background: #f8f8f8; padding: 20px; border-radius: 8px; font-size: 14px; border: 1px solid #e0e0e0;">
+                                    <h3 style="margin-top: 0; color: #333;">現在のバージョン</h3>
+                                    <p style="font-size: 16px; font-weight: 600; color: #ff6b35; margin: 10px 0;">開発版（ベータ）</p>
+                                    <p style="color: #666; margin: 0;">最新の機能と改善が含まれています。</p>
                                 </div>
                             </div>
                         </div>
