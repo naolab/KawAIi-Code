@@ -94,7 +94,7 @@
                 </div>
                 <div class="settings-body">
                     <!-- CLI選択セクション -->
-                    <div class="setting-group" style="border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
+                    <div class="setting-group">
                         <label style="color: #FF8C42; font-weight: 600; font-size: 16px;">使用するモデルを選択</label>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
                             <label class="cli-toggle-label">
@@ -119,11 +119,14 @@
                     </div>
                     
                     <div class="setting-group">
-                        <label for="voice-toggle-modal">音声読み上げ</label>
-                        <input type="checkbox" id="voice-toggle-modal">
+                        <label>音声読み上げ</label>
+                        <label class="cli-toggle-label">
+                            <input type="checkbox" id="voice-toggle-modal">
+                            <div class="cli-toggle-switch"></div>
+                        </label>
                     </div>
                     
-                    <div class="setting-group">
+                    <div class="setting-group" style="display: none;">
                         <label for="use-hooks-toggle">Claude Code Hooksで読み上げ</label>
                         <div class="setting-switch">
                             <input type="checkbox" id="use-hooks-toggle">
