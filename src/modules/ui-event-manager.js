@@ -1010,13 +1010,16 @@ class UIEventManager {
     /**
      * 音声制御UIの有効・無効状態を更新
      */
-    updateVoiceControls() {
+    async updateVoiceControls() {
         const speakerSelectModal = document.getElementById('speaker-select-modal');
         const voiceToggleModal = document.getElementById('voice-toggle-modal');
         const cooldownInputModal = document.getElementById('voice-cooldown-modal');
         const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
 
-        const canUseVoice = this.app.connectionStatus === 'connected';
+        // クラウドAPI使用時は接続状態に関係なく有効化
+        const unifiedConfig = getSafeUnifiedConfig();
+        const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+        const canUseVoice = useCloudAPI ? true : (this.app.connectionStatus === 'connected');
 
         if (voiceToggleModal) {
             voiceToggleModal.disabled = !canUseVoice;
@@ -1031,7 +1034,8 @@ class UIEventManager {
         this.debugLog('Voice controls updated:', {
             canUseVoice,
             voiceEnabled: this.app.voiceEnabled,
-            connectionStatus: this.app.connectionStatus
+            connectionStatus: this.app.connectionStatus,
+            useCloudAPI
         });
     }
 
