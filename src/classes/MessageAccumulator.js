@@ -83,33 +83,29 @@ class MessageAccumulator {
     }
     
     addChunk(data) {
-        const hasMarker = data.includes('⏺') || data.includes('✦');
         const hasQuotes = data.includes('◆') && data.includes('◇');
         
-        this.debugLogSafe(`${this.logPrefix} 🔍 チャンク受信: マーカー=${hasMarker}, 括弧=${hasQuotes}, 長さ=${data.length}, プレビュー="${data.substring(0, 30)}..."`);
+        this.debugLogSafe(`${this.logPrefix} 🔍 チャンク受信: 括弧=${hasQuotes}, 長さ=${data.length}, プレビュー="${data.substring(0, 30)}..."`);
         
-        if (hasMarker) {
-            // 新しいメッセージ開始
-            if (this.isAccumulating) {
-                this.debugLogSafe(`${this.logPrefix} 🔄 既存メッセージを強制完了してから新メッセージ開始`);
-                this.forceComplete();
-            }
-            
-            this.pendingMessage = data;
-            this.lastChunkTime = Date.now();
-            this.isAccumulating = true;
-            this.debugLogSafe(`${this.logPrefix} 🆕 新しいメッセージ蓄積開始 - 長さ: ${data.length}`);
-            this.scheduleCompletion();
-            
-        } else if (this.isAccumulating) {
-            // 既存メッセージに追加（蓄積中は全てのチャンクを統合）
-            this.pendingMessage += '\n' + data;
-            this.lastChunkTime = Date.now();
-            this.debugLogSafe(`${this.logPrefix} ➕ メッセージに追加 - 現在の総長: ${this.pendingMessage.length}`);
-            this.scheduleCompletion();
+        if (hasQuotes) {
+            // ◆◇テキストを検出 - 直接処理
+            this.debugLogSafe(`${this.logPrefix} 🔍 音声テキスト抽出完了: "${data.match(/◆([^◇]+)◇/g)?.[0]?.substring(0, 20)}..."`);
+            this.processImmediately(data);
             
         } else {
-            this.debugLogSafe(`${this.logPrefix} ⏭️ チャンクをスキップ - 条件に合致せず`);
+            this.debugLogSafe(`${this.logPrefix} ⏭️ チャンクをスキップ - ◆◇なし`);
+        }
+    }
+
+    /**
+     * ◆◇テキストを含むデータを即座に処理
+     */
+    processImmediately(data) {
+        if (this.processCallback) {
+            this.debugLogSafe(`${this.logPrefix} 🚀 ◆◇テキスト即座処理実行`);
+            this.processCallback(data);
+        } else {
+            this.debugLogSafe(`${this.logPrefix} ❌ processCallback未設定`);
         }
     }
 
