@@ -9,7 +9,7 @@ Claude CodeとアニメキャラクターVRMが対話するデスクトップア
 ## ✨ 特徴
 
 - 🎀 **カワイイデザイン**: 3D VRMキャラクターとアニメUI
-- 💬 **AIアシスタント選択**: Claude Code、Claude Code (Dangerous)、Gemini CLIから選択可能
+- 💬 **AIアシスタント選択**: Claude Code、Claude Code (Dangerous)、Gemini CLI、OpenAI Codexから選択可能
 - 🖥️ **デスクトップアプリ**: Electronベースのネイティブアプリ
 - 🔄 **リアルタイム応答**: AIアシスタントとのライブ通信
 - 🎨 **3D VRMビューワー**: Three.js/VRM対応の3Dキャラクター表示
@@ -51,6 +51,19 @@ npm install -g @gemini-cli/cli
 gemini --version
 ```
 
+**OpenAI Codex**
+```bash
+# OpenAI Codex（OpenAI公式CLI）をインストール
+# npmを使用
+npm install -g @openai/codex
+
+# またはHomebrewを使用
+brew install codex
+
+# インストール確認
+codex --version
+```
+
 ※ 設定画面で使用するAIアシスタントを選択できます。複数インストールすることも可能です。
 
 #### 2. 音声機能（オプション）
@@ -76,7 +89,7 @@ gemini --version
 ### システム要件
 - **macOS 10.15 (Catalina) 以降**
 - **Apple Silicon (M1/M2/M3) または Intel 64-bit**
-- **AIアシスタントCLI**（Claude Code、Gemini CLI等のいずれか必須）
+- **AIアシスタントCLI**（Claude Code、Gemini CLI、OpenAI Codex等のいずれか必須）
 - **2GB以上の空きディスク容量**
 - **4GB以上のRAM推奨**
 - **インターネット接続**（Claude Code API通信用）

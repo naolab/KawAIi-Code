@@ -205,6 +205,7 @@ class UIEventManager {
         const startClaudeBtn = document.getElementById('start-claude');
         const startClaudeDangerousBtn = document.getElementById('start-claude-dangerous');
         const startGeminiBtn = document.getElementById('start-gemini');
+        const startCodexBtn = document.getElementById('start-codex');
         
         // Claude Code Hooks情報ボタン
         const hooksInfoBtn = document.getElementById('hooks-info-btn');
@@ -268,6 +269,13 @@ class UIEventManager {
                 aiSelectModal.style.display = 'none';
             };
             this.safeAddEventListener(startGeminiBtn, 'click', startGeminiHandler, 'start-gemini');
+        }
+        if (startCodexBtn && aiSelectModal) {
+            const startCodexHandler = () => {
+                this.app.startTerminal('codex');
+                aiSelectModal.style.display = 'none';
+            };
+            this.safeAddEventListener(startCodexBtn, 'click', startCodexHandler, 'start-codex');
         }
         if (aiSelectModal) {
             aiSelectModal.addEventListener('click', (e) => {
@@ -2474,7 +2482,8 @@ class UIEventManager {
             const cliButtons = {
                 'claude': document.getElementById('start-claude'),
                 'claude-dangerous': document.getElementById('start-claude-dangerous'),
-                'gemini': document.getElementById('start-gemini')
+                'gemini': document.getElementById('start-gemini'),
+                'codex': document.getElementById('start-codex')
             };
             
             Object.entries(cliButtons).forEach(([cliType, button]) => {
@@ -2531,7 +2540,8 @@ class UIEventManager {
             const cliButtons = {
                 'claude': document.getElementById('start-claude'),
                 'claude-dangerous': document.getElementById('start-claude-dangerous'),
-                'gemini': document.getElementById('start-gemini')
+                'gemini': document.getElementById('start-gemini'),
+                'codex': document.getElementById('start-codex')
             };
             
             Object.entries(cliButtons).forEach(([cliType, button]) => {

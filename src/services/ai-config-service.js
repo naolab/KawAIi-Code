@@ -17,6 +17,10 @@ class AIConfigService {
             'gemini': {
                 name: 'Gemini CLI',
                 possiblePaths: this.generateGeminiPaths()
+            },
+            'codex': {
+                name: 'OpenAI Codex',
+                possiblePaths: this.generateCodexPaths()
             }
         };
     }
@@ -75,6 +79,69 @@ class AIConfigService {
         // 4. 最後の手段としてPATH上の claude
         if (!paths.includes('claude')) {
             paths.push('claude');
+        }
+        
+        // 重複を除去してフィルタ
+        return [...new Set(paths)].filter(p => p);
+    }
+
+    /**
+     * Codex CLIの可能なパスを動的に生成
+     * @returns {string[]} 検索するパスの配列
+     */
+    generateCodexPaths() {
+        const paths = [];
+        
+        // 1. 環境変数を最優先
+        if (process.env.CODEX_PATH) {
+            paths.push(process.env.CODEX_PATH);
+        }
+        
+        // 2. whichコマンドで現在のPATHから検索
+        try {
+            const whichResult = execSync('which codex 2>/dev/null', { 
+                encoding: 'utf8',
+                stdio: ['pipe', 'pipe', 'ignore'] // stderrを無視
+            }).trim();
+            if (whichResult && !paths.includes(whichResult)) {
+                paths.push(whichResult);
+            }
+        } catch (e) {
+            // whichコマンドが失敗した場合は続行
+        }
+        
+        // 3. プラットフォーム別の既知のパス
+        if (process.platform === 'darwin') {
+            // macOS
+            paths.push(
+                '/opt/homebrew/bin/codex',  // Apple Silicon (Homebrew)
+                '/usr/local/bin/codex',     // Intel Mac (Homebrew)
+                '/usr/bin/codex',
+                path.join(process.env.HOME || '', '.npm-global', 'bin', 'codex')  // npm global
+            );
+        } else if (process.platform === 'win32') {
+            // Windows
+            paths.push(
+                'C:\\Program Files\\nodejs\\codex.cmd',
+                'C:\\Program Files (x86)\\nodejs\\codex.cmd',
+                path.join(process.env.USERPROFILE || '', 'AppData', 'Roaming', 'npm', 'codex.cmd'),
+                'codex.cmd',
+                'codex.exe'
+            );
+        } else if (process.platform === 'linux') {
+            // Linux
+            paths.push(
+                '/usr/local/bin/codex',
+                '/usr/bin/codex',
+                '/opt/codex/bin/codex',
+                path.join(process.env.HOME || '', '.local', 'bin', 'codex'),
+                path.join(process.env.HOME || '', '.npm-global', 'bin', 'codex')
+            );
+        }
+        
+        // 4. 最後の手段としてPATH上の codex
+        if (!paths.includes('codex')) {
+            paths.push('codex');
         }
         
         // 重複を除去してフィルタ
