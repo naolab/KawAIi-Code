@@ -335,14 +335,23 @@ class TerminalService {
             // ProcessingCacheによる最適化されたテキストクリーニング
             const cleanData = this.processingCache.optimizedTextCleaning(data);
             
-            // Claude Code (⏺) のマーカーを検索
+            // Claude Code (⏺) または Gemini (✦) のマーカーを検索
             let markerIndex = cleanData.indexOf('⏺');
+            let afterMarker = '';
+            
+            if (markerIndex !== -1) {
+                afterMarker = cleanData.substring(markerIndex + 1).trim();
+            } else {
+                // Geminiマーカーを検索
+                markerIndex = cleanData.indexOf('✦');
+                if (markerIndex !== -1) {
+                    afterMarker = cleanData.substring(markerIndex + 1).trim();
+                }
+            }
             
             if (markerIndex === -1) {
                 return;
             }
-            
-            let afterMarker = cleanData.substring(markerIndex + 1).trim();
             
             // カッコ内のテキストを抽出（キャッシュ化された正規表現処理）
             const quotedTextMatches = this.processingCache.cachedRegexProcess(
