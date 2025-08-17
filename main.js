@@ -10,7 +10,7 @@ const AIConfigService = require('./src/services/ai-config-service');
 const ConversationLoggerMain = require('./src/services/ConversationLoggerMain');
 // ログレベル制御（配布版では詳細ログを無効化）
 // 開発時は環境変数またはfalseで開発モードに切り替え
-const isProduction = process.env.NODE_ENV === 'production' || false; // 開発時はfalse
+const isProduction = process.env.NODE_ENV === 'production' || true; // 開発時はfalse
 const debugLog = isProduction ? () => {} : console.log;
 const infoLog = isProduction ? () => {} : console.log; // 配布版では無効化
 const errorLog = console.error; // エラーは常に出力
