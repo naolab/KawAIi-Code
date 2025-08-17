@@ -498,7 +498,7 @@ class ConversationLoggerMain {
             text: log.text,
             source: log.source || 'kawaii-app',
             sessionId: log.sessionId,
-            raw: `『${log.text}』` // 既存形式に合わせる
+            raw: `◆${log.text}◇` // 既存形式に合わせる
         }));
     }
 

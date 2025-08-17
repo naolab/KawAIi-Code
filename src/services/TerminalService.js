@@ -356,11 +356,11 @@ class TerminalService {
             // カッコ内のテキストを抽出（キャッシュ化された正規表現処理）
             const quotedTextMatches = this.processingCache.cachedRegexProcess(
                 afterMarker, 
-                /『([^』]+)』/gs
+                /◆([^◇]+)◇/gs
             );
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
-                // カギカッコ内のテキストを一個ずつ処理
+                // ◆◇内のテキストを一個ずつ処理
                 await this.processQuotedTexts(quotedTextMatches);
             }
             
@@ -382,7 +382,7 @@ class TerminalService {
         this.voiceQueue.clear();
         
         for (let i = 0; i < quotedTextMatches.length; i++) {
-            let quotedText = quotedTextMatches[i].replace(/[『』]/g, '').trim();
+            let quotedText = quotedTextMatches[i].replace(/[◆◇]/g, '').trim();
             
             // 改行と余分な空白を除去
             quotedText = quotedText.replace(/\r?\n\s*/g, '').replace(/\s+/g, ' ').trim();

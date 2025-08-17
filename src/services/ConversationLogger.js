@@ -154,8 +154,8 @@ class ConversationLogger {
             return null;
         }
         
-        // 『』を除去して中身のテキストのみを抽出
-        let cleaned = text.replace(/[『』]/g, '');
+        // ◆◇を除去して中身のテキストのみを抽出
+        let cleaned = text.replace(/[◆◇]/g, '');
         
         // 空白の正規化
         cleaned = cleaned.replace(/\s+/g, ' ').trim();

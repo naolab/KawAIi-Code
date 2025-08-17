@@ -359,34 +359,34 @@ class VoiceHookService {
             }
             
             console.log('assistantメッセージが見つかりません');
-            return '『エラーが発生したぞ...まあ、よくあることだ』';
+            return '◆エラーが発生したぞ...まあ、よくあることだ◇';
             
         } catch (error) {
             console.error('トランスクリプト解析エラー:', error);
-            return '『エラーが発生したぞ...まあ、よくあることだ』';
+            return '◆エラーが発生したぞ...まあ、よくあることだ◇';
         }
     }
 
-    // 最新の『』テキストのみを抽出
+    // 最新の◆◇テキストのみを抽出
     extractLatestBracketText(responseText) {
-        // 『』で囲まれたテキストを全て抽出
-        const bracketMatches = responseText.match(/『[^』]*』/g);
+        // ◆◇で囲まれたテキストを全て抽出
+        const bracketMatches = responseText.match(/◆[^◇]*◇/g);
         
         if (!bracketMatches || bracketMatches.length === 0) {
             return null;
         }
         
-        // 最新の（最後の）『』テキストを取得
+        // 最新の（最後の）◆◇テキストを取得
         const latestBracketText = bracketMatches[bracketMatches.length - 1];
         
-        console.log(`抽出された『』テキスト: ${latestBracketText}`);
-        console.log(`全体で${bracketMatches.length}個の『』テキストが見つかりました`);
+        console.log(`抽出された◆◇テキスト: ${latestBracketText}`);
+        console.log(`全体で${bracketMatches.length}個の◆◇テキストが見つかりました`);
         
         return latestBracketText;
     }
 
 
-    // 音声合成テキスト処理（全ての『』テキストを順番に）
+    // 音声合成テキスト処理（全ての◆◇テキストを順番に）
     async processSpeechText(responseText) {
         console.log(`Claude応答解析開始: ${responseText.substring(0, 100)}...`);
 
@@ -397,15 +397,15 @@ class VoiceHookService {
         }
 
 
-        // 1. 全ての『』テキストを抽出
-        const bracketMatches = responseText.match(/『[^』]*』/g);
+        // 1. 全ての◆◇テキストを抽出
+        const bracketMatches = responseText.match(/◆[^◇]*◇/g);
         
         if (!bracketMatches || bracketMatches.length === 0) {
-            console.log('『』テキストが見つかりません - 音声合成をスキップ');
+            console.log('◆◇テキストが見つかりません - 音声合成をスキップ');
             return;
         }
 
-        console.log(`${bracketMatches.length}個の『』テキストが見つかりました`);
+        console.log(`${bracketMatches.length}個の◆◇テキストが見つかりました`);
 
         // 大量テキスト制限（バグ対策）
         const MAX_VOICE_TEXTS = 5;
@@ -416,7 +416,7 @@ class VoiceHookService {
             console.log(`⚠️ 音声読み上げ制限: ${bracketMatches.length}個中${MAX_VOICE_TEXTS}個のみ処理（負荷対策）`);
         }
 
-        // 2. 各『』テキストを順番に処理
+        // 2. 各◆◇テキストを順番に処理
         for (let i = 0; i < processMatches.length; i++) {
             const bracketText = processMatches[i];
             console.log(`処理中 (${i + 1}/${processMatches.length}): ${bracketText}`);

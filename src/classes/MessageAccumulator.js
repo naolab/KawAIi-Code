@@ -84,7 +84,7 @@ class MessageAccumulator {
     
     addChunk(data) {
         const hasMarker = data.includes('⏺') || data.includes('✦');
-        const hasQuotes = data.includes('『') && data.includes('』');
+        const hasQuotes = data.includes('◆') && data.includes('◇');
         
         this.debugLogSafe(`${this.logPrefix} 🔍 チャンク受信: マーカー=${hasMarker}, 括弧=${hasQuotes}, 長さ=${data.length}, プレビュー="${data.substring(0, 30)}..."`);
         
@@ -120,8 +120,8 @@ class MessageAccumulator {
         const hasEndMarker = data.includes('\n> ') || data.includes('╭─') || data.includes('│ ');
         
         // 2. カギカッコが閉じられている
-        const openQuotes = (data.match(/『/g) || []).length;
-        const closeQuotes = (data.match(/』/g) || []).length;
+        const openQuotes = (data.match(/◆/g) || []).length;
+        const closeQuotes = (data.match(/◇/g) || []).length;
         const quotesBalanced = openQuotes === closeQuotes && openQuotes > 0;
         
         // 3. 文章が完結している
@@ -208,7 +208,7 @@ class MessageAccumulator {
             debugLog(`📞 コールバック実行開始 - メッセージ長: ${completeMessage.length}`);
             debugLog(`📞 メッセージサンプル:`, completeMessage.substring(0, 100) + '...');
             
-            // 大量『』テキスト制限（バグ対策）
+            // 大量◆◇テキスト制限（バグ対策）
             const processedMessage = this.limitVoiceTexts(completeMessage);
             
             try {
@@ -235,7 +235,7 @@ class MessageAccumulator {
     }
 
     /**
-     * 音声テキスト（『』で囲まれた部分）を抽出
+     * 音声テキスト（◆◇で囲まれた部分）を抽出
      * @param {string} message - 抽出対象のメッセージ
      * @returns {string|null} 抽出されたテキスト
      */
@@ -244,8 +244,8 @@ class MessageAccumulator {
             return null;
         }
         
-        // 『』で囲まれたテキストを抽出
-        const matches = message.match(/『([^』]+)』/g);
+        // ◆◇で囲まれたテキストを抽出
+        const matches = message.match(/◆([^◇]+)◇/g);
         if (matches && matches.length > 0) {
             // 複数ある場合は結合
             return matches.map(match => match.slice(1, -1)).join(' ');
@@ -444,12 +444,12 @@ class MessageAccumulator {
     }
 
     /**
-     * 大量『』テキスト制限（バグ対策）
+     * 大量◆◇テキスト制限（バグ対策）
      * @param {string} message - 処理対象メッセージ
      * @returns {string} 制限適用後のメッセージ
      */
     limitVoiceTexts(message) {
-        const quotedMatches = message.match(/『[^』]*』/g);
+        const quotedMatches = message.match(/◆[^◇]*◇/g);
         
         if (!quotedMatches) {
             return message;
@@ -465,14 +465,14 @@ class MessageAccumulator {
         const limitedQuotes = quotedMatches.slice(0, MAX_QUOTED_TEXTS);
         const remaining = quotedMatches.length - MAX_QUOTED_TEXTS;
         
-        // 元のメッセージから『』を削除
-        let limitedMessage = message.replace(/『[^』]*』/g, '');
+        // 元のメッセージから◆◇を削除
+        let limitedMessage = message.replace(/◆[^◇]*◇/g, '');
         
-        // 制限された『』テキストを追加
+        // 制限された◆◇テキストを追加
         limitedMessage += limitedQuotes.join('');
         
         // 要約メッセージを追加
-        limitedMessage += `『他に${remaining}個のメッセージがあるが、負荷対策で省略したぞ』`;
+        limitedMessage += `◆他に${remaining}個のメッセージがあるが、負荷対策で省略したぞ◇`;
         
         this.debugLogSafe(`⚠️ 音声テキスト制限: ${quotedMatches.length}個中${MAX_QUOTED_TEXTS}個のみ処理`);
         

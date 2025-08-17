@@ -268,17 +268,17 @@ class HookService {
             fullData: data // 全データも表示
         });
         
-        // 『』で囲まれたテキストを抽出
-        const matches = data.match(/『([^』]+)』/g);
+        // ◆◇で囲まれたテキストを抽出
+        const matches = data.match(/◆([^◇]+)◇/g);
         if (!matches || matches.length === 0) {
-            this.debugLog('🎣 Hook: 『』で囲まれたテキストが見つかりません');
+            this.debugLog('🎣 Hook: ◆◇で囲まれたテキストが見つかりません');
             this.debugLog('🎣 Hookデータ内容:', data);
             return;
         }
         
         // 各マッチを処理
         for (const match of matches) {
-            const text = match.slice(1, -1); // 『』を除去
+            const text = match.slice(1, -1); // ◆◇を除去
             this.debugLog('🎣 Hook音声合成開始:', text);
             
             try {
