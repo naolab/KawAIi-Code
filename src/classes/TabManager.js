@@ -120,7 +120,7 @@ class TabManager {
         
         this.tabs[tabId] = {
             id: tabId,
-            name: 'Main',
+            name: `Tab #${tabId.split('-')[1]}`,
             aiType: null,
             isParent: true,
             isActive: true,
@@ -536,6 +536,16 @@ class TabManager {
         const name = document.createElement('span');
         name.className = 'tab-name';
         name.textContent = tabData.name;
+        // タブ名のリネーム（ダブルクリック → インライン編集）
+        name.title = 'ダブルクリックで名前を変更';
+        // クリックで親のタブ切替を抑制
+        this.deps.resourceManager.addEventListener(name, 'mousedown', (e) => {
+            e.stopPropagation();
+        });
+        this.deps.resourceManager.addEventListener(name, 'dblclick', (e) => {
+            e.stopPropagation();
+            this.openRenameEditor(tabData.id);
+        });
         
         // 閉じるボタン
         const closeBtn = document.createElement('button');
@@ -550,6 +560,12 @@ class TabManager {
         this.deps.resourceManager.addEventListener(tab, 'click', () => {
             this.switchTab(tabData.id);
         });
+        // 右クリックでリネーム（インライン編集）
+        this.deps.resourceManager.addEventListener(tab, 'contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.openRenameEditor(tabData.id);
+        });
         
         tab.appendChild(star);
         tab.appendChild(name);
@@ -560,6 +576,64 @@ class TabManager {
 
     updateTabUI() {
         this.renderTabs();
+    }
+
+    // インラインリネームエディタを開く
+    openRenameEditor(tabId) {
+        const tabEl = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
+        if (!tabEl) return;
+
+        const nameEl = tabEl.querySelector('.tab-name');
+        if (!nameEl) return;
+
+        // 既存エディタがあれば無視
+        if (tabEl.querySelector('input.tab-name-editor')) return;
+
+        const current = this.tabs[tabId]?.name || '';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'tab-name-editor';
+        input.value = current;
+        input.style.width = '100%';
+        input.style.boxSizing = 'border-box';
+        input.style.border = '1px solid rgba(255,255,255,0.4)';
+        input.style.background = 'rgba(0,0,0,0.15)';
+        input.style.color = '#fff';
+        input.style.fontSize = '13px';
+        input.style.borderRadius = '4px';
+        input.style.padding = '2px 4px';
+
+        // 置換
+        tabEl.replaceChild(input, nameEl);
+        input.focus();
+        input.select();
+
+        const commit = () => {
+            const trimmed = input.value.trim();
+            if (trimmed.length > 0) {
+                this.tabs[tabId].name = trimmed;
+            }
+            this.updateTabUI();
+        };
+
+        const cancel = () => {
+            this.updateTabUI();
+        };
+
+        // イベント
+        this.deps.resourceManager.addEventListener(input, 'keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commit();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancel();
+            }
+        });
+        this.deps.resourceManager.addEventListener(input, 'blur', () => {
+            commit();
+        });
     }
 
     // ドラッグ&ドロップハンドラー

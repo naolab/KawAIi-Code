@@ -169,7 +169,7 @@ class TerminalService {
                 // タブ情報を更新
                 activeTab.aiType = aiType;
                 activeTab.isRunning = true;
-                activeTab.name = `${aiType === 'claude' ? 'Claude' : 'Claude-D'} #${activeTab.id.split('-')[1]}`;
+                // タブ名は常に「Tab #番号」を維持する
                 
                 this.terminalApp.updateStatus(`${aiName} running in tab - Type your message and press Enter`);
                 

@@ -173,6 +173,7 @@ body.loaded {
     white-space: nowrap;
     font-size: 13px;
     color: white;
+    cursor: text;
 }
 
 /* 閉じるボタン */
@@ -1862,6 +1863,5 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     font-weight: 500;
     color: #FF8C42;
 }
-
 
 
