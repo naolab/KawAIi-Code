@@ -652,14 +652,18 @@ class UIEventManager {
             });
         }
 
-        // 現在の内容を読み込みボタン
+        // 既存のファイルを読み込みボタン
         if (claudeMdLoadBtn) {
             claudeMdLoadBtn.addEventListener('click', async () => {
                 try {
                     claudeMdLoadBtn.disabled = true;
                     claudeMdLoadBtn.textContent = '読み込み中...';
                     
-                    const result = await this.loadExistingClaudeMd();
+                    // 選択されたMDファイル名を取得
+                    const mdFileSelect = document.getElementById('md-file-select');
+                    const selectedFileName = mdFileSelect ? mdFileSelect.value : 'CLAUDE.md';
+                    
+                    const result = await this.loadExistingClaudeMd(selectedFileName);
                     
                     if (result.success && claudeMdContentEditor) {
                         claudeMdContentEditor.value = result.content;
@@ -667,18 +671,18 @@ class UIEventManager {
                         const config = getSafeUnifiedConfig();
                         await config.set('claudeMdContent', result.content);
                         
-                        this.showNotification('現在のCLAUDE.mdを読み込みました', 'success');
-                        this.debugLog('CLAUDE.md読み込み成功');
+                        this.showNotification(`現在の${selectedFileName}を読み込みました`, 'success');
+                        this.debugLog(`${selectedFileName}読み込み成功`);
                     } else {
-                        this.showNotification(result.message || 'CLAUDE.mdの読み込みに失敗しました', 'error');
-                        this.debugError('CLAUDE.md読み込み失敗:', result);
+                        this.showNotification(result.message || `${selectedFileName}の読み込みに失敗しました`, 'error');
+                        this.debugError(`${selectedFileName}読み込み失敗:`, result);
                     }
                 } catch (error) {
-                    this.debugError('CLAUDE.md読み込みエラー:', error);
-                    this.showNotification('CLAUDE.mdの読み込み中にエラーが発生しました', 'error');
+                    this.debugError('MDファイル読み込みエラー:', error);
+                    this.showNotification('MDファイルの読み込み中にエラーが発生しました', 'error');
                 } finally {
                     claudeMdLoadBtn.disabled = false;
-                    claudeMdLoadBtn.textContent = '現在の内容を読み込み';
+                    claudeMdLoadBtn.textContent = '既存のファイルを読み込み';
                 }
             });
         }
@@ -925,9 +929,9 @@ class UIEventManager {
     }
 
     /**
-     * 既存のCLAUDE.mdを読み込み（作業ディレクトリのみ）
+     * 既存のMDファイルを読み込み（作業ディレクトリのみ）
      */
-    async loadExistingClaudeMd() {
+    async loadExistingClaudeMd(fileName = 'CLAUDE.md') {
         try {
             // 作業ディレクトリから読み込み
             const workspaceResult = await window.electronAPI.getClaudeCwd();
@@ -938,22 +942,22 @@ class UIEventManager {
                 return { success: false, message: '作業ディレクトリが設定されていません' };
             }
             
-            const targetPath = workspaceResult.cwd + '/CLAUDE.md';
+            const targetPath = workspaceResult.cwd + '/' + fileName;
             this.debugLog('読み込み対象パス:', targetPath);
             
             // ファイルを読み込み
             const { fs } = window.electronAPI;
             const content = await fs.promises.readFile(targetPath, 'utf8');
             
-            this.debugLog('CLAUDE.md読み込み成功:', { path: targetPath, contentLength: content.length });
-            return { success: true, content, path: targetPath };
+            this.debugLog(`${fileName}読み込み成功:`, { path: targetPath, contentLength: content.length });
+            return { success: true, content, path: targetPath, fileName };
         } catch (error) {
-            this.debugError('CLAUDE.md読み込みエラー詳細:', { error, code: error.code, message: error.message });
+            this.debugError(`${fileName}読み込みエラー詳細:`, { error, code: error.code, message: error.message });
             
             if (error.code === 'ENOENT') {
-                return { success: false, message: '作業ディレクトリにCLAUDE.mdファイルが見つかりません' };
+                return { success: false, message: `作業ディレクトリに${fileName}ファイルが見つかりません` };
             }
-            this.debugError('既存CLAUDE.md読み込みエラー:', error);
+            this.debugError(`既存${fileName}読み込みエラー:`, error);
             return { success: false, message: 'ファイルの読み込みに失敗しました' };
         }
     }
