@@ -39,7 +39,8 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       preload: path.join(__dirname, 'src', 'preload.js'),
-      webSecurity: false
+      webSecurity: false,
+      devTools: false
     },
     titleBarStyle: 'hiddenInset',
     show: false
@@ -75,12 +76,10 @@ function createWindow() {
   //   mainWindow.webContents.openDevTools();
   // }
   
-  // Next.jsアプリのコンソールログをメインプロセスに転送（開発環境のみ）
-  if (!isProduction) {
-    mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-      console.log(`[NextJS Console] ${message}`);
-    });
-  }
+  // コンソールログの出力を無効化
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    // すべてのコンソールログを無効化
+  });
   
   // メニューバーを設定（開発・配布版共通）
   const { Menu } = require('electron');
@@ -133,40 +132,21 @@ function createWindow() {
     ]
   });
   
-  // 開発環境のみデバッグメニューを追加
-  if (!isProduction) {
-    template.push({
-      label: 'Debug',
-      submenu: [
-        {
-          label: 'Toggle DevTools',
-          accelerator: 'F12',
-          click: () => {
-            mainWindow.webContents.toggleDevTools();
-          }
-        }
-      ]
-    });
-  }
+  // デバッグメニューを無効化
+  // デベロッパーツールのアクセスを完全に禁止
   
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
   
-  // 配布版でのDevTools無効化処理は維持
-  if (isProduction) {
-    
-    // DevToolsの無効化
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      // F12、Cmd+Option+I、Ctrl+Shift+Iを無効化
-      if (input.key === 'F12' || 
-          (input.meta && input.alt && input.key === 'i') || 
-          (input.control && input.shift && input.key === 'I')) {
-        event.preventDefault();
-      }
-    });
-    
-    // 配布版でも右クリックメニューは有効にする（ユーザビリティ向上）
-  }
+  // DevToolsの無効化（開発・配布版共通）
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    // F12、Cmd+Option+I、Ctrl+Shift+Iを無効化
+    if (input.key === 'F12' || 
+        (input.meta && input.alt && input.key === 'i') || 
+        (input.control && input.shift && input.key === 'I')) {
+      event.preventDefault();
+    }
+  });
   
   // 右クリックメニュー（コンテキストメニュー）の設定
   mainWindow.webContents.on('context-menu', (event, params) => {
