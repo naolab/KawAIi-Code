@@ -373,11 +373,13 @@ class UIEventManager {
         const voiceToggleModal = document.getElementById('voice-toggle-modal');
         const speakerSelectModal = document.getElementById('speaker-select-modal');
         const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
+        const testLocalEngineBtn = document.getElementById('test-local-engine-btn');
 
         this.debugLog('Voice control elements check:', {
             voiceToggleModal: !!voiceToggleModal,
             speakerSelectModal: !!speakerSelectModal,
-            refreshConnectionBtnModal: !!refreshConnectionBtnModal
+            refreshConnectionBtnModal: !!refreshConnectionBtnModal,
+            testLocalEngineBtn: !!testLocalEngineBtn
         });
 
         if (voiceToggleModal) {
@@ -460,6 +462,49 @@ class UIEventManager {
             
             // 安全なイベントリスナー登録
             this.safeAddEventListener(refreshConnectionBtnModal, 'click', refreshConnectionHandler, 'refresh-connection-modal');
+        }
+
+        // ローカルエンジン接続テストボタン
+        if (testLocalEngineBtn) {
+            const testLocalEngineHandler = async () => {
+                // 排他制御で重複実行を防止
+                return await this.executeWithLock('test-local-engine', async () => {
+                    const originalText = testLocalEngineBtn.textContent;
+                    testLocalEngineBtn.disabled = true;
+                    testLocalEngineBtn.textContent = 'テスト中...';
+                    
+                    try {
+                        this.debugLog('🧪 Local engine test started');
+                        
+                        if (this.app && this.app.audioService) {
+                            // ローカルエンジンでの音声合成テストを実行
+                            const testMessage = 'これはローカルエンジンのテスト用メッセージです';
+                            this.debugLog('🎵 Synthesizing test audio with local engine...');
+                            
+                            const audioData = await this.app.audioService.synthesizeTextOnly(testMessage);
+                            if (audioData) {
+                                this.debugLog('✅ Audio synthesis successful, playing...');
+                                await this.app.audioService.playAppInternalAudio(audioData, testMessage);
+                            } else {
+                                this.showNotification('音声の生成に失敗しました', 'error');
+                            }
+                        } else {
+                            this.showNotification('音声システムの初期化に失敗しました。アプリを再起動してください', 'error');
+                        }
+                    } catch (error) {
+                        this.debugError('❌ Local engine test error:', error);
+                        const userFriendlyMessage = this.convertToUserFriendlyError(error.message);
+                        this.showNotification(userFriendlyMessage, 'error');
+                    } finally {
+                        testLocalEngineBtn.disabled = false;
+                        testLocalEngineBtn.textContent = originalText;
+                        this.debugLog('🏁 Local engine test completed');
+                    }
+                });
+            };
+            
+            // 安全なイベントリスナー登録
+            this.safeAddEventListener(testLocalEngineBtn, 'click', testLocalEngineHandler, 'test-local-engine-btn');
         }
 
         // 音声読み上げ間隔スライダー
@@ -1476,7 +1521,7 @@ class UIEventManager {
                             await this.app.audioService.updateApiSettings();
                             
                             // 実際の音声合成テストを実行（1回のみ保証）
-                            const testMessage = 'これはテスト用のメッセージです';
+                            const testMessage = 'これはクラウドAPIのテスト用メッセージです';
                             this.debugLog('🎵 Synthesizing test audio...');
                             
                             const audioData = await this.app.audioService.synthesizeTextOnly(testMessage);
@@ -1669,6 +1714,19 @@ class UIEventManager {
             } else {
                 refreshConnectionBtn.style.opacity = '0.5';
                 refreshConnectionBtn.style.cursor = 'not-allowed';
+            }
+        }
+        
+        // ローカルエンジン接続テストボタンを制御（ローカル時のみ有効）
+        const testLocalEngineBtn = document.getElementById('test-local-engine-btn');
+        if (testLocalEngineBtn) {
+            testLocalEngineBtn.disabled = useCloudAPI;
+            if (!useCloudAPI) {
+                testLocalEngineBtn.style.opacity = '1';
+                testLocalEngineBtn.style.cursor = 'pointer';
+            } else {
+                testLocalEngineBtn.style.opacity = '0.5';
+                testLocalEngineBtn.style.cursor = 'not-allowed';
             }
         }
         
