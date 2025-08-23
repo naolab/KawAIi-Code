@@ -208,6 +208,23 @@ window.electronAPI = {
   // ファイル読み込み
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   
+  // 自動更新機能
+  autoUpdater: {
+    check: () => ipcRenderer.invoke('auto-updater-check'),
+    install: () => ipcRenderer.invoke('auto-updater-install'),
+    onStatus: (callback) => {
+      ipcRenderer.on('auto-updater-status', (event, data) => callback(data));
+    },
+    removeAllListeners: () => {
+      ipcRenderer.removeAllListeners('auto-updater-status');
+    }
+  },
+
+  // IPCイベントリスナー用のヘルパー
+  onAutoUpdaterStatus: (callback) => {
+    ipcRenderer.on('auto-updater-status', (event, data) => callback(data));
+  },
+  
   fs: require('fs'), // fsモジュールを公開
   path: require('path'), // pathモジュールを公開
   os: require('os') // osモジュールを公開

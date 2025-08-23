@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -333,6 +334,9 @@ app.whenReady().then(async () => {
 
   await startNextjsServer();
 
+  // 自動更新機能を初期化
+  initializeAutoUpdater();
+
   // ConversationLoggerの非同期初期化（一時的に無効化）
   // const conversationLoggerPromise = (async () => {
   //   try {
@@ -480,6 +484,114 @@ app.on('will-quit', async (event) => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  }
+});
+
+// 自動更新機能の初期化
+function initializeAutoUpdater() {
+  // 開発時はアップデートチェックをスキップ
+  if (!app.isPackaged) {
+    debugLog('🔄 開発モードのため自動更新をスキップします');
+    return;
+  }
+
+  // ログ設定
+  autoUpdater.logger = {
+    info: debugLog,
+    warn: console.warn,
+    error: console.error
+  };
+
+  // 更新チェック間隔を設定（1時間ごと）
+  autoUpdater.checkForUpdatesAndNotify();
+  setInterval(() => {
+    autoUpdater.checkForUpdatesAndNotify();
+  }, 3600000); // 1時間
+
+  // イベントリスナー設定
+  autoUpdater.on('checking-for-update', () => {
+    debugLog('🔄 更新をチェック中...');
+    if (mainWindow) {
+      mainWindow.webContents.send('auto-updater-status', { status: 'checking' });
+    }
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    debugLog('✅ 更新が利用可能:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('auto-updater-status', { 
+        status: 'update-available', 
+        version: info.version 
+      });
+    }
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    debugLog('🚫 更新なし。現在のバージョンが最新です');
+    if (mainWindow) {
+      mainWindow.webContents.send('auto-updater-status', { status: 'up-to-date' });
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('❌ 自動更新エラー:', err);
+    if (mainWindow) {
+      mainWindow.webContents.send('auto-updater-status', { 
+        status: 'error', 
+        message: err.message 
+      });
+    }
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    const percent = progressObj.percent.toFixed(2);
+    debugLog(`📥 ダウンロード中: ${percent}%`);
+    if (mainWindow) {
+      mainWindow.webContents.send('auto-updater-status', { 
+        status: 'downloading', 
+        percent: percent,
+        bytesPerSecond: progressObj.bytesPerSecond,
+        total: progressObj.total,
+        transferred: progressObj.transferred
+      });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    debugLog('✅ 更新ダウンロード完了:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('auto-updater-status', { 
+        status: 'update-downloaded', 
+        version: info.version 
+      });
+    }
+  });
+}
+
+// IPC handlers for auto-updater
+ipcMain.handle('auto-updater-check', async () => {
+  if (!app.isPackaged) {
+    return { success: false, message: '開発モードでは更新チェックはできません' };
+  }
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, result };
+  } catch (error) {
+    console.error('更新チェックエラー:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('auto-updater-install', async () => {
+  if (!app.isPackaged) {
+    return { success: false, message: '開発モードでは更新インストールはできません' };
+  }
+  try {
+    autoUpdater.quitAndInstall();
+    return { success: true };
+  } catch (error) {
+    console.error('更新インストールエラー:', error);
+    return { success: false, message: error.message };
   }
 });
 

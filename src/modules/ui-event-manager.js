@@ -562,6 +562,9 @@ class UIEventManager {
         // Aivis Cloud API設定
         this.setupCloudApiControls();
 
+        // 自動更新機能
+        this.setupAutoUpdaterControls();
+
         // Hook使用切り替えスイッチ（配布版では無効化）
         const useHooksToggle = document.getElementById('use-hooks-toggle');
         if (useHooksToggle) {
@@ -2616,6 +2619,167 @@ class UIEventManager {
             
         } catch (error) {
             this.debugError('AI選択モーダルボタン更新エラー:', error);
+        }
+    }
+
+    /**
+     * 自動更新機能のイベントリスナー設定
+     */
+    setupAutoUpdaterControls() {
+        const checkUpdatesBtn = document.getElementById('check-updates-btn');
+        const installUpdateBtn = document.getElementById('install-update-btn');
+        const autoUpdaterStatus = document.getElementById('auto-updater-status');
+        const updateProgress = document.getElementById('update-progress');
+        const updateProgressBar = document.getElementById('update-progress-bar');
+        const updateProgressText = document.getElementById('update-progress-text');
+
+        this.debugLog('Auto updater elements check:', {
+            checkUpdatesBtn: !!checkUpdatesBtn,
+            installUpdateBtn: !!installUpdateBtn,
+            autoUpdaterStatus: !!autoUpdaterStatus,
+            updateProgress: !!updateProgress
+        });
+
+        // 手動更新チェックボタン
+        if (checkUpdatesBtn) {
+            const checkHandler = async () => {
+                return await this.executeWithLock('check-updates', async () => {
+                    checkUpdatesBtn.disabled = true;
+                    checkUpdatesBtn.textContent = 'チェック中...';
+                    
+                    try {
+                        const result = await window.electronAPI.autoUpdater.check();
+                        if (result.success) {
+                            this.showNotification('更新チェックを開始しました', 'info');
+                        } else {
+                            this.showNotification(result.message, 'error');
+                        }
+                    } catch (error) {
+                        this.debugError('更新チェックエラー:', error);
+                        this.showNotification('更新チェックに失敗しました', 'error');
+                    } finally {
+                        checkUpdatesBtn.disabled = false;
+                        checkUpdatesBtn.textContent = '更新をチェック';
+                    }
+                });
+            };
+
+            this.safeAddEventListener(checkUpdatesBtn, 'click', checkHandler, 'check-updates-btn');
+        }
+
+        // 更新インストールボタン
+        if (installUpdateBtn) {
+            const installHandler = async () => {
+                return await this.executeWithLock('install-update', async () => {
+                    installUpdateBtn.disabled = true;
+                    installUpdateBtn.textContent = '再起動中...';
+                    
+                    try {
+                        const result = await window.electronAPI.autoUpdater.install();
+                        if (!result.success) {
+                            this.showNotification(result.message, 'error');
+                        }
+                        // 成功時はアプリが再起動されるため、ここには到達しない
+                    } catch (error) {
+                        this.debugError('更新インストールエラー:', error);
+                        this.showNotification('更新のインストールに失敗しました', 'error');
+                        installUpdateBtn.disabled = false;
+                        installUpdateBtn.textContent = '再起動して更新';
+                    }
+                });
+            };
+
+            this.safeAddEventListener(installUpdateBtn, 'click', installHandler, 'install-update-btn');
+        }
+
+        // IPCイベントリスナー - 自動更新ステータスの受信
+        if (window.electronAPI && window.electronAPI.onAutoUpdaterStatus) {
+            window.electronAPI.onAutoUpdaterStatus((data) => {
+                this.handleAutoUpdaterStatus(data);
+            });
+        }
+
+        // 初期状態設定
+        if (autoUpdaterStatus) {
+            autoUpdaterStatus.textContent = '開発モード（更新チェック無効）';
+        }
+    }
+
+    /**
+     * 自動更新ステータスの処理
+     */
+    handleAutoUpdaterStatus(data) {
+        const autoUpdaterStatus = document.getElementById('auto-updater-status');
+        const installUpdateBtn = document.getElementById('install-update-btn');
+        const updateProgress = document.getElementById('update-progress');
+        const updateProgressBar = document.getElementById('update-progress-bar');
+        const updateProgressText = document.getElementById('update-progress-text');
+
+        this.debugLog('Auto updater status:', data);
+
+        if (!autoUpdaterStatus) return;
+
+        switch (data.status) {
+            case 'checking':
+                autoUpdaterStatus.textContent = '更新をチェック中...';
+                autoUpdaterStatus.style.color = '#666';
+                if (installUpdateBtn) installUpdateBtn.style.display = 'none';
+                if (updateProgress) updateProgress.style.display = 'none';
+                break;
+
+            case 'update-available':
+                autoUpdaterStatus.textContent = `新しいバージョン ${data.version} が利用可能です`;
+                autoUpdaterStatus.style.color = '#007acc';
+                this.showNotification(`新しいバージョン ${data.version} をダウンロード中...`, 'info');
+                break;
+
+            case 'up-to-date':
+                autoUpdaterStatus.textContent = '最新バージョンです';
+                autoUpdaterStatus.style.color = '#28a745';
+                if (installUpdateBtn) installUpdateBtn.style.display = 'none';
+                if (updateProgress) updateProgress.style.display = 'none';
+                this.showNotification('アプリは最新バージョンです', 'success');
+                break;
+
+            case 'downloading':
+                autoUpdaterStatus.textContent = `更新をダウンロード中... ${data.percent}%`;
+                autoUpdaterStatus.style.color = '#007acc';
+                if (updateProgress) {
+                    updateProgress.style.display = 'block';
+                    if (updateProgressBar) {
+                        updateProgressBar.style.width = `${data.percent}%`;
+                    }
+                    if (updateProgressText) {
+                        const speed = (data.bytesPerSecond / 1024 / 1024).toFixed(2);
+                        const totalMB = (data.total / 1024 / 1024).toFixed(2);
+                        const transferredMB = (data.transferred / 1024 / 1024).toFixed(2);
+                        updateProgressText.textContent = `${transferredMB}MB / ${totalMB}MB (${speed}MB/s)`;
+                    }
+                }
+                break;
+
+            case 'update-downloaded':
+                autoUpdaterStatus.textContent = `更新準備完了 (${data.version})`;
+                autoUpdaterStatus.style.color = '#28a745';
+                if (installUpdateBtn) {
+                    installUpdateBtn.style.display = 'block';
+                }
+                if (updateProgress) updateProgress.style.display = 'none';
+                this.showNotification('更新のダウンロードが完了しました。再起動して適用してください。', 'success');
+                break;
+
+            case 'error':
+                autoUpdaterStatus.textContent = '更新エラーが発生しました';
+                autoUpdaterStatus.style.color = '#dc3545';
+                if (installUpdateBtn) installUpdateBtn.style.display = 'none';
+                if (updateProgress) updateProgress.style.display = 'none';
+                this.showNotification(`更新エラー: ${data.message}`, 'error');
+                break;
+
+            default:
+                autoUpdaterStatus.textContent = '不明な状態';
+                autoUpdaterStatus.style.color = '#666';
+                break;
         }
     }
 }
