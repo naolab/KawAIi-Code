@@ -1,5 +1,46 @@
 @import url('../../node_modules/@xterm/xterm/css/xterm.css');
 
+/* テーマカラーパレット（将来のテーマ切り替え対応） */
+:root {
+    /* オレンジテーマ（デフォルト） */
+    --theme-primary: #FF8C42;
+    --theme-primary-light: #FFB366;
+    --theme-primary-dark: #E67E22;
+    --theme-primary-darker: #FF6B35;
+    
+    /* アクセントカラー */
+    --theme-accent: #FF6347;
+    --theme-accent-gold: #FFD700;
+    --theme-accent-light: #FFED4E;
+    
+    /* 背景・ベース */
+    --theme-bg-primary: #FFF8F0;
+    --theme-bg-secondary: #FFF5F0;
+    --theme-bg-tertiary: #F0EAD6;
+    
+    /* 透明度バリエーション */
+    --theme-primary-alpha-10: rgba(255, 140, 66, 0.1);
+    --theme-primary-alpha-15: rgba(255, 140, 66, 0.15);
+    --theme-primary-alpha-20: rgba(255, 140, 66, 0.2);
+    --theme-primary-alpha-30: rgba(255, 140, 66, 0.3);
+    --theme-primary-alpha-40: rgba(255, 140, 66, 0.4);
+    --theme-primary-alpha-50: rgba(255, 140, 66, 0.5);
+    --theme-primary-alpha-60: rgba(255, 140, 66, 0.6);
+    --theme-primary-alpha-80: rgba(255, 140, 66, 0.8);
+    --theme-primary-alpha-90: rgba(255, 140, 66, 0.9);
+    
+    --theme-light-alpha-10: rgba(255, 183, 102, 0.1);
+    --theme-light-alpha-20: rgba(255, 183, 102, 0.2);
+    --theme-light-alpha-30: rgba(255, 183, 102, 0.3);
+    --theme-light-alpha-50: rgba(255, 183, 102, 0.5);
+    --theme-light-alpha-90: rgba(255, 183, 102, 0.9);
+    
+    /* テキストカラー */
+    --theme-text-primary: #4A3728;
+    --theme-text-secondary: #2D1F17;
+    --theme-text-light: white;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -45,7 +86,7 @@ body.loaded {
     margin-bottom: 0;
     margin-left: 0;
     margin-right: 0;
-    box-shadow: 0 15px 50px rgba(255, 140, 66, 0.1);
+    box-shadow: 0 15px 50px var(--theme-primary-alpha-10);
     border: 2px solid rgba(255, 255, 255, 0.1);
     border-bottom: none;
     border-left: none;
@@ -96,8 +137,8 @@ body.loaded {
     background: rgba(255, 255, 255, 0.7);
     border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(255, 140, 66, 0.15);
-    border: 3px solid rgba(255, 140, 66, 0.8);
+    box-shadow: 0 10px 30px var(--theme-primary-alpha-15);
+    border: 3px solid var(--theme-primary-alpha-80);
     -ms-overflow-style: none;
     scrollbar-width: none;
     height: calc(100vh - 70px - 50px - 20px);
@@ -107,8 +148,8 @@ body.loaded {
 /* タブバー */
 .tab-bar {
     display: flex;
-    background: rgba(255, 140, 66, 0.1);
-    border-bottom: 2px solid rgba(255, 140, 66, 0.3);
+    background: var(--theme-primary-alpha-10);
+    border-bottom: 2px solid var(--theme-primary-alpha-30);
     padding: 0;
     margin: 0;
     user-select: none;
@@ -129,12 +170,12 @@ body.loaded {
 }
 
 .tab-bar::-webkit-scrollbar-thumb {
-    background: rgba(255, 140, 66, 0.3);
+    background: var(--theme-primary-alpha-30);
     border-radius: 2px;
 }
 
 .tab-bar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 140, 66, 0.5);
+    background: var(--theme-primary-alpha-50);
 }
 
 /* 個別タブ */
@@ -143,26 +184,26 @@ body.loaded {
     display: flex;
     align-items: center;
     padding: 8px 16px;
-    background: rgba(255, 140, 66, 0.6);
-    border-right: 1px solid rgba(255, 140, 66, 0.3);
+    background: var(--theme-primary-alpha-60);
+    border-right: 1px solid var(--theme-primary-alpha-30);
     cursor: pointer;
     min-width: 120px;
     max-width: 200px;
     transition: all 0.2s ease;
     font-size: 13px;
     height: 40px;
-    color: white;
+    color: var(--theme-text-light);
     flex-shrink: 0;
 }
 
 .tab:hover {
-    background: rgba(255, 140, 66, 0.8);
+    background: var(--theme-primary-alpha-80);
 }
 
 .tab.active {
-    background: rgba(255, 140, 66, 0.9);
-    border-bottom: 3px solid #ff8c42;
-    color: white;
+    background: var(--theme-primary-alpha-90);
+    border-bottom: 3px solid var(--theme-primary);
+    color: var(--theme-text-light);
     font-weight: 500;
 }
 
@@ -175,7 +216,7 @@ body.loaded {
 }
 
 .tab .parent-star.active {
-    color: #ffd700;
+    color: var(--theme-accent-gold);
     text-shadow: 0 0 4px rgba(255, 215, 0, 0.5);
 }
 
@@ -184,7 +225,7 @@ body.loaded {
 }
 
 .tab .parent-star:hover {
-    color: #ffed4e;
+    color: var(--theme-accent-light);
 }
 
 /* タブ名 */
@@ -230,7 +271,7 @@ body.loaded {
 /* 新規タブボタン */
 .new-tab-button {
     padding: 8px 16px;
-    background: rgba(255, 140, 66, 0.2);
+    background: var(--theme-primary-alpha-20);
     border: none;
     color: #4A3728;
     cursor: pointer;
@@ -248,7 +289,7 @@ body.loaded {
 }
 
 .new-tab-button:hover {
-    background: rgba(255, 140, 66, 0.3);
+    background: var(--theme-primary-alpha-30);
     color: #2d1f17;
 }
 
@@ -264,8 +305,8 @@ body.loaded {
 }
 
 .tab.drag-over {
-    border-left: 3px solid #FF8C42;
-    background: rgba(255, 140, 66, 0.2);
+    border-left: 3px solid var(--theme-primary);
+    background: var(--theme-primary-alpha-20);
     transition: all 0.2s ease;
 }
 
@@ -309,7 +350,7 @@ body.loaded {
 
 .wallpaper-select {
     padding: 8px 12px;
-    border: 2px solid #FFB366;
+    border: 2px solid var(--theme-primary-light);
     border-radius: 10px;
     background: white;
     font-size: 14px;
@@ -385,16 +426,16 @@ body.loaded {
     backdrop-filter: blur(10px);
     font-size: 16px;
     font-weight: 600;
-    color: #FF8C42;
+    color: var(--theme-primary);
     transition: all 0.3s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 #chat-input:focus {
     outline: none;
-    border-color: rgba(255, 140, 66, 0.6);
+    border-color: var(--theme-primary-alpha-60);
     background: rgba(255, 255, 255, 1);
-    box-shadow: 0 2px 12px rgba(255, 140, 66, 0.2);
+    box-shadow: 0 2px 12px var(--theme-primary-alpha-20);
 }
 
 /* 送信ボタン - ピュアCSS */
@@ -419,8 +460,8 @@ body.loaded {
 .send-btn:hover {
     transform: scale(1.05);
     background: rgba(255, 255, 255, 1);
-    box-shadow: 0 4px 12px rgba(255, 140, 66, 0.2);
-    border-color: rgba(255, 140, 66, 0.5);
+    box-shadow: 0 4px 12px var(--theme-primary-alpha-20);
+    border-color: var(--theme-primary-alpha-50);
 }
 
 .send-btn:active {
@@ -434,7 +475,7 @@ body.loaded {
     position: absolute;
     width: 0;
     height: 0;
-    border-left: 20px solid #FF8C42;
+    border-left: 20px solid var(--theme-primary);
     border-top: 10px solid transparent;
     border-bottom: 10px solid transparent;
     transform: rotate(-45deg) translate(3px, 0px);
@@ -446,7 +487,7 @@ body.loaded {
     position: absolute;
     width: 0;
     height: 0;
-    border-left: 16px solid #FFB366;
+    border-left: 16px solid var(--theme-primary-light);
     border-top: 8px solid transparent;
     border-bottom: 8px solid transparent;
     transform: rotate(-45deg) translate(-2px, 0px);
@@ -454,13 +495,13 @@ body.loaded {
 }
 
 .send-btn:hover::before {
-    border-left-color: #FF6B35;
-    filter: drop-shadow(0 0 8px rgba(255, 140, 66, 0.6));
+    border-left-color: var(--theme-primary-darker);
+    filter: drop-shadow(0 0 8px var(--theme-primary-alpha-60));
 }
 
 .send-btn:hover::after {
-    border-left-color: #FF8C42;
-    filter: drop-shadow(0 0 6px rgba(255, 183, 102, 0.5));
+    border-left-color: var(--theme-primary);
+    filter: drop-shadow(0 0 6px var(--theme-light-alpha-50));
 }
 
 #send-button img {
@@ -542,14 +583,14 @@ body.loaded {
 .character-name {
     font-size: 20px;
     font-weight: 700;
-    color: #FF8C42;
+    color: var(--theme-primary);
     margin-bottom: 5px;
-    text-shadow: 0 2px 4px rgba(255, 140, 66, 0.4);
+    text-shadow: 0 2px 4px var(--theme-primary-alpha-40);
 }
 
 .character-mood {
     font-size: 14px;
-    color: #FFB366;
+    color: var(--theme-primary-light);
     font-weight: 500;
 }
 
@@ -630,8 +671,8 @@ body.loaded {
 .voice-message {
     margin-bottom: 8px;
     padding: 8px 12px;
-    background: linear-gradient(135deg, rgba(255, 140, 66, 0.1), rgba(255, 183, 102, 0.1));
-    border-left: 3px solid #FF8C42;
+    background: linear-gradient(135deg, var(--theme-primary-alpha-10), var(--theme-light-alpha-10));
+    border-left: 3px solid var(--theme-primary);
     border-radius: 8px;
     contain: layout style;
 }
@@ -669,12 +710,12 @@ body.loaded {
     transform: translate(-50%, -50%);
     width: 4.5px;
     height: 8px;
-    background: #FF8C42;
+    background: var(--theme-primary);
     transition: transform 0.3s ease;
     box-shadow: 
         /* 上下の縦向きの歯のみ */
-        0 -8.3px 0 0 #FF8C42,                    /* 0度 - 上（縦向き） */
-        0 8.3px 0 0 #FF8C42;                     /* 180度 - 下（縦向き） */
+        0 -8.3px 0 0 var(--theme-primary),                    /* 0度 - 上（縦向き） */
+        0 8.3px 0 0 var(--theme-primary);                     /* 180度 - 下（縦向き） */
 }
 
 .settings-btn {
@@ -687,9 +728,9 @@ body.loaded {
     cursor: pointer;
     transition: all 0.3s ease;
     backdrop-filter: blur(15px);
-    border: 2px solid rgba(255, 183, 102, 0.9);
+    border: 2px solid var(--theme-light-alpha-90);
     box-shadow: 
-        0 4px 15px rgba(255, 140, 66, 0.2),
+        0 4px 15px var(--theme-primary-alpha-20),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
     display: flex;
     align-items: center;
@@ -701,9 +742,9 @@ body.loaded {
     transform: translateY(-2px) scale(1.05);
     background: rgba(255, 255, 255, 0.95);
     box-shadow: 
-        0 8px 25px rgba(255, 140, 66, 0.3),
+        0 8px 25px var(--theme-primary-alpha-30),
         inset 0 1px 0 rgba(255, 255, 255, 1);
-    border-color: rgba(255, 183, 102, 1);
+    border-color: var(--theme-primary-light);
 }
 
 .settings-btn:hover::before {
@@ -713,7 +754,7 @@ body.loaded {
 .settings-btn:active {
     transform: translateY(0) scale(0.95);
     box-shadow: 
-        0 2px 8px rgba(255, 140, 66, 0.2),
+        0 2px 8px var(--theme-primary-alpha-20),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
@@ -725,10 +766,10 @@ body.loaded {
     transform: translate(-50%, -50%);
     width: 8px;
     height: 4.5px;
-    background: #FF8C42;
+    background: var(--theme-primary);
     box-shadow: 
-        8.3px 0 0 0 #FF8C42,                     /* 右の横向き歯 */
-        -8.3px 0 0 0 #FF8C42;                    /* 左の横向き歯 */
+        8.3px 0 0 0 var(--theme-primary),                     /* 右の横向き歯 */
+        -8.3px 0 0 0 var(--theme-primary);                    /* 左の横向き歯 */
     z-index: 2;
     transition: transform 0.3s ease;
 }
@@ -744,7 +785,7 @@ body.loaded {
     left: 50%;
     width: 4.5px;
     height: 8px;
-    background: #FF8C42;
+    background: var(--theme-primary);
     z-index: 2;
     transition: transform 0.3s ease;
 }
@@ -782,7 +823,7 @@ body.loaded {
     height: 18px;
     background: white;
     border-radius: 50%;
-    box-shadow: inset 0 0 0 5px #FF8C42;
+    box-shadow: inset 0 0 0 5px var(--theme-primary);
     z-index: 3;
 }
 
@@ -803,9 +844,9 @@ body.loaded {
     transition: all 0.3s ease;
     backdrop-filter: blur(15px);
     background: rgba(255, 255, 255, 0.85);
-    border: 2px solid rgba(255, 183, 102, 0.9);
+    border: 2px solid var(--theme-light-alpha-90);
     box-shadow: 
-        0 4px 15px rgba(255, 140, 66, 0.2),
+        0 4px 15px var(--theme-primary-alpha-20),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
     display: flex;
     align-items: center;
@@ -817,9 +858,9 @@ body.loaded {
     transform: translateY(-2px) scale(1.05);
     background: rgba(255, 255, 255, 0.95);
     box-shadow: 
-        0 8px 25px rgba(255, 140, 66, 0.3),
+        0 8px 25px var(--theme-primary-alpha-30),
         inset 0 1px 0 rgba(255, 255, 255, 1);
-    border-color: rgba(255, 183, 102, 1);
+    border-color: var(--theme-primary-light);
 }
 
 .simple-btn:active {
@@ -832,7 +873,7 @@ body.loaded {
     content: '';
     width: 0;
     height: 0;
-    border-left: 12px solid #FF8C42;
+    border-left: 12px solid var(--theme-primary);
     border-top: 8px solid transparent;
     border-bottom: 8px solid transparent;
     margin-left: 3px; /* 中央寄せ調整 */
@@ -846,7 +887,7 @@ body.loaded {
     content: '';
     width: 14px;
     height: 14px;
-    background: #FF8C42;
+    background: var(--theme-primary);
     border-radius: 2px;
     transition: all 0.3s ease;
 }
@@ -856,14 +897,14 @@ body.loaded {
 /* ターミナル切り替えボタン */
 .terminal-toggle-btn {
     background: rgba(255, 255, 255, 0.85);
-    border: 2px solid rgba(255, 183, 102, 0.9);
+    border: 2px solid var(--theme-light-alpha-90);
     transition: all 0.3s ease;
 }
 
 .terminal-toggle-btn:hover {
     background: rgba(255, 255, 255, 1);
-    border-color: rgba(255, 140, 66, 0.8);
-    box-shadow: 0 5px 20px rgba(255, 140, 66, 0.4);
+    border-color: var(--theme-primary-alpha-80);
+    box-shadow: 0 5px 20px var(--theme-primary-alpha-40);
 }
 
 /* ターミナル表示時のアイコン（目を開いた状態） */
@@ -876,7 +917,7 @@ body.loaded {
     transform: translate(-50%, -50%);
     width: 20px;
     height: 12px;
-    border: 2px solid #FF8C42;
+    border: 2px solid var(--theme-primary);
     border-radius: 50%;
     background: white;
     transition: all 0.2s ease;
@@ -893,7 +934,7 @@ body.loaded {
     height: 12px;
     background: white;
     border-radius: 50%;
-    border: 1.5px solid #FF8C42;
+    border: 1.5px solid var(--theme-primary);
     transition: all 0.2s ease;
 }
 
@@ -905,7 +946,7 @@ body.loaded {
     transform: translate(-70%, -70%);
     width: 5px;
     height: 5px;
-    background: #FF8C42;
+    background: var(--theme-primary);
     border-radius: 50%;
     transition: all 0.2s ease;
     z-index: 3;
@@ -918,8 +959,8 @@ body.loaded {
     border-radius: 2px;
     border-top: none;
     border-bottom: none;
-    border-color: #FF8C42;
-    background: #FF8C42;
+    border-color: var(--theme-primary);
+    background: var(--theme-primary);
 }
 
 .terminal-toggle-btn.terminal-hidden::after {
@@ -942,7 +983,7 @@ body.loaded {
 .simple-btn:disabled:hover {
     transform: none;
     background: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 4px 15px rgba(255, 140, 66, 0.2);
+    box-shadow: 0 4px 15px var(--theme-primary-alpha-20);
 }
 
 /* ヘルプボタン - 設定ボタンと同じスタイル */
@@ -959,9 +1000,9 @@ body.loaded {
     transform: translateY(-2px) scale(1.05);
     background: rgba(255, 255, 255, 0.95);
     box-shadow: 
-        0 8px 25px rgba(255, 140, 66, 0.4),
-        0 3px 10px rgba(255, 183, 102, 0.3);
-    border-color: rgba(255, 183, 102, 1);
+        0 8px 25px var(--theme-primary-alpha-40),
+        0 3px 10px var(--theme-light-alpha-30);
+    border-color: var(--theme-primary-light);
 }
 
 /* ヘルプボタンの歯車アイコンと中心の丸を完全に非表示にする */
@@ -979,7 +1020,7 @@ body.loaded {
     justify-content: center;
     font-size: 24px; /* サイズ調整 */
     font-weight: bold;
-    color: #FF8C42; /* 開始ボタンと同じ色 */
+    color: var(--theme-primary); /* 開始ボタンと同じ色 */
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1016,7 +1057,7 @@ body.loaded {
     transform: translate(-50%, -50%);
     width: 24px;
     height: 24px;
-    border: 2.5px solid #FF8C42;
+    border: 2.5px solid var(--theme-primary);
     border-radius: 50%;
     box-sizing: border-box;
 }
@@ -1028,7 +1069,7 @@ body.loaded {
     left: 50%;
     width: 2px;
     height: 8px;
-    background: #FF8C42;
+    background: var(--theme-primary);
     transform: translate(-50%, -100%);
     transform-origin: center bottom;
     z-index: 7;
@@ -1041,7 +1082,7 @@ body.loaded {
     left: 50%;
     width: 5px;
     height: 2px;
-    background: #FF8C42;
+    background: var(--theme-primary);
     transform: translate(0, -50%);
     transform-origin: left center;
     z-index: 7;
@@ -1055,7 +1096,7 @@ body.loaded {
     left: 50%;
     width: 3px;
     height: 3px;
-    background: #FF8C42;
+    background: var(--theme-primary);
     border-radius: 50%;
     transform: translate(-50%, -50%);
     z-index: 8;
@@ -1066,9 +1107,9 @@ body.loaded {
     transform: translateY(-2px) scale(1.05);
     background: rgba(255, 255, 255, 0.95);
     box-shadow: 
-        0 8px 25px rgba(255, 140, 66, 0.4),
-        0 3px 10px rgba(255, 183, 102, 0.3);
-    border-color: rgba(255, 183, 102, 1);
+        0 8px 25px var(--theme-primary-alpha-40),
+        0 3px 10px var(--theme-light-alpha-30);
+    border-color: var(--theme-primary-light);
 }
 
 /* 会話ログモーダル内のボタンとセレクトスタイル */
@@ -1078,10 +1119,10 @@ body.loaded {
     font-size: 14px;
     font-weight: 600;
     min-width: 100px;
-    background: linear-gradient(135deg, #FF8C42, #FFB366);
+    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
     color: white;
     border: 2px solid transparent;
-    box-shadow: 0 2px 8px rgba(255, 140, 66, 0.2);
+    box-shadow: 0 2px 8px var(--theme-primary-alpha-20);
     cursor: pointer;
     width: auto;
     height: auto;
@@ -1089,13 +1130,13 @@ body.loaded {
 
 .help-modal .simple-btn:hover {
     transform: translateY(-2px) scale(1.05);
-    background: linear-gradient(135deg, #FFB366, #FF8C42);
-    box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
+    background: linear-gradient(135deg, var(--theme-primary-light), var(--theme-primary));
+    box-shadow: 0 4px 12px var(--theme-primary-alpha-30);
 }
 
 .help-modal .speaker-select {
     padding: 12px 16px;
-    border: 2px solid rgba(255, 183, 102, 0.3);
+    border: 2px solid var(--theme-light-alpha-30);
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.9);
     color: #333;
@@ -1106,7 +1147,7 @@ body.loaded {
 
 .help-modal .speaker-select:focus {
     outline: none;
-    border-color: #FF8C42;
+    border-color: var(--theme-primary);
     background: white;
 }
 
@@ -1136,7 +1177,7 @@ body.loaded {
     max-width: 95%;
     max-height: 90vh;
     overflow: hidden;
-    box-shadow: 0 8px 24px rgba(255, 140, 66, 0.2);
+    box-shadow: 0 8px 24px var(--theme-primary-alpha-20);
     border: none;
     display: flex;
     flex-direction: column;
@@ -1148,7 +1189,7 @@ body.loaded {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, #FF8C42 0%, #FFB366 100%);
+    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
     border-radius: 24px 24px 0 0;
     color: white;
     flex-shrink: 0;
@@ -1193,7 +1234,7 @@ body.loaded {
 }
 
 .help-nav-item.active {
-    background: linear-gradient(135deg, #FF8C42 0%, #FFB366 100%);
+    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
     color: white;
     border-left: 4px solid #e67e22;
 }
@@ -1275,7 +1316,7 @@ body.loaded {
 }
 
 .help-content-main strong {
-    color: #FF8C42;
+    color: var(--theme-primary);
     font-weight: 600;
 }
 
@@ -1316,7 +1357,7 @@ body.loaded {
     padding: 16px 20px;
     text-align: left;
     font-weight: 600;
-    border-bottom: 2px solid #FF8C42;
+    border-bottom: 2px solid var(--theme-primary);
 }
 
 .help-content-main td {
@@ -1369,12 +1410,12 @@ body.loaded {
 }
 
 .help-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 140, 66, 0.4);
+    background: var(--theme-primary-alpha-40);
     border-radius: 4px;
 }
 
 .help-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 140, 66, 0.6);
+    background: var(--theme-primary-alpha-60);
 }
 
 .help-header {
@@ -1382,7 +1423,7 @@ body.loaded {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, #FF8C42 0%, #FFB366 100%);
+    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
     border-bottom: none;
     position: sticky;
     top: 0;
@@ -1414,11 +1455,11 @@ body.loaded {
     padding: 16px;
     background: rgba(255, 255, 255, 0.7);
     border-radius: 12px;
-    border: 1px solid rgba(255, 183, 102, 0.2);
+    border: 1px solid var(--theme-light-alpha-20);
 }
 
 .help-section h4 {
-    color: #FF8C42;
+    color: var(--theme-primary);
     font-weight: 600;
     font-size: 16px;
     margin-bottom: 8px;
@@ -1429,7 +1470,7 @@ body.loaded {
 
 .help-section h4::before {
     content: '•';
-    color: #FFB366;
+    color: var(--theme-primary-light);
     font-size: 20px;
     font-weight: bold;
 }
@@ -1447,11 +1488,11 @@ body.loaded {
     min-width: 20px;
     text-align: center;
     margin-top: 2px;
-    color: #FF8C42;
+    color: var(--theme-primary);
 }
 
 .help-item strong {
-    color: #FF8C42;
+    color: var(--theme-primary);
     font-weight: 600;
 }
 
@@ -1477,7 +1518,7 @@ body.loaded {
     max-width: 95%;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 8px 24px rgba(255, 140, 66, 0.2);
+    box-shadow: 0 8px 24px var(--theme-primary-alpha-20);
     border: none;
 }
 
@@ -1486,7 +1527,7 @@ body.loaded {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, #FF8C42 0%, #FFB366 100%);
+    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
     border-bottom: none;
     position: sticky;
     top: 0;
@@ -1534,11 +1575,11 @@ body.loaded {
     padding: 16px;
     background: rgba(255, 255, 255, 0.7);
     border-radius: 12px;
-    border: 1px solid rgba(255, 183, 102, 0.2);
+    border: 1px solid var(--theme-light-alpha-20);
 }
 
 .setting-group label {
-    color: #FF8C42;
+    color: var(--theme-primary);
     font-weight: 600;
     font-size: 16px;
     margin-bottom: 8px;
@@ -1549,7 +1590,7 @@ body.loaded {
 
 .setting-group label::before {
     content: ''; /* ドットを非表示にする */
-    color: #FFB366;
+    color: var(--theme-primary-light);
     font-size: 20px;
     font-weight: bold;
 }
@@ -1568,8 +1609,8 @@ input[type="checkbox"]:not(.cli-toggle-label input) {
 }
 
 input[type="checkbox"]:not(.cli-toggle-label input):checked {
-    background: linear-gradient(135deg, #FF8C42, #FFB366);
-    border-color: #FF8C42;
+    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
+    border-color: var(--theme-primary);
 }
 
 input[type="checkbox"]:not(.cli-toggle-label input)::before {
@@ -1592,7 +1633,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 .speaker-select,
 .cooldown-input {
     padding: 12px 16px;
-    border: 2px solid rgba(255, 183, 102, 0.3);
+    border: 2px solid var(--theme-light-alpha-30);
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.9);
     color: #333;
@@ -1603,7 +1644,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 .speaker-select:focus,
 .cooldown-input:focus {
     outline: none;
-    border-color: #FF8C42;
+    border-color: var(--theme-primary);
     background: white;
 }
 
@@ -1626,21 +1667,21 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     padding: 16px 20px;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 248, 240, 0.8) 100%);
     border-radius: 12px;
-    border: 2px solid rgba(255, 183, 102, 0.2);
+    border: 2px solid var(--theme-light-alpha-20);
 }
 
 .connection-status-group span {
     font-weight: 600;
-    color: #FF8C42;
+    color: var(--theme-primary);
 }
 
 #connection-status-modal {
-    color: #FF8C42;
+    color: var(--theme-primary);
     font-weight: 600;
     padding: 6px 12px;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(255, 183, 102, 0.3);
+    border: 1px solid var(--theme-light-alpha-30);
 }
 
 .status-connected {
@@ -1662,10 +1703,10 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     font-size: 14px;
     font-weight: 600;
     min-width: 100px;
-    background: linear-gradient(135deg, #FF8C42, #FFB366);
+    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
     color: white;
     border: 2px solid transparent;
-    box-shadow: 0 2px 8px rgba(255, 140, 66, 0.2);
+    box-shadow: 0 2px 8px var(--theme-primary-alpha-20);
     cursor: pointer;
 }
 
@@ -1715,23 +1756,23 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     font-size: 14px;
     font-weight: 600;
     min-width: 140px; /* 横幅を140pxに拡大 */
-    background: linear-gradient(135deg, #FF8C42, #FFB366);
+    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
     color: white;
     border: 2px solid transparent;
-    box-shadow: 0 2px 8px rgba(255, 140, 66, 0.2);
+    box-shadow: 0 2px 8px var(--theme-primary-alpha-20);
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .speech-history-controls .simple-btn:hover {
-    background: linear-gradient(135deg, #FFB366, #FFCC99);
-    box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
+    background: linear-gradient(135deg, var(--theme-primary-light), #FFCC99);
+    box-shadow: 0 4px 12px var(--theme-primary-alpha-30);
     transform: translateY(-1px);
 }
 
 .speech-history-controls .simple-btn:active {
     transform: translateY(0);
-    box-shadow: 0 2px 6px rgba(255, 140, 66, 0.2);
+    box-shadow: 0 2px 6px var(--theme-primary-alpha-20);
 }
 
 /* スクロールバーカスタマイズ */
@@ -1788,12 +1829,12 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 .settings-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 140, 66, 0.4);
+    background: var(--theme-primary-alpha-40);
     border-radius: 4px;
 }
 
 .settings-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 140, 66, 0.6);
+    background: var(--theme-primary-alpha-60);
 }
 
 /* 全てのxtermスクロールバーを強制非表示 */
@@ -1878,7 +1919,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 .cli-toggle-label input[type="checkbox"]:checked + .cli-toggle-switch {
-    background-color: #FF8C42;
+    background-color: var(--theme-primary);
 }
 
 .cli-toggle-label input[type="checkbox"]:checked + .cli-toggle-switch::before {
@@ -1888,7 +1929,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 .cli-toggle-label span:last-child {
     font-size: 16px;
     font-weight: 500;
-    color: #FF8C42;
+    color: var(--theme-primary);
 }
 
 
