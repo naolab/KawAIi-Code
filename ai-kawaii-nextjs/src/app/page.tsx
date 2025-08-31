@@ -27,11 +27,11 @@ export default function Home() {
   // アイコンカラーフィルターを生成
   const getIconFilter = (theme: string) => {
     const filters: { [key: string]: string } = {
-      orange: 'brightness(0) saturate(100%) invert(47%) sepia(67%) saturate(1158%) hue-rotate(346deg) brightness(102%) contrast(95%)',
-      pink: 'brightness(0) saturate(100%) invert(45%) sepia(77%) saturate(2466%) hue-rotate(314deg) brightness(102%) contrast(103%)',
-      blue: 'brightness(0) saturate(100%) invert(45%) sepia(100%) saturate(2466%) hue-rotate(207deg) brightness(95%) contrast(89%)',
-      green: 'brightness(0) saturate(100%) invert(60%) sepia(77%) saturate(1466%) hue-rotate(87deg) brightness(95%) contrast(89%)',
-      purple: 'brightness(0) saturate(100%) invert(45%) sepia(77%) saturate(2466%) hue-rotate(274deg) brightness(95%) contrast(89%)'
+      orange: 'brightness(0) saturate(100%) invert(60%) sepia(85%) saturate(1158%) hue-rotate(346deg) brightness(95%) contrast(95%)',
+      pink: 'brightness(0) saturate(100%) invert(75%) sepia(55%) saturate(1462%) hue-rotate(315deg) brightness(95%) contrast(95%)',
+      blue: 'brightness(0) saturate(100%) invert(65%) sepia(65%) saturate(672%) hue-rotate(183deg) brightness(95%) contrast(95%)',
+      green: 'brightness(0) saturate(100%) invert(65%) sepia(45%) saturate(975%) hue-rotate(68deg) brightness(95%) contrast(95%)',
+      purple: 'brightness(0) saturate(100%) invert(70%) sepia(55%) saturate(1199%) hue-rotate(264deg) brightness(95%) contrast(95%)'
     }
     return filters[theme] || filters.orange
   }
@@ -45,10 +45,10 @@ export default function Home() {
         
         // テーマ名を推測してstateに保存
         if (colors.primary === '#FF8C42') setCurrentTheme('orange')
-        else if (colors.primary === '#FFB3C6') setCurrentTheme('pink')
-        else if (colors.primary === '#A3C7FF') setCurrentTheme('blue')
-        else if (colors.primary === '#A8D5A8') setCurrentTheme('green')
-        else if (colors.primary === '#D1A3E6') setCurrentTheme('purple')
+        else if (colors.primary === '#FF8FAD') setCurrentTheme('pink')
+        else if (colors.primary === '#7AB8FF') setCurrentTheme('blue')
+        else if (colors.primary === '#7AC87A') setCurrentTheme('green')
+        else if (colors.primary === '#B882D1') setCurrentTheme('purple')
         
         // CSS変数を更新
         Object.entries(colors).forEach(([key, value]) => {
