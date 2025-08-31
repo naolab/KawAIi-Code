@@ -1460,12 +1460,12 @@ body.loaded {
 }
 
 .help-content-main th {
-    background: linear-gradient(135deg, #fff5f0 0%, #ffe8d6 100%);
-    color: #495057;
+    background: #f8f8f8 !important;
+    color: #333 !important;
     padding: 16px 20px;
     text-align: left;
     font-weight: 600;
-    border-bottom: 2px solid var(--theme-primary);
+    border-bottom: 2px solid #ddd !important;
 }
 
 .help-content-main td {
@@ -2041,30 +2041,37 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 /* ヘルプモーダル内のテーブルスタイル */
-.help-section table {
+.help-section table,
+.help-table {
     border-collapse: collapse;
     width: 100%;
     margin: 15px 0;
 }
 
 .help-section table th,
-.help-section table td {
+.help-section table td,
+.help-table th,
+.help-table td {
     border: 1px solid #ddd;
     padding: 12px;
     text-align: left;
 }
 
-.help-section table th {
+.help-section table th,
+.help-table th,
+.help-th {
     background-color: #f8f8f8 !important;
     color: #333 !important;
     font-weight: bold;
 }
 
-.help-section table tr:nth-child(even) {
+.help-section table tr:nth-child(even),
+.help-table tbody tr:nth-child(even) {
     background-color: #ffffff;
 }
 
-.help-section table tr:hover {
+.help-section table tr:hover,
+.help-table tbody tr:hover {
     background-color: #f0f0f0;
 }
 
