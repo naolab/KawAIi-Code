@@ -10,11 +10,11 @@ const VRMViewer = dynamic(() => import('@/components/VRMViewer'), {
   loading: () => (
     <div className="flex items-center justify-center h-full">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto mb-4"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{borderBottomColor: 'var(--theme-primary)'}}></div>
         <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden mx-auto mb-2">
-          <div className="h-full bg-orange-500 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          <div className="h-full rounded-full animate-pulse" style={{ width: '60%', backgroundColor: 'var(--theme-primary)' }}></div>
         </div>
-        <p className="text-sm text-orange-600">3Dキャラクターを読み込み中...</p>
+        <p className="text-sm" style={{color: 'var(--theme-primary)'}}>3Dキャラクターを読み込み中...</p>
       </div>
     </div>
   )
@@ -22,6 +22,52 @@ const VRMViewer = dynamic(() => import('@/components/VRMViewer'), {
 
 export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  // 親アプリからのテーマ変更メッセージを受信
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'theme-change') {
+        const colors = event.data.colors
+        const root = document.documentElement
+        
+        // CSS変数を更新
+        Object.entries(colors).forEach(([key, value]) => {
+          const cssVarName = '--theme-' + key.replace(/([A-Z])/g, '-$1').toLowerCase()
+          root.style.setProperty(cssVarName, value as string)
+        })
+
+        // 透明度バリエーションも更新
+        const hexToRgb = (hex: string) => {
+          const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+          return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+          } : null
+        }
+
+        const primaryRgb = hexToRgb(colors.primary)
+        if (primaryRgb) {
+          const { r, g, b } = primaryRgb
+          root.style.setProperty('--theme-primary-alpha-10', `rgba(${r}, ${g}, ${b}, 0.1)`)
+          root.style.setProperty('--theme-primary-alpha-15', `rgba(${r}, ${g}, ${b}, 0.15)`)
+          root.style.setProperty('--theme-primary-alpha-20', `rgba(${r}, ${g}, ${b}, 0.2)`)
+          root.style.setProperty('--theme-primary-alpha-30', `rgba(${r}, ${g}, ${b}, 0.3)`)
+          root.style.setProperty('--theme-primary-alpha-40', `rgba(${r}, ${g}, ${b}, 0.4)`)
+          root.style.setProperty('--theme-primary-alpha-50', `rgba(${r}, ${g}, ${b}, 0.5)`)
+        }
+
+        const lightRgb = hexToRgb(colors.primaryLight)
+        if (lightRgb) {
+          const { r, g, b } = lightRgb
+          root.style.setProperty('--theme-light-alpha-20', `rgba(${r}, ${g}, ${b}, 0.2)`)
+        }
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
 
   return (
     <div style={{ width: '100%', height: '100vh', background: 'transparent' }}>
@@ -41,7 +87,7 @@ export default function Home() {
           height: '35px',
           borderRadius: '50%',
           background: 'rgba(255, 255, 255, 0.9)',
-          border: '1px solid rgba(255, 183, 102, 0.8)',
+          border: '1px solid var(--theme-primary-light)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -91,7 +137,7 @@ export default function Home() {
             {/* ヘッダー */}
             <div style={{
               padding: '20px',
-              background: 'rgb(255, 140, 66)',
+              background: 'var(--theme-primary)',
               color: 'white',
               display: 'flex',
               justifyContent: 'space-between',
@@ -157,9 +203,9 @@ export default function Home() {
                   <div style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: '2px dashed rgba(255, 183, 102, 0.5)',
+                    border: '2px dashed var(--theme-primary-light)',
                     borderRadius: '10px',
-                    backgroundColor: 'rgba(255, 183, 102, 0.05)',
+                    backgroundColor: 'var(--theme-bg-secondary)',
                     textAlign: 'center',
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
@@ -168,13 +214,13 @@ export default function Home() {
                   }}
                   onMouseEnter={(e) => {
                     const target = e.target as HTMLDivElement
-                    target.style.borderColor = 'rgba(255, 183, 102, 0.8)'
-                    target.style.backgroundColor = 'rgba(255, 183, 102, 0.1)'
+                    target.style.borderColor = 'var(--theme-primary-light)'
+                    target.style.backgroundColor = 'var(--theme-bg-tertiary)'
                   }}
                   onMouseLeave={(e) => {
                     const target = e.target as HTMLDivElement
-                    target.style.borderColor = 'rgba(255, 183, 102, 0.5)'
-                    target.style.backgroundColor = 'rgba(255, 183, 102, 0.05)'
+                    target.style.borderColor = 'var(--theme-primary-light)'
+                    target.style.backgroundColor = 'var(--theme-bg-secondary)'
                   }}
                   >
                     VRMファイルを選択
@@ -196,7 +242,7 @@ export default function Home() {
                     setIsSettingsOpen(false)
                   }}
                   style={{
-                    background: 'rgb(255, 140, 66)',
+                    background: 'var(--theme-primary)',
                     color: 'white',
                     border: 'none',
                     padding: '12px 20px',
@@ -206,17 +252,17 @@ export default function Home() {
                     fontWeight: '500',
                     transition: 'all 0.3s ease',
                     width: '100%',
-                    boxShadow: '0 4px 12px rgba(255, 140, 66, 0.3)'
+                    boxShadow: '0 4px 12px var(--theme-primary-alpha-30)'
                   }}
                   onMouseEnter={(e) => {
                     const target = e.target as HTMLButtonElement
                     target.style.transform = 'translateY(-1px)'
-                    target.style.boxShadow = '0 6px 16px rgba(255, 140, 66, 0.4)'
+                    target.style.boxShadow = '0 6px 16px var(--theme-primary-alpha-40)'
                   }}
                   onMouseLeave={(e) => {
                     const target = e.target as HTMLButtonElement
                     target.style.transform = 'translateY(0)'
-                    target.style.boxShadow = '0 4px 12px rgba(255, 140, 66, 0.3)'
+                    target.style.boxShadow = '0 4px 12px var(--theme-primary-alpha-30)'
                   }}
                 >
                   デフォルトキャラクター読み込み

@@ -22,10 +22,10 @@
             </div>
             <div class="settings-body" style="text-align: center; padding: 30px;">
                 <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
-                    <button id="start-claude" class="simple-btn" style="width: 140px; background-color: #ff6b35;">Claude Code</button>
-                    <button id="start-claude-dangerous" class="simple-btn" style="width: 170px; background-color: #ff3535;">Claude Code (Dangerous)</button>
-                    <button id="start-gemini" class="simple-btn" style="width: 140px; background-color: #4285f4;">Gemini CLI</button>
-                    <button id="start-codex" class="simple-btn" style="width: 140px; background-color: #10a37f;">Codex</button>
+                    <button id="start-claude" class="simple-btn" style="width: 140px; background-color: var(--theme-primary-darker);">Claude Code</button>
+                    <button id="start-claude-dangerous" class="simple-btn" style="width: 170px; background-color: var(--theme-accent);">Claude Code (Dangerous)</button>
+                    <button id="start-gemini" class="simple-btn" style="width: 140px; background-color: var(--blue-primary);">Gemini CLI</button>
+                    <button id="start-codex" class="simple-btn" style="width: 140px; background-color: var(--green-primary);">Codex</button>
                 </div>
             </div>
         </div>
@@ -96,7 +96,7 @@
                 <div class="settings-body">
                     <!-- CLI選択セクション -->
                     <div class="setting-group">
-                        <label style="color: #FF8C42; font-weight: 600; font-size: 16px;">使用するモデルを選択</label>
+                        <label style="color: var(--theme-primary); font-weight: 600; font-size: 16px;">使用するモデルを選択</label>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
                             <label class="cli-toggle-label">
                                 <input type="checkbox" id="cli-claude-toggle" data-cli="claude" checked>
@@ -119,7 +119,7 @@
                                 <span>Codex(OpenAI)</span>
                             </label>
                         </div>
-                        <div id="cli-selection-error" style="display: none; margin-top: 8px; padding: 8px; background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 4px; color: #c62828; font-size: 12px;">
+                        <div id="cli-selection-error" style="display: none; margin-top: 8px; padding: 8px; background-color: var(--theme-bg-secondary); border: 1px solid var(--theme-primary-light); border-radius: 4px; color: var(--theme-accent); font-size: 12px;">
                             最低1つのモデルを選択してください
                         </div>
                     </div>
@@ -163,7 +163,7 @@
                         <div id="cloud-api-settings" style="display: none;">
                             <div class="setting-item" style="margin-bottom: 12px;">
                                 <label for="cloud-api-key-input" style="display: block; margin-bottom: 5px; font-size: 13px;">APIキー</label>
-                                <input type="password" id="cloud-api-key-input" placeholder="APIキーを入力" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; font-weight: 600; color: #FF8C42;">
+                                <input type="password" id="cloud-api-key-input" placeholder="APIキーを入力" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; font-weight: 600; color: var(--theme-primary);">
                             </div>
                             
                             <div style="display: flex; gap: 10px;">
@@ -179,7 +179,7 @@
                         <label>音声合成モデルを追加(Aivis Cloud API使用時)</label>
                         <div style="margin-top: 8px;">
                             <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                                <input type="text" id="model-uuid-input" placeholder="モデルUUIDを入力" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 16px; font-weight: 600; color: #FF8C42;">
+                                <input type="text" id="model-uuid-input" placeholder="モデルUUIDを入力" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 16px; font-weight: 600; color: var(--theme-primary);">
                                 <button id="add-model-btn" class="simple-btn" style="white-space: nowrap;">追加</button>
                             </div>
                             <div id="custom-model-status" style="font-size: 12px; padding: 8px; border-radius: 4px; display: none;"></div>
@@ -247,7 +247,7 @@
                         <!-- 生成先表示 -->
                         <div class="setting-item" style="margin-top: 8px;">
                             <label style="display: block; margin-bottom: 5px; font-size: 13px;">生成先</label>
-                            <div style="padding: 8px 12px; background: #f0f0f0; border-radius: 4px; font-size: 13px; color: #666; word-break: break-all;">
+                            <div style="padding: 8px 12px; background: var(--theme-bg-tertiary); border-radius: 4px; font-size: 13px; color: var(--theme-text-primary); word-break: break-all;">
                                 <span id="workspace-path-display">読み込み中...</span>
                             </div>
                         </div>
@@ -270,6 +270,45 @@
                         <div class="claude-md-load-buttons" style="display: flex; gap: 6px; margin-top: 10px;">
                             <button id="claude-md-load-btn" class="simple-btn" style="flex: 1; min-width: 140px;">既存のファイルを読み込み</button>
                             <button id="claude-md-default-btn" class="simple-btn" style="flex: 1; min-width: 140px;">デフォルト内容を読み込み</button>
+                        </div>
+                    </div>
+                    
+                    <!-- テーマ設定セクション -->
+                    <div class="setting-group">
+                        <label>テーマ設定</label>
+                        <div class="theme-controls" style="display: flex; flex-direction: column; gap: 15px; margin-top: 10px;">
+                            <div class="theme-selection-container">
+                                <div class="theme-options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 10px;">
+                                    <div class="theme-option" data-theme="orange" title="オレンジテーマ">
+                                        <div class="theme-preview" style="background: linear-gradient(135deg, #FF8C42, #FF6B35); border: 2px solid transparent; border-radius: 8px; width: 60px; height: 40px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center;">
+                                            <span style="color: white; font-weight: bold; font-size: 12px;">Orange</span>
+                                        </div>
+                                    </div>
+                                    <div class="theme-option" data-theme="pink" title="ピンクテーマ">
+                                        <div class="theme-preview" style="background: linear-gradient(135deg, #FF6B9D, #E91E63); border: 2px solid transparent; border-radius: 8px; width: 60px; height: 40px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center;">
+                                            <span style="color: white; font-weight: bold; font-size: 12px;">Pink</span>
+                                        </div>
+                                    </div>
+                                    <div class="theme-option" data-theme="blue" title="ブルーテーマ">
+                                        <div class="theme-preview" style="background: linear-gradient(135deg, #4285F4, #1976D2); border: 2px solid transparent; border-radius: 8px; width: 60px; height: 40px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center;">
+                                            <span style="color: white; font-weight: bold; font-size: 12px;">Blue</span>
+                                        </div>
+                                    </div>
+                                    <div class="theme-option" data-theme="green" title="グリーンテーマ">
+                                        <div class="theme-preview" style="background: linear-gradient(135deg, #4CAF50, #2E7D32); border: 2px solid transparent; border-radius: 8px; width: 60px; height: 40px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center;">
+                                            <span style="color: white; font-weight: bold; font-size: 12px;">Green</span>
+                                        </div>
+                                    </div>
+                                    <div class="theme-option" data-theme="purple" title="パープルテーマ">
+                                        <div class="theme-preview" style="background: linear-gradient(135deg, #9C27B0, #673AB7); border: 2px solid transparent; border-radius: 8px; width: 60px; height: 40px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center;">
+                                            <span style="color: white; font-weight: bold; font-size: 12px;">Purple</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 10px; font-size: 13px; color: #666; text-align: center;">
+                                    選択中: <span id="current-theme-name">オレンジ</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -296,7 +335,7 @@
                     <!-- アプリについて -->
                     <div class="setting-group">
                         <label>アプリについて</label>
-                        <div style="font-size: 13px; color: #ff6b35; margin-top: 5px; font-weight: 500;">
+                        <div style="font-size: 13px; color: var(--theme-primary); margin-top: 5px; font-weight: 500;">
                             バージョン: 開発版（ベータ）
                         </div>
                     </div>
@@ -359,7 +398,7 @@
                             <h2>クイックスタート</h2>
                             <div class="help-item">
                                 <h3>使い方ガイド</h3>
-                                <p>KawAIi Codeの詳しい使い方については、<a href="https://kawaii-code.vercel.app/news/3" target="_blank" style="color: #ff6b35; font-weight: bold;">公式使い方ガイド</a>をご覧ください。初期設定から便利な機能まで、わかりやすく解説しています。</p>
+                                <p>KawAIi Codeの詳しい使い方については、<a href="https://kawaii-code.vercel.app/news/3" target="_blank" style="color: var(--theme-primary); font-weight: bold;">公式使い方ガイド</a>をご覧ください。初期設定から便利な機能まで、わかりやすく解説しています。</p>
                             </div>
                             <div class="help-item">
                                 <h3>最初のAI会話</h3>
@@ -480,7 +519,7 @@
                                 <h3>お問い合わせフォーム（推奨）</h3>
                                 <p>バグ報告、機能要望、質問、感想など、何でもお気軽にお送りください。匿名でもご利用いただけます。</p>
                                 <div style="margin: 10px 0;">
-                                    <a href="https://forms.gle/PCZr9xtdoBunLh3Q8" target="_blank" style="color: #ff6b35; text-decoration: none; font-weight: 500; font-size: 16px;">
+                                    <a href="https://forms.gle/PCZr9xtdoBunLh3Q8" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500; font-size: 16px;">
                                         お問い合わせフォーム
                                     </a>
                                 </div>
@@ -489,17 +528,17 @@
                                 <h3>その他の連絡方法</h3>
                                 <p>開発者への直接連絡や技術的なディスカッションをお望みの場合は、以下もご利用いただけます。</p>
                                 <div style="margin: 10px 0;">
-                                    <a href="https://x.com/nao_u7589422" target="_blank" style="color: #ff6b35; text-decoration: none; font-weight: 500;">
+                                    <a href="https://x.com/nao_u7589422" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500;">
                                         X (Twitter) @nao_u7589422
                                     </a>
                                 </div>
                                 <div style="margin: 10px 0;">
-                                    <a href="https://github.com/naolab/KawAIi-Code/issues" target="_blank" style="color: #ff6b35; text-decoration: none; font-weight: 500;">
+                                    <a href="https://github.com/naolab/KawAIi-Code/issues" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500;">
                                         GitHub Issues
                                     </a>
                                 </div>
                                 <div style="margin: 10px 0;">
-                                    <a href="https://github.com/naolab/KawAIi-Code/discussions" target="_blank" style="color: #ff6b35; text-decoration: none; font-weight: 500;">
+                                    <a href="https://github.com/naolab/KawAIi-Code/discussions" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500;">
                                         GitHub Discussions
                                     </a>
                                 </div>
@@ -508,7 +547,7 @@
                                 <h3>プロジェクト情報</h3>
                                 <p>プロジェクトの最新情報やソースコードは、GitHubリポジトリでご確認いただけます。</p>
                                 <div style="margin: 10px 0;">
-                                    <a href="https://github.com/naolab/KawAIi-Code" target="_blank" style="color: #ff6b35; text-decoration: none; font-weight: 500;">
+                                    <a href="https://github.com/naolab/KawAIi-Code" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500;">
                                         GitHub リポジトリ
                                     </a>
                                 </div>
@@ -519,7 +558,7 @@
                         <div id="help-section-license" class="help-section">
                             <h2>ライセンス</h2>
                             <div class="help-item">
-                                <div id="license-content" style="background: #f8f8f8; padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid #e0e0e0;">
+                                <div id="license-content" style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20);">
                                     <div style="text-align: center; color: #666;">読み込み中...</div>
                                 </div>
                             </div>
@@ -529,7 +568,7 @@
                         <div id="help-section-privacy" class="help-section">
                             <h2>プライバシーポリシー</h2>
                             <div class="help-item">
-                                <div id="privacy-content" style="background: #f8f8f8; padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid #e0e0e0;">
+                                <div id="privacy-content" style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20);">
                                     <div style="text-align: center; color: #666;">読み込み中...</div>
                                 </div>
                             </div>
@@ -539,7 +578,7 @@
                         <div id="help-section-terms" class="help-section">
                             <h2>利用規約</h2>
                             <div class="help-item">
-                                <div id="terms-content" style="background: #f8f8f8; padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid #e0e0e0;">
+                                <div id="terms-content" style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20);">
                                     <div style="text-align: center; color: #666;">読み込み中...</div>
                                 </div>
                             </div>
@@ -549,9 +588,9 @@
                         <div id="help-section-updates" class="help-section">
                             <h2>アップデート情報</h2>
                             <div class="help-item">
-                                <div style="background: #f8f8f8; padding: 20px; border-radius: 8px; font-size: 14px; border: 1px solid #e0e0e0;">
+                                <div style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20);">
                                     <h3 style="margin-top: 0; color: #333;">現在のバージョン</h3>
-                                    <p style="font-size: 16px; font-weight: 600; color: #ff6b35; margin: 10px 0;">開発版（ベータ）</p>
+                                    <p style="font-size: 16px; font-weight: 600; color: var(--theme-primary); margin: 10px 0;">開発版（ベータ）</p>
                                     <p style="color: #666; margin: 0;">最新の機能と改善が含まれています。</p>
                                 </div>
                             </div>
@@ -667,10 +706,10 @@
                                 <option value="100">最新100件</option>
                             </select>
                         </div>
-                        <div style="margin-bottom: 10px; padding: 8px 12px; background: #fff8dc; border: 1px solid #e0d090; border-radius: 6px; font-size: 12px; color: #666;">
+                        <div style="margin-bottom: 10px; padding: 8px 12px; background: var(--theme-bg-secondary); border: 1px solid var(--theme-primary-light); border-radius: 6px; font-size: 12px; color: var(--theme-text-primary);">
                             <span style="font-weight: bold;">※</span> 読み上げた内容のみ記録されます
                         </div>
-                        <div id="log-content" style="background: #f8f8f8; padding: 20px; border-radius: 8px; max-height: 500px; overflow-y: auto; font-size: 14px; line-height: 1.6; border: 1px solid #e0e0e0;">
+                        <div id="log-content" style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 500px; overflow-y: auto; font-size: 14px; line-height: 1.6; border: 1px solid var(--theme-primary-alpha-20);">
                             <div style="text-align: center; color: #666;">ログを読み込み中...</div>
                         </div>
                     </div>
@@ -688,7 +727,7 @@
                 <h3>初回利用時の同意確認</h3>
             </div>
             <div class="settings-body" style="padding: 20px; overflow-y: auto; max-height: 800px;">
-                <div style="margin-bottom: 20px; padding: 15px; background: #fff8dc; border: 1px solid #e0d090; border-radius: 8px;">
+                <div style="margin-bottom: 20px; padding: 15px; background: var(--theme-bg-secondary); border: 1px solid var(--theme-primary-light); border-radius: 8px;">
                     <h4 style="color: #d2691e; margin: 0 0 10px 0;">📋 ご利用前の確認事項</h4>
                     <p style="margin: 0; color: #8b4513; font-size: 14px; line-height: 1.5;">
                         このアプリは外部AIサービス（Claude Code）や音声合成サービス（AivisSpeech）と連携し、<br>
@@ -704,7 +743,7 @@
                             <input type="checkbox" id="terms-consent-checkbox" class="consent-checkbox">
                             <label for="terms-consent-checkbox" style="font-weight: bold; color: #333;">利用規約に同意する</label>
                         </div>
-                        <div class="document-content" style="background: #f8f8f8; padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; margin-bottom: 15px;">
+                        <div class="document-content" style="background: var(--theme-bg-secondary); padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid var(--theme-primary-alpha-20); margin-bottom: 15px;">
                             <div id="terms-preview" style="font-size: 13px; line-height: 1.4; color: #555;">
                                 読み込み中...
                             </div>
@@ -720,7 +759,7 @@
                             <input type="checkbox" id="privacy-consent-checkbox" class="consent-checkbox">
                             <label for="privacy-consent-checkbox" style="font-weight: bold; color: #333;">プライバシーポリシーに同意する</label>
                         </div>
-                        <div class="document-content" style="background: #f8f8f8; padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; margin-bottom: 15px;">
+                        <div class="document-content" style="background: var(--theme-bg-secondary); padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid var(--theme-primary-alpha-20); margin-bottom: 15px;">
                             <div id="privacy-preview" style="font-size: 13px; line-height: 1.4; color: #555;">
                                 読み込み中...
                             </div>
@@ -736,7 +775,7 @@
                             <input type="checkbox" id="license-consent-checkbox" class="consent-checkbox">
                             <label for="license-consent-checkbox" style="font-weight: bold; color: #333;">ライセンス条項に同意する</label>
                         </div>
-                        <div class="document-content" style="background: #f8f8f8; padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; margin-bottom: 15px;">
+                        <div class="document-content" style="background: var(--theme-bg-secondary); padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid var(--theme-primary-alpha-20); margin-bottom: 15px;">
                             <div id="license-preview" style="font-size: 13px; line-height: 1.4; color: #555;">
                                 読み込み中...
                             </div>
@@ -749,7 +788,7 @@
 
                 <!-- 同意ボタン -->
                 <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-                    <button id="consent-agree-btn" class="simple-btn" style="background-color: #28a745; color: white; font-size: 16px; padding: 12px 40px; width: auto; min-width: 300px; white-space: nowrap;" disabled>
+                    <button id="consent-agree-btn" class="simple-btn" style="background-color: var(--theme-primary); color: white; font-size: 16px; padding: 12px 40px; width: auto; min-width: 300px; white-space: nowrap;" disabled>
                         すべてに同意してアプリを開始
                     </button>
                     <div style="margin-top: 10px; font-size: 12px; color: #666;">
@@ -832,6 +871,7 @@
     <script src="modules/unified-config-manager.js"></script>
     
     <!-- モジュール -->
+    <script src="modules/theme-manager.js"></script>
     <script src="modules/wallpaper-system.js"></script>
     <script src="modules/config-manager.js"></script>
     <script src="modules/speech-history-manager.js"></script>

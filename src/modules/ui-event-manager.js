@@ -962,16 +962,16 @@ class UIEventManager {
             if (result.success) {
                 // 作業ディレクトリ設定と同じ処理
                 workspacePathDisplay.textContent = result.cwd;
-                workspacePathDisplay.style.color = '#555'; // 通常の色にリセット
+                workspacePathDisplay.style.color = 'var(--theme-text-primary)'; // 通常の色にリセット
                 this.debugLog('CLAUDE.md作業パス表示更新:', result.cwd);
             } else {
                 workspacePathDisplay.textContent = '取得失敗';
-                workspacePathDisplay.style.color = '#ff6b35';
+                workspacePathDisplay.style.color = 'var(--theme-primary-darker)';
                 this.debugError('作業ディレクトリ取得失敗:', result.error);
             }
         } catch (error) {
             workspacePathDisplay.textContent = 'エラー';
-            workspacePathDisplay.style.color = '#ff6b35';
+            workspacePathDisplay.style.color = 'var(--theme-primary-darker)';
             this.debugError('作業パス表示エラー:', error);
         }
     }
@@ -1640,13 +1640,13 @@ class UIEventManager {
         
         // スタイルを設定
         if (type === 'success') {
-            cloudApiStatus.style.backgroundColor = '#e8f5e9';
-            cloudApiStatus.style.color = '#2e7d32';
-            cloudApiStatus.style.border = '1px solid #4caf50';
+            cloudApiStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
+            cloudApiStatus.style.color = 'var(--green-primary)';
+            cloudApiStatus.style.border = '1px solid var(--green-primary)';
         } else if (type === 'error') {
-            cloudApiStatus.style.backgroundColor = '#ffebee';
-            cloudApiStatus.style.color = '#c62828';
-            cloudApiStatus.style.border = '1px solid #f44336';
+            cloudApiStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
+            cloudApiStatus.style.color = 'var(--theme-accent)';
+            cloudApiStatus.style.border = '1px solid var(--theme-accent)';
         }
         
         // 5秒後に自動で非表示
@@ -1667,13 +1667,13 @@ class UIEventManager {
         
         // タイプに応じた色分け
         if (type === 'success') {
-            customModelStatus.style.backgroundColor = '#d4edda';
-            customModelStatus.style.color = '#155724';
-            customModelStatus.style.border = '1px solid #c3e6cb';
+            customModelStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
+            customModelStatus.style.color = 'var(--green-primary)';
+            customModelStatus.style.border = '1px solid var(--green-primary)';
         } else if (type === 'error') {
-            customModelStatus.style.backgroundColor = '#f8d7da';
-            customModelStatus.style.color = '#721c24';
-            customModelStatus.style.border = '1px solid #f5c6cb';
+            customModelStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
+            customModelStatus.style.color = 'var(--theme-accent)';
+            customModelStatus.style.border = '1px solid var(--theme-accent)';
         }
         
         // 5秒後に自動非表示
@@ -2274,7 +2274,7 @@ class UIEventManager {
                     console.log('プライバシーポリシーHTML:', htmlContent.substring(0, 2000));
                 }
             } else {
-                contentElement.innerHTML = '<div style="text-align: center; color: #ff6b35;">ドキュメントの読み込みに失敗しました</div>';
+                contentElement.innerHTML = '<div style="text-align: center; color: var(--theme-primary-darker);">ドキュメントの読み込みに失敗しました</div>';
             }
             
             this.debugLog(`法的ドキュメント読み込み完了: ${type}`);
@@ -2283,7 +2283,7 @@ class UIEventManager {
             
             const contentElement = document.getElementById(contentElementId);
             if (contentElement) {
-                contentElement.innerHTML = '<div style="text-align: center; color: #ff6b35;">エラーが発生しました</div>';
+                contentElement.innerHTML = '<div style="text-align: center; color: var(--theme-primary-darker);">エラーが発生しました</div>';
             }
         }
     }
@@ -2364,7 +2364,7 @@ class UIEventManager {
         
         // スタイルを適用して行間を調整
         html = html
-            .replace(/<p>/g, '<p style="margin: 0.5em 0; line-height: 1.5; color: #555555;">')
+            .replace(/<p>/g, '<p style="margin: 0.5em 0; line-height: 1.5; color: var(--theme-text-primary);">')
             // 見出しは上により大きなマージンを設定
             .replace(/<h1>/g, '<h1 style="margin: 1.8em 0 0.5em 0; font-size: 1.8em;">')
             .replace(/<h2>/g, '<h2 style="margin: 1.6em 0 0.4em 0; font-size: 1.5em;">')
@@ -2372,10 +2372,10 @@ class UIEventManager {
             .replace(/<h4>/g, '<h4 style="margin: 1.2em 0 0.3em 0; font-size: 1.1em;">')
             // リストとリスト項目
             .replace(/<ul>/g, '<ul style="margin: 0.3em 0; padding-left: 1.8em; list-style-type: disc;">')
-            .replace(/<li>/g, '<li style="margin: 0; padding: 0; line-height: 1.3; color: #555555;">');
+            .replace(/<li>/g, '<li style="margin: 0; padding: 0; line-height: 1.3; color: var(--theme-text-primary);">');
         
         // リストの直後の段落のマージンを調整
-        html = html.replace(/(<\/ul>)(<p)/g, '$1<p style="margin: 0.3em 0; line-height: 1.5; color: #555555;"');
+        html = html.replace(/(<\/ul>)(<p)/g, '$1<p style="margin: 0.3em 0; line-height: 1.5; color: var(--theme-text-primary);"');
         
         // リストの後の見出しにスペースを追加
         html = html.replace(/(<\/ul>)\s*(<h[1-4])/g, '$1$2');
@@ -2658,41 +2658,41 @@ class UIEventManager {
         switch (data.status) {
             case 'checking':
                 autoUpdaterStatus.textContent = '更新をチェック中...';
-                autoUpdaterStatus.style.color = '#666';
+                autoUpdaterStatus.style.color = 'var(--theme-text-primary)';
                 break;
 
             case 'update-available':
                 autoUpdaterStatus.textContent = `新しいバージョン ${data.version} をダウンロード中...`;
-                autoUpdaterStatus.style.color = '#007acc';
+                autoUpdaterStatus.style.color = 'var(--blue-primary)';
                 this.showNotification(`新しいバージョン ${data.version} をダウンロード中...`, 'info');
                 break;
 
             case 'up-to-date':
                 autoUpdaterStatus.textContent = '最新バージョンです';
-                autoUpdaterStatus.style.color = '#28a745';
+                autoUpdaterStatus.style.color = 'var(--green-primary)';
                 this.showNotification('アプリは最新バージョンです', 'success');
                 break;
 
             case 'downloading':
                 autoUpdaterStatus.textContent = `更新をダウンロード中... ${data.percent}%`;
-                autoUpdaterStatus.style.color = '#007acc';
+                autoUpdaterStatus.style.color = 'var(--blue-primary)';
                 break;
 
             case 'update-downloaded':
                 autoUpdaterStatus.textContent = '更新準備完了 - 次回起動時に適用';
-                autoUpdaterStatus.style.color = '#28a745';
+                autoUpdaterStatus.style.color = 'var(--green-primary)';
                 this.showNotification('更新のダウンロードが完了しました。次回起動時に適用されます。', 'success');
                 break;
 
             case 'error':
                 autoUpdaterStatus.textContent = '更新エラーが発生しました';
-                autoUpdaterStatus.style.color = '#dc3545';
+                autoUpdaterStatus.style.color = 'var(--theme-accent)';
                 this.showNotification(`更新エラー: ${data.message}`, 'error');
                 break;
 
             default:
                 autoUpdaterStatus.textContent = 'バックグラウンドで自動更新中...';
-                autoUpdaterStatus.style.color = '#666';
+                autoUpdaterStatus.style.color = 'var(--theme-text-primary)';
                 break;
         }
     }

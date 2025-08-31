@@ -2,6 +2,30 @@
 
 /* Electronアプリと同じスタイル */
 
+/* テーマカラー変数（親アプリから同期される） */
+:root {
+    --theme-primary: #FF8C42;
+    --theme-primary-light: #FFB366;
+    --theme-primary-dark: #E67E22;
+    --theme-primary-darker: #FF6B35;
+    --theme-accent: #FF6347;
+    --theme-bg-primary: #FFF8F0;
+    --theme-bg-secondary: #FFF5F0;
+    --theme-bg-tertiary: #F0EAD6;
+    --theme-text-primary: #4A3728;
+    --theme-text-secondary: #2D1F17;
+    --theme-text-light: white;
+    
+    /* 透明度バリエーション */
+    --theme-primary-alpha-10: rgba(255, 140, 66, 0.1);
+    --theme-primary-alpha-15: rgba(255, 140, 66, 0.15);
+    --theme-primary-alpha-20: rgba(255, 140, 66, 0.2);
+    --theme-primary-alpha-30: rgba(255, 140, 66, 0.3);
+    --theme-primary-alpha-40: rgba(255, 140, 66, 0.4);
+    --theme-primary-alpha-50: rgba(255, 140, 66, 0.5);
+    --theme-light-alpha-20: rgba(255, 183, 102, 0.2);
+}
+
 * {
     margin: 0;
     padding: 0;

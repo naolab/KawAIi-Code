@@ -1,8 +1,8 @@
 @import url('../../node_modules/@xterm/xterm/css/xterm.css');
 
-/* テーマカラーパレット（将来のテーマ切り替え対応） */
+/* テーマカラーパレット（テーマ切り替え対応） */
 :root {
-    /* オレンジテーマ（デフォルト） */
+    /* 現在のテーマカラー（デフォルトはオレンジ） */
     --theme-primary: #FF8C42;
     --theme-primary-light: #FFB366;
     --theme-primary-dark: #E67E22;
@@ -39,6 +39,114 @@
     --theme-text-primary: #4A3728;
     --theme-text-secondary: #2D1F17;
     --theme-text-light: white;
+}
+
+/* テーマ別カラーパレット定義 */
+/* オレンジテーマ */
+:root {
+    --orange-primary: #FF8C42;
+    --orange-primary-light: #FFB366;
+    --orange-primary-dark: #E67E22;
+    --orange-primary-darker: #FF6B35;
+    --orange-accent: #FF6347;
+    --orange-bg-primary: #FFF8F0;
+    --orange-bg-secondary: #FFF5F0;
+    --orange-bg-tertiary: #F0EAD6;
+    --orange-text-primary: #4A3728;
+    --orange-text-secondary: #2D1F17;
+}
+
+/* ピンクテーマ */
+:root {
+    --pink-primary: #FF6B9D;
+    --pink-primary-light: #FF8FAD;
+    --pink-primary-dark: #E91E63;
+    --pink-primary-darker: #C2185B;
+    --pink-accent: #FF1744;
+    --pink-bg-primary: #FFF0F5;
+    --pink-bg-secondary: #FFEBEF;
+    --pink-bg-tertiary: #FCE4EC;
+    --pink-text-primary: #4A1B2F;
+    --pink-text-secondary: #2D1017;
+}
+
+/* ブルーテーマ */
+:root {
+    --blue-primary: #4285F4;
+    --blue-primary-light: #66A3FF;
+    --blue-primary-dark: #1976D2;
+    --blue-primary-darker: #0D47A1;
+    --blue-accent: #2196F3;
+    --blue-bg-primary: #F0F8FF;
+    --blue-bg-secondary: #EBF5FF;
+    --blue-bg-tertiary: #E3F2FD;
+    --blue-text-primary: #1B3A4A;
+    --blue-text-secondary: #10252D;
+}
+
+/* グリーンテーマ */
+:root {
+    --green-primary: #4CAF50;
+    --green-primary-light: #66BB6A;
+    --green-primary-dark: #2E7D32;
+    --green-primary-darker: #1B5E20;
+    --green-accent: #00C853;
+    --green-bg-primary: #F0FFF0;
+    --green-bg-secondary: #EBFFEB;
+    --green-bg-tertiary: #E8F5E8;
+    --green-text-primary: #1B4A1B;
+    --green-text-secondary: #102D10;
+}
+
+/* パープルテーマ */
+:root {
+    --purple-primary: #9C27B0;
+    --purple-primary-light: #BA68C8;
+    --purple-primary-dark: #673AB7;
+    --purple-primary-darker: #4A148C;
+    --purple-accent: #E040FB;
+    --purple-bg-primary: #FFF0FF;
+    --purple-bg-secondary: #FFEBFF;
+    --purple-bg-tertiary: #F3E5F5;
+    --purple-text-primary: #4A1B4A;
+    --purple-text-secondary: #2D102D;
+}
+
+/* テーマ選択UIのスタイル */
+.theme-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.theme-preview {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.theme-preview:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.theme-option.active .theme-preview {
+    border: 3px solid #333 !important;
+    box-shadow: 0 0 0 2px white, 0 0 0 5px #333;
+    transform: scale(1.1);
+}
+
+.theme-option.active .theme-preview::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
 }
 
 * {
@@ -1236,7 +1344,7 @@ body.loaded {
 .help-nav-item.active {
     background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
     color: white;
-    border-left: 4px solid #e67e22;
+    border-left: 4px solid var(--theme-primary-dark);
 }
 
 /* メインコンテンツエリア */
@@ -1665,7 +1773,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 248, 240, 0.8) 100%);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, var(--theme-bg-primary) 100%);
     border-radius: 12px;
     border: 2px solid var(--theme-light-alpha-20);
 }
@@ -1930,6 +2038,34 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     font-size: 16px;
     font-weight: 500;
     color: var(--theme-primary);
+}
+
+/* ヘルプモーダル内のテーブルスタイル */
+.help-section table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 15px 0;
+}
+
+.help-section table th,
+.help-section table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+}
+
+.help-section table th {
+    background-color: #f8f8f8 !important;
+    color: #333 !important;
+    font-weight: bold;
+}
+
+.help-section table tr:nth-child(even) {
+    background-color: #ffffff;
+}
+
+.help-section table tr:hover {
+    background-color: #f0f0f0;
 }
 
 
