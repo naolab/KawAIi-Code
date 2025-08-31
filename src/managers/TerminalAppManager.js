@@ -169,6 +169,7 @@ class TerminalAppManager {
         // WallpaperSystem
         this.terminalApp.wallpaperSystem = new WallpaperSystem();
         this.services.wallpaperSystem = this.terminalApp.wallpaperSystem;
+        window.wallpaperSystem = this.terminalApp.wallpaperSystem; // window.wallpaperSystemとしても公開
         
         // ConfigManager
         this.terminalApp.configManager = new ConfigManager();

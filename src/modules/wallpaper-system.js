@@ -201,15 +201,16 @@ class WallpaperSystem {
         }
     }
 
-    // 壁紙を適用
-    async applyWallpaper() {
+    // 壁紙を適用（forceUpdate: テーマ変更時などに強制更新する場合true）
+    async applyWallpaper(forceUpdate = false) {
         const body = document.body;
 
         let newWallpaperPath = null;
 
         if (this.currentWallpaperOption === 'default') {
-            // 全時間帯で同じ壁紙を使用（再配布禁止のため）
-            newWallpaperPath = `assets/wallpapers/default/default.png`;
+            // テーマに応じた壁紙を使用
+            const currentTheme = window.themeManager ? window.themeManager.getCurrentTheme() : 'orange';
+            newWallpaperPath = `assets/wallpapers/default/${currentTheme}.png`;
         } else if (this.currentWallpaperOption === 'uploaded') {
             // ユーザー壁紙の場合は、最新のアップロードされた壁紙のパスを取得する
             const response = await window.electronAPI.wallpaper.getWallpaperList();
@@ -226,12 +227,13 @@ class WallpaperSystem {
                 document.getElementById('wallpaper-default-radio').checked = true;
                 this.addVoiceMessage('モネ', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
                 // ここでnewWallpaperPathを更新し、下の比較ロジックで再適用されるようにする
-                newWallpaperPath = `assets/wallpapers/default/default.png`;
+                const currentTheme = window.themeManager ? window.themeManager.getCurrentTheme() : 'orange';
+                newWallpaperPath = `assets/wallpapers/default/${currentTheme}.png`;
             }
         }
 
-        // 現在適用されている壁紙と新しい壁紙のパスが同じなら何もしない
-        if (newWallpaperPath === this.currentAppliedWallpaperFileName) {
+        // 現在適用されている壁紙と新しい壁紙のパスが同じなら何もしない（強制更新でない場合）
+        if (!forceUpdate && newWallpaperPath === this.currentAppliedWallpaperFileName) {
             WallpaperSystem_debugLog(`現在の壁紙は既に適用済みです: ${newWallpaperPath}`);
             return;
         }

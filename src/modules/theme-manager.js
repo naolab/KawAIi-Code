@@ -152,6 +152,11 @@ class ThemeManager {
             // UI更新
             this.updateUI();
             
+            // 壁紙システムに変更を通知（デフォルト壁紙選択時のみ、強制更新）
+            if (window.wallpaperSystem && window.wallpaperSystem.getCurrentWallpaperOption() === 'default') {
+                await window.wallpaperSystem.applyWallpaper(true);
+            }
+            
             // 設定を保存
             await this.saveTheme(themeId);
 
