@@ -15,6 +15,7 @@ class TabManager {
         this.nextTabNumber = 1;
         this.draggedTabId = null; // ドラッグ中のタブID
         this.tabOrder = []; // タブの順序を管理する配列
+        this.MAX_TABS = 10; // タブの最大数を10個に制限
         
         // イベントリスナー重複防止フラグ
         this.isEventListenersInitialized = false;
@@ -141,6 +142,16 @@ class TabManager {
     }
 
     createEmptyTab() {
+        // タブ数制限チェック
+        if (Object.keys(this.tabs).length >= this.MAX_TABS) {
+            // ターミナルに警告メッセージを表示
+            const activeTab = this.tabs[this.activeTabId];
+            if (activeTab && activeTab.terminal) {
+                activeTab.terminal.writeln('\r\n\x1b[33m⚠️ タブの最大数（10個）に達しています。既存のタブを閉じてから新しいタブを作成してください。\x1b[0m');
+            }
+            return null;
+        }
+        
         const tabId = `tab-${this.nextTabNumber++}`;
         const tabName = `Tab #${this.nextTabNumber - 1}`;
         

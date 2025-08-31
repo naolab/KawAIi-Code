@@ -114,6 +114,27 @@ body.loaded {
     user-select: none;
     min-height: 40px;
     align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+}
+
+/* タブバーのスクロールバーをカスタマイズ */
+.tab-bar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tab-bar::-webkit-scrollbar-track {
+    background: rgba(255, 140, 66, 0.05);
+}
+
+.tab-bar::-webkit-scrollbar-thumb {
+    background: rgba(255, 140, 66, 0.3);
+    border-radius: 2px;
+}
+
+.tab-bar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 140, 66, 0.5);
 }
 
 /* 個別タブ */
@@ -131,6 +152,7 @@ body.loaded {
     font-size: 13px;
     height: 40px;
     color: white;
+    flex-shrink: 0;
 }
 
 .tab:hover {
@@ -218,6 +240,11 @@ body.loaded {
     height: 40px;
     min-width: 40px;
     border-radius: 0;
+    position: sticky;
+    right: 0;
+    flex-shrink: 0;
+    z-index: 10;
+    box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
 }
 
 .new-tab-button:hover {
