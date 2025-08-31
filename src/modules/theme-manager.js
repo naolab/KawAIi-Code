@@ -248,11 +248,7 @@ class ThemeManager {
             currentOption.classList.add('active');
         }
 
-        // テーマ名を表示
-        const themeNameElement = document.getElementById('current-theme-name');
-        if (themeNameElement && this.themes[this.currentTheme]) {
-            themeNameElement.textContent = this.themes[this.currentTheme].name;
-        }
+        // テーマ名を表示（削除済み）
     }
 
     /**
