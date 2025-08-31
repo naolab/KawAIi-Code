@@ -22,6 +22,19 @@ const VRMViewer = dynamic(() => import('@/components/VRMViewer'), {
 
 export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [currentTheme, setCurrentTheme] = useState('orange')
+
+  // アイコンカラーフィルターを生成
+  const getIconFilter = (theme: string) => {
+    const filters: { [key: string]: string } = {
+      orange: 'brightness(0) saturate(100%) invert(47%) sepia(67%) saturate(1158%) hue-rotate(346deg) brightness(102%) contrast(95%)',
+      pink: 'brightness(0) saturate(100%) invert(45%) sepia(77%) saturate(2466%) hue-rotate(314deg) brightness(102%) contrast(103%)',
+      blue: 'brightness(0) saturate(100%) invert(45%) sepia(100%) saturate(2466%) hue-rotate(207deg) brightness(95%) contrast(89%)',
+      green: 'brightness(0) saturate(100%) invert(60%) sepia(77%) saturate(1466%) hue-rotate(87deg) brightness(95%) contrast(89%)',
+      purple: 'brightness(0) saturate(100%) invert(45%) sepia(77%) saturate(2466%) hue-rotate(274deg) brightness(95%) contrast(89%)'
+    }
+    return filters[theme] || filters.orange
+  }
 
   // 親アプリからのテーマ変更メッセージを受信
   React.useEffect(() => {
@@ -29,6 +42,13 @@ export default function Home() {
       if (event.data?.type === 'theme-change') {
         const colors = event.data.colors
         const root = document.documentElement
+        
+        // テーマ名を推測してstateに保存
+        if (colors.primary === '#FF8C42') setCurrentTheme('orange')
+        else if (colors.primary === '#FF6B9D') setCurrentTheme('pink')
+        else if (colors.primary === '#4285F4') setCurrentTheme('blue')
+        else if (colors.primary === '#4CAF50') setCurrentTheme('green')
+        else if (colors.primary === '#9C27B0') setCurrentTheme('purple')
         
         // CSS変数を更新
         Object.entries(colors).forEach(([key, value]) => {
@@ -105,7 +125,7 @@ export default function Home() {
           width={20}
           height={20}
           style={{ 
-            filter: 'brightness(0) saturate(100%) invert(47%) sepia(67%) saturate(1158%) hue-rotate(346deg) brightness(102%) contrast(95%)',
+            filter: getIconFilter(currentTheme),
             opacity: 0.87
           }} 
         />
