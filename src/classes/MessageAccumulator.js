@@ -112,8 +112,11 @@ class MessageAccumulator {
     
     // より賢い完了判定
     isMessageComplete(data) {
-        // 1. 明確な終了マーカーがある（ユーザー入力プロンプト）
-        const hasEndMarker = data.includes('\n> ') || data.includes('╭─') || data.includes('│ ');
+        // 1. 明確な終了マーカーがある（ユーザー入力プロンプト）- より厳密なパターンマッチング
+        const hasEndMarker = 
+            /\n>\s/.test(data) || // "改行 > スペース"の組み合わせ
+            /╭─{10,}╮/.test(data) || // 最低10個以上のダッシュがあるボックス
+            /│\s+Try\s+/.test(data); // "│ Try "で始まるユーザー入力プロンプト
         
         // 2. カギカッコが閉じられている
         const openQuotes = (data.match(/◆/g) || []).length;
