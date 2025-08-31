@@ -45,10 +45,10 @@ export default function Home() {
         
         // テーマ名を推測してstateに保存
         if (colors.primary === '#FF8C42') setCurrentTheme('orange')
-        else if (colors.primary === '#FF6B9D') setCurrentTheme('pink')
-        else if (colors.primary === '#4285F4') setCurrentTheme('blue')
-        else if (colors.primary === '#4CAF50') setCurrentTheme('green')
-        else if (colors.primary === '#9C27B0') setCurrentTheme('purple')
+        else if (colors.primary === '#FFB3C6') setCurrentTheme('pink')
+        else if (colors.primary === '#A3C7FF') setCurrentTheme('blue')
+        else if (colors.primary === '#A8D5A8') setCurrentTheme('green')
+        else if (colors.primary === '#D1A3E6') setCurrentTheme('purple')
         
         // CSS変数を更新
         Object.entries(colors).forEach(([key, value]) => {

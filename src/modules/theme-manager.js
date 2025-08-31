@@ -24,61 +24,61 @@ class ThemeManager {
             pink: {
                 name: 'ピンク',
                 colors: {
-                    primary: '#FF6B9D',
-                    primaryLight: '#FF8FAD',
-                    primaryDark: '#E91E63',
-                    primaryDarker: '#C2185B',
-                    accent: '#FF1744',
-                    bgPrimary: '#FFF0F5',
-                    bgSecondary: '#FFEBEF',
-                    bgTertiary: '#FCE4EC',
-                    textPrimary: '#4A1B2F',
-                    textSecondary: '#2D1017'
+                    primary: '#FF8FAD',
+                    primaryLight: '#FFA8C0',
+                    primaryDark: '#FF7A9A',
+                    primaryDarker: '#FF6687',
+                    accent: '#FF7BA0',
+                    bgPrimary: '#FFF2F6',
+                    bgSecondary: '#FFEDF2',
+                    bgTertiary: '#FFE8EE',
+                    textPrimary: '#4A2530',
+                    textSecondary: '#2D1520'
                 }
             },
             blue: {
                 name: 'ブルー',
                 colors: {
-                    primary: '#4285F4',
-                    primaryLight: '#66A3FF',
-                    primaryDark: '#1976D2',
-                    primaryDarker: '#0D47A1',
-                    accent: '#2196F3',
-                    bgPrimary: '#F0F8FF',
-                    bgSecondary: '#EBF5FF',
-                    bgTertiary: '#E3F2FD',
-                    textPrimary: '#1B3A4A',
-                    textSecondary: '#10252D'
+                    primary: '#7AB8FF',
+                    primaryLight: '#94C7FF',
+                    primaryDark: '#66AAFF',
+                    primaryDarker: '#529CFF',
+                    accent: '#85BEFF',
+                    bgPrimary: '#F2F7FF',
+                    bgSecondary: '#EDF4FF',
+                    bgTertiary: '#E8F1FF',
+                    textPrimary: '#1F2F4A',
+                    textSecondary: '#12202D'
                 }
             },
             green: {
                 name: 'グリーン',
                 colors: {
-                    primary: '#4CAF50',
-                    primaryLight: '#66BB6A',
-                    primaryDark: '#2E7D32',
-                    primaryDarker: '#1B5E20',
-                    accent: '#00C853',
-                    bgPrimary: '#F0FFF0',
-                    bgSecondary: '#EBFFEB',
-                    bgTertiary: '#E8F5E8',
-                    textPrimary: '#1B4A1B',
-                    textSecondary: '#102D10'
+                    primary: '#7AC87A',
+                    primaryLight: '#94D494',
+                    primaryDark: '#66BB66',
+                    primaryDarker: '#52A852',
+                    accent: '#85CC85',
+                    bgPrimary: '#F2FFF2',
+                    bgSecondary: '#EDFEED',
+                    bgTertiary: '#E8FCE8',
+                    textPrimary: '#254A25',
+                    textSecondary: '#152D15'
                 }
             },
             purple: {
                 name: 'パープル',
                 colors: {
-                    primary: '#9C27B0',
-                    primaryLight: '#BA68C8',
-                    primaryDark: '#673AB7',
-                    primaryDarker: '#4A148C',
-                    accent: '#E040FB',
-                    bgPrimary: '#FFF0FF',
-                    bgSecondary: '#FFEBFF',
-                    bgTertiary: '#F3E5F5',
-                    textPrimary: '#4A1B4A',
-                    textSecondary: '#2D102D'
+                    primary: '#B882D1',
+                    primaryLight: '#C799DC',
+                    primaryDark: '#A966C7',
+                    primaryDarker: '#9A52B8',
+                    accent: '#BD8BD6',
+                    bgPrimary: '#FDF2FF',
+                    bgSecondary: '#FBEDFF',
+                    bgTertiary: '#F9E8FF',
+                    textPrimary: '#3A254A',
+                    textSecondary: '#25152D'
                 }
             }
         };
