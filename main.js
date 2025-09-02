@@ -1,5 +1,4 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -474,6 +473,9 @@ function initializeAutoUpdater() {
     debugLog('🔄 開発モードのため自動更新をスキップします');
     return;
   }
+
+  // 遅延読み込み：パッケージ化された実行時のみ読み込む
+  const { autoUpdater } = require('electron-updater');
 
   // ログ設定
   autoUpdater.logger = {

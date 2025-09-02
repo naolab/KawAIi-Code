@@ -1,4 +1,4 @@
-@import url('../../node_modules/@xterm/xterm/css/xterm.css');
+/* xterm CSS is linked from index.html as a bundled asset. */
 
 /* テーマカラーパレット（テーマ切り替え対応） */
 :root {
@@ -2074,5 +2074,4 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 .help-table tbody tr:hover {
     background-color: #f0f0f0;
 }
-
 
