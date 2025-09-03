@@ -60,8 +60,9 @@ export const useVRMLoader = ({
 
       vrmRef.current = vrm
       
-      // VRMを正しい向きに調整（ChatVRMと同じ）
+      // VRMを正しい向きに調整（ChatVRMと同じ方式）
       VRMUtils.rotateVRM0(vrm)
+      debugLog('🔵 VRMUtils.rotateVRM0適用完了')
       
       // VRMのサイズと位置を調整（デフォルトVRMと同じ設定）
       // vrm.scene.scale.setScalar(0.7)  // デフォルト1.0に戻す
@@ -93,7 +94,7 @@ export const useVRMLoader = ({
       // カメラをリセット
       resetCamera(vrm)
 
-      infoLog('VRM読み込み成功')
+      infoLog('✅ VRM読み込み成功（ChatVRM方式でTポーズ処理）')
     } catch (err) {
       console.error('VRM loading error:', err)
       setError(err instanceof Error ? err.message : 'VRMの読み込みに失敗しました')
@@ -129,8 +130,9 @@ export const useVRMLoader = ({
         throw new Error('VRMデータが見つかりません')
       }
 
-      // VRMを正しい向きに調整（ChatVRMと同じ）
+      // VRMを正しい向きに調整（ChatVRMと同じ方式）
       VRMUtils.rotateVRM0(vrm)
+      debugLog('🔵 VRMUtils.rotateVRM0適用完了（デフォルトVRM）')
       
       // VRMのサイズと位置を調整
       // vrm.scene.scale.setScalar(0.7)  // デフォルト1.0に戻す
@@ -170,7 +172,7 @@ export const useVRMLoader = ({
         setVrmInfo('')
       }
 
-      infoLog('デフォルトVRM読み込み成功')
+      infoLog('✅ デフォルトVRM読み込み成功（ChatVRM方式）')
     } catch (err) {
       console.error('Default VRM loading error:', err)
       setError('デフォルトVRMの読み込みに失敗しました')
