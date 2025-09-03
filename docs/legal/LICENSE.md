@@ -80,6 +80,11 @@ Copyright (c) 2025 AI Kawaii Project
 - All rights reserved
 - 本プロジェクトでの使用が許可されています
 
+### ChatVRM idle_loop.vrma
+- Copyright (c) 2023 pixiv Inc.
+- Licensed under the MIT License
+- Source: https://github.com/pixiv/ChatVRM
+
 ### デフォルト壁紙
 - AIにより生成された画像を使用
 - 著作権フリー（AI生成のため）
