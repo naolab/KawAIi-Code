@@ -1784,11 +1784,13 @@ class UIEventManager {
             const unifiedConfig = getSafeUnifiedConfig();
             this.debugLog('unifiedConfig取得完了');
             
-            // デフォルトモデルを追加
-            const defaultOption = document.createElement('option');
-            defaultOption.value = 'default';
-            defaultOption.textContent = 'Anneli（ノーマル）';
-            speakerSelect.appendChild(defaultOption);
+            // プレースホルダーオプションを追加
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = '音声モデルを選択してください';
+            placeholderOption.disabled = true;
+            placeholderOption.selected = true;
+            speakerSelect.appendChild(placeholderOption);
             
             // カスタムモデルリストを取得
             const customModels = await unifiedConfig.get('cloudCustomModels', []);
@@ -1803,21 +1805,21 @@ class UIEventManager {
                 speakerSelect.appendChild(option);
             });
             
-            // 保存された選択値を復元（なければデフォルト）
-            let savedSelection = 'default';
+            // 保存された選択値を復元（なければプレースホルダー）
+            let savedSelection = '';
             try {
                 if (window.electronAPI && window.electronAPI.config) {
-                    savedSelection = await window.electronAPI.config.get('cloudSelectedModel') || 'default';
+                    savedSelection = await window.electronAPI.config.get('cloudSelectedModel') || '';
                 } else {
-                    savedSelection = await unifiedConfig.get('cloudSelectedModel', 'default');
+                    savedSelection = await unifiedConfig.get('cloudSelectedModel', '');
                 }
             } catch (error) {
                 this.debugError('保存された選択値取得エラー:', error);
             }
-            
-            // 選択値を設定（存在しない場合はdefaultにフォールバック）
+
+            // 選択値を設定（存在しない場合はプレースホルダーを表示）
             const optionExists = Array.from(speakerSelect.options).some(option => option.value === savedSelection);
-            speakerSelect.value = optionExists ? savedSelection : 'default';
+            speakerSelect.value = optionExists ? savedSelection : '';
             
             this.debugLog('クラウドAPI話者選択を設定完了:', { 
                 customModelCount: customModels.length, 
@@ -1829,13 +1831,14 @@ class UIEventManager {
         } catch (error) {
             this.debugError('クラウドAPI話者選択設定エラー:', error);
             
-            // フォールバック：デフォルトのみ表示
+            // フォールバック：プレースホルダーのみ表示
             speakerSelect.innerHTML = '';
-            const defaultOption = document.createElement('option');
-            defaultOption.value = 'default';
-            defaultOption.textContent = 'Anneli（ノーマル）';
-            speakerSelect.appendChild(defaultOption);
-            speakerSelect.value = 'default';
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = '音声モデルが利用できません';
+            placeholderOption.disabled = true;
+            placeholderOption.selected = true;
+            speakerSelect.appendChild(placeholderOption);
         }
     }
 

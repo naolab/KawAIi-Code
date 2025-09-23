@@ -266,7 +266,34 @@ class AudioService {
 
         } catch (error) {
             this.debugError('音声合成エラー:', error);
+
+            // 音声モデル未設定エラーの場合は、ユーザーに分かりやすいメッセージを表示
+            if (error.message.includes('音声モデルが設定されていません')) {
+                this.showVoiceModelNotSetError();
+            } else if (error.message.includes('無効な音声モデル')) {
+                this.showInvalidVoiceModelError();
+            }
+
             return null;
+        }
+    }
+
+    // 音声モデル未設定エラーの表示
+    showVoiceModelNotSetError() {
+        // UI に分かりやすいエラーメッセージを表示
+        if (window.showToast) {
+            window.showToast('⚠️ 音声モデルが設定されていません。設定画面で音声モデルを選択してください。', 'warning', 5000);
+        } else {
+            console.warn('音声モデルが設定されていません。設定画面で音声モデルを選択してください。');
+        }
+    }
+
+    // 無効な音声モデルエラーの表示
+    showInvalidVoiceModelError() {
+        if (window.showToast) {
+            window.showToast('❌ 無効な音声モデルが選択されています。設定を確認してください。', 'error', 5000);
+        } else {
+            console.error('無効な音声モデルが選択されています。設定を確認してください。');
         }
     }
 
@@ -306,12 +333,12 @@ class AudioService {
     // クラウドAPIパラメータ構築（話者選択対応版）
     async buildCloudApiParams(text, emotion, speed, volume, speakerId = null) {
         // 選択された話者に応じてmodel_uuidを決定
-        let modelUuid = 'a59cb814-0083-4369-8542-f51a29e72af7'; // デフォルト
-        
+        let modelUuid = null;
+
         try {
-            if (speakerId === 'default' || !speakerId) {
-                // デフォルトモデル使用（既に設定済み）
-                this.debugLog('デフォルトモデルUUID使用:', modelUuid);
+            if (!speakerId || speakerId === '') {
+                // 音声モデルが設定されていない場合はエラー
+                throw new Error('音声モデルが設定されていません。設定画面で音声モデルを選択してください。');
             } else {
                 // カスタムモデルが選択された場合（speakerIdがUUID）
                 // UUID形式チェック
@@ -320,12 +347,12 @@ class AudioService {
                     modelUuid = speakerId;
                     this.debugLog('選択されたカスタムモデルUUID使用:', speakerId);
                 } else {
-                    this.debugLog('無効なspeakerId、デフォルトモデル使用:', speakerId);
+                    throw new Error(`無効な音声モデルが選択されています: ${speakerId}`);
                 }
             }
         } catch (error) {
-            this.debugError('モデルUUID取得エラー:', error);
-            // エラー時はデフォルトを使用
+            this.debugError('音声モデル設定エラー:', error);
+            throw error; // エラーを上位に伝播
         }
 
         return {
