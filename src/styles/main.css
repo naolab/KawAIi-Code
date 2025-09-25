@@ -651,7 +651,7 @@ body.loaded {
 
 /* ターミナルのみ表示時のレイアウト調整 */
 .main-content.terminal-only {
-    padding-right: 20px;
+    padding: 90px 60px 0 60px;
 }
 
 .character-main {
