@@ -632,15 +632,26 @@ body.loaded {
     transition: flex 0.3s ease;
 }
 
-/* ターミナル非表示時のキャラクターセクション全画面表示 */
-.main-content.terminal-hidden .character-section {
+/* キャラのみ表示時のキャラクターセクション全画面表示 */
+.main-content.character-only .character-section {
     flex: 1;
     padding-left: 20px;
 }
 
-/* ターミナル非表示時のレイアウト調整 */
-.main-content.terminal-hidden {
+/* キャラのみ表示時のレイアウト調整 */
+.main-content.character-only {
     padding-left: 20px;
+}
+
+/* ターミナルのみ表示時のターミナルセクション全画面表示 */
+.main-content.terminal-only .terminal-section {
+    flex: 1;
+    max-width: none;
+}
+
+/* ターミナルのみ表示時のレイアウト調整 */
+.main-content.terminal-only {
+    padding-right: 20px;
 }
 
 .character-main {
@@ -1061,23 +1072,7 @@ body.loaded {
 }
 
 
-/* ターミナル非表示時のアイコン（目を閉じた状態） */
-.terminal-toggle-btn.terminal-hidden::before {
-    height: 2px;
-    border-radius: 2px;
-    border-top: none;
-    border-bottom: none;
-    border-color: var(--theme-primary);
-    background: var(--theme-primary);
-}
-
-.terminal-toggle-btn.terminal-hidden::after {
-    opacity: 0;
-}
-
-.terminal-toggle-btn.terminal-hidden .pupil {
-    opacity: 0;
-}
+/* 全状態で目玉アイコンを固定表示（状態別スタイルを削除） */
 
 /* 目玉ボタンアイコンのホバーエフェクトを削除（ボタン全体のもやもやで十分） */
 

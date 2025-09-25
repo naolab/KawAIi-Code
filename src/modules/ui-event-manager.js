@@ -32,8 +32,8 @@ class UIEventManager {
         // TerminalAppインスタンスへの参照
         this.app = terminalApp;
         
-        // ターミナル表示状態の管理
-        this.isTerminalVisible = true;
+        // 表示状態の管理（3状態: 'both', 'character-only', 'terminal-only'）
+        this.displayMode = 'both';
         
         // === 重複防止システム ===
         this.registeredListeners = new Map(); // リスナー管理：Map<elementId_eventType, {element, handler}>
@@ -1186,34 +1186,59 @@ class UIEventManager {
      * ターミナル表示・非表示を切り替える
      */
     toggleTerminalVisibility() {
-        this.debugLog('Terminal visibility toggle requested');
-        
+        this.debugLog('Display mode toggle requested');
+
         const terminalSection = document.querySelector('.terminal-section');
+        const characterSection = document.querySelector('.character-section');
         const mainContent = document.querySelector('.main-content');
         const terminalToggleBtn = document.getElementById('terminal-toggle');
-        
-        if (!terminalSection || !mainContent || !terminalToggleBtn) {
-            this.debugError('Required elements not found for terminal toggle');
+
+        if (!terminalSection || !characterSection || !mainContent || !terminalToggleBtn) {
+            this.debugError('Required elements not found for display toggle');
             return;
         }
-        
-        // 現在の状態を反転
-        this.isTerminalVisible = !this.isTerminalVisible;
-        
-        if (this.isTerminalVisible) {
-            // ターミナル表示状態
-            terminalSection.style.display = 'flex';
-            mainContent.classList.remove('terminal-hidden');
-            terminalToggleBtn.classList.remove('terminal-hidden');
-            this.debugLog('Terminal is now visible');
-        } else {
-            // ターミナル非表示状態
-            terminalSection.style.display = 'none';
-            mainContent.classList.add('terminal-hidden');
-            terminalToggleBtn.classList.add('terminal-hidden');
-            this.debugLog('Terminal is now hidden');
+
+        // 3状態をループ: both -> character-only -> terminal-only -> both
+        switch (this.displayMode) {
+            case 'both':
+                this.displayMode = 'character-only';
+                break;
+            case 'character-only':
+                this.displayMode = 'terminal-only';
+                break;
+            case 'terminal-only':
+                this.displayMode = 'both';
+                break;
+            default:
+                this.displayMode = 'both';
         }
-        
+
+        // 表示切り替え用クラスをリセット
+        mainContent.classList.remove('character-only', 'terminal-only');
+
+        switch (this.displayMode) {
+            case 'both':
+                // 両方表示
+                terminalSection.style.display = 'flex';
+                characterSection.style.display = 'block';
+                this.debugLog('Both terminal and character are now visible');
+                break;
+            case 'character-only':
+                // キャラのみ表示
+                terminalSection.style.display = 'none';
+                characterSection.style.display = 'block';
+                mainContent.classList.add('character-only');
+                this.debugLog('Character only is now visible');
+                break;
+            case 'terminal-only':
+                // ターミナルのみ表示
+                terminalSection.style.display = 'flex';
+                characterSection.style.display = 'none';
+                mainContent.classList.add('terminal-only');
+                this.debugLog('Terminal only is now visible');
+                break;
+        }
+
         // ボタンの状態を更新
         this.updateTerminalToggleButton();
     }
@@ -1224,17 +1249,24 @@ class UIEventManager {
     updateTerminalToggleButton() {
         const terminalToggleBtn = document.getElementById('terminal-toggle');
         if (!terminalToggleBtn) return;
-        
+
         // ツールチップテキストを更新
-        if (this.isTerminalVisible) {
-            terminalToggleBtn.setAttribute('aria-label', 'ターミナルを非表示');
-            terminalToggleBtn.setAttribute('title', 'ターミナルを非表示');
-        } else {
-            terminalToggleBtn.setAttribute('aria-label', 'ターミナルを表示');
-            terminalToggleBtn.setAttribute('title', 'ターミナルを表示');
+        switch (this.displayMode) {
+            case 'both':
+                terminalToggleBtn.setAttribute('aria-label', '表示切り替え: 両方表示中 → キャラのみに切り替え');
+                terminalToggleBtn.setAttribute('title', '表示切り替え: 両方表示中 → キャラのみに切り替え');
+                break;
+            case 'character-only':
+                terminalToggleBtn.setAttribute('aria-label', '表示切り替え: キャラのみ表示中 → ターミナルのみに切り替え');
+                terminalToggleBtn.setAttribute('title', '表示切り替え: キャラのみ表示中 → ターミナルのみに切り替え');
+                break;
+            case 'terminal-only':
+                terminalToggleBtn.setAttribute('aria-label', '表示切り替え: ターミナルのみ表示中 → 両方表示に切り替え');
+                terminalToggleBtn.setAttribute('title', '表示切り替え: ターミナルのみ表示中 → 両方表示に切り替え');
+                break;
         }
-        
-        this.debugLog(`Terminal toggle button updated: ${this.isTerminalVisible ? 'show' : 'hide'} mode`);
+
+        this.debugLog(`Display toggle button updated: ${this.displayMode} mode`);
     }
 
     /**
