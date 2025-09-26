@@ -1250,21 +1250,9 @@ class UIEventManager {
         const terminalToggleBtn = document.getElementById('terminal-toggle');
         if (!terminalToggleBtn) return;
 
-        // ツールチップテキストを更新
-        switch (this.displayMode) {
-            case 'both':
-                terminalToggleBtn.setAttribute('aria-label', '表示切り替え: 両方表示中 → キャラのみに切り替え');
-                terminalToggleBtn.setAttribute('title', '表示切り替え: 両方表示中 → キャラのみに切り替え');
-                break;
-            case 'character-only':
-                terminalToggleBtn.setAttribute('aria-label', '表示切り替え: キャラのみ表示中 → ターミナルのみに切り替え');
-                terminalToggleBtn.setAttribute('title', '表示切り替え: キャラのみ表示中 → ターミナルのみに切り替え');
-                break;
-            case 'terminal-only':
-                terminalToggleBtn.setAttribute('aria-label', '表示切り替え: ターミナルのみ表示中 → 両方表示に切り替え');
-                terminalToggleBtn.setAttribute('title', '表示切り替え: ターミナルのみ表示中 → 両方表示に切り替え');
-                break;
-        }
+        // ツールチップテキストを削除（アクセシビリティのためaria-labelのみ保持）
+        terminalToggleBtn.setAttribute('aria-label', 'ターミナル表示切り替え');
+        terminalToggleBtn.removeAttribute('title');
 
         this.debugLog(`Display toggle button updated: ${this.displayMode} mode`);
     }
