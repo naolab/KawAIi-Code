@@ -42,7 +42,10 @@ class TerminalService {
         
         // イベントリスナー重複防止フラグ
         this.isEventListenersInitialized = false;
-        
+
+        // 軽量リフレッシュ用インターバル
+        this.lightRefreshInterval = null;
+
         debugLog('🖥️ TerminalService初期化完了');
     }
 
@@ -92,6 +95,9 @@ class TerminalService {
 
         // イベントリスナー初期化（重複防止付き）
         this.initializeEventListeners();
+
+        // 軽量リフレッシュを開始
+        this.startLightRefresh();
     }
 
     async startTerminal(aiType) {
@@ -381,6 +387,53 @@ class TerminalService {
         // 音声キュー処理完了（気分表示は削除済み）
         
         debugLog('🎵 processQuotedTexts完了');
+    }
+
+    /**
+     * 軽量リフレッシュを開始（10秒間隔）
+     */
+    startLightRefresh() {
+        // 既存のインターバルをクリア
+        if (this.lightRefreshInterval) {
+            clearInterval(this.lightRefreshInterval);
+        }
+
+        // 10秒間隔で軽量リフレッシュを実行
+        this.lightRefreshInterval = setInterval(() => {
+            this.performLightRefresh();
+        }, 10000); // 10秒 = 10,000ms
+
+        debugLog('🔄 軽量リフレッシュ開始 (10秒間隔)');
+    }
+
+    /**
+     * 軽量リフレッシュを停止
+     */
+    stopLightRefresh() {
+        if (this.lightRefreshInterval) {
+            clearInterval(this.lightRefreshInterval);
+            this.lightRefreshInterval = null;
+            debugLog('🔄 軽量リフレッシュ停止');
+        }
+    }
+
+    /**
+     * 軽量リフレッシュを実行
+     */
+    performLightRefresh() {
+        try {
+            // ターミナルとfitAddonが存在し、かつアクティブな場合のみ実行
+            if (this.fitAddon && this.terminal && this.terminal.element &&
+                document.hasFocus() && this.terminal.element.offsetParent) {
+
+                // 軽量なサイズ調整のみ実行
+                this.fitAddon.fit();
+
+                debugLog('🔄 軽量リフレッシュ実行完了');
+            }
+        } catch (error) {
+            debugLog('❌ 軽量リフレッシュエラー:', error.message);
+        }
     }
 
     /**

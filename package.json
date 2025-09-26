@@ -41,11 +41,13 @@
     "directories": {
       "output": "dist"
     },
-    "publish": [{
-      "provider": "github",
-      "owner": "naolab",
-      "repo": "KawAIi-Code"
-    }],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "naolab",
+        "repo": "KawAIi-Code"
+      }
+    ],
     "generateUpdatesFilesForAllChannels": false,
     "buildDependenciesFromSource": false,
     "files": [

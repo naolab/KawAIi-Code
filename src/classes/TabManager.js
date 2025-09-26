@@ -192,7 +192,8 @@ class TabManager {
             terminal: terminal,
             fitAddon: fitAddon,
             element: terminalElement,
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            lightRefreshInterval: null // 軽量リフレッシュ用インターバル
         };
         
         // タブ順序配列に追加
@@ -200,7 +201,10 @@ class TabManager {
         
         this.renderTabs();
         this.switchTab(tabId);
-        
+
+        // 新しく作成したタブに軽量リフレッシュを開始
+        this.startTabLightRefresh(tabId);
+
         return tabId;
     }
 
@@ -424,7 +428,10 @@ class TabManager {
         
         const tab = this.tabs[tabId];
         
-        // 1. イベントリスナーをクリーンアップ
+        // 1. 軽量リフレッシュインターバルを停止
+        this.stopTabLightRefresh(tabId);
+
+        // 2. イベントリスナーをクリーンアップ
         if (tab.eventListeners) {
             tab.eventListeners.forEach(disposable => {
                 if (disposable && typeof disposable.dispose === 'function') {
@@ -732,6 +739,62 @@ class TabManager {
 
             debugLog(`Tab order updated:`, this.tabOrder);
             this.renderTabs();
+        }
+    }
+
+    /**
+     * タブ用軽量リフレッシュを開始（10秒間隔）
+     */
+    startTabLightRefresh(tabId) {
+        const tab = this.tabs[tabId];
+        if (!tab) return;
+
+        // 既存のインターバルをクリア
+        if (tab.lightRefreshInterval) {
+            clearInterval(tab.lightRefreshInterval);
+        }
+
+        // 10秒間隔で軽量リフレッシュを実行
+        tab.lightRefreshInterval = setInterval(() => {
+            this.performTabLightRefresh(tabId);
+        }, 10000); // 10秒 = 10,000ms
+
+        debugLog(`🔄 タブ ${tabId} の軽量リフレッシュ開始 (10秒間隔)`);
+    }
+
+    /**
+     * タブ用軽量リフレッシュを停止
+     */
+    stopTabLightRefresh(tabId) {
+        const tab = this.tabs[tabId];
+        if (!tab) return;
+
+        if (tab.lightRefreshInterval) {
+            clearInterval(tab.lightRefreshInterval);
+            tab.lightRefreshInterval = null;
+            debugLog(`🔄 タブ ${tabId} の軽量リフレッシュ停止`);
+        }
+    }
+
+    /**
+     * タブ用軽量リフレッシュを実行
+     */
+    performTabLightRefresh(tabId) {
+        try {
+            const tab = this.tabs[tabId];
+            if (!tab) return;
+
+            // ターミナルとfitAddonが存在し、かつアクティブなタブで画面がフォーカスされている場合のみ実行
+            if (tab.fitAddon && tab.terminal && tab.terminal.element &&
+                tab.isActive && document.hasFocus() && tab.terminal.element.offsetParent) {
+
+                // 軽量なサイズ調整のみ実行
+                tab.fitAddon.fit();
+
+                debugLog(`🔄 タブ ${tabId} 軽量リフレッシュ実行完了`);
+            }
+        } catch (error) {
+            debugLog(`❌ タブ ${tabId} 軽量リフレッシュエラー:`, error.message);
         }
     }
 }
