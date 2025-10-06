@@ -9,6 +9,7 @@ class VoiceService {
     constructor() {
         this.baseUrl = 'http://127.0.0.1:10101'; // デフォルトはローカル
         this.cloudApiUrl = 'https://api.aivis-project.com/v1'; // クラウドAPIのURL
+        this.voicevoxUrl = 'http://127.0.0.1:50021'; // VoiceVOXのURL
         this.audioQueue = [];
         this.isPlaying = false;
         this.audioContext = null;
@@ -16,6 +17,7 @@ class VoiceService {
         this.isConnected = false;
         this.speakers = [];
         this.useCloudAPI = false; // クラウドAPI使用フラグ
+        this.voiceEngine = 'aivis-local'; // 音声エンジン: aivis-local / aivis-cloud / voicevox
         
         // 動的タイムアウト設定
         this.minTimeout = 30000; // 30秒（最低）
@@ -46,15 +48,31 @@ class VoiceService {
     
     // API設定を更新
     updateApiSettings() {
-        this.useCloudAPI = appConfig.get('useCloudAPI', false);
+        this.voiceEngine = appConfig.get('voiceEngine', 'aivis-local');
+        this.useCloudAPI = this.voiceEngine === 'aivis-cloud';
+
         if (this.useCloudAPI) {
             this.cloudApiUrl = appConfig.get('aivisCloudApiUrl', 'https://api.aivis-project.com/v1');
         }
+
+        if (this.voiceEngine === 'voicevox') {
+            this.voicevoxUrl = appConfig.get('voicevoxEndpoint', 'http://127.0.0.1:50021');
+        }
+
+        console.log('[VoiceService] Voice engine updated:', this.voiceEngine);
     }
     
     // 現在のAPIエンドポイントを取得
     getApiEndpoint() {
-        return this.useCloudAPI ? this.cloudApiUrl : this.baseUrl;
+        switch (this.voiceEngine) {
+            case 'aivis-cloud':
+                return this.cloudApiUrl;
+            case 'voicevox':
+                return this.voicevoxUrl;
+            case 'aivis-local':
+            default:
+                return this.baseUrl;
+        }
     }
     
     // APIリクエストにヘッダーを追加
@@ -75,29 +93,45 @@ class VoiceService {
         try {
             // API設定を最新に更新
             this.updateApiSettings();
-            
+
             const endpoint = this.getApiEndpoint();
             const headers = this.getRequestHeaders({ 'accept': 'application/json' });
-            
-            // クラウドAPIの場合はヘルスチェックエンドポイントを使用
-            const checkUrl = this.useCloudAPI ? `${endpoint}/health` : `${endpoint}/version`;
-            
-            const response = await axios.get(checkUrl, { 
-                headers, 
-                timeout: 10000 
+
+            // エンジンに応じてチェックエンドポイントを選択
+            let checkUrl;
+            if (this.voiceEngine === 'aivis-cloud') {
+                checkUrl = `${endpoint}/health`;
+            } else if (this.voiceEngine === 'voicevox') {
+                checkUrl = `${endpoint}/version`;
+            } else {
+                checkUrl = `${endpoint}/version`;
+            }
+
+            const response = await axios.get(checkUrl, {
+                headers,
+                timeout: 10000
             });
-            
+
             this.isConnected = true;
-            return { 
-                success: true, 
-                version: response.data.version || 'Cloud API',
-                isCloudAPI: this.useCloudAPI 
+            return {
+                success: true,
+                version: response.data.version || response.data || 'Connected',
+                voiceEngine: this.voiceEngine
             };
         } catch (error) {
             this.isConnected = false;
-            const errorMessage = this.useCloudAPI 
-                ? 'Aivis Cloud API connection failed' 
-                : 'AivisSpeech Engine not running';
+            let errorMessage;
+            switch (this.voiceEngine) {
+                case 'aivis-cloud':
+                    errorMessage = 'Aivis Cloud API connection failed';
+                    break;
+                case 'voicevox':
+                    errorMessage = 'VoiceVOX Engine not running';
+                    break;
+                case 'aivis-local':
+                default:
+                    errorMessage = 'AivisSpeech Engine not running';
+            }
             return { success: false, error: errorMessage };
         }
     }

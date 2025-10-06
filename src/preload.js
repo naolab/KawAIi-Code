@@ -205,6 +205,13 @@ window.electronAPI = {
   getUseCloudApi: () => ipcRenderer.invoke('get-use-cloud-api'),
   setUseCloudApi: (useCloudAPI) => ipcRenderer.invoke('set-use-cloud-api', useCloudAPI),
 
+  // VoiceVOX関連
+  getVoiceEngine: () => ipcRenderer.invoke('get-voice-engine'),
+  setVoiceEngine: (engine) => ipcRenderer.invoke('set-voice-engine', engine),
+  getVoicevoxEndpoint: () => ipcRenderer.invoke('get-voicevox-endpoint'),
+  setVoicevoxEndpoint: (endpoint) => ipcRenderer.invoke('set-voicevox-endpoint', endpoint),
+  testVoicevoxConnection: () => ipcRenderer.invoke('test-voicevox-connection'),
+
   // ファイル読み込み
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   

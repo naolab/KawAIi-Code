@@ -1319,6 +1319,64 @@ ipcMain.handle('get-use-cloud-api', async (event) => {
   }
 });
 
+// VoiceVOX関連のIPCハンドラー
+ipcMain.handle('get-voice-engine', async () => {
+  try {
+    const engine = appConfig.get('voiceEngine', 'aivis-local');
+    debugLog('voiceEngine get:', engine);
+    return engine;
+  } catch (error) {
+    errorLog('get-voice-engine error:', error);
+    return 'aivis-local';
+  }
+});
+
+ipcMain.handle('set-voice-engine', async (event, engine) => {
+  try {
+    await appConfig.set('voiceEngine', engine);
+    voiceService.updateApiSettings();
+    debugLog('voiceEngine set:', engine);
+    return { success: true };
+  } catch (error) {
+    errorLog('set-voice-engine error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-voicevox-endpoint', async () => {
+  try {
+    const endpoint = appConfig.get('voicevoxEndpoint', 'http://127.0.0.1:50021');
+    debugLog('voicevoxEndpoint get:', endpoint);
+    return endpoint;
+  } catch (error) {
+    errorLog('get-voicevox-endpoint error:', error);
+    return 'http://127.0.0.1:50021';
+  }
+});
+
+ipcMain.handle('set-voicevox-endpoint', async (event, endpoint) => {
+  try {
+    await appConfig.set('voicevoxEndpoint', endpoint);
+    voiceService.updateApiSettings();
+    debugLog('voicevoxEndpoint set:', endpoint);
+    return { success: true };
+  } catch (error) {
+    errorLog('set-voicevox-endpoint error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// VoiceVOX接続テスト
+ipcMain.handle('test-voicevox-connection', async (event) => {
+  try {
+    const result = await voiceService.checkConnection();
+    return result;
+  } catch (error) {
+    errorLog('test-voicevox-connection error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // ===== タブ機能用IPCハンドラー =====
 
 // AI設定処理はAIConfigServiceに統一

@@ -69,6 +69,9 @@ class AppConfig {
             useCloudAPI: false, // デフォルトはローカルエンジン使用
             aivisCloudApiKey: '', // APIキー（暗号化して保存）
             aivisCloudApiUrl: 'https://api.aivis-project.com/v1', // クラウドAPIエンドポイント
+            // VoiceVOX設定
+            voiceEngine: 'aivis-local', // aivis-local / aivis-cloud / voicevox
+            voicevoxEndpoint: 'http://127.0.0.1:50021',
             // その他のデフォルト設定
         };
     }
