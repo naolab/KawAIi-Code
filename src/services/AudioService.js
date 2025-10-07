@@ -114,16 +114,23 @@ class AudioService {
             const volume = await unifiedConfig.get('voiceVolume', this.voiceVolume);
             const speed = 1.2; // 読み上げ速度
 
+            // API設定を更新
+            await this.updateApiSettings();
+
+            // VoiceVOX使用時は専用の話者IDを使用
+            if (this.voiceEngine === 'voicevox') {
+                const unifiedConfig = getSafeUnifiedConfig();
+                speakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
+            }
+
             this.debugLog('音声合成開始:', {
                 text: text.substring(0, 30) + '...',
                 speakerId,
                 volume,
                 speed,
+                voiceEngine: this.voiceEngine,
                 useCloudAPI: this.useCloudAPI
             });
-
-            // API設定を更新
-            await this.updateApiSettings();
             const endpoint = this.getApiEndpoint();
             const headers = {
                 ...this.getRequestHeaders(),
