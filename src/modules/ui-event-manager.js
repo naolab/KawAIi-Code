@@ -1392,15 +1392,10 @@ class UIEventManager {
         const voiceEngineCloudRadio = document.getElementById('voice-engine-cloud');
         const voiceEngineVoicevoxRadio = document.getElementById('voice-engine-voicevox');
         const cloudApiSettings = document.getElementById('cloud-api-settings');
-        const voicevoxSettings = document.getElementById('voicevox-settings');
         const cloudApiKeyInput = document.getElementById('cloud-api-key-input');
-        const voicevoxEndpointInput = document.getElementById('voicevox-endpoint-input');
         const testCloudApiBtn = document.getElementById('test-cloud-api-btn');
         const saveCloudApiBtn = document.getElementById('save-cloud-api-btn');
-        const testVoicevoxBtn = document.getElementById('test-voicevox-btn');
-        const saveVoicevoxBtn = document.getElementById('save-voicevox-btn');
         const cloudApiStatus = document.getElementById('cloud-api-status');
-        const voicevoxStatus = document.getElementById('voicevox-status');
         const modelUuidInput = document.getElementById('model-uuid-input');
         const addModelBtn = document.getElementById('add-model-btn');
         
@@ -1446,9 +1441,6 @@ class UIEventManager {
                 if (cloudApiSettings) {
                     cloudApiSettings.style.display = isCloudAPI ? 'block' : 'none';
                 }
-                if (voicevoxSettings) {
-                    voicevoxSettings.style.display = isVoiceVOX ? 'block' : 'none';
-                }
 
                 // 話者選択の更新と音声エンジン接続状況の初期状態設定
                 this.updateVoiceControlsForEngine(isCloudAPI);
@@ -1477,16 +1469,12 @@ class UIEventManager {
                 this.debugLog('Voice engine radio changed:', {
                     selectedValue: selectedEngine,
                     voiceEngine,
-                    cloudApiSettingsExists: !!cloudApiSettings,
-                    voicevoxSettingsExists: !!voicevoxSettings
+                    cloudApiSettingsExists: !!cloudApiSettings
                 });
 
                 // UIを即座に更新
                 if (cloudApiSettings) {
                     cloudApiSettings.style.display = selectedEngine === 'cloud' ? 'block' : 'none';
-                }
-                if (voicevoxSettings) {
-                    voicevoxSettings.style.display = selectedEngine === 'voicevox' ? 'block' : 'none';
                 }
 
                 // 話者選択の更新と音声エンジン接続状況の制御
@@ -1637,82 +1625,6 @@ class UIEventManager {
             this.safeAddEventListener(saveCloudApiBtn, 'click', saveHandler, 'save-cloud-api-btn');
         }
         
-        // VoiceVOX接続テストボタン
-        if (testVoicevoxBtn) {
-            const testVoicevoxHandler = async () => {
-                return await this.executeWithLock('test-voicevox', async () => {
-                    if (!voicevoxEndpointInput) return;
-
-                    const endpoint = voicevoxEndpointInput.value.trim();
-
-                    if (!endpoint) {
-                        this.showVoicevoxStatus('error', 'エンドポイントを入力してください');
-                        return;
-                    }
-
-                    testVoicevoxBtn.disabled = true;
-                    testVoicevoxBtn.textContent = 'テスト中...';
-
-                    try {
-                        // 一時的にエンドポイントを保存
-                        await window.electronAPI.setVoicevoxEndpoint?.(endpoint);
-
-                        // 一時的にVoiceVOXエンジンに切り替えて接続確認
-                        const originalEngine = await window.electronAPI.getVoiceEngine?.();
-                        await window.electronAPI.setVoiceEngine?.('voicevox');
-
-                        // IPCを通してメインプロセスの接続確認を実行
-                        const result = await window.electronAPI.testVoicevoxConnection?.();
-
-                        // 元のエンジンに戻す
-                        if (originalEngine && originalEngine !== 'voicevox') {
-                            await window.electronAPI.setVoiceEngine?.(originalEngine);
-                        }
-
-                        if (result && result.success) {
-                            this.showVoicevoxStatus('success', `接続成功！ VoiceVOX ${result.version}`);
-                        } else {
-                            this.showVoicevoxStatus('error', result?.error || 'VoiceVOX接続失敗');
-                        }
-                    } catch (error) {
-                        this.showVoicevoxStatus('error', `接続エラー: ${error.message}`);
-                    } finally {
-                        testVoicevoxBtn.disabled = false;
-                        testVoicevoxBtn.textContent = '接続テスト';
-                    }
-                });
-            };
-
-            this.safeAddEventListener(testVoicevoxBtn, 'click', testVoicevoxHandler, 'test-voicevox-btn');
-        }
-
-        // VoiceVOX保存ボタン
-        if (saveVoicevoxBtn) {
-            const saveVoicevoxHandler = async () => {
-                if (!voicevoxEndpointInput) return;
-
-                const endpoint = voicevoxEndpointInput.value.trim();
-
-                if (!endpoint) {
-                    this.showVoicevoxStatus('error', 'エンドポイントを入力してください');
-                    return;
-                }
-
-                try {
-                    await window.electronAPI.setVoicevoxEndpoint?.(endpoint);
-                    this.showVoicevoxStatus('success', '設定を保存しました');
-
-                    // AudioServiceの設定を更新
-                    if (this.app && this.app.audioService) {
-                        await this.app.audioService.updateApiSettings();
-                    }
-                } catch (error) {
-                    this.showVoicevoxStatus('error', `保存エラー: ${error.message}`);
-                }
-            };
-
-            this.safeAddEventListener(saveVoicevoxBtn, 'click', saveVoicevoxHandler, 'save-voicevox-btn');
-        }
 
         // モデル追加ボタンのイベントリスナー
         if (addModelBtn && modelUuidInput) {
@@ -1780,32 +1692,6 @@ class UIEventManager {
         }, 5000);
     }
 
-    /**
-     * VoiceVOXステータス表示
-     */
-    showVoicevoxStatus(type, message) {
-        const voicevoxStatus = document.getElementById('voicevox-status');
-        if (!voicevoxStatus) return;
-
-        voicevoxStatus.style.display = 'block';
-        voicevoxStatus.textContent = message;
-
-        // スタイルを設定
-        if (type === 'success') {
-            voicevoxStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
-            voicevoxStatus.style.color = 'var(--green-primary)';
-            voicevoxStatus.style.border = '1px solid var(--green-primary)';
-        } else if (type === 'error') {
-            voicevoxStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
-            voicevoxStatus.style.color = 'var(--theme-accent)';
-            voicevoxStatus.style.border = '1px solid var(--theme-accent)';
-        }
-
-        // 5秒後に自動で非表示
-        setTimeout(() => {
-            voicevoxStatus.style.display = 'none';
-        }, 5000);
-    }
 
     /**
      * カスタムモデルステータス表示
@@ -2322,10 +2208,6 @@ class UIEventManager {
             const cloudApiSettings = document.getElementById('cloud-api-settings');
             if (cloudApiSettings) {
                 cloudApiSettings.style.display = isCloudAPI ? 'block' : 'none';
-            }
-            const voicevoxSettings = document.getElementById('voicevox-settings');
-            if (voicevoxSettings) {
-                voicevoxSettings.style.display = isVoiceVOX ? 'block' : 'none';
             }
             
             // APIキー入力欄の更新
