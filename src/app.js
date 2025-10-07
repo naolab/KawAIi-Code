@@ -524,18 +524,19 @@ class TerminalApp {
         debugLog('🔧 updateConnectionStatus呼び出し:', { text, status });
         const statusElementModal = document.getElementById('connection-status-modal');
         if (statusElementModal) {
-            // クラウドAPI使用時は常に「未接続」を表示
+            // voiceEngineを信頼できる唯一の情報源として使用
             const unifiedConfig = getSafeUnifiedConfig();
-            const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
-            
-            if (useCloudAPI) {
+            const voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
+            const isCloudAPI = voiceEngine === 'aivis-cloud';
+
+            if (isCloudAPI) {
                 statusElementModal.textContent = '未接続';
                 statusElementModal.className = 'status-disconnected';
                 debugLog('✅ クラウドAPI使用時: 未接続固定表示');
             } else {
                 statusElementModal.textContent = text;
                 statusElementModal.className = `status-${status}`;
-                debugLog('✅ ローカルAPI使用時: UI更新成功:', { text, status });
+                debugLog('✅ ローカル/VoiceVOX使用時: UI更新成功:', { text, status, voiceEngine });
             }
         } else {
             debugError('❌ UI要素が見つかりません: connection-status-modal');
@@ -835,8 +836,9 @@ async function continuousConnectionCheck() {
     
     // クラウドAPI使用時はスキップ（updateConnectionStatus()に任せる）
     const unifiedConfig = getSafeUnifiedConfig();
-    const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
-    if (useCloudAPI) {
+    const voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
+    const isCloudAPI = voiceEngine === 'aivis-cloud';
+    if (isCloudAPI) {
         debugLog('🌥️ クラウドAPI使用中 - 継続監視をスキップ（updateConnectionStatus()に任せる）');
         return;
     }

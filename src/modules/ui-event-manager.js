@@ -405,18 +405,19 @@ class UIEventManager {
                 const selectedValue = e.target.value;
                 
                 // 現在のエンジンタイプを確認
-                let useCloudAPI = false;
+                let voiceEngine = 'aivis-local';
                 try {
-                    if (window.electronAPI && window.electronAPI.getUseCloudApi) {
-                        useCloudAPI = await window.electronAPI.getUseCloudApi();
+                    if (window.electronAPI && window.electronAPI.getVoiceEngine) {
+                        voiceEngine = await window.electronAPI.getVoiceEngine();
                     } else {
-                        useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                        voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
                     }
                 } catch (error) {
                     this.debugError('エンジン設定取得エラー:', error);
                 }
-                
-                if (useCloudAPI) {
+
+                const isCloudAPI = voiceEngine === 'aivis-cloud';
+                if (isCloudAPI) {
                     // クラウドAPI使用時：選択されたモデル（'default' または UUID）を保存
                     this.app.selectedSpeaker = selectedValue;
                     this.debugLog('Cloud API speaker selection:', selectedValue);
@@ -1124,8 +1125,9 @@ class UIEventManager {
 
         // クラウドAPI使用時は接続状態に関係なく有効化
         const unifiedConfig = getSafeUnifiedConfig();
-        const useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
-        const canUseVoice = useCloudAPI ? true : (this.app.connectionStatus === 'connected');
+        const voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
+        const isCloudAPI = voiceEngine === 'aivis-cloud';
+        const canUseVoice = isCloudAPI ? true : (this.app.connectionStatus === 'connected');
 
         if (voiceToggleModal) {
             voiceToggleModal.disabled = !canUseVoice;
@@ -1141,7 +1143,8 @@ class UIEventManager {
             canUseVoice,
             voiceEnabled: this.app.voiceEnabled,
             connectionStatus: this.app.connectionStatus,
-            useCloudAPI
+            voiceEngine,
+            isCloudAPI
         });
     }
 
@@ -1418,32 +1421,40 @@ class UIEventManager {
             // 初期値を設定から読み込み
             const initVoiceEngine = async () => {
                 // ElectronのappConfigから読み込む（実際の保存先）
-                let useCloudAPI = false;
+                let voiceEngine = 'aivis-local';
                 try {
-                    if (window.electronAPI && window.electronAPI.getUseCloudApi) {
-                        useCloudAPI = await window.electronAPI.getUseCloudApi();
+                    if (window.electronAPI && window.electronAPI.getVoiceEngine) {
+                        voiceEngine = await window.electronAPI.getVoiceEngine();
                     } else {
                         // フォールバック：unifiedConfigから読み込み
-                        useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                        voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
                     }
                 } catch (error) {
-                    this.debugLog('Cloud API設定読み込みエラー:', error);
-                    useCloudAPI = false;
+                    this.debugLog('音声エンジン設定読み込みエラー:', error);
+                    voiceEngine = 'aivis-local';
                 }
-                
+
                 // ラジオボタンの状態を設定
-                voiceEngineLocalRadio.checked = !useCloudAPI;
-                voiceEngineCloudRadio.checked = useCloudAPI;
-                
-                if (cloudApiSettings) {
-                    cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
+                const isCloudAPI = voiceEngine === 'aivis-cloud';
+                const isVoiceVOX = voiceEngine === 'voicevox';
+                voiceEngineLocalRadio.checked = !isCloudAPI && !isVoiceVOX;
+                voiceEngineCloudRadio.checked = isCloudAPI;
+                if (voiceEngineVoicevoxRadio) {
+                    voiceEngineVoicevoxRadio.checked = isVoiceVOX;
                 }
-                
+
+                if (cloudApiSettings) {
+                    cloudApiSettings.style.display = isCloudAPI ? 'block' : 'none';
+                }
+                if (voicevoxSettings) {
+                    voicevoxSettings.style.display = isVoiceVOX ? 'block' : 'none';
+                }
+
                 // 話者選択の更新と音声エンジン接続状況の初期状態設定
-                this.updateVoiceControlsForEngine(useCloudAPI);
+                this.updateVoiceControlsForEngine(isCloudAPI);
                 
                 // APIキーも読み込み（復号化は内部で処理）
-                if (cloudApiKeyInput && useCloudAPI) {
+                if (cloudApiKeyInput && isCloudAPI) {
                     try {
                         // electronAPIを通してAPIキーを取得
                         const apiKey = await window.electronAPI.getCloudApiKey?.();
@@ -2007,20 +2018,21 @@ class UIEventManager {
      * 音声エラーメッセージを生成
      */
     getVoiceErrorMessage(error) {
-        // グローバル変数として読み込み済み
-        const useCloudAPI = unifiedConfig.get('useCloudAPI', false);
-        
+        // voiceEngineから判定
+        const voiceEngine = unifiedConfig.get('voiceEngine', 'aivis-local');
+        const isCloudAPI = voiceEngine === 'aivis-cloud';
+
         if (error.errorType) {
             switch (error.errorType) {
                 case 'network':
-                    if (useCloudAPI) {
+                    if (isCloudAPI) {
                         return 'Aivis Cloud APIに接続できません。インターネット接続とAPIキーを確認してください。';
                     }
                     return '音声エンジンに接続できません。AivisSpeechが起動しているか確認してください。';
                 case 'timeout':
                     return '音声生成に時間がかかりすぎています。しばらく待ってから再試行してください。';
                 case 'server':
-                    if (useCloudAPI) {
+                    if (isCloudAPI) {
                         return 'Aivis Cloud APIでエラーが発生しました。APIキーまたは利用制限を確認してください。';
                     }
                     return '音声エンジンでエラーが発生しました。エンジンの再起動を試してください。';
@@ -2278,32 +2290,42 @@ class UIEventManager {
     async syncCloudApiSettings() {
         try {
             // 実際の設定ファイルから読み込む
-            let useCloudAPI = false;
+            let voiceEngine = 'aivis-local';
             let encryptedApiKey = '';
-            
+
             try {
-                useCloudAPI = await window.electronAPI.getUseCloudApi?.() || false;
+                voiceEngine = await window.electronAPI.getVoiceEngine?.() || 'aivis-local';
                 encryptedApiKey = await window.electronAPI.getCloudApiKey?.() || '';
             } catch (error) {
                 console.error('設定ファイル読み込みエラー:', error);
                 // フォールバック: unifiedConfigから読み込む
                 const unifiedConfig = getSafeUnifiedConfig();
-                useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
                 encryptedApiKey = await unifiedConfig.get('aivisCloudApiKey', '');
             }
-            
+
             // ラジオボタンの状態を更新
+            const isCloudAPI = voiceEngine === 'aivis-cloud';
+            const isVoiceVOX = voiceEngine === 'voicevox';
             const voiceEngineLocalRadio = document.getElementById('voice-engine-local');
             const voiceEngineCloudRadio = document.getElementById('voice-engine-cloud');
+            const voiceEngineVoicevoxRadio = document.getElementById('voice-engine-voicevox');
             if (voiceEngineLocalRadio && voiceEngineCloudRadio) {
-                voiceEngineLocalRadio.checked = !useCloudAPI;
-                voiceEngineCloudRadio.checked = useCloudAPI;
+                voiceEngineLocalRadio.checked = !isCloudAPI && !isVoiceVOX;
+                voiceEngineCloudRadio.checked = isCloudAPI;
+                if (voiceEngineVoicevoxRadio) {
+                    voiceEngineVoicevoxRadio.checked = isVoiceVOX;
+                }
             }
-            
+
             // API設定エリアの表示/非表示を更新
             const cloudApiSettings = document.getElementById('cloud-api-settings');
             if (cloudApiSettings) {
-                cloudApiSettings.style.display = useCloudAPI ? 'block' : 'none';
+                cloudApiSettings.style.display = isCloudAPI ? 'block' : 'none';
+            }
+            const voicevoxSettings = document.getElementById('voicevox-settings');
+            if (voicevoxSettings) {
+                voicevoxSettings.style.display = isVoiceVOX ? 'block' : 'none';
             }
             
             // APIキー入力欄の更新
@@ -2319,7 +2341,7 @@ class UIEventManager {
                 }
             }
             
-            console.log('🔄 クラウドAPI設定を同期:', { useCloudAPI, hasApiKey: !!encryptedApiKey });
+            console.log('🔄 音声エンジン設定を同期:', { voiceEngine, isCloudAPI, isVoiceVOX, hasApiKey: !!encryptedApiKey });
             
         } catch (error) {
             console.error('クラウドAPI設定の同期エラー:', error);
@@ -2571,19 +2593,20 @@ class UIEventManager {
             if (!speakerSelect) return;
             
             // クラウドAPI使用中かチェック
-            let useCloudAPI = false;
+            let voiceEngine = 'aivis-local';
             try {
-                if (window.electronAPI && window.electronAPI.getUseCloudApi) {
-                    useCloudAPI = await window.electronAPI.getUseCloudApi();
+                if (window.electronAPI && window.electronAPI.getVoiceEngine) {
+                    voiceEngine = await window.electronAPI.getVoiceEngine();
                 } else {
                     const unifiedConfig = getSafeUnifiedConfig();
-                    useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
+                    voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
                 }
             } catch (error) {
                 this.debugError('エンジン設定取得エラー:', error);
             }
-            
-            if (useCloudAPI) {
+
+            const isCloudAPI = voiceEngine === 'aivis-cloud';
+            if (isCloudAPI) {
                 await this.populateCloudApiSpeakers(speakerSelect);
             }
             

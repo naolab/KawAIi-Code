@@ -10,7 +10,7 @@ const AIConfigService = require('./src/services/ai-config-service');
 const ConversationLoggerMain = require('./src/services/ConversationLoggerMain');
 // ログレベル制御（配布版では詳細ログを無効化）
 // 開発時は環境変数またはfalseで開発モードに切り替え
-const isProduction = process.env.NODE_ENV === 'production' || false; // 開発時はfalse
+const isProduction = process.env.NODE_ENV === 'production';
 const debugLog = isProduction ? () => {} : console.log;
 const infoLog = isProduction ? () => {} : console.log; // 配布版では無効化
 const errorLog = console.error; // エラーは常に出力
@@ -39,7 +39,7 @@ function createWindow() {
       contextIsolation: false,
       preload: path.join(__dirname, 'src', 'preload.js'),
       webSecurity: false,
-      devTools: false
+      devTools: true
     },
     titleBarStyle: 'hiddenInset',
     show: false
@@ -70,15 +70,15 @@ function createWindow() {
     });
   });
 
-  // デベロッパーツールを無効化（開発時も非表示）
-  // if (!isProduction) {
-  //   mainWindow.webContents.openDevTools();
-  // }
+  // 開発モードの場合のみデベロッパーツールを開く
+  if (!isProduction) {
+    mainWindow.webContents.openDevTools();
+  }
   
-  // コンソールログの出力を無効化
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    // すべてのコンソールログを無効化
-  });
+  // 本番環境ではコンソールログを無効化
+  if (isProduction) {
+    mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {});
+  }
   
   // メニューバーを設定（開発・配布版共通）
   const { Menu } = require('electron');
@@ -137,15 +137,17 @@ function createWindow() {
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
   
-  // DevToolsの無効化（開発・配布版共通）
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    // F12、Cmd+Option+I、Ctrl+Shift+Iを無効化
-    if (input.key === 'F12' || 
-        (input.meta && input.alt && input.key === 'i') || 
-        (input.control && input.shift && input.key === 'I')) {
-      event.preventDefault();
-    }
-  });
+  // 本番環境の場合のみDevToolsを開くショートカットを無効化
+  if (isProduction) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      // F12、Cmd+Option+I、Ctrl+Shift+Iを無効化
+      if (input.key === 'F12' || 
+          (input.meta && input.alt && input.key === 'i') || 
+          (input.control && input.shift && input.key === 'I')) {
+        event.preventDefault();
+      }
+    });
+  }
   
   // 右クリックメニュー（コンテキストメニュー）の設定
   mainWindow.webContents.on('context-menu', (event, params) => {
@@ -1319,7 +1321,7 @@ ipcMain.handle('get-use-cloud-api', async (event) => {
   }
 });
 
-// VoiceVOX関連のIPCハンドラー
+// VoiceVOX設定関連のIPCハンドラー
 ipcMain.handle('get-voice-engine', async () => {
   try {
     const engine = appConfig.get('voiceEngine', 'aivis-local');
@@ -1334,7 +1336,6 @@ ipcMain.handle('get-voice-engine', async () => {
 ipcMain.handle('set-voice-engine', async (event, engine) => {
   try {
     await appConfig.set('voiceEngine', engine);
-    voiceService.updateApiSettings();
     debugLog('voiceEngine set:', engine);
     return { success: true };
   } catch (error) {
@@ -1357,7 +1358,6 @@ ipcMain.handle('get-voicevox-endpoint', async () => {
 ipcMain.handle('set-voicevox-endpoint', async (event, endpoint) => {
   try {
     await appConfig.set('voicevoxEndpoint', endpoint);
-    voiceService.updateApiSettings();
     debugLog('voicevoxEndpoint set:', endpoint);
     return { success: true };
   } catch (error) {
@@ -1366,11 +1366,40 @@ ipcMain.handle('set-voicevox-endpoint', async (event, endpoint) => {
   }
 });
 
-// VoiceVOX接続テスト
-ipcMain.handle('test-voicevox-connection', async (event) => {
+ipcMain.handle('get-voicevox-speaker-id', async () => {
   try {
-    const result = await voiceService.checkConnection();
-    return result;
+    const speakerId = appConfig.get('voicevoxSpeakerId', 0);
+    debugLog('voicevoxSpeakerId get:', speakerId);
+    return speakerId;
+  } catch (error) {
+    errorLog('get-voicevox-speaker-id error:', error);
+    return 0;
+  }
+});
+
+ipcMain.handle('set-voicevox-speaker-id', async (event, speakerId) => {
+  try {
+    await appConfig.set('voicevoxSpeakerId', speakerId);
+    debugLog('voicevoxSpeakerId set:', speakerId);
+    return { success: true };
+  } catch (error) {
+    errorLog('set-voicevox-speaker-id error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('test-voicevox-connection', async () => {
+  try {
+    const endpoint = appConfig.get('voicevoxEndpoint', 'http://127.0.0.1:50021');
+    const response = await fetch(`${endpoint}/version`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const version = await response.json();
+    debugLog('VoiceVOX接続成功:', version);
+    return { success: true, version };
   } catch (error) {
     errorLog('test-voicevox-connection error:', error);
     return { success: false, error: error.message };
