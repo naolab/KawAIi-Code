@@ -140,9 +140,26 @@ class VoiceService {
         try {
             const endpoint = this.getApiEndpoint();
             const headers = this.getRequestHeaders({ 'accept': 'application/json' });
-            
+
             const response = await axios.get(`${endpoint}/speakers`, { headers });
-            this.speakers = response.data;
+
+            // VoiceVOXの場合は話者リストを変換
+            if (this.voiceEngine === 'voicevox') {
+                const voicevoxSpeakers = [];
+                response.data.forEach(speaker => {
+                    speaker.styles.forEach(style => {
+                        voicevoxSpeakers.push({
+                            id: style.id,
+                            name: `${speaker.name} (${style.name})`,
+                            speaker_uuid: speaker.speaker_uuid || null
+                        });
+                    });
+                });
+                this.speakers = voicevoxSpeakers;
+            } else {
+                this.speakers = response.data;
+            }
+
             return this.speakers;
         } catch (error) {
             console.error('Failed to get speakers:', error);

@@ -19,9 +19,11 @@ class AudioService {
         // API設定
         this.baseUrl = 'http://localhost:10101';
         this.cloudApiUrl = 'https://api.aivis-project.com/v1';
+        this.voicevoxUrl = 'http://127.0.0.1:50021';
+        this.voiceEngine = 'aivis-local'; // aivis-local / aivis-cloud / voicevox
         this.useCloudAPI = false;
         this.cloudApiKey = '';
-        
+
         // 音声再生状態は統一管理システムを使用（app.js）
         // 注意: updateApiSettings()はTerminalAppManager.jsで明示的に呼ばれる
     }
@@ -30,20 +32,29 @@ class AudioService {
     async updateApiSettings() {
         try {
             const unifiedConfig = getSafeUnifiedConfig();
-            this.useCloudAPI = await unifiedConfig.get('useCloudAPI', false);
-            if (this.useCloudAPI) {
+
+            // voiceEngineを取得
+            this.voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
+            this.useCloudAPI = this.voiceEngine === 'aivis-cloud';
+
+            if (this.voiceEngine === 'aivis-cloud') {
                 this.cloudApiUrl = await unifiedConfig.get('aivisCloudApiUrl', 'https://api.aivis-project.com/v1');
                 // APIキーは暗号化されているため、window.electronAPI経由で復号化されたキーを取得
                 if (window.electronAPI && window.electronAPI.getCloudApiKey) {
                     this.cloudApiKey = await window.electronAPI.getCloudApiKey();
-                    this.debugLog('APIキー取得:', { 
-                        hasKey: !!this.cloudApiKey, 
+                    this.debugLog('APIキー取得:', {
+                        hasKey: !!this.cloudApiKey,
                         keyLength: this.cloudApiKey ? this.cloudApiKey.length : 0,
                         keyPrefix: this.cloudApiKey ? this.cloudApiKey.substring(0, 10) + '...' : 'なし'
                     });
                 }
             }
-            this.debugLog('API設定を更新:', { useCloudAPI: this.useCloudAPI, endpoint: this.getApiEndpoint() });
+
+            if (this.voiceEngine === 'voicevox') {
+                this.voicevoxUrl = await unifiedConfig.get('voicevoxEndpoint', 'http://127.0.0.1:50021');
+            }
+
+            this.debugLog('API設定を更新:', { voiceEngine: this.voiceEngine, endpoint: this.getApiEndpoint() });
         } catch (error) {
             this.debugError('API設定の更新に失敗:', error);
         }
@@ -51,7 +62,15 @@ class AudioService {
 
     // 現在のAPIエンドポイントを取得
     getApiEndpoint() {
-        return this.useCloudAPI ? this.cloudApiUrl : this.baseUrl;
+        switch (this.voiceEngine) {
+            case 'aivis-cloud':
+                return this.cloudApiUrl;
+            case 'voicevox':
+                return this.voicevoxUrl;
+            case 'aivis-local':
+            default:
+                return this.baseUrl;
+        }
     }
 
     // APIリクエストヘッダーを取得
@@ -732,49 +751,78 @@ class AudioService {
             await this.updateApiSettings();
             const endpoint = this.getApiEndpoint();
             const headers = this.getRequestHeaders();
-            
-            if (this.useCloudAPI) {
-                // クラウドAPIの場合は/speakersエンドポイントで接続テスト
-                try {
-                    const testEndpoint = `${endpoint}/speakers`;
+
+            // エンジンごとに接続テストエンドポイントを切り替え
+            switch (this.voiceEngine) {
+                case 'aivis-cloud':
+                    // クラウドAPIの場合は/speakersエンドポイントで接続テスト
+                    try {
+                        const testEndpoint = `${endpoint}/speakers`;
+                        const response = await fetch(testEndpoint, { headers });
+
+                        if (response.ok) {
+                            this.connectionStatus = 'connected';
+                            this.terminalApp.connectionStatus = 'connected';
+                            this.debugLog('クラウドAPI接続成功');
+                            return { success: true };
+                        } else {
+                            const errorText = await response.text();
+                            this.connectionStatus = 'disconnected';
+                            this.terminalApp.connectionStatus = 'disconnected';
+                            this.debugLog('クラウドAPI接続失敗:', {
+                                status: response.status,
+                                statusText: response.statusText,
+                                errorText
+                            });
+                            return { success: false, error: `API接続失敗: ${response.status} - ${errorText}` };
+                        }
+                    } catch (error) {
+                        this.connectionStatus = 'error';
+                        this.terminalApp.connectionStatus = 'error';
+                        this.debugLog('クラウドAPI接続エラー:', error.message);
+                        return { success: false, error: error.message };
+                    }
+
+                case 'voicevox':
+                    // VoiceVOXの場合は/versionエンドポイントで接続テスト
+                    try {
+                        const testEndpoint = `${endpoint}/version`;
+                        const response = await fetch(testEndpoint);
+
+                        if (response.ok) {
+                            const versionData = await response.json();
+                            this.connectionStatus = 'connected';
+                            this.terminalApp.connectionStatus = 'connected';
+                            this.debugLog('VoiceVOX接続成功:', versionData);
+                            return { success: true, version: versionData };
+                        } else {
+                            this.connectionStatus = 'disconnected';
+                            this.terminalApp.connectionStatus = 'disconnected';
+                            this.debugLog('VoiceVOX接続失敗:', response.status);
+                            return { success: false, error: `VoiceVOX接続失敗: ${response.status}` };
+                        }
+                    } catch (error) {
+                        this.connectionStatus = 'error';
+                        this.terminalApp.connectionStatus = 'error';
+                        this.debugLog('VoiceVOX接続エラー:', error.message);
+                        return { success: false, error: error.message };
+                    }
+
+                case 'aivis-local':
+                default:
+                    // AivisSpeech(ローカル)の場合は/versionエンドポイントで接続テスト
+                    const testEndpoint = `${endpoint}/version`;
                     const response = await fetch(testEndpoint, { headers });
-                    
                     if (response.ok) {
                         this.connectionStatus = 'connected';
                         this.terminalApp.connectionStatus = 'connected';
-                        this.debugLog('クラウドAPI接続成功');
+                        this.debugLog('AivisSpeech(ローカル)接続成功');
                         return { success: true };
                     } else {
-                        const errorText = await response.text();
                         this.connectionStatus = 'disconnected';
                         this.terminalApp.connectionStatus = 'disconnected';
-                        this.debugLog('クラウドAPI接続失敗:', {
-                            status: response.status,
-                            statusText: response.statusText,
-                            errorText
-                        });
-                        return { success: false, error: `API接続失敗: ${response.status} - ${errorText}` };
+                        return { success: false, error: 'サービスが応答しません' };
                     }
-                } catch (error) {
-                    this.connectionStatus = 'error';
-                    this.terminalApp.connectionStatus = 'error';
-                    this.debugLog('クラウドAPI接続エラー:', error.message);
-                    return { success: false, error: error.message };
-                }
-            }
-            
-            const testEndpoint = `${endpoint}/version`;
-            const response = await fetch(testEndpoint, { headers });
-            if (response.ok) {
-                // 統一された状態管理: AudioServiceとTerminalApp両方を更新
-                this.connectionStatus = 'connected';
-                this.terminalApp.connectionStatus = 'connected';
-                this.debugLog('音声合成サービス接続成功');
-                return { success: true };
-            } else {
-                this.connectionStatus = 'disconnected';
-                this.terminalApp.connectionStatus = 'disconnected';
-                return { success: false, error: 'サービスが応答しません' };
             }
         } catch (error) {
             this.connectionStatus = 'error';
