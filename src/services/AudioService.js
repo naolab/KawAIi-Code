@@ -110,7 +110,7 @@ class AudioService {
 
         try {
             const unifiedConfig = getSafeUnifiedConfig();
-            const speakerId = await unifiedConfig.get('defaultSpeakerId', this.selectedSpeaker);
+            let speakerId = await unifiedConfig.get('defaultSpeakerId', this.selectedSpeaker);
             const volume = await unifiedConfig.get('voiceVolume', this.voiceVolume);
             const speed = 1.2; // 読み上げ速度
 
@@ -119,7 +119,6 @@ class AudioService {
 
             // VoiceVOX使用時は専用の話者IDを使用
             if (this.voiceEngine === 'voicevox') {
-                const unifiedConfig = getSafeUnifiedConfig();
                 speakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
             }
 

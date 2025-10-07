@@ -417,19 +417,30 @@ class UIEventManager {
                 }
 
                 const isCloudAPI = voiceEngine === 'aivis-cloud';
+                const isVoiceVOX = voiceEngine === 'voicevox';
+
                 if (isCloudAPI) {
                     // クラウドAPI使用時：選択されたモデル（'default' または UUID）を保存
                     this.app.selectedSpeaker = selectedValue;
                     this.debugLog('Cloud API speaker selection:', selectedValue);
-                    
+
                     // 設定を永続化（クラウドAPI用の選択値として保存）
                     if (window.electronAPI && window.electronAPI.config) {
                         await window.electronAPI.config.set('cloudSelectedModel', selectedValue);
                     }
-                } else {
-                    // ローカルエンジン使用時：数値IDを使用（従来通り）
+                } else if (isVoiceVOX) {
+                    // VoiceVOX使用時：voicevoxSpeakerIdに保存
                     this.app.selectedSpeaker = parseInt(selectedValue);
-                    
+
+                    // 設定を永続化
+                    if (window.electronAPI && window.electronAPI.config) {
+                        await window.electronAPI.config.set('voicevoxSpeakerId', this.app.selectedSpeaker);
+                    }
+                    this.debugLog('VoiceVOX speaker setting updated:', this.app.selectedSpeaker);
+                } else {
+                    // AivisSpeech(ローカル)使用時：数値IDを使用（従来通り）
+                    this.app.selectedSpeaker = parseInt(selectedValue);
+
                     // 設定を永続化
                     if (window.electronAPI && window.electronAPI.config) {
                         await window.electronAPI.config.set('defaultSpeakerId', this.app.selectedSpeaker);
