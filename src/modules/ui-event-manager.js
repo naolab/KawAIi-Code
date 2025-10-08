@@ -42,10 +42,51 @@ class UIEventManager {
         this.processingLocks = new Map();      // 処理中ロック：Map<lockId, boolean>
         this.helpNavigationInitialized = false; // ヘルプナビ初期化フラグ
         this.legalDocumentsLoaded = false;      // 法的ドキュメント読み込み済みフラグ
+        this.dragPreventionSetup = false;       // ドラッグ抑止設定フラグ
         
         this.debugLog('UIEventManager initialized with duplicate prevention system');
-    }
 
+        this.setupDragPrevention();
+    }
+    
+    /**
+     * ボタンやリンクのドラッグ開始によるツールチップ表示を抑止
+     */
+    setupDragPrevention() {
+        if (this.dragPreventionSetup) {
+            return;
+        }
+
+        const preventDragHandler = (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+
+            const interactiveElement = target.closest('a, button, [role="button"]');
+            if (!interactiveElement) {
+                return;
+            }
+
+            if (interactiveElement.closest('[data-allow-drag="true"]')) {
+                return;
+            }
+
+            interactiveElement.setAttribute('draggable', 'false');
+
+            // dragstartを抑止してツールチップ表示を防ぐ
+            if (!event.defaultPrevented) {
+                event.preventDefault();
+                this.debugLog('ドラッグ抑止:', interactiveElement.tagName, interactiveElement.id || interactiveElement.className);
+            }
+        };
+
+        document.addEventListener('dragstart', preventDragHandler, { capture: true });
+
+        this.dragPreventionSetup = true;
+        this.debugLog('ドラッグ抑止リスナーを登録');
+    }
+    
     /**
      * 安全なイベントリスナー登録（重複防止機能付き）
      */
