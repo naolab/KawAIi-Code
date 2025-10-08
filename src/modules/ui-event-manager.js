@@ -291,6 +291,7 @@ class UIEventManager {
             settingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'flex';
                 this.app.syncSettingsToModal();
+                this.initSettingsNavigation(); // タブナビゲーション初期化
             });
         }
         
@@ -2665,6 +2666,118 @@ class UIEventManager {
                 this.debugLog('VRM情報更新:', event.data.info);
             }
         });
+    }
+
+    /**
+     * 設定画面タブナビゲーションの初期化
+     */
+    initSettingsNavigation() {
+        try {
+            const navItems = document.querySelectorAll('.settings-nav-item');
+            const sections = document.querySelectorAll('.settings-section');
+
+            if (!navItems.length || !sections.length) {
+                console.warn('設定ナビゲーション要素が見つかりません');
+                return;
+            }
+
+            navItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+
+                    const targetSection = item.getAttribute('data-section');
+                    if (!targetSection) return;
+
+                    // 全てのナビアイテムから active クラスを削除
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    // クリックされたナビアイテムに active クラスを追加
+                    item.classList.add('active');
+
+                    // 全てのセクションを非表示
+                    sections.forEach(section => section.classList.remove('active'));
+                    // 対象のセクションを表示
+                    const targetElement = document.getElementById(`settings-section-${targetSection}`);
+                    if (targetElement) {
+                        targetElement.classList.add('active');
+                    }
+
+                    this.debugLog(`設定セクション切り替え: ${targetSection}`);
+                });
+            });
+
+            // アプリ情報リンクの処理
+            this.setupAppInfoLinks();
+
+            this.debugLog('設定ナビゲーション初期化完了');
+        } catch (error) {
+            this.debugError('設定ナビゲーション初期化エラー:', error);
+        }
+    }
+
+    /**
+     * アプリ情報セクションのリンク処理をセットアップ
+     */
+    setupAppInfoLinks() {
+        const settingsModal = document.getElementById('settings-modal');
+        const helpModal = document.getElementById('help-modal');
+
+        // ライセンス情報リンク
+        const licenseLink = document.getElementById('show-license-link');
+        if (licenseLink) {
+            licenseLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                // 設定モーダルを閉じる
+                if (settingsModal) settingsModal.style.display = 'none';
+                // ヘルプモーダルを開く
+                if (helpModal) helpModal.style.display = 'flex';
+                // ライセンスセクションに移動
+                this.navigateToHelpSection('license');
+            });
+        }
+
+        // プライバシーポリシーリンク
+        const privacyLink = document.getElementById('show-privacy-link');
+        if (privacyLink) {
+            privacyLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (settingsModal) settingsModal.style.display = 'none';
+                if (helpModal) helpModal.style.display = 'flex';
+                this.navigateToHelpSection('privacy');
+            });
+        }
+
+        // 利用規約リンク
+        const termsLink = document.getElementById('show-terms-link');
+        if (termsLink) {
+            termsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (settingsModal) settingsModal.style.display = 'none';
+                if (helpModal) helpModal.style.display = 'flex';
+                this.navigateToHelpSection('terms');
+            });
+        }
+    }
+
+    /**
+     * ヘルプモーダルの特定セクションに移動
+     */
+    navigateToHelpSection(sectionName) {
+        const navItems = document.querySelectorAll('.help-nav-item');
+        const sections = document.querySelectorAll('.help-section');
+
+        // 全てのナビアイテムから active クラスを削除
+        navItems.forEach(nav => nav.classList.remove('active'));
+        // 全てのセクションを非表示
+        sections.forEach(section => section.classList.remove('active'));
+
+        // 対象のナビアイテムとセクションをアクティブにする
+        const targetNavItem = document.querySelector(`[data-section="${sectionName}"]`);
+        const targetSection = document.getElementById(`help-section-${sectionName}`);
+
+        if (targetNavItem) targetNavItem.classList.add('active');
+        if (targetSection) targetSection.classList.add('active');
+
+        this.debugLog(`ヘルプセクションに移動: ${sectionName}`);
     }
 
     /**

@@ -1360,6 +1360,123 @@ body.loaded {
     display: block;
 }
 
+/* ========================================
+   設定画面タブシステム（ヘルプモーダルと同様の構造）
+   ======================================== */
+
+/* サイドバー付きコンテンツコンテナ */
+.settings-content-with-sidebar {
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border-radius: 20px;
+    width: 90vw;
+    max-width: 1400px;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* メインコンテナ（サイドバー + コンテンツ） */
+.settings-main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* 設定サイドバー */
+.settings-sidebar {
+    width: 250px;
+    background: #f8f9fa;
+    flex-shrink: 0;
+    overflow-y: auto;
+    border-right: 1px solid #dee2e6;
+}
+
+.settings-nav {
+    padding: 0;
+    margin: 0;
+}
+
+.settings-nav-item {
+    display: block;
+    padding: 16px 20px;
+    color: #6c757d;
+    text-decoration: none;
+    border-bottom: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.settings-nav-item:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.settings-nav-item.active {
+    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
+    color: white;
+    border-left: 4px solid var(--theme-primary-dark);
+}
+
+/* メインコンテンツエリア */
+.settings-content-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px 40px;
+    background: white;
+}
+
+/* セクション */
+.settings-section {
+    display: none;
+}
+
+.settings-section.active {
+    display: block;
+}
+
+/* スクロールバーカスタマイズ（設定サイドバー用） */
+.settings-sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.settings-sidebar::-webkit-scrollbar-track {
+    background: #f1f3f5;
+    border-radius: 10px;
+}
+
+.settings-sidebar::-webkit-scrollbar-thumb {
+    background: var(--theme-primary-alpha-30);
+    border-radius: 10px;
+}
+
+.settings-sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-primary-alpha-50);
+}
+
+/* 設定コンテンツメインのスクロールバー */
+.settings-content-main::-webkit-scrollbar {
+    width: 10px;
+}
+
+.settings-content-main::-webkit-scrollbar-track {
+    background: #f1f3f5;
+    border-radius: 10px;
+    margin: 10px 0;
+}
+
+.settings-content-main::-webkit-scrollbar-thumb {
+    background: var(--theme-primary-alpha-30);
+    border-radius: 10px;
+}
+
+.settings-content-main::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-primary-alpha-50);
+}
+
 .help-content-main h2 {
     margin: 0 0 32px 0;
     color: #2c3e50;
@@ -1800,7 +1917,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 /* ボタンのシンプルスタイル */
-.settings-body .simple-btn {
+.settings-content-main .simple-btn {
     padding: 12px 20px;
     border-radius: 12px;
     font-size: 14px;
