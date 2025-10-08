@@ -23,6 +23,9 @@ class LoadingScreen {
 
         this.element = document.createElement('div');
         this.element.id = this.ELEMENT_ID;
+        this.element.innerHTML = `
+            <img src="./assets/logo/KawAIiCode.png" alt="KawAIi Code" class="loading-logo">
+        `;
 
         // スタイルを追加
         this.addStyles();
@@ -66,6 +69,36 @@ class LoadingScreen {
             #${this.ELEMENT_ID}.visible {
                 opacity: 1;
                 visibility: visible;
+            }
+
+            .loading-logo {
+                max-width: 50%;
+                max-height: 50%;
+                width: auto;
+                height: auto;
+                object-fit: contain;
+                animation: logoFade 5s ease-in-out forwards;
+            }
+
+            @keyframes logoFade {
+                0% {
+                    opacity: 0;
+                }
+                10% {
+                    opacity: 0;
+                }
+                30% {
+                    opacity: 1;
+                }
+                70% {
+                    opacity: 1;
+                }
+                90% {
+                    opacity: 0;
+                }
+                100% {
+                    opacity: 0;
+                }
             }
         `;
 
