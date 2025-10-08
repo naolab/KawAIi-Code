@@ -95,20 +95,10 @@ class AudioService {
 
             // VoiceVOXの場合は話者リストを変換（階層構造→フラット構造）
             if (this.voiceEngine === 'voicevox') {
-                const voicevoxSpeakers = [];
-                speakersData.forEach(speaker => {
-                    speaker.styles.forEach(style => {
-                        voicevoxSpeakers.push({
-                            id: style.id,
-                            name: `${speaker.name} (${style.name})`,
-                            speaker_uuid: speaker.speaker_uuid || null
-                        });
-                    });
-                });
-                this.speakers = voicevoxSpeakers;
+                this.speakers = window.SpeakerConverter.convertVoiceVoxSpeakers(speakersData);
                 this.debugLog('VoiceVOX話者リスト変換完了:', {
                     original: speakersData.length,
-                    converted: voicevoxSpeakers.length
+                    converted: this.speakers.length
                 });
             } else {
                 this.speakers = speakersData;

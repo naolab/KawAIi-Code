@@ -2,6 +2,7 @@ const axios = require('axios');
 const Logger = require('./utils/logger');
 const EmotionAnalyzer = require('./emotionAnalyzer');
 const appConfig = require('./appConfig');
+const { convertVoiceVoxSpeakers } = require('./utils/speaker-converter');
 
 const logger = Logger.create('VoiceService');
 
@@ -145,17 +146,7 @@ class VoiceService {
 
             // VoiceVOXの場合は話者リストを変換
             if (this.voiceEngine === 'voicevox') {
-                const voicevoxSpeakers = [];
-                response.data.forEach(speaker => {
-                    speaker.styles.forEach(style => {
-                        voicevoxSpeakers.push({
-                            id: style.id,
-                            name: `${speaker.name} (${style.name})`,
-                            speaker_uuid: speaker.speaker_uuid || null
-                        });
-                    });
-                });
-                this.speakers = voicevoxSpeakers;
+                this.speakers = convertVoiceVoxSpeakers(response.data);
             } else {
                 this.speakers = response.data;
             }
