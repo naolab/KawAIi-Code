@@ -11,9 +11,10 @@
 // デバッグログ制御（配布版では無効化）
 // UIEventManager専用のログ関数を作成（グローバル競合を回避）
 (function() {
-    const isDevMode = window.location.protocol !== 'file:' && 
-                     (typeof process === 'undefined' || process.env.NODE_ENV !== 'production');
-    
+    // Electron環境ではprocess.env.NODE_ENVで判定
+    const isDevMode = typeof process !== 'undefined' &&
+                     (process.env.NODE_ENV === undefined || process.env.NODE_ENV !== 'production');
+
     // UIEventManager専用のログ関数をグローバルに設定
     if (typeof window.uiEventManagerLog === 'undefined') {
         window.uiEventManagerLog = {
@@ -402,53 +403,90 @@ class UIEventManager {
 
         if (speakerSelectModal) {
             const speakerSelectHandler = async (e) => {
-                const selectedValue = e.target.value;
-                
-                // 現在のエンジンタイプを確認
-                let voiceEngine = 'aivis-local';
                 try {
-                    if (window.electronAPI && window.electronAPI.getVoiceEngine) {
-                        voiceEngine = await window.electronAPI.getVoiceEngine();
+                    console.log('🔊 話者選択イベント発火');
+                    const selectedValue = e.target.value;
+                    console.log('選択された値:', selectedValue);
+
+                    // 現在のエンジンタイプを確認
+                    let voiceEngine = 'aivis-local';
+                    try {
+                        if (window.electronAPI && window.electronAPI.getVoiceEngine) {
+                            voiceEngine = await window.electronAPI.getVoiceEngine();
+                        } else {
+                            const config = getSafeUnifiedConfig();
+                            voiceEngine = await config.get('voiceEngine', 'aivis-local');
+                        }
+                        console.log('現在のエンジン:', voiceEngine);
+                    } catch (error) {
+                        console.error('エンジン設定取得エラー:', error);
+                        this.debugError('エンジン設定取得エラー:', error);
+                    }
+
+                    const isCloudAPI = voiceEngine === 'aivis-cloud';
+                    const isVoiceVOX = voiceEngine === 'voicevox';
+
+                    if (isCloudAPI) {
+                        // クラウドAPI使用時：選択されたモデル（'default' または UUID）を保存
+                        this.app.selectedSpeaker = selectedValue;
+                        console.log('✅ Cloud API話者選択:', selectedValue);
+                        this.debugLog('Cloud API speaker selection:', selectedValue);
+
+                        // 設定を永続化（クラウドAPI用の選択値として保存）
+                        if (window.electronAPI && window.electronAPI.config) {
+                            await window.electronAPI.config.set('cloudSelectedModel', selectedValue);
+                            console.log('✅ cloudSelectedModel保存完了');
+                        }
+                    } else if (isVoiceVOX) {
+                        // VoiceVOX使用時：voicevoxSpeakerIdに保存
+                        this.app.selectedSpeaker = parseInt(selectedValue);
+                        console.log('✅ VoiceVOX話者選択:', this.app.selectedSpeaker);
+
+                        // 設定を永続化
+                        console.log('💾 electronAPI確認:', {
+                            hasElectronAPI: !!window.electronAPI,
+                            hasConfig: !!(window.electronAPI && window.electronAPI.config),
+                            electronAPI: window.electronAPI
+                        });
+
+                        if (window.electronAPI && window.electronAPI.config) {
+                            try {
+                                console.log('💾 設定保存開始:', { key: 'voicevoxSpeakerId', value: this.app.selectedSpeaker });
+                                await window.electronAPI.config.set('voicevoxSpeakerId', this.app.selectedSpeaker);
+                                console.log('✅ voicevoxSpeakerId保存完了:', this.app.selectedSpeaker);
+                            } catch (saveError) {
+                                console.error('❌ 設定保存エラー:', saveError);
+                            }
+                        } else {
+                            console.error('❌ electronAPI.configが利用できません');
+                            // フォールバック: unifiedConfigで保存
+                            try {
+                                const config = getSafeUnifiedConfig();
+                                await config.set('voicevoxSpeakerId', this.app.selectedSpeaker);
+                                console.log('✅ voicevoxSpeakerId保存完了(unifiedConfig):', this.app.selectedSpeaker);
+                            } catch (fallbackError) {
+                                console.error('❌ フォールバック保存もエラー:', fallbackError);
+                            }
+                        }
+                        this.debugLog('VoiceVOX speaker setting updated:', this.app.selectedSpeaker);
                     } else {
-                        voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
+                        // AivisSpeech(ローカル)使用時：数値IDを使用（従来通り）
+                        this.app.selectedSpeaker = parseInt(selectedValue);
+                        console.log('✅ Local話者選択:', this.app.selectedSpeaker);
+
+                        // 設定を永続化
+                        if (window.electronAPI && window.electronAPI.config) {
+                            await window.electronAPI.config.set('defaultSpeakerId', this.app.selectedSpeaker);
+                            console.log('✅ defaultSpeakerId保存完了');
+                        }
+                        this.debugLog('Local speaker setting updated:', this.app.selectedSpeaker);
                     }
                 } catch (error) {
-                    this.debugError('エンジン設定取得エラー:', error);
-                }
-
-                const isCloudAPI = voiceEngine === 'aivis-cloud';
-                const isVoiceVOX = voiceEngine === 'voicevox';
-
-                if (isCloudAPI) {
-                    // クラウドAPI使用時：選択されたモデル（'default' または UUID）を保存
-                    this.app.selectedSpeaker = selectedValue;
-                    this.debugLog('Cloud API speaker selection:', selectedValue);
-
-                    // 設定を永続化（クラウドAPI用の選択値として保存）
-                    if (window.electronAPI && window.electronAPI.config) {
-                        await window.electronAPI.config.set('cloudSelectedModel', selectedValue);
-                    }
-                } else if (isVoiceVOX) {
-                    // VoiceVOX使用時：voicevoxSpeakerIdに保存
-                    this.app.selectedSpeaker = parseInt(selectedValue);
-
-                    // 設定を永続化
-                    if (window.electronAPI && window.electronAPI.config) {
-                        await window.electronAPI.config.set('voicevoxSpeakerId', this.app.selectedSpeaker);
-                    }
-                    this.debugLog('VoiceVOX speaker setting updated:', this.app.selectedSpeaker);
-                } else {
-                    // AivisSpeech(ローカル)使用時：数値IDを使用（従来通り）
-                    this.app.selectedSpeaker = parseInt(selectedValue);
-
-                    // 設定を永続化
-                    if (window.electronAPI && window.electronAPI.config) {
-                        await window.electronAPI.config.set('defaultSpeakerId', this.app.selectedSpeaker);
-                    }
-                    this.debugLog('Local speaker setting updated:', this.app.selectedSpeaker);
+                    console.error('❌ 話者選択処理エラー:', error);
+                    this.debugError('話者選択処理エラー:', error);
                 }
             };
-            
+
             // 安全なイベントリスナー登録
             this.safeAddEventListener(speakerSelectModal, 'change', speakerSelectHandler, 'speaker-select-modal');
         }
@@ -1321,20 +1359,30 @@ class UIEventManager {
      */
     updateSpeakerSelectOptions(selectElement, speakers, selectedSpeakerId = null) {
         if (!selectElement || !Array.isArray(speakers)) return;
-        
+
         // 既存のオプションをクリア
         selectElement.innerHTML = '';
-        
+
         // 新しいオプションを追加
         speakers.forEach(speaker => {
-            speaker.styles.forEach(style => {
+            // VoiceVOX/Cloud API形式（フラット型）: stylesプロパティなし
+            if (!speaker.styles) {
                 const option = document.createElement('option');
-                option.value = style.id.toString();
-                option.textContent = `${speaker.name} (${style.name})`;
+                option.value = speaker.id.toString();
+                option.textContent = speaker.name;
                 selectElement.appendChild(option);
-            });
+            }
+            // AivisSpeech Local形式（階層型）: stylesプロパティあり
+            else {
+                speaker.styles.forEach(style => {
+                    const option = document.createElement('option');
+                    option.value = style.id.toString();
+                    option.textContent = `${speaker.name} (${style.name})`;
+                    selectElement.appendChild(option);
+                });
+            }
         });
-        
+
         // 選択状態を設定
         if (selectedSpeakerId !== null) {
             selectElement.value = selectedSpeakerId.toString();

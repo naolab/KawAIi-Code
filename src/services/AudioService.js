@@ -89,12 +89,33 @@ class AudioService {
             await this.updateApiSettings();
             const endpoint = this.getApiEndpoint();
             const headers = this.getRequestHeaders();
-            
+
             const response = await fetch(`${endpoint}/speakers`, { headers });
             const speakersData = await response.json();
-            this.speakers = speakersData;
-            this.debugLog('話者リスト読み込み成功:', speakersData.length + '人');
-            return { success: true, speakers: speakersData };
+
+            // VoiceVOXの場合は話者リストを変換（階層構造→フラット構造）
+            if (this.voiceEngine === 'voicevox') {
+                const voicevoxSpeakers = [];
+                speakersData.forEach(speaker => {
+                    speaker.styles.forEach(style => {
+                        voicevoxSpeakers.push({
+                            id: style.id,
+                            name: `${speaker.name} (${style.name})`,
+                            speaker_uuid: speaker.speaker_uuid || null
+                        });
+                    });
+                });
+                this.speakers = voicevoxSpeakers;
+                this.debugLog('VoiceVOX話者リスト変換完了:', {
+                    original: speakersData.length,
+                    converted: voicevoxSpeakers.length
+                });
+            } else {
+                this.speakers = speakersData;
+            }
+
+            this.debugLog('話者リスト読み込み成功:', this.speakers.length + '人');
+            return { success: true, speakers: this.speakers };
         } catch (error) {
             this.debugError('話者リスト読み込み失敗:', error);
             return { success: false, error: error.message };
@@ -120,6 +141,11 @@ class AudioService {
             // VoiceVOX使用時は専用の話者IDを使用
             if (this.voiceEngine === 'voicevox') {
                 speakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
+                console.log('🎤 VoiceVOX話者ID読み込み:', {
+                    speakerId,
+                    voiceEngine: this.voiceEngine,
+                    selectedSpeaker: this.selectedSpeaker
+                });
             }
 
             this.debugLog('音声合成開始:', {
@@ -242,6 +268,12 @@ class AudioService {
             } else {
                 // ローカルAPI用の音声合成処理（従来の処理）
                 // 音声クエリを生成
+                console.log('🎵 VoiceVOX APIリクエスト:', {
+                    endpoint,
+                    speakerId,
+                    text: text.substring(0, 30) + '...',
+                    url: `${endpoint}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`
+                });
                 const queryResponse = await fetch(`${endpoint}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, {
                     method: 'POST',
                     headers
@@ -885,17 +917,25 @@ class AudioService {
                     this.debugLog('話者IDを復元:', targetSpeakerId);
                 } else {
                     // 対象IDが無効な場合は最初の話者を選択
-                    this.selectedSpeaker = this.speakers[0].styles[0].id;
-                    this.terminalApp.selectedSpeaker = this.selectedSpeaker;
-                    speakerSelectModal.value = this.selectedSpeaker;
-                    this.debugLog('話者IDが無効、デフォルトに設定:', this.selectedSpeaker);
+                    // VoiceVOX形式（フラット）かAivisSpeech形式（階層）かで分岐
+                    const defaultSpeakerId = this.speakers[0].styles
+                        ? this.speakers[0].styles[0].id  // AivisSpeech形式
+                        : this.speakers[0].id;            // VoiceVOX形式
+                    this.selectedSpeaker = defaultSpeakerId;
+                    this.terminalApp.selectedSpeaker = defaultSpeakerId;
+                    speakerSelectModal.value = defaultSpeakerId;
+                    this.debugLog('話者IDが無効、デフォルトに設定:', defaultSpeakerId);
                 }
             } else {
                 // 対象IDがない場合は最初の話者を選択
-                this.selectedSpeaker = this.speakers[0].styles[0].id;
-                this.terminalApp.selectedSpeaker = this.selectedSpeaker;
-                speakerSelectModal.value = this.selectedSpeaker;
-                this.debugLog('話者IDが未設定、デフォルトに設定:', this.selectedSpeaker);
+                // VoiceVOX形式（フラット）かAivisSpeech形式（階層）かで分岐
+                const defaultSpeakerId = this.speakers[0].styles
+                    ? this.speakers[0].styles[0].id  // AivisSpeech形式
+                    : this.speakers[0].id;            // VoiceVOX形式
+                this.selectedSpeaker = defaultSpeakerId;
+                this.terminalApp.selectedSpeaker = defaultSpeakerId;
+                speakerSelectModal.value = defaultSpeakerId;
+                this.debugLog('話者IDが未設定、デフォルトに設定:', defaultSpeakerId);
             }
         }
     }
