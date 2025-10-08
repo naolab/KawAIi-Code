@@ -1,12 +1,18 @@
 /**
- * アプリ起動時のローディング画面
+ * アプリ起動時のローディング画面（シンプル版）
  */
 class LoadingScreen {
     constructor() {
         this.element = null;
         this.isVisible = false;
-        this.dotCount = 0;
-        this.animationInterval = null;
+
+        // 定数
+        this.BACKGROUND_COLOR = '#ffffff';
+        this.Z_INDEX = 9999;
+        this.TRANSITION_DURATION = 300; // ms
+        this.FADE_IN_DELAY = 50; // ms
+        this.STYLE_ID = 'loading-screen-styles';
+        this.ELEMENT_ID = 'loading-screen';
     }
 
     /**
@@ -16,24 +22,11 @@ class LoadingScreen {
         if (this.element) return;
 
         this.element = document.createElement('div');
-        this.element.id = 'loading-screen';
-        this.element.innerHTML = `
-            <div class="loading-overlay">
-                <div class="loading-content">
-                    <div class="loading-text">
-                        <span>Now Loading</span>
-                        <span class="loading-dots">...</span>
-                    </div>
-                    <div class="loading-bar-container">
-                        <div class="loading-bar"></div>
-                    </div>
-                </div>
-            </div>
-        `;
+        this.element.id = this.ELEMENT_ID;
 
         // スタイルを追加
         this.addStyles();
-        
+
         document.body.appendChild(this.element);
     }
 
@@ -41,112 +34,52 @@ class LoadingScreen {
      * スタイルを追加
      */
     addStyles() {
-        if (document.getElementById('loading-screen-styles')) return;
+        if (document.getElementById(this.STYLE_ID)) return;
 
         const style = document.createElement('style');
-        style.id = 'loading-screen-styles';
+        style.id = this.STYLE_ID;
         style.textContent = `
-            #loading-screen {
+            html, body {
+                background: ${this.BACKGROUND_COLOR} !important;
+            }
+
+            #${this.ELEMENT_ID} {
                 position: fixed;
                 top: 0;
                 left: 0;
-                width: 100%;
-                height: 100%;
-                z-index: 9999;
+                right: 0;
+                bottom: 0;
+                width: 100vw;
+                height: 100vh;
+                margin: 0;
+                padding: 0;
+                z-index: ${this.Z_INDEX};
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: #f5f5dc;
+                background: ${this.BACKGROUND_COLOR};
                 opacity: 0;
                 visibility: hidden;
-                transition: opacity 0.3s ease, visibility 0.3s ease;
+                transition: opacity ${this.TRANSITION_DURATION / 1000}s ease, visibility ${this.TRANSITION_DURATION / 1000}s ease;
             }
 
-            #loading-screen.visible {
+            #${this.ELEMENT_ID}.visible {
                 opacity: 1;
                 visibility: visible;
             }
-
-            .loading-overlay {
-                background: transparent;
-                border-radius: 15px;
-                padding: 40px;
-                box-shadow: none;
-                border: none;
-                min-width: 300px;
-                text-align: center;
-            }
-
-            .loading-content {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 20px;
-            }
-
-            .loading-spinner {
-                width: 40px;
-                height: 40px;
-                border: 3px solid rgba(255, 255, 255, 0.1);
-                border-top: 3px solid #ff8c42;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-            }
-
-            .loading-text {
-                color: #000000;
-                font-size: 24px;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            }
-
-            .loading-dots {
-                color: #000000;
-                font-weight: bold;
-                min-width: 20px;
-                text-align: left;
-            }
-
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-
-            .loading-bar-container {
-                width: 250px;
-                height: 8px;
-                background: rgba(0, 0, 0, 0.1);
-                border-radius: 10px;
-                overflow: hidden;
-                margin-top: 15px;
-            }
-
-            .loading-bar {
-                height: 100%;
-                background: #ff8c42;
-                background: linear-gradient(90deg, #ff8c42, #ffa366);
-                border-radius: 10px;
-                animation: loadingBar 2s ease-in-out infinite;
-            }
-
-            @keyframes loadingBar {
-                0% {
-                    width: 0%;
-                    transform: translateX(0);
-                }
-                50% {
-                    width: 70%;
-                }
-                100% {
-                    width: 100%;
-                    transform: translateX(0);
-                }
-            }
         `;
-        
+
         document.head.appendChild(style);
+    }
+
+    /**
+     * スタイルを削除
+     */
+    removeStyles() {
+        const styleElement = document.getElementById(this.STYLE_ID);
+        if (styleElement) {
+            styleElement.remove();
+        }
     }
 
     /**
@@ -157,14 +90,13 @@ class LoadingScreen {
 
         this.create();
         this.isVisible = true;
-        
+
         // 少し遅延してからフェードイン
         setTimeout(() => {
-            this.element.classList.add('visible');
-        }, 50);
-
-        // ドットアニメーション開始
-        this.startDotAnimation();
+            if (this.element) {
+                this.element.classList.add('visible');
+            }
+        }, this.FADE_IN_DELAY);
     }
 
     /**
@@ -174,44 +106,19 @@ class LoadingScreen {
         if (!this.isVisible || !this.element) return;
 
         this.isVisible = false;
-        this.stopDotAnimation();
-        
+
+        // フェードアウト開始前にスタイルを削除（背景を先に戻す）
+        this.removeStyles();
+
         this.element.classList.remove('visible');
-        
+
         // フェードアウト完了後に要素を削除
         setTimeout(() => {
             if (this.element && this.element.parentNode) {
                 this.element.parentNode.removeChild(this.element);
                 this.element = null;
             }
-        }, 300);
-    }
-
-    /**
-     * ドットアニメーション開始
-     */
-    startDotAnimation() {
-        this.stopDotAnimation();
-        
-        this.animationInterval = setInterval(() => {
-            if (!this.element) return;
-            
-            this.dotCount = (this.dotCount + 1) % 4;
-            const dotsElement = this.element.querySelector('.loading-dots');
-            if (dotsElement) {
-                dotsElement.textContent = '.'.repeat(this.dotCount);
-            }
-        }, 500);
-    }
-
-    /**
-     * ドットアニメーション停止
-     */
-    stopDotAnimation() {
-        if (this.animationInterval) {
-            clearInterval(this.animationInterval);
-            this.animationInterval = null;
-        }
+        }, this.TRANSITION_DURATION);
     }
 
     /**
@@ -219,13 +126,7 @@ class LoadingScreen {
      */
     destroy() {
         this.hide();
-        this.stopDotAnimation();
-        
-        // スタイルも削除
-        const styleElement = document.getElementById('loading-screen-styles');
-        if (styleElement) {
-            styleElement.remove();
-        }
+        this.removeStyles();
     }
 }
 
