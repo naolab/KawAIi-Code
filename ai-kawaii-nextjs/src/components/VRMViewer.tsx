@@ -57,7 +57,6 @@ export default function VRMViewer({ className }: VRMViewerProps) {
   // VRMローダーの状態（フックから取得）
   const loading = vrmLoader.loading
   const error = vrmLoader.error
-  const vrmInfo = vrmLoader.vrmInfo
   const setVrmInfo = vrmLoader.setVrmInfo
 
   // VRMファイルを読み込む（フックから取得）
@@ -148,12 +147,6 @@ export default function VRMViewer({ className }: VRMViewerProps) {
         </div>
       )}
 
-      {vrmInfo && (
-        <div className="absolute top-4 left-4 bg-gray-800 text-gray-200 text-xs px-2 py-1 rounded opacity-75">
-          <pre>{vrmInfo}</pre>
-        </div>
-      )}
-      
     </div>
   )
 }
