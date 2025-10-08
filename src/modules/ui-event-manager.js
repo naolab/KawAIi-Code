@@ -40,6 +40,8 @@ class UIEventManager {
         this.registeredListeners = new Map(); // リスナー管理：Map<elementId_eventType, {element, handler}>
         this.isSetupComplete = false;          // 初期化完了フラグ
         this.processingLocks = new Map();      // 処理中ロック：Map<lockId, boolean>
+        this.helpNavigationInitialized = false; // ヘルプナビ初期化フラグ
+        this.legalDocumentsLoaded = false;      // 法的ドキュメント読み込み済みフラグ
         
         this.debugLog('UIEventManager initialized with duplicate prevention system');
     }
@@ -317,12 +319,13 @@ class UIEventManager {
         }
         
         // ヘルプモーダルのイベント
-        if (helpBtn && helpModal) {
-            helpBtn.addEventListener('click', () => {
-                helpModal.style.display = 'flex';
-                this.initHelpNavigation();
-                this.loadLegalDocuments();
-            });
+        if (helpBtn) {
+            this.safeAddEventListener(helpBtn, 'click', async (e) => {
+                if (e && typeof e.preventDefault === 'function') {
+                    e.preventDefault();
+                }
+                await this.openHelpModal();
+            }, 'open-help-modal-button');
         }
         
         if (closeHelpBtn && helpModal) {
@@ -833,41 +836,16 @@ class UIEventManager {
 
         // 情報ボタンのイベント - 使い方ガイドのClaude Code項目を開く
         if (claudeMdInfoBtn) {
-            claudeMdInfoBtn.addEventListener('click', () => {
-                // 設定モーダルを閉じる
+            this.safeAddEventListener(claudeMdInfoBtn, 'click', async () => {
                 const settingsModal = document.getElementById('settings-modal');
                 if (settingsModal) {
                     settingsModal.style.display = 'none';
                 }
-                
-                // 使い方ガイドを開いてClaude Code項目に移動
-                const helpModal = document.getElementById('help-modal');
-                if (helpModal) {
-                    helpModal.style.display = 'flex';
-                    
-                    // ヘルプガイドの初期化処理を実行
-                    this.initHelpNavigation();
-                    this.loadLegalDocuments();
-                    
-                    // Claude Codeセクションをアクティブにする
-                    const navItems = document.querySelectorAll('.help-nav-item');
-                    const sections = document.querySelectorAll('.help-section');
-                    
-                    // 全てのナビアイテムから active クラスを削除
-                    navItems.forEach(nav => nav.classList.remove('active'));
-                    // 全てのセクションを非表示
-                    sections.forEach(section => section.classList.remove('active'));
-                    
-                    // Claude Codeのナビアイテムとセクションをアクティブにする
-                    const claudeNavItem = document.querySelector('[data-section="claude"]');
-                    const claudeSection = document.getElementById('help-section-claude');
-                    
-                    if (claudeNavItem) claudeNavItem.classList.add('active');
-                    if (claudeSection) claudeSection.classList.add('active');
-                }
+
+                await this.openHelpModal('claude');
                 
                 this.debugLog('CLAUDE.md情報ボタン → 使い方ガイドのClaude Code項目を表示');
-            });
+            }, 'open-help-claude-info');
         }
 
         this.debugLog('CLAUDE.md event listeners setup completed');
@@ -2289,6 +2267,11 @@ class UIEventManager {
      */
     initHelpNavigation() {
         try {
+            if (this.helpNavigationInitialized) {
+                this.debugLog('ヘルプナビゲーションは既に初期化済み');
+                return;
+            }
+
             const navItems = document.querySelectorAll('.help-nav-item');
             const sections = document.querySelectorAll('.help-section');
             
@@ -2321,6 +2304,7 @@ class UIEventManager {
                 });
             });
             
+            this.helpNavigationInitialized = true;
             this.debugLog('ヘルプナビゲーション初期化完了');
         } catch (error) {
             this.debugError('ヘルプナビゲーション初期化エラー:', error);
@@ -2330,22 +2314,26 @@ class UIEventManager {
     /**
      * 法的ドキュメントを読み込んで各セクションに表示
      */
-    async loadLegalDocuments() {
+    async loadLegalDocuments(forceReload = false) {
         try {
-            // ライセンスを読み込み
-            this.loadDocumentIntoSection('license', 'LICENSE.md', 'license-content');
-            
-            // プライバシーポリシーを読み込み
-            this.loadDocumentIntoSection('privacy', 'PRIVACY_POLICY.md', 'privacy-content');
-            
-            // 利用規約を読み込み
-            this.loadDocumentIntoSection('terms', 'TERMS_OF_SERVICE.md', 'terms-content');
-            
-            // アップデート情報を読み込み
-            this.loadDocumentIntoSection('updates', 'UPDATE_LOG.md', 'updates-content');
-            
+            if (this.legalDocumentsLoaded && !forceReload) {
+                this.debugLog('法的ドキュメントは既に読み込み済み');
+                return;
+            }
+
             this.debugLog('法的ドキュメント読み込み開始');
+
+            await Promise.all([
+                this.loadDocumentIntoSection('license', 'LICENSE.md', 'license-content'),
+                this.loadDocumentIntoSection('privacy', 'PRIVACY_POLICY.md', 'privacy-content'),
+                this.loadDocumentIntoSection('terms', 'TERMS_OF_SERVICE.md', 'terms-content'),
+                this.loadDocumentIntoSection('updates', 'UPDATE_LOG.md', 'updates-content')
+            ]);
+
+            this.legalDocumentsLoaded = true;
+            this.debugLog('法的ドキュメント読み込み完了');
         } catch (error) {
+            this.legalDocumentsLoaded = false;
             this.debugError('法的ドキュメント読み込みエラー:', error);
         }
     }
@@ -2715,46 +2703,74 @@ class UIEventManager {
     }
 
     /**
+     * ヘルプモーダルを開いて必要な初期化を実行
+     */
+    async openHelpModal(targetSection = null) {
+        try {
+            const helpModal = document.getElementById('help-modal');
+            if (!helpModal) {
+                this.debugError('ヘルプモーダルが見つかりません');
+                return;
+            }
+
+            helpModal.style.display = 'flex';
+
+            this.initHelpNavigation();
+            await this.loadLegalDocuments();
+
+            if (targetSection) {
+                this.navigateToHelpSection(targetSection);
+            }
+        } catch (error) {
+            this.debugError('ヘルプモーダル表示エラー:', error);
+        }
+    }
+
+    /**
      * アプリ情報セクションのリンク処理をセットアップ
      */
     setupAppInfoLinks() {
         const settingsModal = document.getElementById('settings-modal');
-        const helpModal = document.getElementById('help-modal');
 
         // ライセンス情報リンク
         const licenseLink = document.getElementById('show-license-link');
         if (licenseLink) {
-            licenseLink.addEventListener('click', (e) => {
+            this.safeAddEventListener(licenseLink, 'click', async (e) => {
                 e.preventDefault();
                 // 設定モーダルを閉じる
                 if (settingsModal) settingsModal.style.display = 'none';
-                // ヘルプモーダルを開く
-                if (helpModal) helpModal.style.display = 'flex';
-                // ライセンスセクションに移動
-                this.navigateToHelpSection('license');
-            });
+                await this.openHelpModal('license');
+            }, 'open-help-license');
         }
 
         // プライバシーポリシーリンク
         const privacyLink = document.getElementById('show-privacy-link');
         if (privacyLink) {
-            privacyLink.addEventListener('click', (e) => {
+            this.safeAddEventListener(privacyLink, 'click', async (e) => {
                 e.preventDefault();
                 if (settingsModal) settingsModal.style.display = 'none';
-                if (helpModal) helpModal.style.display = 'flex';
-                this.navigateToHelpSection('privacy');
-            });
+                await this.openHelpModal('privacy');
+            }, 'open-help-privacy');
         }
 
         // 利用規約リンク
         const termsLink = document.getElementById('show-terms-link');
         if (termsLink) {
-            termsLink.addEventListener('click', (e) => {
+            this.safeAddEventListener(termsLink, 'click', async (e) => {
                 e.preventDefault();
                 if (settingsModal) settingsModal.style.display = 'none';
-                if (helpModal) helpModal.style.display = 'flex';
-                this.navigateToHelpSection('terms');
-            });
+                await this.openHelpModal('terms');
+            }, 'open-help-terms');
+        }
+
+        // アップデート情報リンク
+        const updatesLink = document.getElementById('show-updates-link');
+        if (updatesLink) {
+            this.safeAddEventListener(updatesLink, 'click', async (e) => {
+                e.preventDefault();
+                if (settingsModal) settingsModal.style.display = 'none';
+                await this.openHelpModal('updates');
+            }, 'open-help-updates');
         }
     }
 
