@@ -294,7 +294,7 @@ body.loaded {
     padding: 8px 16px;
     background: var(--theme-primary-alpha-60);
     border-right: 1px solid var(--theme-primary-alpha-30);
-    cursor: pointer;
+    cursor: grab;
     min-width: 120px;
     max-width: 200px;
     transition: all 0.2s ease;
@@ -402,20 +402,27 @@ body.loaded {
 }
 
 /* ドラッグ&ドロップ関連のスタイル */
-.tab[draggable="true"] {
-    cursor: move;
-}
-
 .tab.dragging {
-    opacity: 0.5;
-    transform: scale(0.95);
-    transition: all 0.2s ease;
+    cursor: grabbing;
+    opacity: 0.9;
+    transform: scale(0.98);
+    transition: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
-.tab.drag-over {
-    border-left: 3px solid var(--theme-primary);
-    background: var(--theme-primary-alpha-20);
-    transition: all 0.2s ease;
+.tab-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px dashed var(--theme-primary-alpha-50);
+    border-radius: 12px;
+    height: 40px;
+    min-width: 120px;
+    max-width: 200px;
+    margin-right: 1px;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
 }
 
 /* ターミナルコンテナ */
@@ -2186,4 +2193,3 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 .help-table tbody tr:hover {
     background-color: #f0f0f0;
 }
-

@@ -11,11 +11,13 @@ class TabManager {
         this.deps = dependencies;
         this.tabs = {};
         this.activeTabId = null;
-        this.parentTabId = null;
-        this.nextTabNumber = 1;
-        this.draggedTabId = null; // ドラッグ中のタブID
-        this.tabOrder = []; // タブの順序を管理する配列
-        this.MAX_TABS = 10; // タブの最大数を10個に制限
+       this.parentTabId = null;
+       this.nextTabNumber = 1;
+       this.tabOrder = []; // タブの順序を管理する配列
+       this.MAX_TABS = 10; // タブの最大数を10個に制限
+        this.dragState = null; // タブドラッグの状態管理
+        this.onGlobalTabPointerMove = (event) => this.handleTabPointerMove(event);
+        this.onGlobalTabPointerUp = (event) => this.handleTabPointerUp(event);
         
         // イベントリスナー重複防止フラグ
         this.isEventListenersInitialized = false;
@@ -533,13 +535,9 @@ class TabManager {
         tab.className = `tab ${tabData.isActive ? 'active' : ''}`;
         tab.setAttribute('data-tab-id', tabData.id);
         
-        // ドラッグ&ドロップ機能を追加（ResourceManager経由）
-        tab.draggable = true;
-        this.deps.resourceManager.addEventListener(tab, 'dragstart', (e) => this.handleDragStart(e, tabData.id));
-        this.deps.resourceManager.addEventListener(tab, 'dragover', (e) => this.handleDragOver(e));
-        this.deps.resourceManager.addEventListener(tab, 'dragleave', (e) => this.handleDragLeave(e));
-        this.deps.resourceManager.addEventListener(tab, 'drop', (e) => this.handleDrop(e, tabData.id));
-        this.deps.resourceManager.addEventListener(tab, 'dragend', (e) => this.handleDragEnd(e));
+        // カスタムドラッグを設定（横方向のみ）
+        tab.draggable = false;
+        this.deps.resourceManager.addEventListener(tab, 'pointerdown', (e) => this.handleTabPointerDown(e, tabData, tab));
         
         // 星マーク
         const star = document.createElement('span');
@@ -654,92 +652,294 @@ class TabManager {
         });
     }
 
-    // ドラッグ&ドロップハンドラー
-    handleDragStart(e, tabId) {
-        this.draggedTabId = tabId;
-        e.target.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', e.target.outerHTML);
-        debugLog(`Drag started: ${tabId}`);
-    }
-
-    handleDragOver(e) {
-        if (e.preventDefault) {
-            e.preventDefault();
-        }
-        e.dataTransfer.dropEffect = 'move';
-        
-        // ドラッグオーバー効果を追加
-        const tabElement = e.currentTarget;
-        if (tabElement && !tabElement.classList.contains('dragging')) {
-            tabElement.classList.add('drag-over');
-        }
-        
-        return false;
-    }
-
-    handleDragLeave(e) {
-        // マウスが子要素に移動した場合は無視
-        if (e.currentTarget.contains(e.relatedTarget)) {
+    /**
+     * タブのカスタムドラッグ開始処理
+     */
+    handleTabPointerDown(event, tabData, tabElement) {
+        if (event.button !== 0 || !tabElement) {
             return;
         }
-        e.currentTarget.classList.remove('drag-over');
-    }
 
-    handleDrop(e, targetTabId) {
-        if (e.stopPropagation) {
-            e.stopPropagation();
+        // 閉じるボタンやスタークリック時はドラッグ無効
+        if (event.target.closest('.close-button, .parent-star, .tab-name-editor')) {
+            return;
         }
 
-        // ドラッグオーバー効果を削除
-        e.currentTarget.classList.remove('drag-over');
-
-        if (this.draggedTabId && this.draggedTabId !== targetTabId) {
-            this.reorderTabs(this.draggedTabId, targetTabId);
-            debugLog(`Tab dropped: ${this.draggedTabId} -> ${targetTabId}`);
+        const tabBar = document.getElementById('tab-bar');
+        if (!tabBar) {
+            return;
         }
 
-        return false;
+        // 既存ドラッグがある場合はキャンセル
+        if (this.dragState && this.dragState.active) {
+            this.cleanupActiveTabDrag();
+        }
+
+        this.dragState = {
+            tabId: tabData.id,
+            tabElement,
+            tabBar,
+            startClientX: event.clientX,
+            startClientY: event.clientY,
+            active: false,
+            pointerOffsetX: 0,
+            initialLeft: 0,
+            currentLeft: 0,
+            initialTop: 0,
+            tabWidth: 0,
+            tabHeight: 0,
+            minLeft: 0,
+            maxLeft: 0,
+            placeholder: null,
+            tabBarRect: tabBar.getBoundingClientRect(),
+            consumeClickHandler: null
+        };
+
+        window.addEventListener('pointermove', this.onGlobalTabPointerMove);
+        window.addEventListener('pointerup', this.onGlobalTabPointerUp);
+        window.addEventListener('pointercancel', this.onGlobalTabPointerUp);
     }
 
-    handleDragEnd(e) {
-        // 全てのドラッグ関連クラスを削除
-        e.target.classList.remove('dragging');
-        const allTabs = document.querySelectorAll('.tab');
-        allTabs.forEach(tab => tab.classList.remove('drag-over'));
-        
-        this.draggedTabId = null;
-        debugLog('Drag ended');
+    /**
+     * ドラッグを本格開始する（しきい値を超えたタイミングで発火）
+     */
+    activateTabDrag(state, triggerEvent) {
+        const { tabElement, tabBar } = state;
+        if (!tabElement || !tabBar) {
+            return;
+        }
+
+        const tabRect = tabElement.getBoundingClientRect();
+        const tabBarRect = tabBar.getBoundingClientRect();
+
+        const placeholder = document.createElement('div');
+        placeholder.className = 'tab-placeholder';
+        placeholder.style.width = `${tabRect.width}px`;
+        placeholder.style.height = `${tabRect.height}px`;
+
+        tabBar.insertBefore(placeholder, tabElement);
+        tabBar.appendChild(tabElement);
+
+        const scrollLeft = tabBar.scrollLeft;
+        const initialLeft = tabRect.left - tabBarRect.left + scrollLeft;
+
+        state.active = true;
+        state.placeholder = placeholder;
+        state.pointerOffsetX = triggerEvent.clientX - tabRect.left;
+        state.initialLeft = initialLeft;
+        state.currentLeft = initialLeft;
+        state.initialTop = tabRect.top - tabBarRect.top;
+        state.tabWidth = tabRect.width;
+        state.tabHeight = tabRect.height;
+        state.tabBarRect = tabBarRect;
+
+        const newTabButton = document.getElementById('new-tab-button');
+        if (newTabButton) {
+            const newTabRect = newTabButton.getBoundingClientRect();
+            state.maxLeft = Math.max(
+                0,
+                (newTabRect.left - tabBarRect.left + scrollLeft) - tabRect.width
+            );
+        } else {
+            state.maxLeft = Math.max(0, tabBar.scrollWidth - tabRect.width);
+        }
+        state.minLeft = 0;
+
+        tabElement.classList.add('dragging');
+        tabElement.style.position = 'absolute';
+        tabElement.style.zIndex = '200';
+        tabElement.style.width = `${tabRect.width}px`;
+        tabElement.style.height = `${tabRect.height}px`;
+        tabElement.style.pointerEvents = 'none';
+        tabElement.style.left = `${initialLeft}px`;
+        tabElement.style.top = `${state.initialTop}px`;
+
+        state.consumeClickHandler = (clickEvent) => {
+            clickEvent.stopPropagation();
+            clickEvent.preventDefault();
+        };
+        tabElement.addEventListener('click', state.consumeClickHandler, true);
     }
 
-    // タブの順序を変更
-    reorderTabs(draggedTabId, targetTabId) {
-        const draggedIndex = this.tabOrder.indexOf(draggedTabId);
-        const targetIndex = this.tabOrder.indexOf(targetTabId);
+    /**
+     * ドラッグ中のポインタ移動処理
+     */
+    handleTabPointerMove(event) {
+        const state = this.dragState;
+        if (!state) {
+            return;
+        }
 
-        if (draggedIndex !== -1 && targetIndex !== -1) {
-            // ドラッグ方向を判定
-            const isMovingRight = draggedIndex < targetIndex;
-            
-            // 配列から要素を削除
-            this.tabOrder.splice(draggedIndex, 1);
-            
-            // ドラッグ方向に応じて挿入位置を決定
-            const newTargetIndex = this.tabOrder.indexOf(targetTabId);
-            
-            if (isMovingRight) {
-                // 右移動：ターゲットの後に挿入
-                this.tabOrder.splice(newTargetIndex + 1, 0, draggedTabId);
-                debugLog(`Moving right: ${draggedTabId} inserted after ${targetTabId}`);
-            } else {
-                // 左移動：ターゲットの前に挿入（従来通り）
-                this.tabOrder.splice(newTargetIndex, 0, draggedTabId);
-                debugLog(`Moving left: ${draggedTabId} inserted before ${targetTabId}`);
+        if (!state.active) {
+            const deltaX = Math.abs(event.clientX - state.startClientX);
+            const deltaY = Math.abs(event.clientY - state.startClientY);
+            if (deltaX < 4 && deltaY < 4) {
+                return;
             }
+            this.activateTabDrag(state, event);
+        }
 
-            debugLog(`Tab order updated:`, this.tabOrder);
+        if (!state.active) {
+            return;
+        }
+
+        this.updateTabDragPosition(state, event);
+    }
+
+    /**
+     * タブ位置を更新し、プレースホルダーを移動
+     */
+    updateTabDragPosition(state, event) {
+        const { tabBar, tabElement } = state;
+        if (!tabBar || !tabElement) {
+            return;
+        }
+
+        const scrollLeft = tabBar.scrollLeft;
+        const rawLeft = event.clientX - state.tabBarRect.left + scrollLeft - state.pointerOffsetX;
+        const clampedLeft = Math.max(state.minLeft, Math.min(state.maxLeft, rawLeft));
+        state.currentLeft = clampedLeft;
+
+        tabElement.style.left = `${clampedLeft}px`;
+
+        const dragCenter =
+            clampedLeft - scrollLeft + state.tabBarRect.left + state.tabWidth / 2;
+
+        this.updateTabPlaceholderPosition(state, dragCenter);
+    }
+
+    /**
+     * プレースホルダーの挿入位置を更新
+     */
+    updateTabPlaceholderPosition(state, dragCenterX) {
+        const { tabBar, placeholder, tabElement } = state;
+        if (!tabBar || !placeholder) {
+            return;
+        }
+
+        const siblings = Array.from(tabBar.querySelectorAll('.tab')).filter(
+            (tab) => tab !== tabElement
+        );
+
+        let inserted = false;
+        for (const sibling of siblings) {
+            const rect = sibling.getBoundingClientRect();
+            const center = rect.left + rect.width / 2;
+            if (dragCenterX < center) {
+                if (sibling.previousSibling !== placeholder) {
+                    tabBar.insertBefore(placeholder, sibling);
+                }
+                inserted = true;
+                break;
+            }
+        }
+
+        if (!inserted) {
+            const newTabButton = document.getElementById('new-tab-button');
+            if (newTabButton && newTabButton.parentElement === tabBar) {
+                if (newTabButton.previousSibling !== placeholder) {
+                    tabBar.insertBefore(placeholder, newTabButton);
+                }
+            } else if (placeholder.parentElement !== tabBar || placeholder.nextSibling) {
+                tabBar.appendChild(placeholder);
+            }
+        }
+    }
+
+    /**
+     * ドラッグ終了処理
+     */
+    handleTabPointerUp() {
+        const state = this.dragState;
+        if (!state) {
+            return;
+        }
+
+        window.removeEventListener('pointermove', this.onGlobalTabPointerMove);
+        window.removeEventListener('pointerup', this.onGlobalTabPointerUp);
+        window.removeEventListener('pointercancel', this.onGlobalTabPointerUp);
+
+        if (!state.active) {
+            this.cleanupActiveTabDrag(state);
+            this.dragState = null;
+            return;
+        }
+
+        const { tabBar } = state;
+
+        this.cleanupActiveTabDrag(state);
+
+        const newOrder = this.calculateDomTabOrder(tabBar);
+        if (newOrder && newOrder.length) {
+            this.applyTabOrder(newOrder);
+        } else {
             this.renderTabs();
         }
+
+        this.dragState = null;
+    }
+
+    /**
+     * ドラッグ状態のクリーンアップ
+     */
+    cleanupActiveTabDrag(state = this.dragState) {
+        if (!state) {
+            return;
+        }
+
+        const { tabElement, placeholder, consumeClickHandler } = state;
+
+        if (tabElement) {
+            if (consumeClickHandler) {
+                tabElement.removeEventListener('click', consumeClickHandler, true);
+            }
+
+            tabElement.classList.remove('dragging');
+            tabElement.style.position = '';
+            tabElement.style.zIndex = '';
+            tabElement.style.width = '';
+            tabElement.style.height = '';
+            tabElement.style.pointerEvents = '';
+            tabElement.style.left = '';
+            tabElement.style.top = '';
+        }
+
+        if (placeholder && placeholder.parentElement) {
+            placeholder.parentElement.replaceChild(tabElement, placeholder);
+        }
+    }
+
+    /**
+     * DOM上のタブ順を取得
+     */
+    calculateDomTabOrder(tabBar) {
+        if (!tabBar) {
+            return null;
+        }
+
+        return Array.from(tabBar.querySelectorAll('.tab'))
+            .map((tab) => tab.getAttribute('data-tab-id'))
+            .filter(Boolean);
+    }
+
+    /**
+     * DOM順に基づきタブ順を適用
+     */
+    applyTabOrder(newOrder) {
+        const sanitized = newOrder.filter((tabId) => this.tabs[tabId]);
+
+        const isSameOrder =
+            sanitized.length === this.tabOrder.length &&
+            sanitized.every((tabId, index) => tabId === this.tabOrder[index]);
+
+        if (isSameOrder) {
+            this.renderTabs();
+            return;
+        }
+
+        this.tabOrder = sanitized;
+        debugLog('Tab order updated (DOM sync):', this.tabOrder);
+        this.renderTabs();
     }
 
     /**
