@@ -479,7 +479,7 @@ body.loaded {
 }
 
 .claude-cwd-controls .simple-btn {
-    padding: 8px 16px;
+    padding: 12px 20px;
     margin: 0;
     width: auto;
     border-radius: 10px; /* 壁紙ボタンに合わせる */
@@ -1930,6 +1930,22 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     font-size: 14px;
     font-weight: 600;
     min-width: 100px;
+    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
+    color: white;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 8px var(--theme-primary-alpha-20);
+    cursor: pointer;
+}
+
+/* AIアシスタント選択モーダルのボタンスタイル */
+#ai-select-modal .simple-btn {
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 100px;
+    width: auto;
+    height: auto;
     background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
     color: white;
     border: 2px solid transparent;
