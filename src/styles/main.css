@@ -994,6 +994,61 @@ body.loaded {
     transition: all 0.1s ease;
 }
 
+/* AI選択モーダル用 */
+.ai-select-body {
+    text-align: center;
+    padding: 30px;
+}
+
+.ai-option-grid {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.ai-option-btn {
+    width: 180px;
+    min-height: 56px;
+    padding: 14px 20px;
+    border-radius: 16px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
+    color: #fff;
+    box-shadow: 0 6px 14px var(--theme-primary-alpha-20);
+    backdrop-filter: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ai-option-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px var(--theme-primary-alpha-30);
+}
+
+.ai-option-btn:active {
+    transform: translateY(0) scale(0.97);
+    box-shadow: 0 6px 14px var(--theme-primary-alpha-30);
+}
+
+.ai-option-claude {
+    background: linear-gradient(135deg, var(--theme-primary-darker), var(--theme-primary));
+}
+
+.ai-option-claude-dangerous {
+    background: linear-gradient(135deg, var(--theme-accent), #f78b6c);
+}
+
+.ai-option-gemini {
+    background: linear-gradient(135deg, var(--blue-primary), #4a9bf5);
+}
+
+.ai-option-codex {
+    background: linear-gradient(135deg, var(--green-primary), #48c59e);
+}
+
 /* 開始ボタン - 右向き三角形 */
 .start-btn::before {
     content: '';
