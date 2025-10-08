@@ -57,6 +57,9 @@ ai-kawaii-nextjs/out/  # 静的エクスポート出力（ビルド時に自動�
 next-env.d.ts
 *.tsbuildinfo
 
+# Documentation
+docs/
+
 # Build cache files
 .cache/
 .temp/
@@ -66,3 +69,5 @@ ChatVRM/
 
 # Private configuration files
 CLAUDE.md
+AGENTS.md
+GEMINI.md
