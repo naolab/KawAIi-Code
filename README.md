@@ -68,8 +68,9 @@ codex --version
 
 #### 2. 音声機能（オプション）
 音声読み上げを使用する場合、以下のいずれかが必要：
-- **AivisSpeech Engine** (無料): [公式サイト](https://aivis-project.com/)からダウンロード
-- **Aivis Cloud API** (有料): APIキーを取得して設定画面で設定
+- **AivisSpeech Engine** (無料・ローカル): [公式サイト](https://aivis-project.com/)からダウンロード
+- **VOICEVOX** (無料・ローカル): [公式サイト](https://voicevox.hiroshiba.jp/)からダウンロード
+- **Aivis Cloud API** (有料・クラウド): APIキーを取得して設定画面で設定
 
 ### 配布版ダウンロード
 1. GoogleドライブまたはGitHub Releasesから最新の`KawAIi-Code-1.0.0-arm64.dmg`をダウンロード
@@ -113,7 +114,7 @@ codex --version
 4. 右側の3Dキャラクター（モネ）がAIの返答に合わせて表情変化
 
 #### 音声機能を有効にする（オプション）
-- AivisSpeech Engine を起動 (`127.0.0.1:10101`)
+- AivisSpeech Engine (`127.0.0.1:10101`) または VOICEVOX (`127.0.0.1:50021`) を起動
 - 音声機能を有効にすると、キャラクターが返答を読み上げます
 - 感情に応じた自然な表情変化を楽しめます
 
@@ -130,7 +131,12 @@ codex --version
 2. AivisSpeech Engine を起動（ポート: `127.0.0.1:10101`）
 3. KawAIi Code で音声機能が自動的に有効化
 
-**方法2: Aivis Cloud API（クラウド）**
+**方法2: VOICEVOX（ローカル）**
+1. [VOICEVOX公式サイト](https://voicevox.hiroshiba.jp/)からダウンロード・インストール
+2. VOICEVOX を起動（ポート: `127.0.0.1:50021`）
+3. 設定画面 → 音声エンジン選択で「VOICEVOX」を選択し、テスト再生で接続確認
+
+**方法3: Aivis Cloud API（クラウド）**
 1. 設定画面から「クラウドAPI使用」を有効化
 2. Aivis Cloud APIキーを設定
 3. インターネット経由で音声合成を利用

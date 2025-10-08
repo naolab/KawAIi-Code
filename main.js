@@ -39,7 +39,7 @@ function createWindow() {
       contextIsolation: false,
       preload: path.join(__dirname, 'src', 'preload.js'),
       webSecurity: false,
-      devTools: true
+      devTools: false
     },
     titleBarStyle: 'hiddenInset',
     show: false
@@ -70,11 +70,6 @@ function createWindow() {
     });
   });
 
-  // 開発モードの場合のみデベロッパーツールを開く
-  if (!isProduction) {
-    mainWindow.webContents.openDevTools();
-  }
-  
   // 本番環境ではコンソールログを無効化
   if (isProduction) {
     mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {});
@@ -137,17 +132,14 @@ function createWindow() {
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
   
-  // 本番環境の場合のみDevToolsを開くショートカットを無効化
-  if (isProduction) {
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      // F12、Cmd+Option+I、Ctrl+Shift+Iを無効化
-      if (input.key === 'F12' || 
-          (input.meta && input.alt && input.key === 'i') || 
-          (input.control && input.shift && input.key === 'I')) {
-        event.preventDefault();
-      }
-    });
-  }
+  // DevToolsショートカット（F12/Cmd+Option+I/Ctrl+Shift+I）を常に無効化
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' ||
+        (input.meta && input.alt && input.key && input.key.toLowerCase() === 'i') ||
+        (input.control && input.shift && input.key && input.key.toLowerCase() === 'i')) {
+      event.preventDefault();
+    }
+  });
   
   // 右クリックメニュー（コンテキストメニュー）の設定
   mainWindow.webContents.on('context-menu', (event, params) => {
