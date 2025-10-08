@@ -872,60 +872,63 @@ class AudioService {
     // 話者選択の更新
     async updateSpeakerSelect() {
         const speakerSelectModal = document.getElementById('speaker-select-modal');
-        if (speakerSelectModal && this.speakers.length > 0) {
-            // 話者選択の更新
-            if (this.terminalApp.uiEventManager) {
-                this.terminalApp.uiEventManager.updateSpeakerSelectOptions(speakerSelectModal, this.speakers, this.selectedSpeaker);
-            }
-            
-            // 現在選択中の話者IDを保持（リセットしない）
-            let targetSpeakerId = this.selectedSpeaker;
-            
-            // 初回起動時など、まだ話者が選択されていない場合のみデフォルト設定を読み込み
-            if (!targetSpeakerId || (targetSpeakerId === 0 && !this.terminalApp.speakerInitialized)) {
-                if (window.electronAPI && window.electronAPI.config) {
-                    try {
-                        targetSpeakerId = await window.electronAPI.config.get('defaultSpeakerId');
-                        this.terminalApp.speakerInitialized = true; // 初期化フラグを設定
-                    } catch (error) {
-                        this.debugError('保存済み話者ID取得エラー:', error);
-                    }
-                }
-            }
-            
-            // 対象の話者IDが有効な場合はそれを選択、そうでなければ最初の話者を選択
-            if (targetSpeakerId !== null && targetSpeakerId !== undefined && targetSpeakerId !== 0) {
-                // 対象IDが話者リストに存在するかチェック
-                const validOption = Array.from(speakerSelectModal.options).find(option => 
-                    parseInt(option.value) === targetSpeakerId
-                );
-                if (validOption) {
-                    this.selectedSpeaker = targetSpeakerId;
-                    this.terminalApp.selectedSpeaker = targetSpeakerId;
-                    speakerSelectModal.value = targetSpeakerId;
-                    this.debugLog('話者IDを復元:', targetSpeakerId);
+
+        // 話者リストが空の場合は処理をスキップ
+        if (!speakerSelectModal || this.speakers.length === 0) {
+            this.debugLog('話者リスト未読み込み、スキップ:', {
+                hasSpeakerSelect: !!speakerSelectModal,
+                speakersLength: this.speakers.length
+            });
+            return;
+        }
+
+        // 現在の話者IDが他のエンジンのものかチェック
+        // VoiceVOXのIDは0-200程度、AivisSpeechのIDは888753760のような大きな数値
+        const isVoiceVOXRange = this.selectedSpeaker >= 0 && this.selectedSpeaker < 1000;
+        const shouldResetId = this.voiceEngine === 'voicevox' ? !isVoiceVOXRange : isVoiceVOXRange;
+
+        // 現在選択中の話者IDを保持（他のエンジンのIDの場合はリセット）
+        let targetSpeakerId = shouldResetId ? 0 : this.selectedSpeaker;
+
+        // 初回起動時、エンジン切り替え時、または話者が選択されていない場合は保存値を読み込み
+        if (!targetSpeakerId || (targetSpeakerId === 0 && !this.terminalApp.speakerInitialized)) {
+            // 音声エンジンに応じて適切な設定キーから読み込む
+            const unifiedConfig = getSafeUnifiedConfig();
+            try {
+                if (this.voiceEngine === 'voicevox') {
+                    targetSpeakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
+                } else if (this.voiceEngine === 'aivis-cloud') {
+                    targetSpeakerId = await unifiedConfig.get('cloudSelectedModel', 'default');
                 } else {
-                    // 対象IDが無効な場合は最初の話者を選択
-                    // VoiceVOX形式（フラット）かAivisSpeech形式（階層）かで分岐
-                    const defaultSpeakerId = this.speakers[0].styles
-                        ? this.speakers[0].styles[0].id  // AivisSpeech形式
-                        : this.speakers[0].id;            // VoiceVOX形式
-                    this.selectedSpeaker = defaultSpeakerId;
-                    this.terminalApp.selectedSpeaker = defaultSpeakerId;
-                    speakerSelectModal.value = defaultSpeakerId;
-                    this.debugLog('話者IDが無効、デフォルトに設定:', defaultSpeakerId);
+                    // aivis-local
+                    targetSpeakerId = await unifiedConfig.get('defaultSpeakerId', 0);
                 }
-            } else {
-                // 対象IDがない場合は最初の話者を選択
-                // VoiceVOX形式（フラット）かAivisSpeech形式（階層）かで分岐
-                const defaultSpeakerId = this.speakers[0].styles
-                    ? this.speakers[0].styles[0].id  // AivisSpeech形式
-                    : this.speakers[0].id;            // VoiceVOX形式
-                this.selectedSpeaker = defaultSpeakerId;
-                this.terminalApp.selectedSpeaker = defaultSpeakerId;
-                speakerSelectModal.value = defaultSpeakerId;
-                this.debugLog('話者IDが未設定、デフォルトに設定:', defaultSpeakerId);
+                this.terminalApp.speakerInitialized = true; // 初期化フラグを設定
+                this.debugLog('保存済み話者ID読み込み:', { voiceEngine: this.voiceEngine, targetSpeakerId });
+            } catch (error) {
+                this.debugError('保存済み話者ID取得エラー:', error);
             }
+        }
+
+        // 対象の話者IDが有効な場合はそれを選択、そうでなければ最初の話者を選択
+        if (targetSpeakerId !== null && targetSpeakerId !== undefined && targetSpeakerId !== 0) {
+            this.selectedSpeaker = targetSpeakerId;
+            this.terminalApp.selectedSpeaker = targetSpeakerId;
+            this.debugLog('話者IDを復元:', targetSpeakerId);
+        } else {
+            // 対象IDがない場合は最初の話者を選択
+            // VoiceVOX形式（フラット）かAivisSpeech形式（階層）かで分岐
+            const defaultSpeakerId = this.speakers[0].styles
+                ? this.speakers[0].styles[0].id  // AivisSpeech形式
+                : this.speakers[0].id;            // VoiceVOX形式
+            this.selectedSpeaker = defaultSpeakerId;
+            this.terminalApp.selectedSpeaker = defaultSpeakerId;
+            this.debugLog('話者IDが未設定、デフォルトに設定:', defaultSpeakerId);
+        }
+
+        // 話者選択ドロップダウンを更新（保存済みIDを反映）
+        if (this.terminalApp.uiEventManager) {
+            this.terminalApp.uiEventManager.updateSpeakerSelectOptions(speakerSelectModal, this.speakers, this.selectedSpeaker);
         }
     }
 
