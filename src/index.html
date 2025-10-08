@@ -278,6 +278,19 @@
                         </div>
                     </div>
                     
+                    <!-- VRMキャラクター設定セクション -->
+                    <div class="setting-group">
+                        <label>VRMキャラクター設定</label>
+                        <div class="vrm-controls" style="display: flex; flex-direction: column; gap: 10px;">
+                            <button id="load-vrm-file-btn" class="simple-btn" style="width: 100%;">VRMファイルを読み込み</button>
+                            <button id="load-default-vrm-btn" class="simple-btn" style="width: 100%;">デフォルトキャラクター読み込み</button>
+                            <input type="file" id="vrm-file-input" accept=".vrm" style="display: none;">
+                            <div style="margin-top: 5px; padding: 8px 12px; background: var(--theme-bg-tertiary); border-radius: 4px; min-height: 20px;">
+                                <span id="current-vrm-info" style="font-size: 13px; color: var(--theme-text-primary); word-break: break-all;">現在のVRM: 読み込み中...</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- テーマ設定セクション -->
                     <div class="setting-group">
                         <label>テーマ設定</label>

@@ -296,7 +296,10 @@ class UIEventManager {
         
         // CLI選択設定のイベントリスナー
         await this.setupCliSelectionEventListeners();
-        
+
+        // VRM設定のイベントリスナー
+        await this.setupVRMSettingsEventListeners();
+
         if (closeSettingsBtn && settingsModal) {
             closeSettingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'none';
@@ -2564,6 +2567,104 @@ class UIEventManager {
         
         // 初期設定を読み込み
         await this.loadCliSelectionSettings();
+    }
+
+    /**
+     * VRM設定のイベントリスナーをセットアップ
+     */
+    async setupVRMSettingsEventListeners() {
+        const loadVrmFileBtn = document.getElementById('load-vrm-file-btn');
+        const loadDefaultVrmBtn = document.getElementById('load-default-vrm-btn');
+        const vrmFileInput = document.getElementById('vrm-file-input');
+        const currentVrmInfo = document.getElementById('current-vrm-info');
+
+        this.debugLog('VRM設定要素チェック:', {
+            loadVrmFileBtn: !!loadVrmFileBtn,
+            loadDefaultVrmBtn: !!loadDefaultVrmBtn,
+            vrmFileInput: !!vrmFileInput,
+            currentVrmInfo: !!currentVrmInfo
+        });
+
+        // VRMファイル読み込みボタン
+        if (loadVrmFileBtn && vrmFileInput) {
+            loadVrmFileBtn.addEventListener('click', () => {
+                vrmFileInput.click();
+            });
+        }
+
+        // ファイル選択時の処理
+        if (vrmFileInput) {
+            vrmFileInput.addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                try {
+                    this.debugLog('VRMファイル選択:', file.name);
+
+                    // ファイルをArrayBufferとして読み込み
+                    const arrayBuffer = await file.arrayBuffer();
+
+                    // iframe経由でNext.jsにpostMessage送信
+                    const iframe = document.getElementById('vrm-iframe');
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({
+                            type: 'loadVRM',
+                            fileData: arrayBuffer,
+                            fileName: file.name
+                        }, '*');
+
+                        // 現在のVRM情報を更新
+                        if (currentVrmInfo) {
+                            currentVrmInfo.textContent = `現在のVRM: ${file.name}`;
+                        }
+
+                        this.debugLog('VRMファイルをNext.jsに送信:', file.name);
+                    } else {
+                        this.debugError('VRM iframe が見つかりません');
+                    }
+
+                    // input要素をクリア（同じファイルを再選択可能にする）
+                    vrmFileInput.value = '';
+
+                } catch (error) {
+                    this.debugError('VRMファイル読み込みエラー:', error);
+                }
+            });
+        }
+
+        // デフォルトVRM読み込みボタン
+        if (loadDefaultVrmBtn) {
+            loadDefaultVrmBtn.addEventListener('click', () => {
+                try {
+                    // iframe経由でNext.jsにpostMessage送信
+                    const iframe = document.getElementById('vrm-iframe');
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({
+                            type: 'loadDefaultVRM'
+                        }, '*');
+
+                        // 現在のVRM情報を更新
+                        if (currentVrmInfo) {
+                            currentVrmInfo.textContent = '現在のVRM: デフォルトキャラクター（モネ）';
+                        }
+
+                        this.debugLog('デフォルトVRM読み込みをNext.jsに送信');
+                    } else {
+                        this.debugError('VRM iframe が見つかりません');
+                    }
+                } catch (error) {
+                    this.debugError('デフォルトVRM読み込みエラー:', error);
+                }
+            });
+        }
+
+        // Next.jsからのVRM情報受信（将来の拡張用）
+        window.addEventListener('message', (event) => {
+            if (event.data?.type === 'vrmInfoUpdate' && currentVrmInfo) {
+                currentVrmInfo.textContent = `現在のVRM: ${event.data.info}`;
+                this.debugLog('VRM情報更新:', event.data.info);
+            }
+        });
     }
 
     /**

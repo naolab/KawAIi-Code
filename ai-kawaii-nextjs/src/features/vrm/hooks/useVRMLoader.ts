@@ -94,6 +94,16 @@ export const useVRMLoader = ({
       // カメラをリセット
       resetCamera(vrm)
 
+      // VRM情報を親ウィンドウに通知
+      const vrmName = file.name.replace('.vrm', '')
+      setVrmInfo(vrmName)
+      if (window.parent) {
+        window.parent.postMessage({
+          type: 'vrmInfoUpdate',
+          info: vrmName
+        }, '*')
+      }
+
       infoLog('✅ VRM読み込み成功（ChatVRM方式でTポーズ処理）')
     } catch (err) {
       console.error('VRM loading error:', err)
@@ -168,8 +178,15 @@ export const useVRMLoader = ({
           resetCamera(vrm)
         })
 
-        // VRM情報を表示（空にして非表示）
+        // VRM情報を親ウィンドウに通知
+        const defaultVrmName = 'デフォルトキャラクター（モネ）'
         setVrmInfo('')
+        if (window.parent) {
+          window.parent.postMessage({
+            type: 'vrmInfoUpdate',
+            info: defaultVrmName
+          }, '*')
+        }
       }
 
       infoLog('✅ デフォルトVRM読み込み成功（ChatVRM方式）')
