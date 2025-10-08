@@ -141,11 +141,6 @@ class AudioService {
             // VoiceVOX使用時は専用の話者IDを使用
             if (this.voiceEngine === 'voicevox') {
                 speakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
-                console.log('🎤 VoiceVOX話者ID読み込み:', {
-                    speakerId,
-                    voiceEngine: this.voiceEngine,
-                    selectedSpeaker: this.selectedSpeaker
-                });
             }
 
             this.debugLog('音声合成開始:', {
@@ -268,12 +263,6 @@ class AudioService {
             } else {
                 // ローカルAPI用の音声合成処理（従来の処理）
                 // 音声クエリを生成
-                console.log('🎵 VoiceVOX APIリクエスト:', {
-                    endpoint,
-                    speakerId,
-                    text: text.substring(0, 30) + '...',
-                    url: `${endpoint}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`
-                });
                 const queryResponse = await fetch(`${endpoint}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`, {
                     method: 'POST',
                     headers
