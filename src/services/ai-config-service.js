@@ -2,6 +2,53 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+const isWindows = process.platform === 'win32';
+const lookupCommands = isWindows ? ['where'] : ['which'];
+
+function collectLookupPaths(names) {
+    const resolved = new Set();
+
+    for (const name of names) {
+        for (const lookup of lookupCommands) {
+            try {
+                const output = execSync(`${lookup} ${name}`, {
+                    encoding: 'utf8',
+                    stdio: ['pipe', 'pipe', 'ignore']
+                }).trim();
+
+                output.split(/\r?\n/).forEach((line) => {
+                    const trimmed = line.trim();
+                    if (!trimmed) {
+                        return;
+                    }
+
+                    if (lookup === 'where' && trimmed.toLowerCase().startsWith('info:')) {
+                        return;
+                    }
+
+                    resolved.add(trimmed);
+                });
+            } catch {
+                // ignore lookup failures
+            }
+        }
+    }
+
+    return [...resolved];
+}
+
+function pushUniquePaths(target, ...items) {
+    for (const item of items) {
+        if (!item) {
+            continue;
+        }
+
+        if (!target.includes(item)) {
+            target.push(item);
+        }
+    }
+}
+
 class AIConfigService {
     constructor() {
         this.aiConfigs = {
@@ -37,18 +84,9 @@ class AIConfigService {
             paths.push(process.env.CLAUDE_PATH);
         }
         
-        // 2. whichコマンドで現在のPATHから検索
-        try {
-            const whichResult = execSync('which claude 2>/dev/null', { 
-                encoding: 'utf8',
-                stdio: ['pipe', 'pipe', 'ignore'] // stderrを無視
-            }).trim();
-            if (whichResult && !paths.includes(whichResult)) {
-                paths.push(whichResult);
-            }
-        } catch (e) {
-            // whichコマンドが失敗した場合は続行
-        }
+        // 2. PATH環境から実行可能ファイルを探索
+        const candidates = isWindows ? ['claude.exe', 'claude'] : ['claude'];
+        pushUniquePaths(paths, ...collectLookupPaths(candidates));
         
         // 3. プラットフォーム別の既知のパス
         if (process.platform === 'darwin') {
@@ -58,7 +96,7 @@ class AIConfigService {
                 '/usr/local/bin/claude',     // Intel Mac
                 '/usr/bin/claude'
             );
-        } else if (process.platform === 'win32') {
+        } else if (isWindows) {
             // Windows
             paths.push(
                 'C:\\Program Files\\Claude\\claude.exe',
@@ -77,9 +115,7 @@ class AIConfigService {
         }
         
         // 4. 最後の手段としてPATH上の claude
-        if (!paths.includes('claude')) {
-            paths.push('claude');
-        }
+        pushUniquePaths(paths, 'claude');
         
         // 重複を除去してフィルタ
         return [...new Set(paths)].filter(p => p);
@@ -97,18 +133,8 @@ class AIConfigService {
             paths.push(process.env.CODEX_PATH);
         }
         
-        // 2. whichコマンドで現在のPATHから検索
-        try {
-            const whichResult = execSync('which codex 2>/dev/null', { 
-                encoding: 'utf8',
-                stdio: ['pipe', 'pipe', 'ignore'] // stderrを無視
-            }).trim();
-            if (whichResult && !paths.includes(whichResult)) {
-                paths.push(whichResult);
-            }
-        } catch (e) {
-            // whichコマンドが失敗した場合は続行
-        }
+        const candidates = isWindows ? ['codex.cmd', 'codex.exe', 'codex'] : ['codex'];
+        pushUniquePaths(paths, ...collectLookupPaths(candidates));
         
         // 3. プラットフォーム別の既知のパス
         if (process.platform === 'darwin') {
@@ -119,7 +145,7 @@ class AIConfigService {
                 '/usr/bin/codex',
                 path.join(process.env.HOME || '', '.npm-global', 'bin', 'codex')  // npm global
             );
-        } else if (process.platform === 'win32') {
+        } else if (isWindows) {
             // Windows
             paths.push(
                 'C:\\Program Files\\nodejs\\codex.cmd',
@@ -140,9 +166,7 @@ class AIConfigService {
         }
         
         // 4. 最後の手段としてPATH上の codex
-        if (!paths.includes('codex')) {
-            paths.push('codex');
-        }
+        pushUniquePaths(paths, 'codex');
         
         // 重複を除去してフィルタ
         return [...new Set(paths)].filter(p => p);
@@ -160,18 +184,8 @@ class AIConfigService {
             paths.push(process.env.GEMINI_PATH);
         }
         
-        // 2. whichコマンドで現在のPATHから検索
-        try {
-            const whichResult = execSync('which gemini 2>/dev/null', { 
-                encoding: 'utf8',
-                stdio: ['pipe', 'pipe', 'ignore'] // stderrを無視
-            }).trim();
-            if (whichResult && !paths.includes(whichResult)) {
-                paths.push(whichResult);
-            }
-        } catch (e) {
-            // whichコマンドが失敗した場合は続行
-        }
+        const candidates = isWindows ? ['gemini.cmd', 'gemini.exe', 'gemini'] : ['gemini'];
+        pushUniquePaths(paths, ...collectLookupPaths(candidates));
         
         // 3. プラットフォーム別の既知のパス
         if (process.platform === 'darwin') {
@@ -181,7 +195,7 @@ class AIConfigService {
                 '/usr/local/bin/gemini',     // Intel Mac
                 '/usr/bin/gemini'
             );
-        } else if (process.platform === 'win32') {
+        } else if (isWindows) {
             // Windows
             paths.push(
                 'C:\\Program Files\\nodejs\\gemini.cmd',
@@ -202,9 +216,7 @@ class AIConfigService {
         }
         
         // 4. 最後の手段としてPATH上の gemini
-        if (!paths.includes('gemini')) {
-            paths.push('gemini');
-        }
+        pushUniquePaths(paths, 'gemini');
         
         // 重複を除去してフィルタ
         return [...new Set(paths)].filter(p => p);
