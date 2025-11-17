@@ -1,9 +1,9 @@
 # 🎀 KawAIi Code
 
-Claude CodeとアニメキャラクターVRMが対話するデスクトップアプリケーションです。美しいカワイイデザインで、Claude Codeを直感的に操作できます。
+Claude CodeとアニメキャラクターVRMが対話するデスクトップアプリケーションです。美しいカワイイデザインで、Claude Codeを直感的に操作できます。macOSとWindowsの両方で動作するクロスプラットフォーム設計です。
 
 ![KawAIi Code](https://img.shields.io/badge/status-ready_for_distribution-brightgreen)
-![Platform](https://img.shields.io/badge/platform-macOS-blue)
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## ✨ 特徴
@@ -40,6 +40,8 @@ brew install anthropics/claude/claude
 # インストール確認
 claude --version
 ```
+
+Windows環境では、公式インストーラ（https://claude.ai/code）から `claude.exe` を取得するか、`choco install claude` や `scoop install claude` で PATH に追加してください。
 
 **Gemini CLI**
 ```bash
@@ -84,12 +86,18 @@ codex --version
 4. **起動**  
    アプリをダブルクリックして起動
 
+#### Windows版インストール
+1. GitHub Releasesから最新の `KawAIi-Code-<version>-win-x64.exe`（NSISインストーラ） をダウンロード
+2. ダウンロードした `.exe` をダブルクリックし、SmartScreen の警告が出た場合は「詳細情報」→「実行」を選択
+3. インストーラの指示に従ってインストール（ショートカット作成・スタートメニュー登録など）
+4. インストール完了後、スタートメニューまたはデスクトップアイコンから KawAIi Code を起動
+
 ### ✨ 署名付きビルドについて
 このアプリは署名付きでビルドされているため、macOSの標準的なDMGインストーラーから直接インストールできます。従来の隔離属性削除手順は不要になりました。
 
 ### システム要件
-- **macOS 10.15 (Catalina) 以降**
-- **Apple Silicon (M1/M2/M3) または Intel 64-bit**
+- **対応OS**: Windows 10/11 64-bit、macOS 10.15 (Catalina) 以降、Linux x64 (AppImage)
+- **CPU**: Apple Silicon (M1/M2/M3) または Intel 64-bit、Windows 64-bit (x64)
 - **AIアシスタントCLI**（Claude Code、Gemini CLI、OpenAI Codex等のいずれか必須）
 - **2GB以上の空きディスク容量**
 - **4GB以上のRAM推奨**
