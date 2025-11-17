@@ -1,0 +1,48 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  NODE_ENV: production
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js assets
+        run: |
+          cd ai-kawaii-nextjs
+          npm ci
+          npm run build
+
+      - name: Rebuild native modules
+        run: npm run rebuild
+
+      - name: Package for macOS
+        if: matrix.os == 'macos-latest'
+        run: npx electron-builder --mac --arm64 --x64 --publish always
+
+      - name: Package for Windows
+        if: matrix.os == 'windows-latest'
+        run: npx electron-builder --win --x64 --publish always
