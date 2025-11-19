@@ -6,8 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "postinstall": "electron-rebuild -f -w node-pty-prebuilt",
-    "rebuild": "electron-rebuild -f -w node-pty-prebuilt",
+    "postinstall": "electron-rebuild -f -w node-pty",
+    "rebuild": "electron-rebuild -f -w node-pty",
     "build": "npm run rebuild && node build.js build",
     "build:nextjs": "cd ai-kawaii-nextjs && npm run build",
     "build:electron": "electron-builder",
@@ -33,7 +33,7 @@
     "@xterm/xterm": "^5.5.0",
     "axios": "^1.6.0",
     "electron-updater": "^6.6.2",
-    "node-pty-prebuilt": "^0.7.6"
+    "node-pty": "^1.0.0"
   },
   "build": {
     "appId": "com.ai-kawaii-project.kawaii-code",
@@ -66,7 +66,7 @@
       "!ai-kawaii-nextjs/server.log"
     ],
     "asarUnpack": [
-      "node_modules/node-pty-prebuilt/**/*"
+      "node_modules/node-pty/**/*"
     ],
     "mac": {
       "icon": "assets/icons/new-app-icon.icns",
