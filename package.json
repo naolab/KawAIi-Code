@@ -33,7 +33,7 @@
     "@xterm/xterm": "^5.5.0",
     "axios": "^1.6.0",
     "electron-updater": "^6.6.2",
-    "node-pty": "^1.0.0"
+    "node-pty": "^1.1.0-beta39"
   },
   "build": {
     "appId": "com.ai-kawaii-project.kawaii-code",
