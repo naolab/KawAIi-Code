@@ -22,9 +22,13 @@ jobs:
       - name: Ensure Windows SDK (Windows only)
         if: matrix.os == 'windows-latest'
         run: |
-          choco install windows-sdk-10.0 --version=10.0.22621.795 -y
-          vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installershell.ps1" modify --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows10SDK.22621
+          choco install windows-sdk-10.0 -y
+          $vsInstaller = 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe'
+          if (Test-Path $vsInstaller) {
+            & $vsInstaller modify --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows10SDK.22621 --passive
+          } else {
+            Write-Host "vs_installer.exe not found; skipping Visual Studio modify step"
+          }
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
