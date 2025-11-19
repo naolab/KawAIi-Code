@@ -19,6 +19,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure Windows SDK (Windows only)
+        if: matrix.os == 'windows-latest'
+        run: choco install windows-sdk-10.0 -y
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
