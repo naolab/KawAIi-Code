@@ -77,7 +77,12 @@ class AppConfig {
     }
 
     getClaudeWorkingDir() {
-        return this.config.claudeWorkingDir || os.homedir();
+        const dir = this.config.claudeWorkingDir;
+        // パスが空、または文字列でない場合はホームディレクトリを返す
+        if (!dir || typeof dir !== 'string') {
+            return os.homedir();
+        }
+        return dir;
     }
 
     setClaudeWorkingDir(dir) {

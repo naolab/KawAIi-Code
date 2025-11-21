@@ -293,6 +293,15 @@ app.whenReady().then(async () => {
   await appConfig.loadConfig();
   claudeWorkingDir = appConfig.getClaudeWorkingDir();
   
+  // 作業ディレクトリの存在確認とバリデーション
+  if (!fs.existsSync(claudeWorkingDir)) {
+    errorLog(`設定された作業ディレクトリが存在しません: ${claudeWorkingDir}`);
+    // デフォルト（ホームディレクトリ）にリセット
+    claudeWorkingDir = os.homedir();
+    appConfig.setClaudeWorkingDir(claudeWorkingDir);
+    infoLog(`作業ディレクトリをホームディレクトリにリセットしました: ${claudeWorkingDir}`);
+  }
+
   // 作業ディレクトリをプロセスのcwdに設定
   try {
     process.chdir(claudeWorkingDir);

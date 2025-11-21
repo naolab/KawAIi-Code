@@ -7,7 +7,7 @@ class ConfigManager {
         this.aiBaseContent = null;
         this.claudeWorkingDir = null;
         this.speechCooldown = 1000; // デフォルト1秒
-        
+
     }
 
     // 初期設定を読み込み
@@ -29,10 +29,10 @@ class ConfigManager {
                 this.useDefaultCharacterSettings();
                 return;
             }
-            
+
             // キャラクター設定のフォールバック読み込み
             let shySettings = null;
-            
+
             // 1. アプリのリソースパスから取得を試行（配布版）
             if (window.electronAPI.getAppPath) {
                 try {
@@ -44,31 +44,18 @@ class ConfigManager {
                     logger.debug('Failed to load from app resource path:', appPathError);
                 }
             }
-            
+
             // 2. 開発環境での読み込みを試行（フォールバック）
             if (!shySettings) {
                 try {
-                    const devPath = path.join(__dirname, '..', 'character_settings', 'shy.md');
-                    shySettings = await fs.promises.readFile(devPath, 'utf8');
-                    logger.debug('Character settings loaded from development path');
+                    // __dirnameの使用は避け、electronAPI経由でパス解決を試みる
+                    // 注意: 開発環境と本番環境でパスが異なるため、__dirnameは信頼できない場合がある
+                    logger.debug('Skipping __dirname fallback to prevent hardcoded path issues');
                 } catch (devError) {
-                    // 3. パッケージ化環境での読み込みを試行（旧方式）
-                    try {
-                        const appPath = window.process && window.process.resourcesPath 
-                            ? path.join(window.process.resourcesPath, 'app.asar')
-                            : path.join(__dirname, '..');
-                        const srcPath = path.join(appPath, 'src');
-                        const shySettingsPath = path.join(srcPath, 'character_settings', 'shy.md');
-                        shySettings = await fs.promises.readFile(shySettingsPath, 'utf8');
-                        logger.debug('Character settings loaded from packaged path (legacy)');
-                    } catch (packageError) {
-                        logger.debug('Failed to load character settings from all paths, using default');
-                        this.useDefaultCharacterSettings();
-                        return;
-                    }
+                    logger.debug('Dev path loading skipped');
                 }
             }
-            
+
             // 照れ屋設定を使用
             this.aiBaseContent = shySettings;
             logger.debug('Character settings loaded successfully (shy character fixed)');
@@ -101,7 +88,7 @@ class ConfigManager {
         // 照れ屋キャラクター固定のため、この機能は無効
         logger.debug('Character change is disabled (shy character is fixed)');
         return;
-        
+
         // 削除予定コード:
         try {
             // 設定を保存
@@ -124,7 +111,7 @@ class ConfigManager {
                 };
                 characterMessage.textContent = `現在のキャラクター: ${characterNames[characterType] || characterType}`;
                 characterMessage.style.color = 'green';
-                
+
                 // メッセージを3秒後にリセット
                 setTimeout(() => {
                     if (characterMessage) {
@@ -138,7 +125,7 @@ class ConfigManager {
             return true;
         } catch (error) {
             logger.error('Failed to change character:', error);
-            
+
             const characterMessage = document.getElementById('character-message');
             if (characterMessage) {
                 characterMessage.textContent = 'キャラクター変更に失敗しました';
@@ -153,7 +140,7 @@ class ConfigManager {
         try {
             const characterSelect = document.getElementById('character-select');
             const characterMessage = document.getElementById('character-message');
-            
+
             if (!characterSelect) return;
 
             // 照れ屋キャラクターに固定
@@ -161,7 +148,7 @@ class ConfigManager {
 
             // UIに反映
             characterSelect.value = selectedCharacter;
-            
+
             if (characterMessage) {
                 characterMessage.textContent = `現在のキャラクター: 照れ屋（固定）`;
             }
@@ -191,7 +178,7 @@ class ConfigManager {
 
             const aiMdFilename = 'CLAUDE.md';
             const projectAiMdPath = path.join(targetDir, aiMdFilename);
-            
+
             try {
                 await fs.promises.access(projectAiMdPath);
                 const projectSettings = await fs.promises.readFile(projectAiMdPath, 'utf8');
@@ -214,13 +201,13 @@ class ConfigManager {
             if (window.electronAPI && window.electronAPI.config) {
                 const cooldownSeconds = await window.electronAPI.config.get('voiceCooldownSeconds', 1);
                 this.speechCooldown = cooldownSeconds * 1000;
-                
+
                 // UI設定項目にも反映
                 const cooldownInputModal = document.getElementById('voice-cooldown-modal');
                 if (cooldownInputModal) {
                     cooldownInputModal.value = cooldownSeconds;
                 }
-                
+
                 logger.debug('設定を読み込み:', { voiceCooldownSeconds: cooldownSeconds });
                 return { voiceCooldownSeconds: cooldownSeconds };
             }
@@ -265,7 +252,7 @@ class ConfigManager {
     // AIに渡す最終的な.mdコンテンツを生成
     async getCombinedAiMdContent() {
         let combinedContent = this.aiBaseContent;
-        
+
         // プロジェクト固有設定を読み込み、結合
         const projectSpecificContent = await this.loadProjectSpecificSettings(this.claudeWorkingDir);
         if (projectSpecificContent) {
@@ -278,11 +265,11 @@ class ConfigManager {
     async generateBothAiMdFiles() {
         try {
             const claudeResult = await this.writeAiMdToHomeDir('claude');
-            
+
             logger.debug('AI MD file generation result:', {
                 claude: claudeResult
             });
-            
+
             return {
                 success: claudeResult.success,
                 claude: claudeResult
@@ -303,7 +290,7 @@ class ConfigManager {
             }
 
             const results = {};
-            
+
             // CLAUDE.mdを削除（ホームディレクトリから）
             try {
                 const claudeMdPath = path.join(os.homedir(), 'CLAUDE.md');
@@ -314,9 +301,9 @@ class ConfigManager {
                 results.claude = { success: false, error: error.message };
                 logger.debug('CLAUDE.md deletion failed or file not found:', error.message);
             }
-            
+
             logger.debug('AI MD file deletion result:', results);
-            
+
             return {
                 success: results.claude.success,
                 claude: results.claude
@@ -382,7 +369,7 @@ class ConfigManager {
             }
 
             const aiMdFilename = 'CLAUDE.md';
-            
+
             // Claude系の場合は従来通り削除のみ
             const targetDir = os.homedir();
             const aiMdPath = path.join(targetDir, aiMdFilename);
