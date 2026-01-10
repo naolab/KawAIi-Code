@@ -86,7 +86,7 @@ window.electronAPI = {
     }
   },
   tab: {
-    create: (tabId, aiType) => ipcRenderer.invoke('tab-create', tabId, aiType),
+    create: (tabId, cols, rows) => ipcRenderer.invoke('tab-create', tabId, cols, rows),
     delete: (tabId) => ipcRenderer.invoke('tab-delete', tabId),
     write: (tabId, data) => ipcRenderer.invoke('tab-write', tabId, data),
     resize: (tabId, cols, rows) => ipcRenderer.invoke('tab-resize', tabId, cols, rows),

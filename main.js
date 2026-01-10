@@ -1392,9 +1392,9 @@ ipcMain.handle('test-voicevox-connection', async () => {
 // AI設定処理はAIConfigServiceに統一
 
 // タブ作成
-ipcMain.handle('tab-create', async (event, tabId) => {
+ipcMain.handle('tab-create', async (event, tabId, cols, rows) => {
   try {
-    infoLog(`タブ作成リクエスト: ${tabId}`);
+    infoLog(`タブ作成リクエスト: ${tabId} (${cols}x${rows})`);
     
     const commandPath = getShell();
     infoLog(`使用シェル: ${commandPath}`);
@@ -1407,10 +1407,13 @@ ipcMain.handle('tab-create', async (event, tabId) => {
     
     // 新しいPTYプロセス作成
     const spawnArgs = [];
+    const initialCols = cols || 80;
+    const initialRows = rows || 24;
+    
     terminalProcesses[tabId] = pty.spawn(commandPath, spawnArgs, {
       name: 'xterm-color',
-      cols: 80,
-      rows: 24,
+      cols: initialCols,
+      rows: initialRows,
       cwd: claudeWorkingDir,
       env: {
         ...process.env,

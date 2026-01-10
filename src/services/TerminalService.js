@@ -58,9 +58,8 @@ class TerminalService {
         this.terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
 
         const terminalElement = document.getElementById('terminal');
-        if (terminalElement) {
-            this.terminal.open(terminalElement);
-        }
+        // タブシステムが管理するため、ここではopen()を呼び出さない（二重初期化防止）
+        // TabManager.createInitialTab()が後ほど適切な要素に対してopen()を実行します
         
         this.fitAddon.fit();
         

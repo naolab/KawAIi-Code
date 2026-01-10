@@ -24,12 +24,12 @@ class TabManager {
         this.isEventListenersInitialized = false;
     }
 
-    initialize() {
+    async initialize() {
         this.setupEventListeners();
         
         // 初期タブを作成
         if (Object.keys(this.tabs).length === 0) {
-            this.createInitialTab();
+            await this.createInitialTab();
         }
     }
 
@@ -133,8 +133,15 @@ class TabManager {
         const terminal = this.deps.mainTerminal;
         const fitAddon = this.deps.mainFitAddon;
         
-        // ターミナルをペインのコンテナに接続
-        terminal.open(paneElement.querySelector('.xterm-container'));
+        // ターミナルをペインのコンテナに接続（これが唯一のopen呼び出しになるように制御）
+        const xtermContainer = paneElement.querySelector('.xterm-container');
+        if (xtermContainer) {
+            // 前のDOMとの関連付けを念のためリセット（再レンダリングを促す）
+            if (terminal.element) {
+                terminal.element.innerHTML = '';
+            }
+            terminal.open(xtermContainer);
+        }
         
         const pane = {
             id: paneId,
@@ -162,8 +169,28 @@ class TabManager {
         
         this.renderTabs();
         
-        // 初期タブでシェルを起動
-        await this.startShellForPane(tabId, paneId);
+        // ターミナルのサイズを確定させてから起動（プロンプト消失防止）
+        if (fitAddon) {
+            // DOMへの反映を待つための待機時間を少し多めに取る
+            setTimeout(async () => {
+                try {
+                    // 表示されていることを確認してからfit
+                    if (existingWrapper && existingWrapper.offsetParent !== null) {
+                        fitAddon.fit();
+                        debugLog('📏 Initial tab fit() executed');
+                    }
+                    
+                    // シェル起動前にもう一度だけ微小待機（サイズ変更の伝播待ち）
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await this.startShellForPane(tabId, paneId);
+                } catch (e) {
+                    debugError('📏 Initial tab fit error:', e);
+                    await this.startShellForPane(tabId, paneId);
+                }
+            }, 100);
+        } else {
+            await this.startShellForPane(tabId, paneId);
+        }
     }
 
     createPaneElement(paneId) {
@@ -353,8 +380,12 @@ class TabManager {
                 pane.eventListeners = [];
             }
             
+            // 現在のターミナルサイズを取得
+            const cols = pane.terminal ? pane.terminal.cols : 80;
+            const rows = pane.terminal ? pane.terminal.rows : 24;
+            
             // バックエンドでPTYプロセス作成（paneIdをそのままPtyIDとして使用）
-            const result = await window.electronAPI.tab.create(paneId);
+            const result = await window.electronAPI.tab.create(paneId, cols, rows);
             if (!result.success) {
                 debugError(`Failed to create pane process: ${result.error}`);
                 pane.terminal.writeln(`\x1b[31mError: ${result.error}\x1b[0m`);
@@ -370,12 +401,7 @@ class TabManager {
                 window.electronAPI.tab.resize(paneId, cols, rows);
             }));
             
-            setTimeout(() => {
-                if (pane.fitAddon && pane.terminal) {
-                    pane.fitAddon.fit();
-                    window.electronAPI.tab.resize(paneId, pane.terminal.cols, pane.terminal.rows);
-                }
-            }, 200);
+            // 起動直後のリサイズは不要になった（作成時に正しいサイズを渡しているため）
             
             pane.isRunning = true;
             this.updateTabUI();

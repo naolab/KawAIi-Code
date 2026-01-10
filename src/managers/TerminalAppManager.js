@@ -141,7 +141,7 @@ class TerminalAppManager {
         this.terminalApp.terminalService.setupTerminal();
         
         // TabManager初期化
-        this.initializeTabManager();
+        await this.initializeTabManager();
         
         debugLog('✅ ターミナル関連サービス初期化完了');
     }
@@ -204,7 +204,7 @@ class TerminalAppManager {
     /**
      * TabManager初期化
      */
-    initializeTabManager() {
+    async initializeTabManager() {
         // 依存関係オブジェクトを作成
         this.terminalApp.tabManagerDependencies = new TabManagerDependencies(this.terminalApp);
         
@@ -216,7 +216,7 @@ class TerminalAppManager {
         
         this.terminalApp.tabManager = new TabManager(this.terminalApp.tabManagerDependencies);
         this.services.tabManager = this.terminalApp.tabManager;
-        this.terminalApp.tabManager.initialize();
+        await this.terminalApp.tabManager.initialize();
         
         // MessageAccumulatorにTabManagerの参照を設定
         if (this.terminalApp.messageAccumulator && this.terminalApp.tabManager) {
