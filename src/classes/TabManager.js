@@ -327,54 +327,99 @@ class TabManager {
         return tabId;
     }
 
-    async splitTab(direction = 'horizontal') {
+    /**
+     * 選択中のペインを分割（木構造対応）
+     * @param {string} direction - 分割方向 ('horizontal' | 'vertical')
+     */
+    async splitPane(direction = 'horizontal') {
         const tab = this.tabs[this.activeTabId];
         if (!tab) return;
-        
-        if (tab.panes.length >= 4) { // 分割数制限
+
+        // マイグレーション実行
+        this.migrateTabLayout(tab);
+
+        if (!tab.layoutRoot) {
+            debugError('layoutRootが存在しません');
             return;
         }
-        
-        const paneId = `pane-${this.nextPaneNumber++}`;
-        const paneElement = this.createPaneElement(paneId);
-        
-        const wrapper = document.getElementById(`terminal-${tab.id}`);
-        if (!wrapper) return;
-        
-        // レイアウトの更新
-        tab.layout = direction === 'vertical' ? 'split-v' : 'split-h';
-        wrapper.classList.remove('split-v', 'split-h');
-        wrapper.classList.add(tab.layout);
-        
-        wrapper.appendChild(paneElement);
-        
-        const terminal = new Terminal(TerminalFactory.createConfig());
-        const fitAddon = new FitAddon.FitAddon();
-        terminal.loadAddon(fitAddon);
-        terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
-        terminal.open(paneElement.querySelector('.xterm-container'));
-        
-        const pane = {
-            id: paneId,
-            terminal: terminal,
-            fitAddon: fitAddon,
-            element: paneElement,
+
+        // 最大ペイン数チェック
+        const terminalCount = this.countTerminalNodes(tab.layoutRoot);
+        if (terminalCount >= 4) {
+            debugLog('⚠️  最大ペイン数（4個）に達しています');
+            // アクティブペインに警告表示
+            const activeNode = this.findNodeById(tab.layoutRoot, tab.activePaneId);
+            if (activeNode && activeNode.terminal) {
+                activeNode.terminal.writeln('\r\n\x1b[33m⚠️  最大ペイン数（4個）に達しています\x1b[0m');
+            }
+            return;
+        }
+
+        // アクティブペインのノードを取得
+        const activePaneNode = this.findNodeById(tab.layoutRoot, tab.activePaneId);
+        if (!activePaneNode || activePaneNode.type !== 'terminal') {
+            debugError('アクティブペインが見つかりません');
+            return;
+        }
+
+        debugLog(`📐 ペイン ${tab.activePaneId} を${direction === 'vertical' ? '縦' : '横'}に分割中...`);
+
+        // 新しいペインを作成
+        const newPaneId = `pane-${this.nextPaneNumber++}`;
+        const newTerminal = new Terminal(TerminalFactory.createConfig());
+        const newFitAddon = new FitAddon.FitAddon();
+        newTerminal.loadAddon(newFitAddon);
+        newTerminal.loadAddon(new WebLinksAddon.WebLinksAddon());
+
+        const newPaneNode = {
+            type: 'terminal',
+            id: newPaneId,
+            size: 0.5,
+            terminal: newTerminal,
+            fitAddon: newFitAddon,
+            element: null,  // renderLayoutNodeで生成される
             isRunning: false,
             eventListeners: []
         };
-        
-        tab.panes.push(pane);
-        this.focusPane(paneId);
-        
-        // シェル起動
-        await this.startShellForPane(tab.id, paneId);
-        
-        // 全ペインのリサイズ
-        setTimeout(() => {
-            tab.panes.forEach(p => {
-                if (p.fitAddon) p.fitAddon.fit();
-            });
-        }, 100);
+
+        // アクティブペインを含むコンテナノードを作成
+        const parentNode = this.findParentNode(tab.layoutRoot, activePaneNode.id);
+        activePaneNode.size = 0.5;
+
+        const containerNode = {
+            type: 'container',
+            direction: direction,
+            size: activePaneNode.size,  // 元のペインのサイズを継承
+            children: [activePaneNode, newPaneNode]
+        };
+
+        if (parentNode) {
+            // アクティブペインを親の子リストから新しいコンテナに置き換え
+            const index = parentNode.children.indexOf(activePaneNode);
+            containerNode.size = activePaneNode.size;  // 親サイズを維持
+            parentNode.children[index] = containerNode;
+        } else {
+            // アクティブペインがルート（単一ペイン）の場合、ルートを置き換え
+            containerNode.size = 1.0;
+            tab.layoutRoot = containerNode;
+        }
+
+        // レイアウト全体を再レンダリング
+        this.renderTabLayout(tab);
+
+        // 新しいペインでシェル起動
+        await this.startShellForPane(tab.id, newPaneId);
+        this.focusPane(newPaneId);
+
+        debugLog(`✅ ペイン分割完了`);
+    }
+
+    /**
+     * 旧splitTabメソッド（後方互換性のため残す）
+     * @deprecated splitPane()を使用してください
+     */
+    async splitTab(direction = 'horizontal') {
+        return await this.splitPane(direction);
     }
 
 
@@ -583,77 +628,109 @@ class TabManager {
         this.renderTabs();
     }
 
+    /**
+     * ペインを削除（木構造対応）
+     * @param {string} paneId - 削除するペインID
+     */
     async deletePane(paneId) {
-        const result = this.findPaneById(paneId);
-        if (!result) return;
-        
-        const { tab, pane } = result;
-        
-        // 最後の1つのペインは削除させない（代わりにタブ自体を削除すべき）
-        if (tab.panes.length <= 1) {
-            debugLog('Cannot delete the last pane in a tab. Delete the tab instead.');
+        const tab = this.tabs[this.activeTabId];
+        if (!tab) return;
+
+        // マイグレーション実行
+        this.migrateTabLayout(tab);
+
+        if (!tab.layoutRoot) {
+            debugError('layoutRootが存在しません');
             return;
         }
-        
-        debugLog(`Deleting pane ${paneId} from tab ${tab.id}`);
-        
-        // プロセスの停止
-        if (pane.isRunning && window.electronAPI && window.electronAPI.tab) {
+
+        // 削除するペインのノードを取得
+        const paneNode = this.findNodeById(tab.layoutRoot, paneId);
+        if (!paneNode || paneNode.type !== 'terminal') {
+            debugError(`ペイン ${paneId} が見つかりません`);
+            return;
+        }
+
+        // 最後の1つのペインは削除不可
+        const terminalCount = this.countTerminalNodes(tab.layoutRoot);
+        if (terminalCount <= 1) {
+            debugLog('⚠️  最後のペインは削除できません');
+            return;
+        }
+
+        debugLog(`🗑️  ペイン ${paneId} を削除中...`);
+
+        // リソースのクリーンアップ
+        if (paneNode.isRunning && window.electronAPI?.tab) {
             try {
-                await window.electronAPI.tab.delete(pane.id);
+                await window.electronAPI.tab.delete(paneId);
             } catch (e) {
-                debugError('Error deleting pane process:', e);
+                debugError('PTYプロセス削除エラー:', e);
             }
         }
-        
-        // イベントリスナーの解除
-        if (pane.eventListeners) {
-            pane.eventListeners.forEach(d => d.dispose());
-            pane.eventListeners = [];
+
+        if (paneNode.eventListeners) {
+            paneNode.eventListeners.forEach(d => d.dispose?.());
+            paneNode.eventListeners = [];
         }
-        
-        // ターミナルの破棄
-        if (pane.terminal) {
-            pane.terminal.dispose();
+
+        if (paneNode.terminal) {
+            paneNode.terminal.dispose();
         }
-        
-        // DOM要素の削除
-        if (pane.element && pane.element.parentNode) {
-            pane.element.parentNode.removeChild(pane.element);
-        }
-        
-        // データ構造から削除
-        const paneIndex = tab.panes.indexOf(pane);
-        if (paneIndex !== -1) {
-            tab.panes.splice(paneIndex, 1);
-        }
-        
-        // レイアウトの更新（最後の1つになったらsingleに戻す）
-        if (tab.panes.length === 1) {
-            tab.layout = 'single';
-            const wrapper = document.getElementById(`terminal-${tab.id}`);
-            if (wrapper) {
-                wrapper.classList.remove('split-h', 'split-v');
+
+        // 木構造から削除
+        const parentNode = this.findParentNode(tab.layoutRoot, paneId);
+
+        if (parentNode) {
+            // 親から削除
+            const index = parentNode.children.findIndex(c => c === paneNode || c.id === paneId);
+            if (index !== -1) {
+                parentNode.children.splice(index, 1);
             }
+
+            // 親コンテナが子1つだけになった場合は折りたたむ
+            if (parentNode.children.length === 1) {
+                const sibling = parentNode.children[0];
+                sibling.size = parentNode.size;  // 親のサイズを継承
+
+                const grandparent = this.findParentNode(tab.layoutRoot, parentNode);
+                if (grandparent) {
+                    // 親コンテナを兄弟ノードで置き換え
+                    const parentIndex = grandparent.children.indexOf(parentNode);
+                    if (parentIndex !== -1) {
+                        grandparent.children[parentIndex] = sibling;
+                    }
+                } else {
+                    // 親がルート → 兄弟ノードを新しいルートにする
+                    tab.layoutRoot = sibling;
+                }
+            } else {
+                // 残りの子でサイズを再分配
+                const totalSize = parentNode.children.reduce((sum, c) => sum + c.size, 0);
+                parentNode.children.forEach(c => {
+                    c.size = c.size / totalSize;
+                });
+            }
+        } else {
+            // 親が見つからない（ルートノード自体を削除しようとしている）
+            debugError('ルートペインは削除できません');
+            return;
         }
-        
-        // フォーカスの更新（削除されたペインがアクティブだった場合、別のペインへ）
+
+        // アクティブペインの更新
         if (tab.activePaneId === paneId) {
-            tab.activePaneId = tab.panes[0].id;
+            const firstTerminal = this.findFirstTerminalNode(tab.layoutRoot);
+            if (firstTerminal) {
+                tab.activePaneId = firstTerminal.id;
+            }
         }
-        
+
+        // レイアウト全体を再レンダリング
+        this.renderTabLayout(tab);
         this.focusPane(tab.activePaneId);
         this.updateTabUI();
-        
-        // 残ったペインのリサイズ
-        setTimeout(() => {
-            tab.panes.forEach(p => {
-                if (p.fitAddon) p.fitAddon.fit();
-                if (p.isRunning && p.terminal) {
-                    window.electronAPI.tab.resize(p.id, p.terminal.cols, p.terminal.rows);
-                }
-            });
-        }, 100);
+
+        debugLog(`✅ ペイン削除完了`);
     }
 
     renderTabs() {
@@ -1150,6 +1227,399 @@ class TabManager {
         } catch (error) {
             debugLog(`❌ タブ ${tabId} 軽量リフレッシュエラー:`, error.message);
         }
+    }
+
+    // ========================================
+    // 木構造レイアウト用ヘルパーメソッド
+    // ========================================
+
+    /**
+     * ペインIDでノードを検索
+     * @param {Object} node - 検索するノード
+     * @param {string} paneId - 検索するペインID
+     * @returns {Object|null} - 見つかったノードまたはnull
+     */
+    findNodeById(node, paneId) {
+        if (!node) return null;
+
+        if (node.type === 'terminal' && node.id === paneId) {
+            return node;
+        }
+
+        if (node.type === 'container' && node.children) {
+            for (const child of node.children) {
+                const result = this.findNodeById(child, paneId);
+                if (result) return result;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * ノードの親ノードを検索
+     * @param {Object} root - ルートノード
+     * @param {string} childId - 子ノードのペインID
+     * @returns {Object|null} - 親ノードまたはnull
+     */
+    findParentNode(root, childId) {
+        if (!root || root.type !== 'container' || !root.children) {
+            return null;
+        }
+
+        // 直接の子をチェック
+        for (const child of root.children) {
+            if ((child.type === 'terminal' && child.id === childId) || child === childId) {
+                return root;
+            }
+        }
+
+        // 再帰的に子孫をチェック
+        for (const child of root.children) {
+            if (child.type === 'container') {
+                const result = this.findParentNode(child, childId);
+                if (result) return result;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * ターミナルノードの数をカウント
+     * @param {Object} node - カウントするノード
+     * @returns {number} - ターミナルノード数
+     */
+    countTerminalNodes(node) {
+        if (!node) return 0;
+
+        if (node.type === 'terminal') {
+            return 1;
+        }
+
+        if (node.type === 'container' && node.children) {
+            return node.children.reduce((sum, child) => sum + this.countTerminalNodes(child), 0);
+        }
+
+        return 0;
+    }
+
+    /**
+     * 最初のターミナルノードを取得
+     * @param {Object} node - 検索するノード
+     * @returns {Object|null} - 最初のターミナルノードまたはnull
+     */
+    findFirstTerminalNode(node) {
+        if (!node) return null;
+
+        if (node.type === 'terminal') {
+            return node;
+        }
+
+        if (node.type === 'container' && node.children && node.children.length > 0) {
+            return this.findFirstTerminalNode(node.children[0]);
+        }
+
+        return null;
+    }
+
+    /**
+     * 全ターミナルノードに対してコールバックを実行
+     * @param {Object} node - 処理するノード
+     * @param {Function} callback - 各ターミナルノードに対して実行する関数
+     */
+    forEachTerminalNode(node, callback) {
+        if (!node) return;
+
+        if (node.type === 'terminal') {
+            callback(node);
+        } else if (node.type === 'container' && node.children) {
+            node.children.forEach(child => this.forEachTerminalNode(child, callback));
+        }
+    }
+
+    /**
+     * 既存のフラット配列構造を木構造に変換（マイグレーション）
+     * @param {Object} tab - 変換するタブオブジェクト
+     */
+    migrateTabLayout(tab) {
+        // 既にlayoutRootが存在する場合はスキップ
+        if (tab.layoutRoot) {
+            return;
+        }
+
+        debugLog(`🔄 タブ ${tab.id} を木構造に変換中...`);
+
+        // 単一ペインの場合
+        if (!tab.panes || tab.panes.length === 0) {
+            debugLog(`⚠️  タブ ${tab.id} にペインが存在しません`);
+            return;
+        }
+
+        if (tab.panes.length === 1) {
+            // ペイン1つ: 単純なターミナルノード
+            tab.layoutRoot = {
+                type: 'terminal',
+                id: tab.panes[0].id,
+                size: 1.0,
+                terminal: tab.panes[0].terminal,
+                fitAddon: tab.panes[0].fitAddon,
+                element: tab.panes[0].element,
+                isRunning: tab.panes[0].isRunning,
+                eventListeners: tab.panes[0].eventListeners || []
+            };
+        } else {
+            // 複数ペイン: コンテナノード作成
+            const direction = tab.layout === 'split-v' ? 'vertical' : 'horizontal';
+            const paneSize = 1.0 / tab.panes.length;
+
+            tab.layoutRoot = {
+                type: 'container',
+                direction: direction,
+                size: 1.0,
+                children: tab.panes.map(pane => ({
+                    type: 'terminal',
+                    id: pane.id,
+                    size: paneSize,
+                    terminal: pane.terminal,
+                    fitAddon: pane.fitAddon,
+                    element: pane.element,
+                    isRunning: pane.isRunning,
+                    eventListeners: pane.eventListeners || []
+                }))
+            };
+        }
+
+        debugLog(`✅ タブ ${tab.id} の木構造変換完了`);
+    }
+
+    // ========================================
+    // 木構造レイアウトDOM生成
+    // ========================================
+
+    /**
+     * 木構造ノードを再帰的にDOMに変換
+     * @param {Object} node - レンダリングするノード
+     * @param {HTMLElement} parentElement - 親DOM要素
+     * @returns {HTMLElement|null} - 生成されたDOM要素
+     */
+    renderLayoutNode(node, parentElement) {
+        if (!node || !parentElement) return null;
+
+        if (node.type === 'terminal') {
+            // ターミナルノード: ペイン要素を作成
+            let paneElement = node.element;
+
+            // 既存の要素がない場合は新規作成
+            if (!paneElement) {
+                paneElement = this.createPaneElement(node.id);
+                node.element = paneElement;
+
+                // ターミナルを接続
+                if (node.terminal) {
+                    const xtermContainer = paneElement.querySelector('.xterm-container');
+                    if (xtermContainer && !node.terminal.element) {
+                        node.terminal.open(xtermContainer);
+                    }
+                }
+            }
+
+            // Flexサイズを設定
+            paneElement.style.flex = node.size.toString();
+            paneElement.style.minWidth = '0';
+            paneElement.style.minHeight = '0';
+
+            parentElement.appendChild(paneElement);
+            return paneElement;
+
+        } else if (node.type === 'container') {
+            // コンテナノード: コンテナ要素を作成して再帰的に子をレンダリング
+            const container = document.createElement('div');
+            container.className = 'layout-container';
+            container.style.display = 'flex';
+            container.style.flexDirection = node.direction === 'vertical' ? 'column' : 'row';
+            container.style.flex = node.size.toString();
+            container.style.minWidth = '0';
+            container.style.minHeight = '0';
+
+            // 子ノードを再帰的にレンダリング + リサイザーを追加
+            if (node.children && node.children.length > 0) {
+                node.children.forEach((child, index) => {
+                    this.renderLayoutNode(child, container);
+
+                    // 最後の子以外にリサイザーを追加
+                    if (index < node.children.length - 1) {
+                        const resizer = this.createResizer(node.direction, node, index);
+                        container.appendChild(resizer);
+                    }
+                });
+            }
+
+            parentElement.appendChild(container);
+            return container;
+        }
+
+        return null;
+    }
+
+    /**
+     * タブ全体のレイアウトを再レンダリング
+     * @param {Object} tab - レンダリングするタブ
+     */
+    renderTabLayout(tab) {
+        if (!tab) return;
+
+        debugLog(`🎨 タブ ${tab.id} のレイアウトをレンダリング中...`);
+
+        // マイグレーション実行（必要な場合）
+        this.migrateTabLayout(tab);
+
+        if (!tab.layoutRoot) {
+            debugError(`タブ ${tab.id} にlayoutRootが存在しません`);
+            return;
+        }
+
+        // ラッパー要素を取得
+        const wrapper = document.getElementById(`terminal-${tab.id}`);
+        if (!wrapper) {
+            debugError(`タブ ${tab.id} のラッパー要素が見つかりません`);
+            return;
+        }
+
+        // 既存の子要素をクリア
+        wrapper.innerHTML = '';
+
+        // 木構造から再帰的にDOMを生成
+        this.renderLayoutNode(tab.layoutRoot, wrapper);
+
+        // 全ペインのリサイズ
+        setTimeout(() => {
+            this.forEachTerminalNode(tab.layoutRoot, (node) => {
+                if (node.fitAddon && node.element?.offsetParent) {
+                    node.fitAddon.fit();
+                    if (node.isRunning && node.terminal) {
+                        window.electronAPI.tab.resize(node.id, node.terminal.cols, node.terminal.rows);
+                    }
+                }
+            });
+        }, 100);
+
+        debugLog(`✅ タブ ${tab.id} のレイアウトレンダリング完了`);
+    }
+
+    /**
+     * リサイザー要素を作成
+     * @param {string} direction - 分割方向 ('horizontal' | 'vertical')
+     * @param {Object} containerNode - 親コンテナノード
+     * @param {number} childIndex - リサイザーの前の子のインデックス
+     * @returns {HTMLElement} - リサイザー要素
+     */
+    createResizer(direction, containerNode, childIndex) {
+        const resizer = document.createElement('div');
+        resizer.className = `layout-resizer ${direction}`;
+
+        let isResizing = false;
+        let startPos = 0;
+        let startSizes = [];
+        let beforeNode = null;
+        let afterNode = null;
+
+        const handleMouseDown = (e) => {
+            e.preventDefault();
+            isResizing = true;
+            startPos = direction === 'horizontal' ? e.clientX : e.clientY;
+            resizer.classList.add('dragging');
+
+            // 前後のノードを取得
+            beforeNode = containerNode.children[childIndex];
+            afterNode = containerNode.children[childIndex + 1];
+
+            if (!beforeNode || !afterNode) {
+                isResizing = false;
+                return;
+            }
+
+            // 初期サイズを記録
+            startSizes = [beforeNode.size, afterNode.size];
+
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        };
+
+        const handleMouseMove = (e) => {
+            if (!isResizing) return;
+
+            const currentPos = direction === 'horizontal' ? e.clientX : e.clientY;
+            const delta = currentPos - startPos;
+
+            // コンテナのサイズを取得
+            const container = resizer.parentElement;
+            if (!container) return;
+
+            const containerSize = direction === 'horizontal'
+                ? container.offsetWidth
+                : container.offsetHeight;
+
+            // deltaをサイズ比率に変換
+            const deltaRatio = delta / containerSize;
+
+            // 最小サイズ制限（10%）
+            const minSize = 0.1;
+            const newBeforeSize = Math.max(minSize, Math.min(startSizes[0] + startSizes[1] - minSize, startSizes[0] + deltaRatio));
+            const newAfterSize = startSizes[0] + startSizes[1] - newBeforeSize;
+
+            // ノードのサイズを更新
+            beforeNode.size = newBeforeSize;
+            afterNode.size = newAfterSize;
+
+            // DOMに反映
+            const beforeElement = beforeNode.element || container.children[childIndex * 2];
+            const afterElement = afterNode.element || container.children[(childIndex + 1) * 2];
+
+            if (beforeElement) beforeElement.style.flex = newBeforeSize.toString();
+            if (afterElement) afterElement.style.flex = newAfterSize.toString();
+
+            // ターミナルのリサイズ
+            if (beforeNode.type === 'terminal' && beforeNode.fitAddon) {
+                setTimeout(() => beforeNode.fitAddon.fit(), 0);
+            }
+            if (afterNode.type === 'terminal' && afterNode.fitAddon) {
+                setTimeout(() => afterNode.fitAddon.fit(), 0);
+            }
+
+            // コンテナの場合は子孫のターミナルすべてをリサイズ
+            this.forEachTerminalNode(beforeNode, (node) => {
+                if (node.fitAddon) setTimeout(() => node.fitAddon.fit(), 0);
+            });
+            this.forEachTerminalNode(afterNode, (node) => {
+                if (node.fitAddon) setTimeout(() => node.fitAddon.fit(), 0);
+            });
+        };
+
+        const handleMouseUp = () => {
+            if (!isResizing) return;
+
+            isResizing = false;
+            resizer.classList.remove('dragging');
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+
+            // PTYのリサイズ通知
+            this.forEachTerminalNode(beforeNode, (node) => {
+                if (node.isRunning && node.terminal) {
+                    window.electronAPI.tab.resize(node.id, node.terminal.cols, node.terminal.rows);
+                }
+            });
+            this.forEachTerminalNode(afterNode, (node) => {
+                if (node.isRunning && node.terminal) {
+                    window.electronAPI.tab.resize(node.id, node.terminal.cols, node.terminal.rows);
+                }
+            });
+        };
+
+        resizer.addEventListener('mousedown', handleMouseDown);
+
+        return resizer;
     }
 }
 

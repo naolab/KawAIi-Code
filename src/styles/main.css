@@ -573,6 +573,44 @@ body.loaded {
     display: none !important;
 }
 
+/* 木構造レイアウト用スタイル */
+.layout-container {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+/* リサイザーバー */
+.layout-resizer {
+    background: var(--theme-primary-alpha-20);
+    flex-shrink: 0;
+    z-index: 10;
+    position: relative;
+    transition: background 0.2s ease;
+}
+
+.layout-resizer.horizontal {
+    width: 4px;
+    cursor: col-resize;
+}
+
+.layout-resizer.vertical {
+    height: 4px;
+    cursor: row-resize;
+}
+
+.layout-resizer:hover,
+.layout-resizer.dragging {
+    background: var(--theme-primary-alpha-60);
+}
+
+.layout-resizer.dragging {
+    background: var(--theme-primary);
+}
+
 /* 壁紙設定用スタイル */
 .wallpaper-controls {
     display: flex;
