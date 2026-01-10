@@ -477,48 +477,60 @@ class TabManager {
 
             const tab = this.tabs[tabId];
             if (!tab) return false;
-            const pane = tab.panes.find(p => p.id === paneId);
-            if (!pane) {
+
+            // マイグレーション実行
+            this.migrateTabLayout(tab);
+
+            if (!tab.layoutRoot) {
+                debugError(`Tab ${tabId} has no layoutRoot`);
+                return false;
+            }
+
+            // 木構造からペインノードを取得
+            const paneNode = this.findNodeById(tab.layoutRoot, paneId);
+            if (!paneNode || paneNode.type !== 'terminal') {
                 debugError(`Pane ${paneId} not found in tab ${tabId}`);
                 return false;
             }
 
             debugLog(`Starting shell for pane ${paneId} in tab ${tabId}`);
-            
+
             // クリーンアップ
-            if (pane.eventListeners) {
-                pane.eventListeners.forEach(disposable => {
+            if (paneNode.eventListeners) {
+                paneNode.eventListeners.forEach(disposable => {
                     if (disposable && typeof disposable.dispose === 'function') {
                         disposable.dispose();
                     }
                 });
-                pane.eventListeners = [];
+                paneNode.eventListeners = [];
             }
-            
+
             // 現在のターミナルサイズを取得
-            const cols = pane.terminal ? pane.terminal.cols : 80;
-            const rows = pane.terminal ? pane.terminal.rows : 24;
-            
+            const cols = paneNode.terminal ? paneNode.terminal.cols : 80;
+            const rows = paneNode.terminal ? paneNode.terminal.rows : 24;
+
             // バックエンドでPTYプロセス作成（paneIdをそのままPtyIDとして使用）
             const result = await window.electronAPI.tab.create(paneId, cols, rows);
             if (!result.success) {
                 debugError(`Failed to create pane process: ${result.error}`);
-                pane.terminal.writeln(`\x1b[31mError: ${result.error}\x1b[0m`);
+                if (paneNode.terminal) {
+                    paneNode.terminal.writeln(`\x1b[31mError: ${result.error}\x1b[0m`);
+                }
                 return false;
             }
-            
-            const terminal = pane.terminal;
-            pane.eventListeners.push(terminal.onData((data) => {
+
+            const terminal = paneNode.terminal;
+            paneNode.eventListeners.push(terminal.onData((data) => {
                 window.electronAPI.tab.write(paneId, data);
             }));
-            
-            pane.eventListeners.push(terminal.onResize(({ cols, rows }) => {
+
+            paneNode.eventListeners.push(terminal.onResize(({ cols, rows }) => {
                 window.electronAPI.tab.resize(paneId, cols, rows);
             }));
-            
+
             // 起動直後のリサイズは不要になった（作成時に正しいサイズを渡しているため）
-            
-            pane.isRunning = true;
+
+            paneNode.isRunning = true;
             this.updateTabUI();
             return true;
         } catch (error) {
