@@ -2890,6 +2890,59 @@ class UIEventManager {
     }
 
     /**
+     * キャラクター設定用の話者選択更新
+     */
+    async updateCharacterSpeakerSelect(engine, selectedSpeakerId = null) {
+        const speakerSelect = document.getElementById('char-speaker-select');
+        if (!speakerSelect) return;
+
+        // ローディング表示
+        speakerSelect.innerHTML = '<option>読み込み中...</option>';
+        speakerSelect.disabled = true;
+
+        try {
+            if (engine === 'aivis-cloud') {
+                // Cloud APIの場合は専用の処理（既存のpopulateCloudApiSpeakersを再利用）
+                await this.populateCloudApiSpeakers(speakerSelect);
+            } else {
+                // ローカルまたはVoiceVOX
+                // AudioServiceのloadSpeakersを使ってリストを取得
+                // ※ ここでAudioServiceが初期化されている前提
+                if (!this.app.audioService) {
+                    throw new Error('AudioService not initialized');
+                }
+
+                const result = await this.app.audioService.loadSpeakers(engine);
+                if (result.success) {
+                    this.updateSpeakerSelectOptions(speakerSelect, result.speakers, selectedSpeakerId);
+                } else {
+                    speakerSelect.innerHTML = '<option value="0">読み込み失敗</option>';
+                    this.debugError('Speaker load failed:', result.error);
+                }
+            }
+        } catch (error) {
+            this.debugError('Character speaker select update error:', error);
+            speakerSelect.innerHTML = '<option value="0">エラー発生</option>';
+        } finally {
+            speakerSelect.disabled = false;
+            // 選択値を復元（もしリスト内にあれば）
+            if (selectedSpeakerId !== null) {
+                // 数値型と文字列型両対応のためtoString()比較
+                const targetVal = selectedSpeakerId.toString();
+                // 選択肢の中に存在するか確認
+                const optionExists = Array.from(speakerSelect.options).some(opt => opt.value === targetVal);
+                
+                if (optionExists) {
+                    speakerSelect.value = targetVal;
+                } else if (speakerSelect.options.length > 0) {
+                    // 存在しない場合は先頭を選択（デフォルト）
+                    speakerSelect.selectedIndex = 0;
+                }
+            }
+        }
+    }
+
+    /**
      * キャラクター設定関連のイベントリスナー設定
      */
     async setupCharacterSettingsEventListeners() {
@@ -2902,13 +2955,23 @@ class UIEventManager {
         const vrmSelectBtn = document.getElementById('char-select-vrm-btn');
         const iconInput = document.getElementById('char-icon-upload');
         const iconPreview = document.querySelector('.char-icon-preview');
+        const engineSelect = document.getElementById('char-engine-select');
 
         this.debugLog('Character settings elements check:', {
             addCharacterBtn: !!addCharacterBtn,
             saveCharacterBtn: !!saveCharacterBtn,
             deleteCharacterBtn: !!deleteCharacterBtn,
-            testVoiceBtn: !!testVoiceBtn
+            testVoiceBtn: !!testVoiceBtn,
+            engineSelect: !!engineSelect
         });
+
+        // エンジン選択変更
+        if (engineSelect) {
+            this.safeAddEventListener(engineSelect, 'change', async (e) => {
+                const engine = e.target.value;
+                await this.updateCharacterSpeakerSelect(engine);
+            }, 'char-engine-select');
+        }
 
         // 新規作成ボタン
         if (addCharacterBtn) {
@@ -2983,7 +3046,7 @@ class UIEventManager {
         }
         
         // パラメータスライダーの数値表示更新
-        ['speed', 'pitch', 'volume'].forEach(param => {
+        ['speed', 'pitch', 'volume', 'interval'].forEach(param => {
             const slider = document.getElementById(`char-${param}-slider`);
             const display = document.getElementById(`char-${param}-val`);
             if (slider && display) {
@@ -3042,10 +3105,13 @@ class UIEventManager {
         document.getElementById('char-desc-input').value = char.description || '';
         document.getElementById('char-vrm-path-input').value = char.model?.path || '';
         
+        const engine = char.voice?.engine || 'aivis-local';
         const engineSelect = document.getElementById('char-engine-select');
-        if(engineSelect) engineSelect.value = char.voice?.engine || 'aivis-local';
+        if(engineSelect) engineSelect.value = engine;
         
-        document.getElementById('char-speaker-id-input').value = char.voice?.speakerId || 0;
+        // 話者リスト更新と選択
+        await this.updateCharacterSpeakerSelect(engine, char.voice?.speakerId || 0);
+        
         document.getElementById('char-prompt-input').value = char.prompt || '';
 
         // スライダー設定
@@ -3057,9 +3123,8 @@ class UIEventManager {
                 display.textContent = value;
             }
         };
-        setSlider('speed', char.voice?.speed ?? 1.0);
-        setSlider('pitch', char.voice?.pitch ?? 0.0);
-        setSlider('volume', char.voice?.volume ?? 1.0);
+        setSlider('interval', char.voice?.interval ?? 1.0);
+        setSlider('volume', char.voice?.volume ?? 50);
 
         // アイコン表示
         const img = document.getElementById('char-icon-img');
@@ -3103,7 +3168,7 @@ class UIEventManager {
                 id: newId,
                 name: '新しいキャラクター',
                 description: '',
-                voice: { engine: 'aivis-local', speakerId: 0, speed: 1.0, pitch: 0.0, volume: 1.0 },
+                voice: { engine: 'aivis-local', speakerId: 0, interval: 1.0, volume: 50 },
                 prompt: '',
                 model: { type: 'vrm', path: '' },
                 isDefault: false
@@ -3136,17 +3201,26 @@ class UIEventManager {
             },
             voice: {
                 engine: document.getElementById('char-engine-select').value,
-                speakerId: parseInt(document.getElementById('char-speaker-id-input').value) || 0,
-                speed: parseFloat(document.getElementById('char-speed-slider').value),
-                pitch: parseFloat(document.getElementById('char-pitch-slider').value),
-                volume: parseFloat(document.getElementById('char-volume-slider').value)
+                speakerId: /^\d+$/.test(document.getElementById('char-speaker-select').value) 
+                    ? parseInt(document.getElementById('char-speaker-select').value) 
+                    : document.getElementById('char-speaker-select').value,
+                interval: parseFloat(document.getElementById('char-interval-slider').value),
+                volume: parseInt(document.getElementById('char-volume-slider').value)
             },
             prompt: document.getElementById('char-prompt-input').value,
             icon: document.getElementById('char-icon-img').src
         };
 
+        this.debugLog('Saving character updates:', updates);
+
         const configManager = this.app.configManager;
-        await configManager.updateCharacter(this.editingCharacterId, updates);
+        const success = await configManager.updateCharacter(this.editingCharacterId, updates);
+        
+        if (success) {
+            this.debugLog('Character saved successfully');
+        } else {
+            this.debugError('Failed to save character');
+        }
         
         // 保存完了表示
         const status = document.getElementById('char-save-status');
@@ -3187,13 +3261,12 @@ class UIEventManager {
     async testCharacterVoice() {
         const text = "こんにちは、音声テストです。";
         // const engine = document.getElementById('char-engine-select').value;
-        const speakerId = parseInt(document.getElementById('char-speaker-id-input').value) || 0;
-        const speed = parseFloat(document.getElementById('char-speed-slider').value);
-        const pitch = parseFloat(document.getElementById('char-pitch-slider').value);
-        const volume = parseFloat(document.getElementById('char-volume-slider').value);
+        const speakerVal = document.getElementById('char-speaker-select').value;
+        const speakerId = /^\d+$/.test(speakerVal) ? parseInt(speakerVal) : speakerVal;
         
         if (this.app.audioService) {
-            const audioData = await this.app.audioService.synthesizeTextOnly(text, speakerId, volume * 100, speed, pitch);
+            // デフォルト値を使用: volume=100 (1.0), speed=1.2, pitch=0.0
+            const audioData = await this.app.audioService.synthesizeTextOnly(text, speakerId, 100, 1.2, 0.0);
             if (audioData) {
                 await this.app.audioService.playAppInternalAudio(audioData, text);
             } else {

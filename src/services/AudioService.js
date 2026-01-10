@@ -61,8 +61,8 @@ class AudioService {
     }
 
     // 現在のAPIエンドポイントを取得
-    getApiEndpoint() {
-        switch (this.voiceEngine) {
+    getApiEndpoint(engine = this.voiceEngine) {
+        switch (engine) {
             case 'aivis-cloud':
                 return this.cloudApiUrl;
             case 'voicevox':
@@ -83,29 +83,38 @@ class AudioService {
     }
 
     // 話者リストを読み込み
-    async loadSpeakers() {
+    async loadSpeakers(engine = null) {
         try {
             // API設定を更新
             await this.updateApiSettings();
-            const endpoint = this.getApiEndpoint();
+            
+            const targetEngine = engine || this.voiceEngine;
+            const endpoint = this.getApiEndpoint(targetEngine);
             const headers = this.getRequestHeaders();
 
             const response = await fetch(`${endpoint}/speakers`, { headers });
             const speakersData = await response.json();
 
+            let speakersList = [];
+
             // VoiceVOXの場合は話者リストを変換（階層構造→フラット構造）
-            if (this.voiceEngine === 'voicevox') {
-                this.speakers = window.SpeakerConverter.convertVoiceVoxSpeakers(speakersData);
+            if (targetEngine === 'voicevox') {
+                speakersList = window.SpeakerConverter.convertVoiceVoxSpeakers(speakersData);
                 this.debugLog('VoiceVOX話者リスト変換完了:', {
                     original: speakersData.length,
-                    converted: this.speakers.length
+                    converted: speakersList.length
                 });
             } else {
-                this.speakers = speakersData;
+                speakersList = speakersData;
             }
 
-            this.debugLog('話者リスト読み込み成功:', this.speakers.length + '人');
-            return { success: true, speakers: this.speakers };
+            // グローバル設定の更新時のみインスタンス変数を更新
+            if (!engine || engine === this.voiceEngine) {
+                this.speakers = speakersList;
+            }
+
+            this.debugLog(`話者リスト読み込み成功 (${targetEngine}):`, speakersList.length + '人');
+            return { success: true, speakers: speakersList };
         } catch (error) {
             this.debugError('話者リスト読み込み失敗:', error);
             return { success: false, error: error.message };

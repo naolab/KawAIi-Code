@@ -132,13 +132,12 @@ class ConfigManager {
                         id: 'char_mona',
                         name: 'モネ',
                         description: '照れ屋なAIアシスタント',
-                        icon: 'assets/icons/new-app-icon.png', // デフォルトアイコンパス
+                        icon: '../assets/icons/new-app-icon.png', // デフォルトアイコンパス
                         voice: {
                             engine: 'aivis-local',
                             speakerId: 888753760, // モネ（AivisSpeech）
-                            speed: 1.2,
-                            pitch: 0,
-                            volume: 1.0
+                            interval: 1.0,
+                            volume: 50
                         },
                         model: {
                             type: 'vrm',
