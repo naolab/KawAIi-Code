@@ -177,23 +177,31 @@ class TabManager {
             // DOMへの反映を待つための待機時間を少し多めに取る
             setTimeout(async () => {
                 try {
-                    // 表示されていることを確認してからfit
-                    if (existingWrapper && existingWrapper.offsetParent !== null) {
+                    // ラッパーが表示されていることを確認
+                    if (wrapper && wrapper.offsetParent !== null) {
                         fitAddon.fit();
                         debugLog('📏 Initial tab fit() executed');
                     }
                     
-                    // シェル起動前にもう一度だけ微小待機（サイズ変更の伝播待ち）
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    // シェル起動前にもう一度だけ待機
+                    await new Promise(resolve => setTimeout(resolve, 200));
                     await this.startShellForPane(tabId, paneId);
                     
-                    // 起動後に再度フォーカス（念のため）
-                    if (terminal) terminal.focus();
+                    // 起動後にフォーカスを当てる（複数回呼んで確実にする）
+                    this.focusPane(paneId);
+                    if (terminal) {
+                        terminal.focus();
+                        // 念のためテキストエリアにもフォーカスを試みる
+                        const textarea = terminal.element ? terminal.element.querySelector('.xterm-helper-textarea') : null;
+                        if (textarea) textarea.focus();
+                    }
+                    
+                    debugLog('✅ Initial tab activation complete');
                 } catch (e) {
                     debugError('📏 Initial tab fit error:', e);
                     await this.startShellForPane(tabId, paneId);
                 }
-            }, 100);
+            }, 300); // 待機時間を100msから300msに増加
         } else {
             await this.startShellForPane(tabId, paneId);
         }

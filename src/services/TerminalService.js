@@ -57,11 +57,8 @@ class TerminalService {
         this.terminal.loadAddon(this.fitAddon);
         this.terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
 
-        const terminalElement = document.getElementById('terminal');
         // タブシステムが管理するため、ここではopen()を呼び出さない（二重初期化防止）
-        // TabManager.createInitialTab()が後ほど適切な要素に対してopen()を実行します
-        
-        this.fitAddon.fit();
+        // TabManager.createInitialTab()が後ほど適切な要素に対してopen()を実行し、その後fit()を呼び出します
         
         // シンプル重複防止システムの初期化
         if (this.messageAccumulator && this.messageAccumulator.initDuplicatePrevention) {
