@@ -11,7 +11,6 @@ class TabManager {
         this.deps = dependencies;
         this.tabs = {};
         this.activeTabId = null;
-        this.parentTabId = null;
         this.nextTabNumber = 1;
         this.nextPaneNumber = 1; // 内部ペイン（PTY）用のユニークID
         this.tabOrder = []; // タブの順序を管理する配列
@@ -174,13 +173,11 @@ class TabManager {
             activePaneId: paneId,
             layout: 'single', // 後方互換性のため保持
             layoutRoot: layoutRoot,  // 木構造ルート
-            isParent: true,
             isActive: true,
             createdAt: Date.now()
         };
         
         this.activeTabId = tabId;
-        this.parentTabId = tabId;
         this.tabOrder.push(tabId);
         
         // フォーカスを設定
@@ -244,17 +241,6 @@ class TabManager {
         });
         pane.appendChild(charButton);
 
-        // 閉じるボタン（分割時のみ表示されるようCSSで制御）
-        const closeButton = document.createElement('button');
-        closeButton.className = 'pane-close-button';
-        closeButton.innerHTML = '&times;';
-        closeButton.title = 'Close pane';
-        closeButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.deletePane(paneId);
-        });
-        pane.appendChild(closeButton);
-        
         const container = document.createElement('div');
         container.className = 'xterm-container';
         pane.appendChild(container);
@@ -371,7 +357,6 @@ class TabManager {
             activePaneId: paneId,
             layout: 'single',
             layoutRoot: layoutRoot,  // 木構造ルート
-            isParent: false,
             isActive: false,
             createdAt: Date.now()
         };
@@ -655,31 +640,6 @@ class TabManager {
         this.updateTabUI();
     }
 
-    /**
-     * 指定されたタブが親タブかどうかを判定
-     * @param {string} tabId - 判定対象のタブID
-     * @returns {boolean} 親タブの場合true
-     */
-    isParentTab(tabId) {
-        return this.parentTabId === tabId;
-    }
-
-    setParentTab(tabId) {
-        if (!this.tabs[tabId]) return;
-        
-        // 現在の親タブを解除
-        if (this.parentTabId && this.tabs[this.parentTabId]) {
-            this.tabs[this.parentTabId].isParent = false;
-        }
-        
-        // 新しい親タブを設定
-        this.parentTabId = tabId;
-        this.tabs[tabId].isParent = true;
-        
-        debugLog(`🌟 親タブを${tabId}に設定完了`);
-        this.updateTabUI();
-    }
-
     async deleteTab(tabId) {
         if (!this.tabs[tabId] || Object.keys(this.tabs).length === 1) {
             return;
@@ -706,12 +666,6 @@ class TabManager {
         const wrapper = document.getElementById(`terminal-${tab.id}`);
         if (wrapper && wrapper.parentNode) {
             wrapper.parentNode.removeChild(wrapper);
-        }
-        
-        // 管理データの更新
-        if (tab.isParent) {
-            const nextParent = this.tabOrder.find(id => id !== tabId);
-            if (nextParent) this.setParentTab(nextParent);
         }
         
         if (this.activeTabId === tabId) {
@@ -873,15 +827,6 @@ class TabManager {
         tab.draggable = false;
         this.deps.resourceManager.addEventListener(tab, 'pointerdown', (e) => this.handleTabPointerDown(e, tabData, tab));
         
-        const star = document.createElement('span');
-        star.className = `parent-star ${tabData.isParent ? 'active' : 'inactive'}`;
-        star.textContent = tabData.isParent ? '★' : '☆';
-        star.title = tabData.isParent ? '親タブ（音声処理対象）' : '親タブに設定';
-        this.deps.resourceManager.addEventListener(star, 'click', (e) => {
-            e.stopPropagation();
-            this.setParentTab(tabData.id);
-        });
-        
         const name = document.createElement('span');
         name.className = 'tab-name';
         name.textContent = tabData.name;
@@ -916,7 +861,6 @@ class TabManager {
             this.switchTab(tabData.id);
         });
         
-        tab.appendChild(star);
         tab.appendChild(name);
         tab.appendChild(splitH);
         tab.appendChild(splitV);
