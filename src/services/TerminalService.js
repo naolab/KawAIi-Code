@@ -100,10 +100,10 @@ class TerminalService {
         this.startLightRefresh();
     }
 
-    async startTerminal(aiType) {
-        // タブシステムが有効な場合はアクティブタブでAIを起動
+    async startShell() {
+        // タブシステムが有効な場合はアクティブタブでシェルを起動
         if (this.terminalApp.tabManager && this.terminalApp.tabManager.activeTabId) {
-            return await this.startTerminalForActiveTab(aiType);
+            return await this.startShellForActiveTab();
         }
         
         // 従来のメインターミナル起動（後方互換性）
@@ -113,20 +113,14 @@ class TerminalService {
                 return;
             }
 
-            const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
-            
-            this.terminalApp.updateStatus(`Starting ${aiName}...`);
-            const result = await window.electronAPI.terminal.start(aiType);
+            this.terminalApp.updateStatus(`Starting shell...`);
+            const result = await window.electronAPI.terminal.start();
             
             if (result.success) {
                 this.isTerminalRunning = true;
-                this.currentRunningAI = aiType; // 起動したAIの種類を保存
-                this.terminalApp.updateStatus(`${aiName} running - Type your message and press Enter`);
+                this.terminalApp.updateStatus(`Terminal ready`);
                 this.terminal.focus();
                 
-                this.terminal.writeln(`\x1b[90m${aiName} ready.\x1b[0m`);
-
-
                 setTimeout(() => {
                     this.fitAddon.fit();
                     window.electronAPI.terminal.resize(
@@ -135,21 +129,17 @@ class TerminalService {
                     );
                 }, 100);
             } else {
-                // 失敗した場合、メインプロセスからの詳細なエラーメッセージを表示
-                const errorMessage = result.error || `Failed to start ${aiName}`;
+                const errorMessage = result.error || `Failed to start shell`;
                 this.terminalApp.updateStatus(errorMessage);
-                debugError(`Failed to start ${aiName}:`, errorMessage);
+                debugError(`Failed to start shell:`, errorMessage);
             }
         } catch (error) {
-            const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
-            debugError(`Error starting ${aiName}:`, error);
-            this.terminalApp.updateStatus(`Error starting ${aiName}: ${error.message}`);
+            debugError(`Error starting shell:`, error);
+            this.terminalApp.updateStatus(`Error starting shell: ${error.message}`);
         }
-        
-        this.terminalApp.updateButtons();
     }
     
-    async startTerminalForActiveTab(aiType) {
+    async startShellForActiveTab() {
         if (!this.terminalApp.tabManager || !this.terminalApp.tabManager.activeTabId) {
             debugError('No active tab available');
             return;
@@ -161,36 +151,26 @@ class TerminalService {
             return;
         }
         
-        // 既にAIが起動している場合は停止してから新しいAIを起動
+        // 既にプロセスが起動している場合は停止してから新しいシェルを起動
         if (activeTab.isRunning) {
-            await this.terminalApp.tabManager.stopAIForTab(this.terminalApp.tabManager.activeTabId);
+            await this.terminalApp.tabManager.stopShellForTab(this.terminalApp.tabManager.activeTabId);
         }
         
-        const aiName = aiType === 'claude' ? 'Claude Code' : 'Claude Code (Dangerous)';
-        this.terminalApp.updateStatus(`Starting ${aiName} in active tab...`);
+        this.terminalApp.updateStatus(`Starting shell in active tab...`);
         
         try {
-            const success = await this.terminalApp.tabManager.startAIForTab(this.terminalApp.tabManager.activeTabId, aiType);
+            const success = await this.terminalApp.tabManager.startShellForTab(this.terminalApp.tabManager.activeTabId);
             if (success) {
-                // タブ情報を更新
-                activeTab.aiType = aiType;
                 activeTab.isRunning = true;
-                // タブ名は常に「Tab #番号」を維持する
-                
-                this.terminalApp.updateStatus(`${aiName} running in tab - Type your message and press Enter`);
-                
-                
-                // タブUIを更新
+                this.terminalApp.updateStatus(`Terminal ready in tab`);
                 this.terminalApp.tabManager.renderTabs();
             } else {
-                this.terminalApp.updateStatus(`Failed to start ${aiName} in tab`);
+                this.terminalApp.updateStatus(`Failed to start shell in tab`);
             }
         } catch (error) {
-            debugError(`Error starting ${aiName} in tab:`, error);
-            this.terminalApp.updateStatus(`Error starting ${aiName} in tab: ${error.message}`);
+            debugError(`Error starting shell in tab:`, error);
+            this.terminalApp.updateStatus(`Error starting shell in tab: ${error.message}`);
         }
-        
-        this.terminalApp.updateButtons();
     }
 
 
@@ -201,31 +181,20 @@ class TerminalService {
                 return;
             }
             
-            this.terminalApp.updateStatus('Stopping AI assistant...');
+            this.terminalApp.updateStatus('Stopping terminal...');
             const result = await window.electronAPI.terminal.stop();
             
             if (result.success) {
                 this.isTerminalRunning = false;
-                // 停止時のステータスメッセージを削除（シンプル化）
-                // this.terminalApp.updateStatus('AI assistant stopped');
                 this.terminal.clear();
-
-                // CLAUDE.mdファイルを削除
-                if (this.currentRunningAI) { // 念のためnullチェック
-                    const deleteResult = await this.configManager.deleteAiMdFromHomeDir(this.currentRunningAI);
-                    
-                    // CLAUDE.md削除処理完了（メッセージ表示は削除済み）
-                }
-                this.currentRunningAI = null; // 停止したのでクリア
+                this.currentRunningAI = null;
             } else {
-                this.terminalApp.updateStatus(`Failed to stop AI assistant: ${result.error || 'Unknown error'}`);
+                this.terminalApp.updateStatus(`Failed to stop terminal: ${result.error || 'Unknown error'}`);
             }
         } catch (error) {
-            debugError('Error stopping AI assistant:', error);
-            this.terminalApp.updateStatus(`Error stopping AI assistant: ${error.message}`);
+            debugError('Error stopping terminal:', error);
+            this.terminalApp.updateStatus(`Error stopping terminal: ${error.message}`);
         }
-        
-        this.terminalApp.updateButtons();
     }
 
 
@@ -459,12 +428,10 @@ class TerminalService {
                 this.handleTerminalData(data);
             });
 
-            // Handle Claude Code exit
+            // Handle Shell exit
             window.electronAPI.terminal.onExit((exitCode) => {
-                this.terminal.write(`\r\n\x1b[91mClaude Code exited with code: ${exitCode}\x1b[0m\r\n`);
+                this.terminal.write(`\r\n\x1b[91mShell exited with code: ${exitCode}\x1b[0m\r\n`);
                 this.isTerminalRunning = false;
-                // 停止時のステータスメッセージを削除（シンプル化）
-                // this.terminalApp.updateStatus('Claude Code stopped');
                 this.terminalApp.updateButtons();
             });
         } else {

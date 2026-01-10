@@ -580,44 +580,24 @@ ipcMain.handle('auto-updater-install', async () => {
   }
 });
 
+/**
+ * デフォルトのシェルを取得する
+ */
+function getShell() {
+  if (process.platform === 'win32') {
+    return process.env.COMSPEC || 'cmd.exe';
+  } else if (process.platform === 'darwin') {
+    return process.env.SHELL || '/bin/zsh';
+  }
+  return process.env.SHELL || '/bin/bash';
+}
+
 // Claude Code process management
-ipcMain.handle('terminal-start', async (event, aiType) => {
-  infoLog(`AIアシスタントの起動リクエストを受信: ${aiType}`);
+ipcMain.handle('terminal-start', async (event) => {
+  infoLog(`ターミナル（シェル）の起動リクエストを受信`);
 
-  const selectedAI = aiConfigService.getConfig(aiType);
-  if (!selectedAI) {
-    const error = new Error(`無効なAIタイプが指定されました: ${aiType}`);
-    errorLog('Invalid AI type specified:', aiType);
-    dialog.showErrorBox('設定エラー', '指定されたAIタイプが見つかりません');
-    return { success: false, error: error.message };
-  }
-
-  infoLog(`${selectedAI.name} の実行パスを探索中...`);
-  let commandPath = '';
-  for (const testPath of selectedAI.possiblePaths) {
-    try {
-      fs.accessSync(testPath, fs.constants.F_OK);
-      commandPath = testPath;
-      infoLog(`実行可能ファイルを発見: ${commandPath}`);
-      break;
-    } catch (error) {
-      debugLog(`パスが見つかりません: ${testPath}`);
-    }
-  }
-
-  if (!commandPath) {
-    const error = new Error(`${selectedAI.name} の実行可能ファイルが見つかりませんでした`);
-    const userMessage = `${selectedAI.name} の実行可能ファイルが見つかりませんでした。
-
-以下の点を確認してください:
-- ${selectedAI.name} はインストールされていますか？
-- 環境変数PATHは正しく設定されていますか？
-- (必要であれば) CLAUDE_PATH 環境変数を設定してください。`;
-    
-    errorLog('AI executable not found:', { aiType, possiblePaths: selectedAI.possiblePaths });
-    dialog.showErrorBox('起動失敗', userMessage);
-    return { success: false, error: error.message };
-  }
+  const commandPath = getShell();
+  infoLog(`使用シェル: ${commandPath}`);
 
   if (terminalProcess) {
     debugLog('既存のターミナルプロセスを終了中...');
@@ -625,11 +605,11 @@ ipcMain.handle('terminal-start', async (event, aiType) => {
   }
 
   try {
-    infoLog(`${selectedAI.name}をPTYで起動します...`);
+    infoLog(`シェルをPTYで起動します...`);
     debugLog('実行パス:', commandPath);
     debugLog('作業ディレクトリ:', claudeWorkingDir);
     
-    const spawnArgs = selectedAI.arguments || [];
+    const spawnArgs = [];
     terminalProcess = pty.spawn(commandPath, spawnArgs, {
       name: 'xterm-color',
       cols: 80,
@@ -643,17 +623,17 @@ ipcMain.handle('terminal-start', async (event, aiType) => {
       }
     });
 
-    infoLog(`${selectedAI.name}起動完了, PID:`, terminalProcess.pid);
+    infoLog(`ターミナル起動完了, PID:`, terminalProcess.pid);
 
     terminalProcess.onData((data) => {
-      debugLog(`PTY data from ${selectedAI.name}:`, data);
+      debugLog(`PTY data:`, data);
       if (mainWindow) {
         mainWindow.webContents.send('terminal-data', data);
       }
     });
 
     terminalProcess.onExit(({ exitCode, signal }) => {
-      infoLog(`${selectedAI.name}終了:`, { exitCode, signal });
+      infoLog(`ターミナル終了:`, { exitCode, signal });
       if (mainWindow) {
         mainWindow.webContents.send('terminal-exit', exitCode);
       }
@@ -1412,21 +1392,12 @@ ipcMain.handle('test-voicevox-connection', async () => {
 // AI設定処理はAIConfigServiceに統一
 
 // タブ作成
-ipcMain.handle('tab-create', async (event, tabId, aiType) => {
+ipcMain.handle('tab-create', async (event, tabId) => {
   try {
-    infoLog(`タブ作成リクエスト: ${tabId}, AI: ${aiType}`);
+    infoLog(`タブ作成リクエスト: ${tabId}`);
     
-    const aiConfig = aiConfigService.getConfig(aiType);
-    if (!aiConfig) {
-      return { success: false, error: `無効なAIタイプ: ${aiType}` };
-    }
-    
-    let commandPath;
-    try {
-      commandPath = await aiConfigService.findExecutablePath(aiType);
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const commandPath = getShell();
+    infoLog(`使用シェル: ${commandPath}`);
     
     // 既存のプロセスがある場合は終了
     if (terminalProcesses[tabId]) {
@@ -1435,7 +1406,7 @@ ipcMain.handle('tab-create', async (event, tabId, aiType) => {
     }
     
     // 新しいPTYプロセス作成
-    const spawnArgs = aiConfig.arguments || [];
+    const spawnArgs = [];
     terminalProcesses[tabId] = pty.spawn(commandPath, spawnArgs, {
       name: 'xterm-color',
       cols: 80,

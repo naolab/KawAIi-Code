@@ -109,7 +109,7 @@ class TabManager {
         // }
     }
 
-    createInitialTab() {
+    async createInitialTab() {
         // 既存のターミナルを最初のタブとして登録
         const tabId = `tab-${this.nextTabNumber++}`;
         
@@ -127,7 +127,7 @@ class TabManager {
             aiType: null,
             isParent: true,
             isActive: true,
-            isRunning: false, // 初期状態はAI未起動
+            isRunning: false,
             terminal: this.deps.mainTerminal,
             fitAddon: this.deps.mainFitAddon,
             element: existingTerminal, // リネーム後の要素を参照
@@ -141,9 +141,12 @@ class TabManager {
         this.tabOrder.push(tabId);
         
         this.renderTabs();
+        
+        // 初期タブでシェルを起動
+        await this.startShellForTab(tabId);
     }
 
-    createEmptyTab() {
+    async createEmptyTab() {
         // タブ数制限チェック
         if (Object.keys(this.tabs).length >= this.MAX_TABS) {
             // ターミナルに警告メッセージを表示
@@ -180,17 +183,14 @@ class TabManager {
             fitAddon.fit();
         }, 50);
         
-        // 初期メッセージを削除（シンプル化）
-        // terminal.writeln(`\x1b[90m🎀 KawAIi Code - New Tab 🎀\x1b[0m`);
-        
-        // タブデータを作成（AIは未起動状態）
+        // タブデータを作成
         this.tabs[tabId] = {
             id: tabId,
             name: tabName,
-            aiType: null, // AI未起動
+            aiType: null,
             isParent: false,
             isActive: false,
-            isRunning: false, // AI起動状態フラグ追加
+            isRunning: false,
             terminal: terminal,
             fitAddon: fitAddon,
             element: terminalElement,
@@ -204,7 +204,10 @@ class TabManager {
         this.renderTabs();
         this.switchTab(tabId);
 
-        // 新しく作成したタブに軽量リフレッシュを開始
+        // 新しく作成したタブにシェルを起動
+        await this.startShellForTab(tabId);
+
+        // 軽量リフレッシュを開始
         this.startTabLightRefresh(tabId);
 
         return tabId;
@@ -212,7 +215,7 @@ class TabManager {
 
 
 
-    async startAIForTab(tabId, aiType) {
+    async startShellForTab(tabId) {
         try {
             if (!window.electronAPI || !window.electronAPI.tab) {
                 debugError('ElectronAPI.tab not available');
@@ -225,19 +228,9 @@ class TabManager {
                 return false;
             }
 
-            let aiName;
-            if (aiType === 'claude') {
-                aiName = 'Claude Code';
-            } else if (aiType === 'claude-dangerous') {
-                aiName = 'Claude Code (Dangerous)';
-            } else if (aiType === 'gemini') {
-                aiName = 'Gemini CLI';
-            } else {
-                aiName = aiType; // フォールバック
-            }
-            debugLog(`Starting ${aiName} for tab ${tabId}`);
+            debugLog(`Starting shell for tab ${tabId}`);
             
-            // 既存のイベントリスナーをクリーンアップ（重複防止）
+            // 既存のイベントリスナーをクリーンアップ
             if (tab.eventListeners) {
                 tab.eventListeners.forEach(disposable => {
                     if (disposable && typeof disposable.dispose === 'function') {
@@ -250,7 +243,7 @@ class TabManager {
             }
             
             // バックエンドでPTYプロセス作成
-            const result = await window.electronAPI.tab.create(tabId, aiType);
+            const result = await window.electronAPI.tab.create(tabId);
             if (!result.success) {
                 debugError(`Failed to create tab process: ${result.error}`);
                 tab.terminal.writeln(`\x1b[31mError: ${result.error}\x1b[0m`);
@@ -260,44 +253,39 @@ class TabManager {
             // ターミナルをプロセスに接続
             const terminal = tab.terminal;
             
-            // 初期化メッセージ
-            terminal.writeln(`\x1b[90m${aiName} ready.\x1b[0m`);
-            
-            // ユーザー入力をプロセスに送信（重複防止）
+            // ユーザー入力をプロセスに送信
             const onDataListener = terminal.onData((data) => {
                 window.electronAPI.tab.write(tabId, data);
             });
             tab.eventListeners.push(onDataListener);
             
-            // リサイズ処理（重複防止）
+            // リサイズ処理
             const onResizeListener = terminal.onResize(({ cols, rows }) => {
                 window.electronAPI.tab.resize(tabId, cols, rows);
             });
             tab.eventListeners.push(onResizeListener);
             
-            // ターミナルサイズを適切に調整（AI起動後に実行）
+            // ターミナルサイズを適切に調整
             setTimeout(() => {
-                // デバウンス処理付きリサイズ制御
                 this.deps.handleResize();
                 
                 if (tab.fitAddon && tab.terminal) {
                     tab.fitAddon.fit();
-                    // バックエンドプロセスにも新しいサイズを通知
                     window.electronAPI.tab.resize(tabId, tab.terminal.cols, tab.terminal.rows);
                     debugLog(`Tab ${tabId} resized to ${tab.terminal.cols}x${tab.terminal.rows}`);
                 }
-            }, 200); // Claude Codeの初期化完了を待つ
+            }, 200);
             
-            // UI状態を更新
+            tab.isRunning = true;
             this.updateTabUI();
             if (this.deps && this.deps.updateButtons) {
                 this.deps.updateButtons();
             }
             
-            debugLog(`Tab ${tabId} AI startup completed`);
+            debugLog(`Tab ${tabId} shell startup completed`);
             return true;
         } catch (error) {
-            debugError(`Error starting AI for tab ${tabId}:`, error);
+            debugError(`Error starting shell for tab ${tabId}:`, error);
             if (this.tabs[tabId]) {
                 this.tabs[tabId].terminal.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
             }
@@ -305,7 +293,7 @@ class TabManager {
         }
     }
 
-    async stopAIForTab(tabId) {
+    async stopShellForTab(tabId) {
         try {
             const tab = this.tabs[tabId];
             if (!tab) {
@@ -325,22 +313,17 @@ class TabManager {
 
             if (window.electronAPI && window.electronAPI.tab) {
                 await window.electronAPI.tab.delete(tabId);
-                debugLog(`AI stopped for tab ${tabId}`);
+                debugLog(`Shell stopped for tab ${tabId}`);
             }
 
             // タブ状態を更新
-            tab.aiType = null;
             tab.isRunning = false;
-            tab.name = `Tab #${tabId.split('-')[1]}`;
 
-            // ターミナルをクリア（メッセージなし）
+            // ターミナルをクリア
             if (tab.terminal) {
                 tab.terminal.clear();
-                // 冗長メッセージを削除（シンプル化）
-                // tab.terminal.writeln(`\x1b[90m🎀 KawAIi Code - Tab Ready 🎀\x1b[0m`);
             }
             
-            // UI状態を更新
             this.updateTabUI();
             if (this.deps && this.deps.updateButtons) {
                 this.deps.updateButtons();
@@ -348,7 +331,7 @@ class TabManager {
 
             return true;
         } catch (error) {
-            debugError(`Error stopping AI for tab ${tabId}:`, error);
+            debugError(`Error stopping shell for tab ${tabId}:`, error);
             return false;
         }
     }

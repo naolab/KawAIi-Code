@@ -1,793 +1,1418 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self' https://unpkg.com https://cdn.skypack.dev https://cdn.jsdelivr.net https://threejs.org; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net; frame-src 'self'; child-src 'self'; connect-src 'self' http://localhost:10101 http://127.0.0.1:50021 ws://localhost:8080 https://api.aivis-project.com; media-src 'self' blob: data:;">
-    <title>KawAIi Code</title>
-    <link rel="stylesheet" href="./styles/main.css">
-    <link rel="icon" href="./assets/icons/favicon.ico" type="image/x-icon">
-    <!-- xterm.js CSS (bundled for offline/package) -->
-    <link rel="stylesheet" href="./vendor/xterm/xterm.css" />
-    <!-- Loading Screen -->
-    <script src="./components/LoadingScreen.js"></script>
-</head>
-<body>
-    <!-- AI選択モーダル -->
-    <div id="ai-select-modal" class="settings-modal" style="display: none;">
-        <div class="settings-content">
-            <div class="settings-header">
-                <h3>AIアシスタントを選択</h3>
-                <button id="close-ai-select" class="close-btn">×</button>
-            </div>
-            <div class="settings-body" style="text-align: center; padding: 30px;">
-                <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
-                    <button id="start-claude" class="simple-btn">Claude Code</button>
-                    <button id="start-claude-dangerous" class="simple-btn">Claude Code (Dangerous)</button>
-                    <button id="start-gemini" class="simple-btn">Gemini CLI</button>
-                    <button id="start-codex" class="simple-btn">Codex</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="app-container">
-        <div class="header">
-            <div class="header-left">
-                <button id="settings-btn" class="settings-btn" aria-label="設定を開く">
-                    <span class="gear-horizontal"></span>
-                    <span class="gear-diagonal"></span>
-                    <span class="gear-diagonal"></span>
-                    <span class="gear-diagonal"></span>
-                    <span class="gear-diagonal"></span>
-                </button>
-                <!-- 会話ログボタン（一時的に無効化）
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'self' file: data:; script-src 'self' https://unpkg.com https://cdn.skypack.dev https://cdn.jsdelivr.net https://threejs.org; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net; frame-src 'self'; child-src 'self'; connect-src 'self' http://localhost:10101 http://127.0.0.1:50021 ws://localhost:8080 https://api.aivis-project.com; media-src 'self' blob: data:;"
+        >
+        <title>KawAIi Code</title>
+        <link rel="stylesheet" href="./styles/main.css">
+        <link rel="icon" href="./assets/icons/favicon.ico" type="image/x-icon">
+        <!-- xterm.js CSS (bundled for offline/package) -->
+        <link rel="stylesheet" href="./vendor/xterm/xterm.css" />
+        <!-- Loading Screen -->
+        <script src="./components/LoadingScreen.js"></script>
+    </head>
+    <body>
+        <div class="app-container">
+            <div class="header">
+                <div class="header-left">
+                    <button
+                        id="settings-btn"
+                        class="settings-btn"
+                        aria-label="設定を開く"
+                    >
+                        <span class="gear-horizontal"></span>
+                        <span class="gear-diagonal"></span>
+                        <span class="gear-diagonal"></span>
+                        <span class="gear-diagonal"></span>
+                        <span class="gear-diagonal"></span>
+                    </button>
+                    <!-- 会話ログボタン（一時的に無効化）
                 <button id="debug-stats-btn" class="settings-btn history-btn" aria-label="会話ログを表示" title="会話ログ">
                     <span class="clock-hand-short"></span>
                     <span class="clock-hand-long"></span>
                 </button>
                 -->
-                <button id="help-btn" class="settings-btn help-btn" aria-label="使い方を見る">
-                </button>
-            </div>
-            <div class="controls">
-                <button id="terminal-toggle" class="simple-btn terminal-toggle-btn" aria-label="ターミナル表示切り替え">
-                    <span class="pupil"></span>
-                </button>
-                <button id="start-ai-selection" class="simple-btn start-btn" aria-label="AIアシスタントを開始"></button>
-                <button id="stop-terminal" class="simple-btn stop-btn" aria-label="AIアシスタントを停止"></button>
-            </div>
-        </div>
-        
-        <div class="main-content">
-            <div class="terminal-section">
-                <!-- タブバー -->
-                <div id="tab-bar" class="tab-bar">
-                    <!-- タブは動的に追加される -->
-                    <button id="new-tab-button" class="new-tab-button" title="新しいタブを作成">+</button>
+                    <button
+                        id="help-btn"
+                        class="settings-btn help-btn"
+                        aria-label="使い方を見る"
+                    >
+                    </button>
                 </div>
-                
-                <!-- ターミナルコンテナ -->
-                <div id="terminal-container" class="terminal-container">
-                    <div id="terminal" class="terminal-wrapper active"></div>
+                <div class="controls">
+                    <button
+                        id="terminal-toggle"
+                        class="simple-btn terminal-toggle-btn"
+                        aria-label="ターミナル表示切り替え"
+                    >
+                        <span class="pupil"></span>
+                    </button>
                 </div>
             </div>
-            
-            <div class="character-section">
-                <div class="character-main">
-                    <iframe id="vrm-iframe" 
-                            src="../ai-kawaii-nextjs/out/index.html" 
-                            style="width: 100%; height: calc(100% + 70px); border: none; background: transparent; border-radius: 20px; margin-top: -70px;"
-                            allow="accelerometer; gyroscope">
-                    </iframe>
-                </div>
-            </div>
-        </div>
-        
-        
-        
-        <!-- 設定画面 -->
-        <div id="settings-modal" class="settings-modal" style="display: none;">
-            <div class="settings-content-with-sidebar">
-                <div class="settings-header">
-                    <h3>設定</h3>
-                    <button id="close-settings" class="close-btn">×</button>
-                </div>
-                <div class="settings-main-container">
-                    <!-- サイドバー（タブナビゲーション） -->
-                    <div class="settings-sidebar">
-                        <nav class="settings-nav">
-                            <a href="#" class="settings-nav-item active" data-section="basic">基本設定</a>
-                            <a href="#" class="settings-nav-item" data-section="voice">音声設定</a>
-                            <a href="#" class="settings-nav-item" data-section="vrm">VRM設定</a>
-                            <a href="#" class="settings-nav-item" data-section="theme">テーマ設定</a>
-                            <a href="#" class="settings-nav-item" data-section="other">アプリ情報</a>
-                        </nav>
+
+            <div class="main-content">
+                <div class="terminal-section">
+                    <!-- タブバー -->
+                    <div id="tab-bar" class="tab-bar">
+                        <!-- タブは動的に追加される -->
+                        <button
+                            id="new-tab-button"
+                            class="new-tab-button"
+                            title="新しいタブを作成"
+                        >
+                            +
+                        </button>
                     </div>
 
-                    <!-- メインコンテンツエリア -->
-                    <div class="settings-content-main">
+                    <!-- ターミナルコンテナ -->
+                    <div id="terminal-container" class="terminal-container">
+                        <div id="terminal" class="terminal-wrapper active">
+                        </div>
+                    </div>
+                </div>
 
-                        <!-- ======================================
+                <div class="character-section">
+                    <div class="character-main">
+                        <iframe
+                            id="vrm-iframe"
+                            src="../ai-kawaii-nextjs/out/index.html"
+                            style="width: 100%; height: calc(100% + 70px); border: none; background: transparent; border-radius: 20px; margin-top: -70px"
+                            allow="accelerometer; gyroscope"
+                        >
+                        </iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 設定画面 -->
+            <div
+                id="settings-modal"
+                class="settings-modal"
+                style="display: none"
+            >
+                <div class="settings-content-with-sidebar">
+                    <div class="settings-header">
+                        <h3>設定</h3>
+                        <button id="close-settings" class="close-btn">×</button>
+                    </div>
+                    <div class="settings-main-container">
+                        <!-- サイドバー（タブナビゲーション） -->
+                        <div class="settings-sidebar">
+                            <nav class="settings-nav">
+                                <a
+                                    href="#"
+                                    class="settings-nav-item active"
+                                    data-section="basic"
+                                >基本設定</a>
+                                <a
+                                    href="#"
+                                    class="settings-nav-item"
+                                    data-section="voice"
+                                >音声設定</a>
+                                <a
+                                    href="#"
+                                    class="settings-nav-item"
+                                    data-section="vrm"
+                                >VRM設定</a>
+                                <a
+                                    href="#"
+                                    class="settings-nav-item"
+                                    data-section="theme"
+                                >テーマ設定</a>
+                                <a
+                                    href="#"
+                                    class="settings-nav-item"
+                                    data-section="other"
+                                >アプリ情報</a>
+                            </nav>
+                        </div>
+
+                        <!-- メインコンテンツエリア -->
+                        <div class="settings-content-main">
+                            <!-- ======================================
                              基本設定セクション
                              ====================================== -->
-                        <div id="settings-section-basic" class="settings-section active">
-                    <!-- CLI選択セクション -->
-                    <div class="setting-group">
-                        <label style="color: var(--theme-primary); font-weight: 600; font-size: 16px;">使用するモデルを選択</label>
-                        <div style="display: flex; flex-direction: column; gap: 10px;">
-                            <label class="cli-toggle-label">
-                                <input type="checkbox" id="cli-claude-toggle" data-cli="claude" checked>
-                                <span class="cli-toggle-switch"></span>
-                                <span>Claude Code</span>
-                            </label>
-                            <label class="cli-toggle-label">
-                                <input type="checkbox" id="cli-claude-dangerous-toggle" data-cli="claude-dangerous" checked>
-                                <span class="cli-toggle-switch"></span>
-                                <span>Claude Code (Dangerous)</span>
-                            </label>
-                            <label class="cli-toggle-label">
-                                <input type="checkbox" id="cli-gemini-toggle" data-cli="gemini" checked>
-                                <span class="cli-toggle-switch"></span>
-                                <span>Gemini CLI</span>
-                            </label>
-                            <label class="cli-toggle-label">
-                                <input type="checkbox" id="cli-codex-toggle" data-cli="codex" checked>
-                                <span class="cli-toggle-switch"></span>
-                                <span>Codex(OpenAI)</span>
-                            </label>
-                        </div>
-                        <div id="cli-selection-error" style="display: none; margin-top: 8px; padding: 8px; background-color: var(--theme-bg-secondary); border: 1px solid var(--theme-primary-light); border-radius: 4px; color: var(--theme-accent); font-size: 12px;">
-                            最低1つのモデルを選択してください
-                        </div>
-                    </div>
+                            <div
+                                id="settings-section-basic"
+                                class="settings-section active"
+                            >
+                                <!-- Claude Code 作業ディレクトリ設定セクション -->
+                                <div class="setting-group">
+                                    <label>作業ディレクトリ設定</label>
+                                    <div
+                                        class="claude-cwd-controls"
+                                        style="display: flex; flex-direction: column; gap: 8px"
+                                    >
+                                        <span
+                                            id="claude-cwd-display"
+                                            style="font-size: 13px; color: #555; word-break: break-all; min-height: 20px"
+                                        >読み込み中...</span>
+                                        <button
+                                            id="select-claude-cwd-btn"
+                                            class="simple-btn"
+                                        >
+                                            作業ディレクトリを選択
+                                        </button>
+                                        <div
+                                            id="claude-cwd-message"
+                                            style="font-size: 12px; margin-top: 5px; min-height: 15px"
+                                        >
+                                        </div>
+                                    </div>
+                                </div>
 
-                    <!-- Claude Code 作業ディレクトリ設定セクション -->
-                    <div class="setting-group">
-                        <label>作業ディレクトリ設定</label>
-                        <div class="claude-cwd-controls" style="display: flex; flex-direction: column; gap: 8px;">
-                            <span id="claude-cwd-display" style="font-size: 13px; color: #555; word-break: break-all; min-height: 20px;">読み込み中...</span>
-                            <button id="select-claude-cwd-btn" class="simple-btn">作業ディレクトリを選択</button>
-                            <div id="claude-cwd-message" style="font-size: 12px; margin-top: 5px; min-height: 15px;"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- マークダウン設定セクション -->
-                    <div class="setting-group">
-                        <label>マークダウン設定</label>
-                        
-                        <!-- MDファイル選択 -->
-                        <div class="setting-item" style="margin-top: 8px;">
-                            <label for="md-file-select" style="display: block; margin-bottom: 5px; font-size: 13px;">生成するMDファイルを選択</label>
-                            <select id="md-file-select" class="speaker-select" style="width: 100%; margin-bottom: 8px;">
-                                <option value="CLAUDE.md">CLAUDE.md</option>
-                                <option value="GEMINI.md">GEMINI.md</option>
-                                <option value="AGENTS.md">AGENTS.md (Codex用)</option>
-                            </select>
-                        </div>
-                        
-                        <!-- 生成先表示 -->
-                        <div class="setting-item" style="margin-top: 8px;">
-                            <label style="display: block; margin-bottom: 5px; font-size: 13px;">生成先</label>
-                            <div style="padding: 8px 12px; background: var(--theme-bg-tertiary); border-radius: 4px; font-size: 13px; color: var(--theme-text-primary); word-break: break-all;">
-                                <span id="workspace-path-display">読み込み中...</span>
+                                <!-- マークダウン設定セクション -->
+                                <div class="setting-group">
+                                    <label>マークダウン設定</label>
+
+                                    <!-- MDファイル選択 -->
+                                    <div
+                                        class="setting-item"
+                                        style="margin-top: 8px"
+                                    >
+                                        <label
+                                            for="md-file-select"
+                                            style="display: block; margin-bottom: 5px; font-size: 13px"
+                                        >生成するMDファイルを選択</label>
+                                        <select
+                                            id="md-file-select"
+                                            class="speaker-select"
+                                            style="width: 100%; margin-bottom: 8px"
+                                        >
+                                            <option value="CLAUDE.md">
+                                                CLAUDE.md
+                                            </option>
+                                            <option value="GEMINI.md">
+                                                GEMINI.md
+                                            </option>
+                                            <option value="AGENTS.md">
+                                                AGENTS.md (Codex用)
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <!-- 生成先表示 -->
+                                    <div
+                                        class="setting-item"
+                                        style="margin-top: 8px"
+                                    >
+                                        <label
+                                            style="display: block; margin-bottom: 5px; font-size: 13px"
+                                        >生成先</label>
+                                        <div
+                                            style="padding: 8px 12px; background: var(--theme-bg-tertiary); border-radius: 4px; font-size: 13px; color: var(--theme-text-primary); word-break: break-all"
+                                        >
+                                            <span id="workspace-path-display"
+                                            >読み込み中...</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 操作ボタン群 -->
+                                    <div
+                                        class="claude-md-action-buttons"
+                                        style="display: flex; gap: 6px; margin-top: 10px"
+                                    >
+                                        <button
+                                            id="claude-md-generate-btn"
+                                            class="simple-btn"
+                                            style="flex: 1; min-width: 100px"
+                                        >
+                                            生成
+                                        </button>
+                                        <button
+                                            id="claude-md-info-btn"
+                                            class="simple-btn"
+                                            style="flex: 1; min-width: 120px"
+                                        >
+                                            この機能について
+                                        </button>
+                                    </div>
+
+                                    <!-- 内容編集エリア -->
+                                    <div
+                                        class="setting-item"
+                                        style="margin-top: 10px"
+                                    >
+                                        <label
+                                            for="claude-md-content-editor"
+                                            style="display: block; margin-bottom: 5px; font-size: 13px"
+                                        >MDファイル内容</label>
+                                        <textarea
+                                            id="claude-md-content-editor"
+                                            style="width: 100%; height: 300px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical"
+                                            placeholder="CLAUDE.mdの内容を編集してください..."
+                                        ></textarea>
+                                    </div>
+
+                                    <!-- 読み込みボタン群 -->
+                                    <div
+                                        class="claude-md-load-buttons"
+                                        style="display: flex; gap: 6px; margin-top: 10px"
+                                    >
+                                        <button
+                                            id="claude-md-load-btn"
+                                            class="simple-btn"
+                                            style="flex: 1; min-width: 140px"
+                                        >
+                                            既存のファイルを読み込み
+                                        </button>
+                                        <button
+                                            id="claude-md-default-btn"
+                                            class="simple-btn"
+                                            style="flex: 1; min-width: 140px"
+                                        >
+                                            デフォルト内容を読み込み
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        
-                        <!-- 操作ボタン群 -->
-                        <div class="claude-md-action-buttons" style="display: flex; gap: 6px; margin-top: 10px;">
-                            <button id="claude-md-generate-btn" class="simple-btn" style="flex: 1; min-width: 100px;">生成</button>
-                            <button id="claude-md-info-btn" class="simple-btn" style="flex: 1; min-width: 120px;">この機能について</button>
-                        </div>
-                        
-                        <!-- 内容編集エリア -->
-                        <div class="setting-item" style="margin-top: 10px;">
-                            <label for="claude-md-content-editor" style="display: block; margin-bottom: 5px; font-size: 13px;">MDファイル内容</label>
-                            <textarea id="claude-md-content-editor" 
-                                      style="width: 100%; height: 300px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;"
-                                      placeholder="CLAUDE.mdの内容を編集してください..."></textarea>
-                        </div>
-                        
-                        <!-- 読み込みボタン群 -->
-                        <div class="claude-md-load-buttons" style="display: flex; gap: 6px; margin-top: 10px;">
-                            <button id="claude-md-load-btn" class="simple-btn" style="flex: 1; min-width: 140px;">既存のファイルを読み込み</button>
-                            <button id="claude-md-default-btn" class="simple-btn" style="flex: 1; min-width: 140px;">デフォルト内容を読み込み</button>
-                        </div>
-                    </div>
-                        </div>
-                        <!-- 基本設定セクション終了 -->
+                            <!-- 基本設定セクション終了 -->
 
-                        <!-- ======================================
+                            <!-- ======================================
                              音声セクション
                              ====================================== -->
-                        <div id="settings-section-voice" class="settings-section">
+                            <div
+                                id="settings-section-voice"
+                                class="settings-section"
+                            >
+                                <div class="setting-group">
+                                    <label>音声読み上げ</label>
+                                    <label class="cli-toggle-label">
+                                        <input
+                                            type="checkbox"
+                                            id="voice-toggle-modal"
+                                        >
+                                        <div class="cli-toggle-switch"></div>
+                                    </label>
+                                </div>
 
-                    <div class="setting-group">
-                        <label>音声読み上げ</label>
-                        <label class="cli-toggle-label">
-                            <input type="checkbox" id="voice-toggle-modal">
-                            <div class="cli-toggle-switch"></div>
-                        </label>
-                    </div>
+                                <div
+                                    class="setting-group"
+                                    style="display: none"
+                                >
+                                    <label for="use-hooks-toggle"
+                                    >Claude Code Hooksで読み上げ</label>
+                                    <div class="setting-switch">
+                                        <input
+                                            type="checkbox"
+                                            id="use-hooks-toggle"
+                                        >
+                                        <label
+                                            for="use-hooks-toggle"
+                                            class="switch-label"
+                                        ></label>
+                                    </div>
+                                    <div
+                                        style="margin-top: 5px; margin-bottom: 8px"
+                                    >
+                                        <span
+                                            style="color: #ff6b35; font-size: 12px; font-weight: 500"
+                                        >⚠️
+                                            この機能は現在開発中のため使用できません</span>
+                                    </div>
+                                    <div style="margin-top: 5px">
+                                        <button
+                                            id="hooks-info-btn"
+                                            class="simple-btn"
+                                            style="width: auto; min-width: 120px; opacity: 0.5; cursor: not-allowed"
+                                            disabled
+                                        >
+                                            この機能について
+                                        </button>
+                                    </div>
+                                </div>
 
-                    <div class="setting-group" style="display: none;">
-                        <label for="use-hooks-toggle">Claude Code Hooksで読み上げ</label>
-                        <div class="setting-switch">
-                            <input type="checkbox" id="use-hooks-toggle">
-                            <label for="use-hooks-toggle" class="switch-label"></label>
-                        </div>
-                        <div style="margin-top: 5px; margin-bottom: 8px;">
-                            <span style="color: #ff6b35; font-size: 12px; font-weight: 500;">⚠️ この機能は現在開発中のため使用できません</span>
-                        </div>
-                        <div style="margin-top: 5px;">
-                            <button id="hooks-info-btn" class="simple-btn" style="width: auto; min-width: 120px; opacity: 0.5; cursor: not-allowed;" disabled>この機能について</button>
-                        </div>
-                    </div>
+                                <!-- 音声エンジン選択セクション -->
+                                <div class="setting-group">
+                                    <label>音声エンジン選択</label>
+                                    <div
+                                        style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px"
+                                    >
+                                        <label class="radio-label">
+                                            <input
+                                                type="radio"
+                                                name="voice-engine"
+                                                id="voice-engine-local"
+                                                value="local"
+                                                checked
+                                            >
+                                            <span
+                                            >ローカルエンジン（AivisSpeech）</span>
+                                        </label>
+                                        <label class="radio-label">
+                                            <input
+                                                type="radio"
+                                                name="voice-engine"
+                                                id="voice-engine-cloud"
+                                                value="cloud"
+                                            >
+                                            <span>クラウドAPI（Aivis Cloud
+                                                API）</span>
+                                        </label>
+                                        <label class="radio-label">
+                                            <input
+                                                type="radio"
+                                                name="voice-engine"
+                                                id="voice-engine-voicevox"
+                                                value="voicevox"
+                                            >
+                                            <span>VOICEVOX</span>
+                                        </label>
+                                    </div>
 
-                    <!-- 音声エンジン選択セクション -->
-                    <div class="setting-group">
-                        <label>音声エンジン選択</label>
-                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
-                            <label class="radio-label">
-                                <input type="radio" name="voice-engine" id="voice-engine-local" value="local" checked>
-                                <span>ローカルエンジン（AivisSpeech）</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="voice-engine" id="voice-engine-cloud" value="cloud">
-                                <span>クラウドAPI（Aivis Cloud API）</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="voice-engine" id="voice-engine-voicevox" value="voicevox">
-                                <span>VOICEVOX</span>
-                            </label>
-                        </div>
+                                    <div
+                                        id="cloud-api-settings"
+                                        style="display: none"
+                                    >
+                                        <div
+                                            class="setting-item"
+                                            style="margin-bottom: 12px"
+                                        >
+                                            <label
+                                                for="cloud-api-key-input"
+                                                style="display: block; margin-bottom: 5px; font-size: 13px"
+                                            >APIキー</label>
+                                            <input
+                                                type="password"
+                                                id="cloud-api-key-input"
+                                                placeholder="APIキーを入力"
+                                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; font-weight: 600; color: var(--theme-primary)"
+                                            >
+                                        </div>
 
-                        <div id="cloud-api-settings" style="display: none;">
-                            <div class="setting-item" style="margin-bottom: 12px;">
-                                <label for="cloud-api-key-input" style="display: block; margin-bottom: 5px; font-size: 13px;">APIキー</label>
-                                <input type="password" id="cloud-api-key-input" placeholder="APIキーを入力" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; font-weight: 600; color: var(--theme-primary);">
+                                        <div style="display: flex; gap: 10px">
+                                            <button
+                                                id="test-cloud-api-btn"
+                                                class="simple-btn"
+                                                style="flex: 1"
+                                            >
+                                                接続テスト
+                                            </button>
+                                            <button
+                                                id="save-cloud-api-btn"
+                                                class="simple-btn"
+                                                style="flex: 1"
+                                            >
+                                                保存
+                                            </button>
+                                        </div>
+
+                                        <div
+                                            id="cloud-api-status"
+                                            style="margin-top: 10px; font-size: 12px; padding: 8px; border-radius: 4px; display: none"
+                                        >
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="setting-group"
+                                    id="custom-model-section"
+                                    style="display: none"
+                                >
+                                    <label>音声合成モデルを追加(Aivis Cloud
+                                        API使用時)</label>
+                                    <div style="margin-top: 8px">
+                                        <div
+                                            style="display: flex; gap: 8px; margin-bottom: 8px"
+                                        >
+                                            <input
+                                                type="text"
+                                                id="model-uuid-input"
+                                                placeholder="モデルUUIDを入力"
+                                                style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 16px; font-weight: 600; color: var(--theme-primary)"
+                                            >
+                                            <button
+                                                id="add-model-btn"
+                                                class="simple-btn"
+                                                style="white-space: nowrap"
+                                            >
+                                                追加
+                                            </button>
+                                        </div>
+                                        <div
+                                            id="custom-model-status"
+                                            style="font-size: 12px; padding: 8px; border-radius: 4px; display: none"
+                                        >
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="setting-group">
+                                    <label for="speaker-select-modal"
+                                    >話者選択</label>
+                                    <select
+                                        id="speaker-select-modal"
+                                        class="speaker-select"
+                                    >
+                                        <option value="0">話者を選択...</option>
+                                    </select>
+                                </div>
+
+                                <div
+                                    class="setting-group connection-status-group"
+                                >
+                                    <span id="connection-status-label"
+                                    >音声エンジン接続状況</span>
+                                    <div
+                                        style="display: flex; align-items: center; gap: 12px"
+                                    >
+                                        <span
+                                            id="connection-status-modal"
+                                            style="flex: 1"
+                                        >接続確認中...</span>
+                                        <button
+                                            id="refresh-connection-modal"
+                                            class="simple-btn"
+                                        >
+                                            再接続
+                                        </button>
+                                        <button
+                                            id="test-local-engine-btn"
+                                            class="simple-btn"
+                                            style="min-width: 120px"
+                                        >
+                                            接続テスト
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="setting-group">
+                                    <label for="voice-interval-slider"
+                                    >読み上げ間隔</label>
+                                    <div
+                                        style="display: flex; align-items: center; gap: 10px"
+                                    >
+                                        <span
+                                            style="font-size: 12px; color: #666"
+                                        >短い</span>
+                                        <input
+                                            type="range"
+                                            id="voice-interval-slider"
+                                            min="0"
+                                            max="6"
+                                            step="0.5"
+                                            value="0.5"
+                                            style="flex: 1"
+                                        >
+                                        <span
+                                            style="font-size: 12px; color: #666"
+                                        >長い</span>
+                                    </div>
+                                </div>
+
+                                <div class="setting-group">
+                                    <label for="voice-volume-slider"
+                                    >音量調整</label>
+                                    <div
+                                        style="display: flex; align-items: center; gap: 10px"
+                                    >
+                                        <span
+                                            style="font-size: 12px; color: #666"
+                                        >小</span>
+                                        <input
+                                            type="range"
+                                            id="voice-volume-slider"
+                                            min="0"
+                                            max="100"
+                                            step="5"
+                                            value="50"
+                                            style="flex: 1"
+                                        >
+                                        <span
+                                            style="font-size: 12px; color: #666"
+                                        >大</span>
+                                    </div>
+                                </div>
                             </div>
+                            <!-- 音声セクション終了 -->
 
-                            <div style="display: flex; gap: 10px;">
-                                <button id="test-cloud-api-btn" class="simple-btn" style="flex: 1;">接続テスト</button>
-                                <button id="save-cloud-api-btn" class="simple-btn" style="flex: 1;">保存</button>
-                            </div>
-
-                            <div id="cloud-api-status" style="margin-top: 10px; font-size: 12px; padding: 8px; border-radius: 4px; display: none;"></div>
-                        </div>
-
-                    </div>
-
-                    <div class="setting-group" id="custom-model-section" style="display: none;">
-                        <label>音声合成モデルを追加(Aivis Cloud API使用時)</label>
-                        <div style="margin-top: 8px;">
-                            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                                <input type="text" id="model-uuid-input" placeholder="モデルUUIDを入力" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 16px; font-weight: 600; color: var(--theme-primary);">
-                                <button id="add-model-btn" class="simple-btn" style="white-space: nowrap;">追加</button>
-                            </div>
-                            <div id="custom-model-status" style="font-size: 12px; padding: 8px; border-radius: 4px; display: none;"></div>
-                        </div>
-                    </div>
-
-                    <div class="setting-group">
-                        <label for="speaker-select-modal">話者選択</label>
-                        <select id="speaker-select-modal" class="speaker-select">
-                            <option value="0">話者を選択...</option>
-                        </select>
-                    </div>
-
-                    <div class="setting-group connection-status-group">
-                        <span id="connection-status-label">音声エンジン接続状況</span>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span id="connection-status-modal" style="flex: 1;">接続確認中...</span>
-                            <button id="refresh-connection-modal" class="simple-btn">再接続</button>
-                            <button id="test-local-engine-btn" class="simple-btn" style="min-width: 120px;">接続テスト</button>
-                        </div>
-                    </div>
-
-                    <div class="setting-group">
-                        <label for="voice-interval-slider">読み上げ間隔</label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 12px; color: #666;">短い</span>
-                            <input type="range" id="voice-interval-slider" min="0" max="6" step="0.5" value="0.5" style="flex: 1;">
-                            <span style="font-size: 12px; color: #666;">長い</span>
-                        </div>
-                    </div>
-
-                    <div class="setting-group">
-                        <label for="voice-volume-slider">音量調整</label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 12px; color: #666;">小</span>
-                            <input type="range" id="voice-volume-slider" min="0" max="100" step="5" value="50" style="flex: 1;">
-                            <span style="font-size: 12px; color: #666;">大</span>
-                        </div>
-                    </div>
-                        </div>
-                        <!-- 音声セクション終了 -->
-
-                        <!-- ======================================
+                            <!-- ======================================
                              VRM設定セクション
                              ====================================== -->
-                        <div id="settings-section-vrm" class="settings-section">
-                    <div class="setting-group">
-                        <label>VRMキャラクター設定</label>
-                        <div class="vrm-controls" style="display: flex; flex-direction: column; gap: 10px;">
-                            <button id="load-vrm-file-btn" class="simple-btn" style="width: 100%;">VRMファイルを読み込み</button>
-                            <button id="load-default-vrm-btn" class="simple-btn" style="width: 100%;">デフォルトキャラクター読み込み</button>
-                            <input type="file" id="vrm-file-input" accept=".vrm" style="display: none;">
-                            <div style="margin-top: 5px; padding: 8px 12px; background: var(--theme-bg-tertiary); border-radius: 4px; min-height: 20px;">
-                                <span id="current-vrm-info" style="font-size: 13px; color: var(--theme-text-primary); word-break: break-all;">現在のVRM: 読み込み中...</span>
+                            <div
+                                id="settings-section-vrm"
+                                class="settings-section"
+                            >
+                                <div class="setting-group">
+                                    <label>VRMキャラクター設定</label>
+                                    <div
+                                        class="vrm-controls"
+                                        style="display: flex; flex-direction: column; gap: 10px"
+                                    >
+                                        <button
+                                            id="load-vrm-file-btn"
+                                            class="simple-btn"
+                                            style="width: 100%"
+                                        >
+                                            VRMファイルを読み込み
+                                        </button>
+                                        <button
+                                            id="load-default-vrm-btn"
+                                            class="simple-btn"
+                                            style="width: 100%"
+                                        >
+                                            デフォルトキャラクター読み込み
+                                        </button>
+                                        <input
+                                            type="file"
+                                            id="vrm-file-input"
+                                            accept=".vrm"
+                                            style="display: none"
+                                        >
+                                        <div
+                                            style="margin-top: 5px; padding: 8px 12px; background: var(--theme-bg-tertiary); border-radius: 4px; min-height: 20px"
+                                        >
+                                            <span
+                                                id="current-vrm-info"
+                                                style="font-size: 13px; color: var(--theme-text-primary); word-break: break-all"
+                                            >現在のVRM: 読み込み中...</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                        </div>
-                        <!-- VRM設定セクション終了 -->
+                            <!-- VRM設定セクション終了 -->
 
-                        <!-- ======================================
+                            <!-- ======================================
                              テーマセクション
                              ====================================== -->
-                        <div id="settings-section-theme" class="settings-section">
-                    <!-- テーマ設定セクション -->
-                    <div class="setting-group">
-                        <label>テーマ設定</label>
-                        <div class="theme-controls" style="display: flex; flex-direction: column; gap: 15px; margin-top: 10px;">
-                            <div class="theme-selection-container">
-                                <div class="theme-options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 10px;">
-                                    <div class="theme-option" data-theme="orange">
-                                        <div class="theme-preview" style="background: linear-gradient(135deg, #FF8C42, #FF6B35); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative;">
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="pink">
-                                        <div class="theme-preview" style="background: linear-gradient(135deg, #FF8FAD, #FF7A9A); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative;">
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="blue">
-                                        <div class="theme-preview" style="background: linear-gradient(135deg, #7AB8FF, #66AAFF); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative;">
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="green">
-                                        <div class="theme-preview" style="background: linear-gradient(135deg, #7AC87A, #66BB66); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative;">
-                                        </div>
-                                    </div>
-                                    <div class="theme-option" data-theme="purple">
-                                        <div class="theme-preview" style="background: linear-gradient(135deg, #B882D1, #A966C7); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative;">
+                            <div
+                                id="settings-section-theme"
+                                class="settings-section"
+                            >
+                                <!-- テーマ設定セクション -->
+                                <div class="setting-group">
+                                    <label>テーマ設定</label>
+                                    <div
+                                        class="theme-controls"
+                                        style="display: flex; flex-direction: column; gap: 15px; margin-top: 10px"
+                                    >
+                                        <div class="theme-selection-container">
+                                            <div
+                                                class="theme-options"
+                                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 10px"
+                                            >
+                                                <div
+                                                    class="theme-option"
+                                                    data-theme="orange"
+                                                >
+                                                    <div
+                                                        class="theme-preview"
+                                                        style="background: linear-gradient(135deg, #ff8c42, #ff6b35); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative"
+                                                    >
+                                                    </div>
+                                                </div>
+                                                <div
+                                                    class="theme-option"
+                                                    data-theme="pink"
+                                                >
+                                                    <div
+                                                        class="theme-preview"
+                                                        style="background: linear-gradient(135deg, #ff8fad, #ff7a9a); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative"
+                                                    >
+                                                    </div>
+                                                </div>
+                                                <div
+                                                    class="theme-option"
+                                                    data-theme="blue"
+                                                >
+                                                    <div
+                                                        class="theme-preview"
+                                                        style="background: linear-gradient(135deg, #7ab8ff, #66aaff); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative"
+                                                    >
+                                                    </div>
+                                                </div>
+                                                <div
+                                                    class="theme-option"
+                                                    data-theme="green"
+                                                >
+                                                    <div
+                                                        class="theme-preview"
+                                                        style="background: linear-gradient(135deg, #7ac87a, #66bb66); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative"
+                                                    >
+                                                    </div>
+                                                </div>
+                                                <div
+                                                    class="theme-option"
+                                                    data-theme="purple"
+                                                >
+                                                    <div
+                                                        class="theme-preview"
+                                                        style="background: linear-gradient(135deg, #b882d1, #a966c7); border: 2px solid transparent; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; position: relative"
+                                                    >
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 壁紙設定セクション -->
-                    <div class="setting-group">
-                        <label>壁紙設定</label>
-                        <div class="wallpaper-controls" style="display: flex; flex-direction: column; gap: 10px;">
-                            <label class="radio-label">
-                                <input type="radio" name="wallpaper-option" id="wallpaper-default-radio" value="default">
-                                <span>デフォルト壁紙を使用する</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="wallpaper-option" id="wallpaper-uploaded-radio" value="uploaded">
-                                <span>アップロードした壁紙を使用する</span>
-                            </label>
-                            <input type="file" id="wallpaper-upload" accept="image/*" style="display: none;">
-                            <button id="upload-wallpaper-btn" class="simple-btn" style="width: auto;">壁紙をアップロード</button>
-                            <!-- アップロードした壁紙の名前を表示する要素を追加 -->
-                            <span id="uploaded-wallpaper-name" style="font-size: 13px; color: #555; word-break: break-all; min-height: 20px;"></span>
-                        </div>
-                    </div>
-                        </div>
-                        <!-- テーマセクション終了 -->
 
-                        <!-- ======================================
+                                <!-- 壁紙設定セクション -->
+                                <div class="setting-group">
+                                    <label>壁紙設定</label>
+                                    <div
+                                        class="wallpaper-controls"
+                                        style="display: flex; flex-direction: column; gap: 10px"
+                                    >
+                                        <label class="radio-label">
+                                            <input
+                                                type="radio"
+                                                name="wallpaper-option"
+                                                id="wallpaper-default-radio"
+                                                value="default"
+                                            >
+                                            <span
+                                            >デフォルト壁紙を使用する</span>
+                                        </label>
+                                        <label class="radio-label">
+                                            <input
+                                                type="radio"
+                                                name="wallpaper-option"
+                                                id="wallpaper-uploaded-radio"
+                                                value="uploaded"
+                                            >
+                                            <span
+                                            >アップロードした壁紙を使用する</span>
+                                        </label>
+                                        <input
+                                            type="file"
+                                            id="wallpaper-upload"
+                                            accept="image/*"
+                                            style="display: none"
+                                        >
+                                        <button
+                                            id="upload-wallpaper-btn"
+                                            class="simple-btn"
+                                            style="width: auto"
+                                        >
+                                            壁紙をアップロード
+                                        </button>
+                                        <!-- アップロードした壁紙の名前を表示する要素を追加 -->
+                                        <span
+                                            id="uploaded-wallpaper-name"
+                                            style="font-size: 13px; color: #555; word-break: break-all; min-height: 20px"
+                                        ></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- テーマセクション終了 -->
+
+                            <!-- ======================================
                              その他セクション
                              ====================================== -->
-                        <div id="settings-section-other" class="settings-section">
-                    <!-- アプリについて -->
-                    <div class="setting-group">
-                        <label>アプリについて</label>
-                        <div style="font-size: 13px; color: var(--theme-primary); margin-top: 5px; font-weight: 500;">
-                            バージョン: 開発版（ベータ）
-                        </div>
-                    </div>
+                            <div
+                                id="settings-section-other"
+                                class="settings-section"
+                            >
+                                <!-- アプリについて -->
+                                <div class="setting-group">
+                                    <label>アプリについて</label>
+                                    <div
+                                        style="font-size: 13px; color: var(--theme-primary); margin-top: 5px; font-weight: 500"
+                                    >
+                                        バージョン: 開発版（ベータ）
+                                    </div>
+                                </div>
 
-                    <!-- リンク集 -->
-                    <div class="setting-group">
-                        <label>関連情報</label>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <a href="#" id="show-license-link" style="color: var(--theme-primary); text-decoration: none; font-size: 14px; padding: 8px 0;">ライセンス情報</a>
-                            <a href="#" id="show-privacy-link" style="color: var(--theme-primary); text-decoration: none; font-size: 14px; padding: 8px 0;">プライバシーポリシー</a>
-                            <a href="#" id="show-terms-link" style="color: var(--theme-primary); text-decoration: none; font-size: 14px; padding: 8px 0;">利用規約</a>
-                            <a href="#" id="show-updates-link" style="color: var(--theme-primary); text-decoration: none; font-size: 14px; padding: 8px 0;">アップデート情報</a>
+                                <!-- リンク集 -->
+                                <div class="setting-group">
+                                    <label>関連情報</label>
+                                    <div
+                                        style="display: flex; flex-direction: column; gap: 8px"
+                                    >
+                                        <a
+                                            href="#"
+                                            id="show-license-link"
+                                            style="color: var(--theme-primary); text-decoration: none; font-size: 14px; padding: 8px 0"
+                                        >ライセンス情報</a>
+                                        <a
+                                            href="#"
+                                            id="show-privacy-link"
+                                            style="color: var(--theme-primary); text-decoration: none; font-size: 14px; padding: 8px 0"
+                                        >プライバシーポリシー</a>
+                                        <a
+                                            href="#"
+                                            id="show-terms-link"
+                                            style="color: var(--theme-primary); text-decoration: none; font-size: 14px; padding: 8px 0"
+                                        >利用規約</a>
+                                        <a
+                                            href="#"
+                                            id="show-updates-link"
+                                            style="color: var(--theme-primary); text-decoration: none; font-size: 14px; padding: 8px 0"
+                                        >アップデート情報</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- その他セクション終了 -->
                         </div>
+                        <!-- settings-content-main終了 -->
                     </div>
-                        </div>
-                        <!-- その他セクション終了 -->
-
-                    </div>
-                    <!-- settings-content-main終了 -->
+                    <!-- settings-main-container終了 -->
                 </div>
-                <!-- settings-main-container終了 -->
+                <!-- settings-content-with-sidebar終了 -->
             </div>
-            <!-- settings-content-with-sidebar終了 -->
-        </div>
-        <!-- settings-modal終了 -->
+            <!-- settings-modal終了 -->
 
-        <!-- ヘルプ・使い方ガイド -->
-        <div id="help-modal" class="help-modal" style="display: none;">
-            <div class="help-content-sidebar">
-                <div class="help-header">
-                    <h3>使い方ガイド</h3>
-                    <button id="close-help" class="close-btn">×</button>
-                </div>
-                <div class="help-main-container">
-                    <!-- サイドバー -->
-                    <div class="help-sidebar">
-                        <nav class="help-nav">
-                            <a href="#" class="help-nav-item active" data-section="quickstart">
-                                クイックスタート
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="voice">
-                                音声機能
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="character">
-                                VRMキャラクター
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="claude">
-                                AIアシスタント機能
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="customize">
-                                カスタマイズ
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="controls">
-                                操作ボタン
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="contact">
-                                お問い合わせ
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="license">
-                                ライセンス
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="privacy">
-                                プライバシーポリシー
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="terms">
-                                利用規約
-                            </a>
-                            <a href="#" class="help-nav-item" data-section="updates">
-                                アップデート情報
-                            </a>
-                        </nav>
+            <!-- ヘルプ・使い方ガイド -->
+            <div id="help-modal" class="help-modal" style="display: none">
+                <div class="help-content-sidebar">
+                    <div class="help-header">
+                        <h3>使い方ガイド</h3>
+                        <button id="close-help" class="close-btn">×</button>
                     </div>
-                    
-                    <!-- メインコンテンツ -->
-                    <div class="help-content-main">
-                        <!-- クイックスタート -->
-                        <div id="help-section-quickstart" class="help-section active">
-                            <h2>クイックスタート</h2>
+                    <div class="help-main-container">
+                        <!-- サイドバー -->
+                        <div class="help-sidebar">
+                            <nav class="help-nav">
+                                <a
+                                    href="#"
+                                    class="help-nav-item active"
+                                    data-section="quickstart"
+                                >
+                                    クイックスタート
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="voice"
+                                >
+                                    音声機能
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="character"
+                                >
+                                    VRMキャラクター
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="claude"
+                                >
+                                    AIアシスタント機能
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="customize"
+                                >
+                                    カスタマイズ
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="controls"
+                                >
+                                    操作ボタン
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="contact"
+                                >
+                                    お問い合わせ
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="license"
+                                >
+                                    ライセンス
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="privacy"
+                                >
+                                    プライバシーポリシー
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="terms"
+                                >
+                                    利用規約
+                                </a>
+                                <a
+                                    href="#"
+                                    class="help-nav-item"
+                                    data-section="updates"
+                                >
+                                    アップデート情報
+                                </a>
+                            </nav>
+                        </div>
+
+                        <!-- メインコンテンツ -->
+                        <div class="help-content-main">
+                            <!-- クイックスタート -->
+                            <div
+                                id="help-section-quickstart"
+                                class="help-section active"
+                            >
+                                <h2>クイックスタート</h2>
+                                <div class="help-item">
+                                    <h3>使い方ガイド</h3>
+                                    <p>
+                                        KawAIi Codeの詳しい使い方については、<a
+                                            href="https://kawaii-code.vercel.app/news/3"
+                                            target="_blank"
+                                            style="color: var(--theme-primary); font-weight: bold"
+                                        >公式使い方ガイド</a>をご覧ください。初期設定から便利な機能まで、わかりやすく解説しています。
+                                    </p>
+                                </div>
+                                <div class="help-item">
+                                    <h3>最初の会話</h3>
+                                    <ol>
+                                        <li>
+                                            ターミナル画面でコマンド（例:
+                                            `claude`）を入力して対話開始
+                                        </li>
+                                        <li>
+                                            右側の3Dキャラクター（モネ）がAIの返答に合わせて表情変化
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div class="help-item">
+                                    <h3>音声機能を有効にする（オプション）</h3>
+                                    <p>
+                                        音声機能を有効にすると、キャラクターが返答を読み上げます。感情に応じた自然な表情変化を楽しめます。
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- 音声機能 -->
+                            <div id="help-section-voice" class="help-section">
+                                <h2>音声機能</h2>
+                                <div class="help-item">
+                                    <h3>AivisSpeech Engine（ローカル）</h3>
+                                    <p>
+                                        <a
+                                            href="https://aivis-project.com/"
+                                            target="_blank"
+                                        >AivisSpeech公式サイト</a>からAivisSpeech
+                                        Engineをダウンロード・インストールしてください。<strong
+                                        >通常はアプリを起動するだけでOK</strong>です。Engine起動後（ポート:
+                                        127.0.0.1:10101）、KawAIi
+                                        Codeで音声機能が自動的に有効化されます。特別な設定は不要で、バックグラウンドで自動連携します。
+                                    </p>
+                                    <ul>
+                                        <li>
+                                            設定画面 →
+                                            音声エンジン選択で「ローカル（AivisSpeech）」を選択
+                                        </li>
+                                        <li>
+                                            話者一覧が読み込まれたら「テスト再生」で接続確認
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="help-item">
+                                    <h3>VOICEVOX（ローカル）</h3>
+                                    <p>
+                                        <a
+                                            href="https://voicevox.hiroshiba.jp/"
+                                            target="_blank"
+                                        >VOICEVOX公式サイト</a>からVOICEVOXをダウンロード・インストールしてください。<strong
+                                        >通常はアプリを起動するだけでOK</strong>です。VOICEVOX起動後（ポート:
+                                        127.0.0.1:50021）、KawAIi
+                                        Codeで音声機能が自動的に有効化されます。特別な設定は不要で、バックグラウンドで自動連携します。
+                                    </p>
+                                    <ul>
+                                        <li>
+                                            設定画面 →
+                                            音声エンジン選択で「VOICEVOX」を選択
+                                        </li>
+                                        <li>
+                                            必要に応じてVOICEVOXエンドポイントを編集（既定:
+                                            http://127.0.0.1:50021）
+                                        </li>
+                                        <li>
+                                            話者一覧が読み込まれたら「テスト再生」で接続確認
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="help-item">
+                                    <h3>Aivis Cloud API（クラウド）</h3>
+                                    <p>
+                                        設定画面から「クラウドAPI使用」を有効化し、Aivis
+                                        Cloud
+                                        APIキーを設定してください。インターネット経由で高品質な音声合成を利用できます。ローカルソフト不要でシステムリソース使用量が少ないのが利点です。
+                                    </p>
+                                    <h4>⚠️ 音声合成モデルの設定が必要</h4>
+                                    <p>
+                                        <strong
+                                        >音声機能を使用するには、音声合成モデルの設定が必要です。</strong>デフォルトの音声モデルは含まれていないため、以下の手順で設定してください：
+                                    </p>
+                                    <ol>
+                                        <li>
+                                            <a
+                                                href="https://hub.aivis-project.com/"
+                                                target="_blank"
+                                            >AivisHub</a>からお好みの音声モデルを探します
+                                        </li>
+                                        <li>
+                                            モデルページでUUIDをコピーします
+                                        </li>
+                                        <li>
+                                            設定画面の「音声合成モデルを追加」でUUIDを入力
+                                        </li>
+                                        <li>
+                                            「追加」ボタンをクリックして話者選択に追加
+                                        </li>
+                                        <li>
+                                            話者選択ドロップダウンから使用したいモデルを選択
+                                        </li>
+                                    </ol>
+                                    <p>
+                                        モデルが設定されていない場合、音声合成は動作せず、エラーメッセージが表示されます。
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- VRMキャラクター -->
+                            <div
+                                id="help-section-character"
+                                class="help-section"
+                            >
+                                <h2>VRMキャラクター</h2>
+                                <div class="help-item">
+                                    <h3>デフォルトキャラクター</h3>
+                                    <p>
+                                        モネは照れ屋で優しいプログラミングアシスタントです。AI応答の感情に合わせて表情が自動変更され、待機中も自然な動作をします。
+                                    </p>
+                                </div>
+                                <div class="help-item">
+                                    <h3>カスタムキャラクター</h3>
+                                    <p>
+                                        右上の設定ボタンをクリックし、「VRMファイルを選択」からお好みの.vrmファイルを選択できます。VRM
+                                        0.x（フル対応）、VRM
+                                        1.0（基本対応）に対応しており、ファイルサイズは50MB以下を推奨しています。
+                                    </p>
+                                </div>
+                                <div class="help-item">
+                                    <h3>表情・動作機能</h3>
+                                    <table class="help-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="help-th">
+                                                    AI応答内容
+                                                </th>
+                                                <th class="help-th">
+                                                    表情変化
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>成功・完了</td>
+                                                <td>喜び</td>
+                                            </tr>
+                                            <tr>
+                                                <td>エラー・失敗</td>
+                                                <td>困った表情</td>
+                                            </tr>
+                                            <tr>
+                                                <td>説明・解説</td>
+                                                <td>真剣な表情</td>
+                                            </tr>
+                                            <tr>
+                                                <td>褒められた時</td>
+                                                <td>照れ</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <p>
+                                        音声連動機能により、LipSync（音声再生時の口の動き）と自然な表情変化が実現されています。
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- AIアシスタント機能 -->
+                            <div id="help-section-claude" class="help-section">
+                                <h2>AIアシスタント機能</h2>
+                                <div class="help-item">
+                                    <h3>Claude Code</h3>
+                                    <p>
+                                        Anthropic社のClaude Code
+                                        CLIツールを使用します。一般的なプログラミング支援、コードレビューに使用でき、安全性重視で権限チェックありのため、通常の開発作業全般に推奨されます。
+                                    </p>
+                                </div>
+                                <div class="help-item">
+                                    <h3>Claude Code (Dangerous)</h3>
+                                    <p>
+                                        Claude
+                                        Codeの上級者向けモードです。システム設定変更、高度な操作に使用します。権限チェックをスキップしてより自由度が高い操作が可能ですが、慎重に使用してください。
+                                    </p>
+                                </div>
+                                <div class="help-item">
+                                    <h3>Gemini CLI</h3>
+                                    <p>
+                                        Google社のGemini
+                                        CLIツールを使用します。プログラミング支援や質問応答など、幅広いタスクに対応できます。
+                                    </p>
+                                </div>
+                                <div class="help-item">
+                                    <h3>OpenAI Codex</h3>
+                                    <p>
+                                        OpenAI社のCodex
+                                        CLIツールを使用します。自然言語でコードを生成・編集でき、マルチモーダル入力（テキスト、スクリーンショット、図）に対応しています。
+                                    </p>
+                                </div>
+                                <div class="help-item">
+                                    <h3>マークダウン設定（手動）</h3>
+                                    <p>
+                                        各AIアシスタントにモネの魂を吹き込むため、作業ディレクトリにMDファイルを生成する必要があります。このファイルがないと音声読み上げ機能（◆◇で囲まれた部分の読み上げ）が正常に動作しません。
+                                    </p>
+                                    <p>
+                                        キャラクター設定は自由に変更できますが、このアプリはモネを想定して作られているため（表情連動など）、他のキャラクター設定では一部機能が正常に動作しない可能性があります。
+                                    </p>
+                                    <p>
+                                        設定画面の「マークダウン設定」から各ファイルの内容を編集し、「生成」ボタンで作業ディレクトリに作成できます。
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- カスタマイズ -->
+                            <div
+                                id="help-section-customize"
+                                class="help-section"
+                            >
+                                <h2>カスタマイズ</h2>
+                                <div class="help-item">
+                                    <h3>壁紙システム</h3>
+                                    <p>
+                                        設定画面から「壁紙アップロード」でカスタム壁紙を設定できます。JPG、PNGに対応しており、ファイルサイズは5MB以下、推奨解像度は1920x1080以上です。
+                                    </p>
+                                </div>
+                                <div class="help-item">
+                                    <h3>ターミナル設定</h3>
+                                    <p>
+                                        最大10個のターミナルを同時実行できるタブ機能があります。眼のアイコンで表示/非表示を切り替えできます。
+                                    </p>
+                                </div>
+                                <div class="help-item">
+                                    <h3>プロジェクト設定</h3>
+                                    <p>
+                                        プロジェクトごとに異なる作業ディレクトリを設定できます。MDファイルは設定画面で内容を編集し手動で生成、キャラクター設定もプロジェクト別に割り当て可能です。
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- 操作ボタン -->
+                            <div
+                                id="help-section-controls"
+                                class="help-section"
+                            >
+                                <h2>操作ボタン</h2>
+                                <div class="help-item">
+                                    <table class="help-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="help-th">ボタン</th>
+                                                <th class="help-th">機能</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <strong>開始ボタン</strong>
+                                                </td>
+                                                <td>AIアシスタントを起動</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <strong>停止ボタン</strong>
+                                                </td>
+                                                <td>AIアシスタントを停止</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <strong
+                                                    >表示切り替え</strong>
+                                                </td>
+                                                <td>ターミナル表示/非表示</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <strong>設定ボタン</strong>
+                                                </td>
+                                                <td>
+                                                    音声・VRM・壁紙・ディレクトリ・MDファイル設定
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <strong
+                                                    >ヘルプボタン</strong>
+                                                </td>
+                                                <td>この使い方ガイドを表示</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- お問い合わせ -->
+                            <div id="help-section-contact" class="help-section">
+                                <h2>お問い合わせ</h2>
+                                <div class="help-item">
+                                    <h3>お問い合わせフォーム（推奨）</h3>
+                                    <p>
+                                        バグ報告、機能要望、質問、感想など、何でもお気軽にお送りください。匿名でもご利用いただけます。
+                                    </p>
+                                    <div style="margin: 10px 0">
+                                        <a
+                                            href="https://forms.gle/PCZr9xtdoBunLh3Q8"
+                                            target="_blank"
+                                            style="color: var(--theme-primary); text-decoration: none; font-weight: 500; font-size: 16px"
+                                        >
+                                            お問い合わせフォーム
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="help-item">
+                                    <h3>その他の連絡方法</h3>
+                                    <p>
+                                        開発者への直接連絡や技術的なディスカッションをお望みの場合は、以下もご利用いただけます。
+                                    </p>
+                                    <div style="margin: 10px 0">
+                                        <a
+                                            href="https://x.com/nao_u7589422"
+                                            target="_blank"
+                                            style="color: var(--theme-primary); text-decoration: none; font-weight: 500"
+                                        >
+                                            X (Twitter) @nao_u7589422
+                                        </a>
+                                    </div>
+                                    <div style="margin: 10px 0">
+                                        <a
+                                            href="https://github.com/naolab/KawAIi-Code/issues"
+                                            target="_blank"
+                                            style="color: var(--theme-primary); text-decoration: none; font-weight: 500"
+                                        >
+                                            GitHub Issues
+                                        </a>
+                                    </div>
+                                    <div style="margin: 10px 0">
+                                        <a
+                                            href="https://github.com/naolab/KawAIi-Code/discussions"
+                                            target="_blank"
+                                            style="color: var(--theme-primary); text-decoration: none; font-weight: 500"
+                                        >
+                                            GitHub Discussions
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="help-item">
+                                    <h3>プロジェクト情報</h3>
+                                    <p>
+                                        プロジェクトの最新情報やソースコードは、GitHubリポジトリでご確認いただけます。
+                                    </p>
+                                    <div style="margin: 10px 0">
+                                        <a
+                                            href="https://github.com/naolab/KawAIi-Code"
+                                            target="_blank"
+                                            style="color: var(--theme-primary); text-decoration: none; font-weight: 500"
+                                        >
+                                            GitHub リポジトリ
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ライセンス -->
+                            <div id="help-section-license" class="help-section">
+                                <h2>ライセンス</h2>
+                                <div class="help-item">
+                                    <div
+                                        id="license-content"
+                                        style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20)"
+                                    >
+                                        <div
+                                            style="text-align: center; color: #666"
+                                        >
+                                            読み込み中...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- プライバシーポリシー -->
+                            <div id="help-section-privacy" class="help-section">
+                                <h2>プライバシーポリシー</h2>
+                                <div class="help-item">
+                                    <div
+                                        id="privacy-content"
+                                        style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20)"
+                                    >
+                                        <div
+                                            style="text-align: center; color: #666"
+                                        >
+                                            読み込み中...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 利用規約 -->
+                            <div id="help-section-terms" class="help-section">
+                                <h2>利用規約</h2>
+                                <div class="help-item">
+                                    <div
+                                        id="terms-content"
+                                        style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20)"
+                                    >
+                                        <div
+                                            style="text-align: center; color: #666"
+                                        >
+                                            読み込み中...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- アップデート情報 -->
+                            <div id="help-section-updates" class="help-section">
+                                <h2>アップデート情報</h2>
+                                <div class="help-item">
+                                    <div
+                                        style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20)"
+                                    >
+                                        <h3 style="margin-top: 0; color: #333">
+                                            現在のバージョン
+                                        </h3>
+                                        <p
+                                            style="font-size: 16px; font-weight: 600; color: var(--theme-primary); margin: 10px 0"
+                                        >
+                                            開発版（ベータ）
+                                        </p>
+                                        <p style="color: #666; margin: 0">
+                                            最新の機能と改善が含まれています。
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Claude Code Hooksモードガイド -->
+            <div
+                id="hooks-guide-modal"
+                class="help-modal"
+                style="display: none"
+            >
+                <div class="help-content">
+                    <div class="help-header">
+                        <h3>Claude Code Hooksモードについて</h3>
+                        <button id="close-hooks-guide" class="close-btn">
+                            ×
+                        </button>
+                    </div>
+                    <div class="help-body">
+                        <div class="help-section">
+                            <h4>🔧 Claude Code Hooksモードとは</h4>
                             <div class="help-item">
-                                <h3>使い方ガイド</h3>
-                                <p>KawAIi Codeの詳しい使い方については、<a href="https://kawaii-code.vercel.app/news/3" target="_blank" style="color: var(--theme-primary); font-weight: bold;">公式使い方ガイド</a>をご覧ください。初期設定から便利な機能まで、わかりやすく解説しています。</p>
+                                <span class="help-icon">📡</span>
+                                <strong>グローバル監視機能:</strong>
+                                このアプリ以外のターミナルやエディターでClaude
+                                Codeを使用した際も、音声読み上げとVRM表情連動が働きます。
                             </div>
                             <div class="help-item">
-                                <h3>最初のAI会話</h3>
-                                <ol>
-                                    <li><strong>開始ボタン</strong>（右向き三角形）をクリック</li>
-                                    <li>ターミナル画面でClaude Codeと対話開始</li>
-                                    <li>右側の3Dキャラクター（モネ）がAIの返答に合わせて表情変化</li>
-                                </ol>
+                                <span class="help-icon">🎭</span>
+                                <strong>高度な感情分析:</strong>
+                                より詳細な感情分析により、キャラクターの表情がより自然で豊かに変化します。
                             </div>
                             <div class="help-item">
-                                <h3>音声機能を有効にする（オプション）</h3>
-                                <p>音声機能を有効にすると、キャラクターが返答を読み上げます。感情に応じた自然な表情変化を楽しめます。</p>
+                                <span class="help-icon">🌐</span>
+                                <strong>システム全体対応:</strong> どこでClaude
+                                Codeを起動しても、このアプリが連動して動作します。
                             </div>
                         </div>
 
-                        <!-- 音声機能 -->
-                        <div id="help-section-voice" class="help-section">
-                            <h2>音声機能</h2>
+                        <div class="help-section">
+                            <h4>📱 アプリ内のみモード vs 🔧 Hooksモード</h4>
                             <div class="help-item">
-                                <h3>AivisSpeech Engine（ローカル）</h3>
-                                <p><a href="https://aivis-project.com/" target="_blank">AivisSpeech公式サイト</a>からAivisSpeech Engineをダウンロード・インストールしてください。<strong>通常はアプリを起動するだけでOK</strong>です。Engine起動後（ポート: 127.0.0.1:10101）、KawAIi Codeで音声機能が自動的に有効化されます。特別な設定は不要で、バックグラウンドで自動連携します。</p>
+                                <span class="help-icon">📱</span>
+                                <strong>アプリ内のみ（OFF）:</strong>
                                 <ul>
-                                    <li>設定画面 → 音声エンジン選択で「ローカル（AivisSpeech）」を選択</li>
-                                    <li>話者一覧が読み込まれたら「テスト再生」で接続確認</li>
+                                    <li>このアプリのターミナルでのみ動作</li>
+                                    <li>他のターミナルには影響しない</li>
+                                    <li>より安定した動作</li>
+                                    <li>リソース使用量が少ない</li>
                                 </ul>
                             </div>
                             <div class="help-item">
-                                <h3>VOICEVOX（ローカル）</h3>
-                                <p><a href="https://voicevox.hiroshiba.jp/" target="_blank">VOICEVOX公式サイト</a>からVOICEVOXをダウンロード・インストールしてください。<strong>通常はアプリを起動するだけでOK</strong>です。VOICEVOX起動後（ポート: 127.0.0.1:50021）、KawAIi Codeで音声機能が自動的に有効化されます。特別な設定は不要で、バックグラウンドで自動連携します。</p>
+                                <span class="help-icon">🔧</span>
+                                <strong>Hooksモード（ON）:</strong>
                                 <ul>
-                                    <li>設定画面 → 音声エンジン選択で「VOICEVOX」を選択</li>
-                                    <li>必要に応じてVOICEVOXエンドポイントを編集（既定: http://127.0.0.1:50021）</li>
-                                    <li>話者一覧が読み込まれたら「テスト再生」で接続確認</li>
+                                    <li>システム全体のClaude Code活動を監視</li>
+                                    <li>外部ターミナルでも音声・表情連動</li>
+                                    <li>より豊かな感情表現</li>
+                                    <li>複数ターミナルで同時音声の可能性</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="help-section">
+                            <h4>💡 使い分けの目安</h4>
+                            <div class="help-item">
+                                <span class="help-icon">🎯</span>
+                                <strong>アプリ内のみがおすすめ:</strong>
+                                <ul>
+                                    <li>このアプリだけでClaude Codeを使用</li>
+                                    <li>安定した動作を重視</li>
+                                    <li>
+                                        他のアプリケーションに影響を与えたくない
+                                    </li>
                                 </ul>
                             </div>
                             <div class="help-item">
-                                <h3>Aivis Cloud API（クラウド）</h3>
-                                <p>設定画面から「クラウドAPI使用」を有効化し、Aivis Cloud APIキーを設定してください。インターネット経由で高品質な音声合成を利用できます。ローカルソフト不要でシステムリソース使用量が少ないのが利点です。</p>
-                                <h4>⚠️ 音声合成モデルの設定が必要</h4>
-                                <p><strong>音声機能を使用するには、音声合成モデルの設定が必要です。</strong>デフォルトの音声モデルは含まれていないため、以下の手順で設定してください：</p>
-                                <ol>
-                                    <li><a href="https://hub.aivis-project.com/" target="_blank">AivisHub</a>からお好みの音声モデルを探します</li>
-                                    <li>モデルページでUUIDをコピーします</li>
-                                    <li>設定画面の「音声合成モデルを追加」でUUIDを入力</li>
-                                    <li>「追加」ボタンをクリックして話者選択に追加</li>
-                                    <li>話者選択ドロップダウンから使用したいモデルを選択</li>
-                                </ol>
-                                <p>モデルが設定されていない場合、音声合成は動作せず、エラーメッセージが表示されます。</p>
+                                <span class="help-icon">⚡</span>
+                                <strong>Hooksモードがおすすめ:</strong>
+                                <ul>
+                                    <li>
+                                        VSCode、Vim、別ターミナルでもClaude
+                                        Codeを使用
+                                    </li>
+                                    <li>どこでも音声・表情連動が欲しい</li>
+                                    <li>
+                                        より豊かなキャラクター表現を楽しみたい
+                                    </li>
+                                </ul>
                             </div>
                         </div>
 
-                        <!-- VRMキャラクター -->
-                        <div id="help-section-character" class="help-section">
-                            <h2>VRMキャラクター</h2>
+                        <div class="help-section">
+                            <h4>⚠️ 注意事項</h4>
                             <div class="help-item">
-                                <h3>デフォルトキャラクター</h3>
-                                <p>モネは照れ屋で優しいプログラミングアシスタントです。AI応答の感情に合わせて表情が自動変更され、待機中も自然な動作をします。</p>
+                                <span class="help-icon">🔄</span>
+                                <strong>同時実行:</strong>
+                                複数のターミナルで同時にClaude
+                                Codeを使用すると、音声が重複する場合があります。
                             </div>
                             <div class="help-item">
-                                <h3>カスタムキャラクター</h3>
-                                <p>右上の設定ボタンをクリックし、「VRMファイルを選択」からお好みの.vrmファイルを選択できます。VRM 0.x（フル対応）、VRM 1.0（基本対応）に対応しており、ファイルサイズは50MB以下を推奨しています。</p>
+                                <span class="help-icon">💻</span>
+                                <strong>リソース:</strong>
+                                Hooksモードは常時監視のため、わずかにCPU使用量が増加します。
                             </div>
                             <div class="help-item">
-                                <h3>表情・動作機能</h3>
-                                <table class="help-table">
-                                    <thead>
-                                        <tr><th class="help-th">AI応答内容</th><th class="help-th">表情変化</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr><td>成功・完了</td><td>喜び</td></tr>
-                                        <tr><td>エラー・失敗</td><td>困った表情</td></tr>
-                                        <tr><td>説明・解説</td><td>真剣な表情</td></tr>
-                                        <tr><td>褒められた時</td><td>照れ</td></tr>
-                                    </tbody>
-                                </table>
-                                <p>音声連動機能により、LipSync（音声再生時の口の動き）と自然な表情変化が実現されています。</p>
-                            </div>
-                        </div>
-
-                        <!-- AIアシスタント機能 -->
-                        <div id="help-section-claude" class="help-section">
-                            <h2>AIアシスタント機能</h2>
-                            <div class="help-item">
-                                <h3>Claude Code</h3>
-                                <p>Anthropic社のClaude Code CLIツールを使用します。一般的なプログラミング支援、コードレビューに使用でき、安全性重視で権限チェックありのため、通常の開発作業全般に推奨されます。</p>
-                            </div>
-                            <div class="help-item">
-                                <h3>Claude Code (Dangerous)</h3>
-                                <p>Claude Codeの上級者向けモードです。システム設定変更、高度な操作に使用します。権限チェックをスキップしてより自由度が高い操作が可能ですが、慎重に使用してください。</p>
-                            </div>
-                            <div class="help-item">
-                                <h3>Gemini CLI</h3>
-                                <p>Google社のGemini CLIツールを使用します。プログラミング支援や質問応答など、幅広いタスクに対応できます。</p>
-                            </div>
-                            <div class="help-item">
-                                <h3>OpenAI Codex</h3>
-                                <p>OpenAI社のCodex CLIツールを使用します。自然言語でコードを生成・編集でき、マルチモーダル入力（テキスト、スクリーンショット、図）に対応しています。</p>
-                            </div>
-                            <div class="help-item">
-                                <h3>マークダウン設定（手動）</h3>
-                                <p>各AIアシスタントにモネの魂を吹き込むため、作業ディレクトリにMDファイルを生成する必要があります。このファイルがないと音声読み上げ機能（◆◇で囲まれた部分の読み上げ）が正常に動作しません。</p>
-                                <p>キャラクター設定は自由に変更できますが、このアプリはモネを想定して作られているため（表情連動など）、他のキャラクター設定では一部機能が正常に動作しない可能性があります。</p>
-                                <p>設定画面の「マークダウン設定」から各ファイルの内容を編集し、「生成」ボタンで作業ディレクトリに作成できます。</p>
-                            </div>
-                        </div>
-
-                        <!-- カスタマイズ -->
-                        <div id="help-section-customize" class="help-section">
-                            <h2>カスタマイズ</h2>
-                            <div class="help-item">
-                                <h3>壁紙システム</h3>
-                                <p>設定画面から「壁紙アップロード」でカスタム壁紙を設定できます。JPG、PNGに対応しており、ファイルサイズは5MB以下、推奨解像度は1920x1080以上です。</p>
-                            </div>
-                            <div class="help-item">
-                                <h3>ターミナル設定</h3>
-                                <p>最大10個のターミナルを同時実行できるタブ機能があります。眼のアイコンで表示/非表示を切り替えできます。</p>
-                            </div>
-                            <div class="help-item">
-                                <h3>プロジェクト設定</h3>
-                                <p>プロジェクトごとに異なる作業ディレクトリを設定できます。MDファイルは設定画面で内容を編集し手動で生成、キャラクター設定もプロジェクト別に割り当て可能です。</p>
-                            </div>
-                        </div>
-
-                        <!-- 操作ボタン -->
-                        <div id="help-section-controls" class="help-section">
-                            <h2>操作ボタン</h2>
-                            <div class="help-item">
-                                <table class="help-table">
-                                    <thead>
-                                        <tr><th class="help-th">ボタン</th><th class="help-th">機能</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr><td><strong>開始ボタン</strong></td><td>AIアシスタントを起動</td></tr>
-                                        <tr><td><strong>停止ボタン</strong></td><td>AIアシスタントを停止</td></tr>
-                                        <tr><td><strong>表示切り替え</strong></td><td>ターミナル表示/非表示</td></tr>
-                                        <tr><td><strong>設定ボタン</strong></td><td>音声・VRM・壁紙・ディレクトリ・MDファイル設定</td></tr>
-                                        <tr><td><strong>ヘルプボタン</strong></td><td>この使い方ガイドを表示</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- お問い合わせ -->
-                        <div id="help-section-contact" class="help-section">
-                            <h2>お問い合わせ</h2>
-                            <div class="help-item">
-                                <h3>お問い合わせフォーム（推奨）</h3>
-                                <p>バグ報告、機能要望、質問、感想など、何でもお気軽にお送りください。匿名でもご利用いただけます。</p>
-                                <div style="margin: 10px 0;">
-                                    <a href="https://forms.gle/PCZr9xtdoBunLh3Q8" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500; font-size: 16px;">
-                                        お問い合わせフォーム
-                                    </a>
-                                </div>
-                            </div>
-                            <div class="help-item">
-                                <h3>その他の連絡方法</h3>
-                                <p>開発者への直接連絡や技術的なディスカッションをお望みの場合は、以下もご利用いただけます。</p>
-                                <div style="margin: 10px 0;">
-                                    <a href="https://x.com/nao_u7589422" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500;">
-                                        X (Twitter) @nao_u7589422
-                                    </a>
-                                </div>
-                                <div style="margin: 10px 0;">
-                                    <a href="https://github.com/naolab/KawAIi-Code/issues" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500;">
-                                        GitHub Issues
-                                    </a>
-                                </div>
-                                <div style="margin: 10px 0;">
-                                    <a href="https://github.com/naolab/KawAIi-Code/discussions" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500;">
-                                        GitHub Discussions
-                                    </a>
-                                </div>
-                            </div>
-                            <div class="help-item">
-                                <h3>プロジェクト情報</h3>
-                                <p>プロジェクトの最新情報やソースコードは、GitHubリポジトリでご確認いただけます。</p>
-                                <div style="margin: 10px 0;">
-                                    <a href="https://github.com/naolab/KawAIi-Code" target="_blank" style="color: var(--theme-primary); text-decoration: none; font-weight: 500;">
-                                        GitHub リポジトリ
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- ライセンス -->
-                        <div id="help-section-license" class="help-section">
-                            <h2>ライセンス</h2>
-                            <div class="help-item">
-                                <div id="license-content" style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20);">
-                                    <div style="text-align: center; color: #666;">読み込み中...</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- プライバシーポリシー -->
-                        <div id="help-section-privacy" class="help-section">
-                            <h2>プライバシーポリシー</h2>
-                            <div class="help-item">
-                                <div id="privacy-content" style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20);">
-                                    <div style="text-align: center; color: #666;">読み込み中...</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 利用規約 -->
-                        <div id="help-section-terms" class="help-section">
-                            <h2>利用規約</h2>
-                            <div class="help-item">
-                                <div id="terms-content" style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20);">
-                                    <div style="text-align: center; color: #666;">読み込み中...</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- アップデート情報 -->
-                        <div id="help-section-updates" class="help-section">
-                            <h2>アップデート情報</h2>
-                            <div class="help-item">
-                                <div style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20);">
-                                    <h3 style="margin-top: 0; color: #333;">現在のバージョン</h3>
-                                    <p style="font-size: 16px; font-weight: 600; color: var(--theme-primary); margin: 10px 0;">開発版（ベータ）</p>
-                                    <p style="color: #666; margin: 0;">最新の機能と改善が含まれています。</p>
-                                </div>
+                                <span class="help-icon">🔧</span>
+                                <strong>設定切り替え:</strong>
+                                モード切り替えは設定画面からいつでも変更可能です。
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Claude Code Hooksモードガイド -->
-        <div id="hooks-guide-modal" class="help-modal" style="display: none;">
-            <div class="help-content">
-                <div class="help-header">
-                    <h3>Claude Code Hooksモードについて</h3>
-                    <button id="close-hooks-guide" class="close-btn">×</button>
-                </div>
-                <div class="help-body">
-                    <div class="help-section">
-                        <h4>🔧 Claude Code Hooksモードとは</h4>
-                        <div class="help-item">
-                            <span class="help-icon">📡</span>
-                            <strong>グローバル監視機能:</strong> このアプリ以外のターミナルやエディターでClaude Codeを使用した際も、音声読み上げとVRM表情連動が働きます。
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">🎭</span>
-                            <strong>高度な感情分析:</strong> より詳細な感情分析により、キャラクターの表情がより自然で豊かに変化します。
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">🌐</span>
-                            <strong>システム全体対応:</strong> どこでClaude Codeを起動しても、このアプリが連動して動作します。
-                        </div>
-                    </div>
-                    
-                    <div class="help-section">
-                        <h4>📱 アプリ内のみモード vs 🔧 Hooksモード</h4>
-                        <div class="help-item">
-                            <span class="help-icon">📱</span>
-                            <strong>アプリ内のみ（OFF）:</strong>
-                            <ul>
-                                <li>このアプリのターミナルでのみ動作</li>
-                                <li>他のターミナルには影響しない</li>
-                                <li>より安定した動作</li>
-                                <li>リソース使用量が少ない</li>
-                            </ul>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">🔧</span>
-                            <strong>Hooksモード（ON）:</strong>
-                            <ul>
-                                <li>システム全体のClaude Code活動を監視</li>
-                                <li>外部ターミナルでも音声・表情連動</li>
-                                <li>より豊かな感情表現</li>
-                                <li>複数ターミナルで同時音声の可能性</li>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <div class="help-section">
-                        <h4>💡 使い分けの目安</h4>
-                        <div class="help-item">
-                            <span class="help-icon">🎯</span>
-                            <strong>アプリ内のみがおすすめ:</strong>
-                            <ul>
-                                <li>このアプリだけでClaude Codeを使用</li>
-                                <li>安定した動作を重視</li>
-                                <li>他のアプリケーションに影響を与えたくない</li>
-                            </ul>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">⚡</span>
-                            <strong>Hooksモードがおすすめ:</strong>
-                            <ul>
-                                <li>VSCode、Vim、別ターミナルでもClaude Codeを使用</li>
-                                <li>どこでも音声・表情連動が欲しい</li>
-                                <li>より豊かなキャラクター表現を楽しみたい</li>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <div class="help-section">
-                        <h4>⚠️ 注意事項</h4>
-                        <div class="help-item">
-                            <span class="help-icon">🔄</span>
-                            <strong>同時実行:</strong> 複数のターミナルで同時にClaude Codeを使用すると、音声が重複する場合があります。
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">💻</span>
-                            <strong>リソース:</strong> Hooksモードは常時監視のため、わずかにCPU使用量が増加します。
-                        </div>
-                        <div class="help-item">
-                            <span class="help-icon">🔧</span>
-                            <strong>設定切り替え:</strong> モード切り替えは設定画面からいつでも変更可能です。
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 会話ログ表示モーダル（一時的に無効化）
+
+            <!-- 会話ログ表示モーダル（一時的に無効化）
         <div id="stats-log-modal" class="help-modal" style="display: none;">
             <div class="help-content">
                 <div class="help-header">
@@ -815,174 +1440,279 @@
             </div>
         </div>
         -->
-        
-    </div>
+        </div>
 
-    <!-- 初回同意画面 -->
-    <div id="initial-consent-modal" class="settings-modal" style="display: none;">
-        <div class="settings-content" style="max-width: 95vw; width: 1400px; max-height: 95vh;">
-            <div class="settings-header">
-                <h3>初回利用時の同意確認</h3>
+        <!-- 初回同意画面 -->
+        <div
+            id="initial-consent-modal"
+            class="settings-modal"
+            style="display: none"
+        >
+            <div
+                class="settings-content"
+                style="max-width: 95vw; width: 1400px; max-height: 95vh"
+            >
+                <div class="settings-header">
+                    <h3>初回利用時の同意確認</h3>
+                </div>
+                <div
+                    class="settings-body"
+                    style="padding: 20px; overflow-y: auto; max-height: 800px"
+                >
+                    <div
+                        style="margin-bottom: 20px; padding: 15px; background: var(--theme-bg-secondary); border: 1px solid var(--theme-primary-light); border-radius: 8px"
+                    >
+                        <h4 style="color: #d2691e; margin: 0 0 10px 0">
+                            📋 ご利用前の確認事項
+                        </h4>
+                        <p
+                            style="margin: 0; color: #8b4513; font-size: 14px; line-height: 1.5"
+                        >
+                            このアプリは外部AIサービス（Claude
+                            Code）や音声合成サービス（AivisSpeech）と連携し、<br>
+                            ローカルデータの保存を行います。以下のドキュメントをご確認の上、同意してください。
+                        </p>
+                    </div>
+
+                    <!-- ドキュメント表示エリア -->
+                    <div class="consent-documents">
+                        <!-- 利用規約 -->
+                        <div class="document-section">
+                            <div
+                                class="document-header"
+                                style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px"
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="terms-consent-checkbox"
+                                    class="consent-checkbox"
+                                >
+                                <label
+                                    for="terms-consent-checkbox"
+                                    style="font-weight: bold; color: #333"
+                                >利用規約に同意する</label>
+                            </div>
+                            <div
+                                class="document-content"
+                                style="background: var(--theme-bg-secondary); padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid var(--theme-primary-alpha-20); margin-bottom: 15px"
+                            >
+                                <div
+                                    id="terms-preview"
+                                    style="font-size: 13px; line-height: 1.4; color: #555"
+                                >
+                                    読み込み中...
+                                </div>
+                            </div>
+                            <div style="text-align: right; margin-bottom: 20px">
+                                <button
+                                    id="show-full-terms"
+                                    class="simple-btn"
+                                    style="font-size: 12px; padding: 6px 12px"
+                                >
+                                    全文を表示
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- プライバシーポリシー -->
+                        <div class="document-section">
+                            <div
+                                class="document-header"
+                                style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px"
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="privacy-consent-checkbox"
+                                    class="consent-checkbox"
+                                >
+                                <label
+                                    for="privacy-consent-checkbox"
+                                    style="font-weight: bold; color: #333"
+                                >プライバシーポリシーに同意する</label>
+                            </div>
+                            <div
+                                class="document-content"
+                                style="background: var(--theme-bg-secondary); padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid var(--theme-primary-alpha-20); margin-bottom: 15px"
+                            >
+                                <div
+                                    id="privacy-preview"
+                                    style="font-size: 13px; line-height: 1.4; color: #555"
+                                >
+                                    読み込み中...
+                                </div>
+                            </div>
+                            <div style="text-align: right; margin-bottom: 20px">
+                                <button
+                                    id="show-full-privacy"
+                                    class="simple-btn"
+                                    style="font-size: 12px; padding: 6px 12px"
+                                >
+                                    全文を表示
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ライセンス -->
+                        <div class="document-section">
+                            <div
+                                class="document-header"
+                                style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px"
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="license-consent-checkbox"
+                                    class="consent-checkbox"
+                                >
+                                <label
+                                    for="license-consent-checkbox"
+                                    style="font-weight: bold; color: #333"
+                                >ライセンス条項に同意する</label>
+                            </div>
+                            <div
+                                class="document-content"
+                                style="background: var(--theme-bg-secondary); padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid var(--theme-primary-alpha-20); margin-bottom: 15px"
+                            >
+                                <div
+                                    id="license-preview"
+                                    style="font-size: 13px; line-height: 1.4; color: #555"
+                                >
+                                    読み込み中...
+                                </div>
+                            </div>
+                            <div style="text-align: right; margin-bottom: 20px">
+                                <button
+                                    id="show-full-license"
+                                    class="simple-btn"
+                                    style="font-size: 12px; padding: 6px 12px"
+                                >
+                                    全文を表示
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 同意ボタン -->
+                    <div
+                        style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0"
+                    >
+                        <button
+                            id="consent-agree-btn"
+                            class="simple-btn"
+                            style="background-color: var(--theme-primary); color: white; font-size: 16px; padding: 12px 40px; width: auto; min-width: 300px; white-space: nowrap"
+                            disabled
+                        >
+                            すべてに同意してアプリを開始
+                        </button>
+                        <div
+                            style="margin-top: 10px; font-size: 12px; color: #666"
+                        >
+                            すべてのチェックボックスにチェックを入れると、同意ボタンが有効になります
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="settings-body" style="padding: 20px; overflow-y: auto; max-height: 800px;">
-                <div style="margin-bottom: 20px; padding: 15px; background: var(--theme-bg-secondary); border: 1px solid var(--theme-primary-light); border-radius: 8px;">
-                    <h4 style="color: #d2691e; margin: 0 0 10px 0;">📋 ご利用前の確認事項</h4>
-                    <p style="margin: 0; color: #8b4513; font-size: 14px; line-height: 1.5;">
-                        このアプリは外部AIサービス（Claude Code）や音声合成サービス（AivisSpeech）と連携し、<br>
-                        ローカルデータの保存を行います。以下のドキュメントをご確認の上、同意してください。
-                    </p>
-                </div>
+        </div>
 
-                <!-- ドキュメント表示エリア -->
-                <div class="consent-documents">
-                    <!-- 利用規約 -->
-                    <div class="document-section">
-                        <div class="document-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <input type="checkbox" id="terms-consent-checkbox" class="consent-checkbox">
-                            <label for="terms-consent-checkbox" style="font-weight: bold; color: #333;">利用規約に同意する</label>
-                        </div>
-                        <div class="document-content" style="background: var(--theme-bg-secondary); padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid var(--theme-primary-alpha-20); margin-bottom: 15px;">
-                            <div id="terms-preview" style="font-size: 13px; line-height: 1.4; color: #555;">
-                                読み込み中...
-                            </div>
-                        </div>
-                        <div style="text-align: right; margin-bottom: 20px;">
-                            <button id="show-full-terms" class="simple-btn" style="font-size: 12px; padding: 6px 12px;">全文を表示</button>
-                        </div>
-                    </div>
-
-                    <!-- プライバシーポリシー -->
-                    <div class="document-section">
-                        <div class="document-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <input type="checkbox" id="privacy-consent-checkbox" class="consent-checkbox">
-                            <label for="privacy-consent-checkbox" style="font-weight: bold; color: #333;">プライバシーポリシーに同意する</label>
-                        </div>
-                        <div class="document-content" style="background: var(--theme-bg-secondary); padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid var(--theme-primary-alpha-20); margin-bottom: 15px;">
-                            <div id="privacy-preview" style="font-size: 13px; line-height: 1.4; color: #555;">
-                                読み込み中...
-                            </div>
-                        </div>
-                        <div style="text-align: right; margin-bottom: 20px;">
-                            <button id="show-full-privacy" class="simple-btn" style="font-size: 12px; padding: 6px 12px;">全文を表示</button>
-                        </div>
-                    </div>
-
-                    <!-- ライセンス -->
-                    <div class="document-section">
-                        <div class="document-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <input type="checkbox" id="license-consent-checkbox" class="consent-checkbox">
-                            <label for="license-consent-checkbox" style="font-weight: bold; color: #333;">ライセンス条項に同意する</label>
-                        </div>
-                        <div class="document-content" style="background: var(--theme-bg-secondary); padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid var(--theme-primary-alpha-20); margin-bottom: 15px;">
-                            <div id="license-preview" style="font-size: 13px; line-height: 1.4; color: #555;">
-                                読み込み中...
-                            </div>
-                        </div>
-                        <div style="text-align: right; margin-bottom: 20px;">
-                            <button id="show-full-license" class="simple-btn" style="font-size: 12px; padding: 6px 12px;">全文を表示</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 同意ボタン -->
-                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-                    <button id="consent-agree-btn" class="simple-btn" style="background-color: var(--theme-primary); color: white; font-size: 16px; padding: 12px 40px; width: auto; min-width: 300px; white-space: nowrap;" disabled>
-                        すべてに同意してアプリを開始
+        <!-- 全文表示モーダル -->
+        <div
+            id="full-document-modal"
+            class="settings-modal"
+            style="display: none"
+        >
+            <div
+                class="settings-content"
+                style="max-width: 95vw; width: 1400px; max-height: 90vh"
+            >
+                <div class="settings-header">
+                    <h3 id="full-document-title">ドキュメント全文</h3>
+                    <button id="close-full-document" class="close-btn">
+                        ×
                     </button>
-                    <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                        すべてのチェックボックスにチェックを入れると、同意ボタンが有効になります
+                </div>
+                <div
+                    class="settings-body"
+                    style="padding: 20px; overflow-y: auto; max-height: 70vh"
+                >
+                    <div
+                        id="full-document-content"
+                        style="font-size: 14px; line-height: 1.6; white-space: pre-wrap"
+                    >
+                        読み込み中...
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- 全文表示モーダル -->
-    <div id="full-document-modal" class="settings-modal" style="display: none;">
-        <div class="settings-content" style="max-width: 95vw; width: 1400px; max-height: 90vh;">
-            <div class="settings-header">
-                <h3 id="full-document-title">ドキュメント全文</h3>
-                <button id="close-full-document" class="close-btn">×</button>
-            </div>
-            <div class="settings-body" style="padding: 20px; overflow-y: auto; max-height: 70vh;">
-                <div id="full-document-content" style="font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
-                    読み込み中...
-                </div>
-            </div>
-        </div>
-    </div>
+        <!-- xterm.js (bundled for offline/package) -->
+        <script src="./vendor/xterm/xterm.js"></script>
+        <script src="./vendor/xterm/addon-fit.js"></script>
+        <script src="./vendor/xterm/addon-web-links.js"></script>
 
-    <!-- xterm.js (bundled for offline/package) -->
-    <script src="./vendor/xterm/xterm.js"></script>
-    <script src="./vendor/xterm/addon-fit.js"></script>
-    <script src="./vendor/xterm/addon-web-links.js"></script>
-    
-    <!-- Logger（最初に読み込み） -->
-    <script src="utils/logger.js"></script>
-    
-    <!-- 定数管理（最初に読み込み） -->
-    <script src="constants/app-constants.js"></script>
-    
-    <!-- ターミナルファクトリー -->
-    <script src="utils/terminal-factory.js"></script>
-    
-    <!-- SimpleDuplicateCheckerクラス -->
-    <script src="classes/SimpleDuplicateChecker.js"></script>
-    <!-- MessageAccumulatorクラス -->
-    <script src="classes/MessageAccumulator.js"></script>
-    
-    <!-- VoiceQueueクラス -->
-    <script src="classes/VoiceQueue.js"></script>
+        <!-- Logger（最初に読み込み） -->
+        <script src="utils/logger.js"></script>
 
-    <!-- Speaker Converter Utility -->
-    <script src="utils/speaker-converter.js"></script>
+        <!-- 定数管理（最初に読み込み） -->
+        <script src="constants/app-constants.js"></script>
 
-    <!-- AudioServiceクラス -->
-    <script src="services/AudioService.js"></script>
-    
-    <!-- ConsentServiceクラス -->
-    <script src="services/ConsentService.js"></script>
-    
-    <!-- HookServiceクラス -->
-    <script src="services/HookService.js"></script>
-    
-    <!-- VRMIntegrationServiceクラス -->
-    <script src="services/VRMIntegrationService.js"></script>
-    
-    <!-- TerminalServiceクラス -->
-    <script src="services/TerminalService.js"></script>
-    
-    <!-- TabManagerDependenciesクラス -->
-    <script src="classes/TabManagerDependencies.js"></script>
-    
-    <!-- TabManagerクラス -->
-    <script src="classes/TabManager.js"></script>
-    
-    <!-- リソース管理 -->
-    <script src="utils/resource-manager.js"></script>
-    <script src="utils/memory-monitor.js"></script>
-    
-    <!-- 処理最適化 -->
-    <script src="utils/processing-cache.js"></script>
-    
-    <!-- エラーハンドラー -->
-    <script src="utils/error-handler.js"></script>
-    
-    <!-- 統一設定管理システム（最初に読み込み） -->
-    <script src="modules/unified-config-manager.js"></script>
-    
-    <!-- モジュール -->
-    <script src="modules/theme-manager.js"></script>
-    <script src="modules/wallpaper-system.js"></script>
-    <script src="modules/config-manager.js"></script>
-    <script src="modules/speech-history-manager.js"></script>
-    <script src="modules/ui-event-manager.js"></script>
-    
-    <!-- TerminalAppManager -->
-    <script src="managers/TerminalAppManager.js"></script>
-    
-    <!-- App.js -->
-    <script src="app.js"></script>
-    
-</body>
+        <!-- ターミナルファクトリー -->
+        <script src="utils/terminal-factory.js"></script>
+
+        <!-- SimpleDuplicateCheckerクラス -->
+        <script src="classes/SimpleDuplicateChecker.js"></script>
+        <!-- MessageAccumulatorクラス -->
+        <script src="classes/MessageAccumulator.js"></script>
+
+        <!-- VoiceQueueクラス -->
+        <script src="classes/VoiceQueue.js"></script>
+
+        <!-- Speaker Converter Utility -->
+        <script src="utils/speaker-converter.js"></script>
+
+        <!-- AudioServiceクラス -->
+        <script src="services/AudioService.js"></script>
+
+        <!-- ConsentServiceクラス -->
+        <script src="services/ConsentService.js"></script>
+
+        <!-- HookServiceクラス -->
+        <script src="services/HookService.js"></script>
+
+        <!-- VRMIntegrationServiceクラス -->
+        <script src="services/VRMIntegrationService.js"></script>
+
+        <!-- TerminalServiceクラス -->
+        <script src="services/TerminalService.js"></script>
+
+        <!-- TabManagerDependenciesクラス -->
+        <script src="classes/TabManagerDependencies.js"></script>
+
+        <!-- TabManagerクラス -->
+        <script src="classes/TabManager.js"></script>
+
+        <!-- リソース管理 -->
+        <script src="utils/resource-manager.js"></script>
+        <script src="utils/memory-monitor.js"></script>
+
+        <!-- 処理最適化 -->
+        <script src="utils/processing-cache.js"></script>
+
+        <!-- エラーハンドラー -->
+        <script src="utils/error-handler.js"></script>
+
+        <!-- 統一設定管理システム（最初に読み込み） -->
+        <script src="modules/unified-config-manager.js"></script>
+
+        <!-- モジュール -->
+        <script src="modules/theme-manager.js"></script>
+        <script src="modules/wallpaper-system.js"></script>
+        <script src="modules/config-manager.js"></script>
+        <script src="modules/speech-history-manager.js"></script>
+        <script src="modules/ui-event-manager.js"></script>
+
+        <!-- TerminalAppManager -->
+        <script src="managers/TerminalAppManager.js"></script>
+
+        <!-- App.js -->
+        <script src="app.js"></script>
+    </body>
 </html>

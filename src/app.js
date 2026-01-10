@@ -338,8 +338,8 @@ class TerminalApp {
     }
     
     // ターミナル制御メソッドの委譲
-    async startTerminal(aiType) {
-        return await this.terminalService.startTerminal(aiType);
+    async startShell() {
+        return await this.terminalService.startShell();
     }
     
     async stopTerminal() {

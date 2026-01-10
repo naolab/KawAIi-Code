@@ -232,104 +232,17 @@ class UIEventManager {
      * モーダル関連のイベントリスナー設定
      */
     async setupModalEventListeners() {
-        const startBtn = document.getElementById('start-ai-selection');
-        const stopBtn = document.getElementById('stop-terminal');
-        const settingsBtn = document.getElementById('settings-btn');
-        const closeSettingsBtn = document.getElementById('close-settings');
-        const settingsModal = document.getElementById('settings-modal');
-        const helpBtn = document.getElementById('help-btn');
-        const closeHelpBtn = document.getElementById('close-help');
-        const helpModal = document.getElementById('help-modal');
-        const hooksGuideModal = document.getElementById('hooks-guide-modal');
-        const closeHooksGuideBtn = document.getElementById('close-hooks-guide');
-
-        // AI選択モーダル用の要素を取得
-        const aiSelectModal = document.getElementById('ai-select-modal');
-        const closeAiSelectBtn = document.getElementById('close-ai-select');
-        const startClaudeBtn = document.getElementById('start-claude');
-        const startClaudeDangerousBtn = document.getElementById('start-claude-dangerous');
-        const startGeminiBtn = document.getElementById('start-gemini');
-        const startCodexBtn = document.getElementById('start-codex');
-        
-        // Claude Code Hooks情報ボタン
-        const hooksInfoBtn = document.getElementById('hooks-info-btn');
-
-        // デバッグ用：要素の取得状況をログ出力
-        this.debugLog('Modal elements check:', {
-            startBtn: !!startBtn,
-            stopBtn: !!stopBtn,
-            settingsBtn: !!settingsBtn,
-            closeSettingsBtn: !!closeSettingsBtn,
-            settingsModal: !!settingsModal,
-            helpBtn: !!helpBtn,
-            closeHelpBtn: !!closeHelpBtn,
-            helpModal: !!helpModal,
-            aiSelectModal: !!aiSelectModal,
-            closeAiSelectBtn: !!closeAiSelectBtn,
-            startClaudeBtn: !!startClaudeBtn,
-            startClaudeDangerousBtn: !!startClaudeDangerousBtn,
-            startGeminiBtn: !!startGeminiBtn,
-            hooksInfoBtn: !!hooksInfoBtn,
-        });
-
-        // ターミナル制御ボタン（初期設定は削除、updateMainCliButtons()で動的に設定）
-        // startBtnのイベントリスナーはupdateMainCliButtons()で設定
-        if (stopBtn) {
-            const stopHandler = () => this.handleStopButtonClick();
-            this.safeAddEventListener(stopBtn, 'click', stopHandler, 'stop-terminal');
-        }
-        
-        // ターミナル切り替えボタン（安全な登録方式）
+        // ターミナル切り替えボタン
         const terminalToggleBtn = document.getElementById('terminal-toggle');
         if (terminalToggleBtn) {
             const terminalToggleHandler = () => this.toggleTerminalVisibility();
             this.safeAddEventListener(terminalToggleBtn, 'click', terminalToggleHandler, 'terminal-toggle');
         }
-
-        // AI選択モーダルのイベント（安全な登録方式）
-        if (closeAiSelectBtn && aiSelectModal) {
-            const closeAiSelectHandler = () => {
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(closeAiSelectBtn, 'click', closeAiSelectHandler, 'close-ai-select');
-        }
-        if (startClaudeBtn && aiSelectModal) {
-            const startClaudeHandler = () => {
-                this.app.startTerminal('claude');
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(startClaudeBtn, 'click', startClaudeHandler, 'start-claude');
-        }
-        if (startClaudeDangerousBtn && aiSelectModal) {
-            const startClaudeDangerousHandler = () => {
-                this.app.startTerminal('claude-dangerous');
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(startClaudeDangerousBtn, 'click', startClaudeDangerousHandler, 'start-claude-dangerous');
-        }
-        if (startGeminiBtn && aiSelectModal) {
-            const startGeminiHandler = () => {
-                this.app.startTerminal('gemini');
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(startGeminiBtn, 'click', startGeminiHandler, 'start-gemini');
-        }
-        if (startCodexBtn && aiSelectModal) {
-            const startCodexHandler = () => {
-                this.app.startTerminal('codex');
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(startCodexBtn, 'click', startCodexHandler, 'start-codex');
-        }
-        if (aiSelectModal) {
-            aiSelectModal.addEventListener('click', (e) => {
-                if (e.target === aiSelectModal) {
-                    aiSelectModal.style.display = 'none';
-                }
-            });
-        }
         
         // 設定モーダルのイベント
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettingsBtn = document.getElementById('close-settings');
         if (settingsBtn && settingsModal) {
             settingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'flex';
@@ -337,9 +250,6 @@ class UIEventManager {
                 this.initSettingsNavigation(); // タブナビゲーション初期化
             });
         }
-        
-        // CLI選択設定のイベントリスナー
-        await this.setupCliSelectionEventListeners();
 
         // VRM設定のイベントリスナー
         await this.setupVRMSettingsEventListeners();
@@ -360,6 +270,9 @@ class UIEventManager {
         }
         
         // ヘルプモーダルのイベント
+        const helpBtn = document.getElementById('help-btn');
+        const helpModal = document.getElementById('help-modal');
+        const closeHelpBtn = document.getElementById('close-help');
         if (helpBtn) {
             this.safeAddEventListener(helpBtn, 'click', async (e) => {
                 if (e && typeof e.preventDefault === 'function') {
@@ -385,6 +298,9 @@ class UIEventManager {
         }
         
         // Hooksガイドモーダルの閉じるボタンとクリック外し
+        const hooksGuideModal = document.getElementById('hooks-guide-modal');
+        const closeHooksGuideBtn = document.getElementById('close-hooks-guide');
+        const hooksInfoBtn = document.getElementById('hooks-info-btn');
         if (closeHooksGuideBtn && hooksGuideModal) {
             closeHooksGuideBtn.addEventListener('click', () => {
                 hooksGuideModal.style.display = 'none';
@@ -402,7 +318,6 @@ class UIEventManager {
         // Claude Code Hooks情報ボタンのイベント
         if (hooksInfoBtn) {
             hooksInfoBtn.addEventListener('click', () => {
-                const hooksGuideModal = document.getElementById('hooks-guide-modal');
                 if (hooksGuideModal) {
                     hooksGuideModal.style.display = 'flex';
                 }
@@ -2584,20 +2499,6 @@ class UIEventManager {
     /**
      * CLI選択設定のイベントリスナー
      */
-    async setupCliSelectionEventListeners() {
-        const cliToggles = document.querySelectorAll('input[data-cli]');
-        const errorElement = document.getElementById('cli-selection-error');
-        
-        // 各CLI選択トグルにイベントリスナーを追加
-        cliToggles.forEach(toggle => {
-            this.safeAddEventListener(toggle, 'change', async () => {
-                await this.handleCliToggleChange();
-            }, `cli-toggle-${toggle.dataset.cli}`);
-        });
-        
-        // 初期設定を読み込み
-        await this.loadCliSelectionSettings();
-    }
 
     /**
      * VRM設定のイベントリスナーをセットアップ
@@ -2871,7 +2772,7 @@ class UIEventManager {
         this.debugLog('CLI選択更新:', enabledCLIs);
         
         // メイン画面のボタン表示を更新
-        await this.updateMainCliButtons();
+        // await this.updateMainCliButtons(); // Removed as per instruction
     }
 
     /**
@@ -2898,97 +2799,10 @@ class UIEventManager {
             this.debugLog('CLI設定読み込み:', enabledCLIs);
             
             // メイン画面のボタン表示を更新
-            await this.updateMainCliButtons();
+            // await this.updateMainCliButtons(); // Removed as per instruction
             
         } catch (error) {
             this.debugError('CLI設定読み込みエラー:', error);
-        }
-    }
-
-    /**
-     * メイン画面のCLIボタン表示を更新
-     */
-    async updateMainCliButtons() {
-        try {
-            const unifiedConfig = getSafeUnifiedConfig();
-            const enabledCLIs = await unifiedConfig.get('enabledCLIs', ['claude', 'claude-dangerous', 'gemini']);
-            
-            // 各CLIボタンの表示制御
-            const cliButtons = {
-                'claude': document.getElementById('start-claude'),
-                'claude-dangerous': document.getElementById('start-claude-dangerous'),
-                'gemini': document.getElementById('start-gemini'),
-                'codex': document.getElementById('start-codex')
-            };
-            
-            Object.entries(cliButtons).forEach(([cliType, button]) => {
-                if (button) {
-                    button.style.display = enabledCLIs.includes(cliType) ? 'block' : 'none';
-                }
-            });
-            
-            // スマート起動機能：1つのCLIのみ有効の場合は直接起動
-            const startBtn = document.getElementById('start-ai-selection');
-            if (startBtn) {
-                // 既存のイベントリスナーを完全に削除
-                this.removeEventListener(startBtn, 'start-ai-selection');
-                this.removeEventListener(startBtn, 'start-ai-selection-direct');
-                
-                // onclickも削除
-                startBtn.onclick = null;
-                
-                // registeredListenersからも強制削除
-                this.registeredListeners.delete('start-ai-selection_click');
-                this.registeredListeners.delete('start-ai-selection-direct_click');
-                
-                if (enabledCLIs.length === 1) {
-                    // 直接起動（onclickのみ使用）
-                    startBtn.onclick = () => {
-                        this.app.startTerminal(enabledCLIs[0]);
-                    };
-                    this.debugLog(`スマート起動有効: ${enabledCLIs[0]} を直接起動`);
-                } else if (enabledCLIs.length > 1) {
-                    // 選択画面表示（onclickのみ使用）
-                    startBtn.onclick = async () => {
-                        await this.updateAiSelectModalButtons();
-                        const aiSelectModal = document.getElementById('ai-select-modal');
-                        if (aiSelectModal) aiSelectModal.style.display = 'flex';
-                    };
-                    this.debugLog(`複数CLI選択: AI選択画面を表示 (${enabledCLIs.length}個のCLI)`);
-                }
-            }
-            
-        } catch (error) {
-            this.debugError('メインCLIボタン更新エラー:', error);
-        }
-    }
-
-    /**
-     * AI選択モーダルのボタン表示を更新
-     */
-    async updateAiSelectModalButtons() {
-        try {
-            const unifiedConfig = getSafeUnifiedConfig();
-            const enabledCLIs = await unifiedConfig.get('enabledCLIs', ['claude', 'claude-dangerous', 'gemini']);
-            
-            // 各CLIボタンの表示制御
-            const cliButtons = {
-                'claude': document.getElementById('start-claude'),
-                'claude-dangerous': document.getElementById('start-claude-dangerous'),
-                'gemini': document.getElementById('start-gemini'),
-                'codex': document.getElementById('start-codex')
-            };
-            
-            Object.entries(cliButtons).forEach(([cliType, button]) => {
-                if (button) {
-                    button.style.display = enabledCLIs.includes(cliType) ? 'inline-block' : 'none';
-                }
-            });
-            
-            this.debugLog('AI選択モーダルボタン更新:', enabledCLIs);
-            
-        } catch (error) {
-            this.debugError('AI選択モーダルボタン更新エラー:', error);
         }
     }
 
