@@ -75,7 +75,7 @@ class VoiceQueue {
     }
     
     // キューに音声テキストを追加
-    async addToQueue(text) {
+    async addToQueue(text, characterId = null) {
         // 重複チェック（最優先で実行）
         if (this.duplicateChecker && this.duplicateChecker.isDuplicate(text)) {
             this.debugLog('🚫 重複テキストのため音声キューをスキップ:', { 
@@ -85,11 +85,7 @@ class VoiceQueue {
             return;
         }
         
-        // 親タブ判定（非親タブの場合は音声処理をスキップ）
-        if (!this.isCurrentTabParent()) {
-            this.debugLog('🎵 非親タブのため音声キューをスキップ:', { text: text.substring(0, 30) + '...' });
-            return;
-        }
+        // 親タブ判定は廃止（キャラクター設定がある場合のみ呼ばれるため）
         
         // キューサイズ制限チェック（メモリリーク対策強化版）
         const MAX_QUEUE_SIZE = 10;
@@ -109,8 +105,9 @@ class VoiceQueue {
             removedItems.length = 0;
         }
         
-        this.queue.push(text);
-        this.debugLog('🎵 音声キューに追加:', { text: text.substring(0, 30) + '...', queueLength: this.queue.length });
+        // オブジェクトとして保存
+        this.queue.push({ text, characterId });
+        this.debugLog('🎵 音声キューに追加:', { text: text.substring(0, 30) + '...', characterId, queueLength: this.queue.length });
         
         // 重複チェッカーに読み上げ予定としてマーク
         if (this.duplicateChecker) {
@@ -137,8 +134,12 @@ class VoiceQueue {
                 break;
             }
             
-            const text = this.queue.shift();
-            await this.speakTextSequentially(text);
+            const item = this.queue.shift();
+            // 後方互換性（文字列の場合）とオブジェクトの場合を考慮
+            const text = typeof item === 'string' ? item : item.text;
+            const characterId = typeof item === 'object' ? item.characterId : null;
+            
+            await this.speakTextSequentially(text, characterId);
         }
         
         this.isProcessing = false;
@@ -146,7 +147,7 @@ class VoiceQueue {
     }
     
     // 順次音声再生
-    async speakTextSequentially(text) {
+    async speakTextSequentially(text, characterId = null) {
         try {
             // 音声無効時は全処理をスキップ（パフォーマンス最適化）
             if (!this.terminalApp.voiceEnabled) {
@@ -154,15 +155,43 @@ class VoiceQueue {
                 return;
             }
             
-            this.debugLog('🎵 順次音声再生開始:', text.substring(0, 30) + '...');
+            this.debugLog('🎵 順次音声再生開始:', { text: text.substring(0, 30) + '...', characterId });
             
             // 音声読み上げ実行（ハイブリッドシステム）
             if (this.terminalApp.voiceEnabled) {
                 // 音声再生状態を設定
                 this.terminalApp.voicePlayingState.isPlaying = true;
                 
+                // キャラクター設定の取得
+                let speakerId = null;
+                let volume = null;
+                let intervalSeconds = 0.5; // デフォルト
+                
+                if (characterId && this.terminalApp.configManager) {
+                    const char = this.terminalApp.configManager.getCharacterById(characterId);
+                    if (char && char.voice) {
+                        speakerId = char.voice.speakerId;
+                        volume = char.voice.volume; // 0-100
+                        intervalSeconds = char.voice.interval !== undefined ? char.voice.interval : 1.0;
+                    }
+                }
+                
+                // 設定がない場合はConfigManagerのデフォルト値を使用（AudioService内で処理されるためnullでOK）
+                // ただしintervalはここで制御するため取得必要
+                if (!characterId) {
+                    intervalSeconds = await getSafeUnifiedConfig().get('voiceIntervalSeconds', 0.5);
+                }
+
                 // 音声合成のみ（再生なし）
-                const audioData = await this.terminalApp.synthesizeTextOnly(text);
+                // AudioServiceを直接呼び出してオーバーライドパラメータを渡す
+                // synthesizeTextOnly(text, overrideSpeakerId, overrideVolume, overrideSpeed, overridePitch)
+                const audioData = await this.terminalApp.audioService.synthesizeTextOnly(
+                    text, 
+                    speakerId, 
+                    volume, 
+                    null, // speed (UIから削除されたためnull)
+                    null  // pitch (UIから削除されたためnull)
+                );
                 
                 if (audioData) {
                     // 合成した音声をplayAppInternalAudioで再生
@@ -172,7 +201,6 @@ class VoiceQueue {
                     await this.waitForVoiceComplete();
                     
                     // 読み上げ間隔制御
-                    const intervalSeconds = await getSafeUnifiedConfig().get('voiceIntervalSeconds', 0.5);
                     const intervalMs = intervalSeconds * 1000;
                     
                     if (intervalMs > 0) {

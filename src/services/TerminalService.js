@@ -274,7 +274,7 @@ class TerminalService {
         }, 200);
     }
 
-    async processTerminalData(data) {
+    async processTerminalData(data, characterId = null) {
         // リサイズ中は音声処理をスキップ（但し、新しいコンテンツは処理）
         if (this.isResizing) {
             debugLog('🔄 リサイズ中のため音声処理をスキップ:', {
@@ -291,14 +291,15 @@ class TerminalService {
             useHooks,
             dataLength: data.length,
             dataPreview: data.substring(0, 100),
-            isResizing: this.isResizing
+            isResizing: this.isResizing,
+            characterId: characterId
         });
         
         if (useHooks) {
             // Hookモード: 外部ターミナルのみ処理、アプリ内ターミナルは音声処理なし
             if (!this.hookService.isAppTerminalData(data)) {
                 debugLog('📡 外部ターミナル（Hookモード）: Hook専用処理');
-                await this.hookService.processHookOnlyData(data);
+                await this.hookService.processHookOnlyData(data, characterId);
             } else {
                 debugLog('📱 アプリ内ターミナル（Hookモード）: 音声処理スキップ');
                 // アプリ内ターミナルでは音声処理を行わない
@@ -306,12 +307,12 @@ class TerminalService {
         } else {
             // フックモードOFF: 全てのターミナルをアプリ内で処理
             debugLog('📱 アプリ内監視モード: processAppInternalMode呼び出し');
-            await this.processAppInternalMode(data);
+            await this.processAppInternalMode(data, characterId);
         }
     }
 
     // アプリ内監視モード処理
-    async processAppInternalMode(data) {
+    async processAppInternalMode(data, characterId = null) {
         try {
             // ProcessingCacheによる最適化されたテキストクリーニング
             const cleanData = this.processingCache.optimizedTextCleaning(data);
@@ -324,7 +325,7 @@ class TerminalService {
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
                 // ◆◇内のテキストを一個ずつ処理
-                await this.processQuotedTexts(quotedTextMatches);
+                await this.processQuotedTexts(quotedTextMatches, characterId);
             }
             
         } catch (error) {
@@ -338,8 +339,8 @@ class TerminalService {
     }
 
     // カッコ内のテキストを一個ずつ順次処理（音声キューイングシステム使用）
-    async processQuotedTexts(quotedTextMatches) {
-        debugLog('🎵 processQuotedTexts開始:', { matchCount: quotedTextMatches.length });
+    async processQuotedTexts(quotedTextMatches, characterId = null) {
+        debugLog('🎵 processQuotedTexts開始:', { matchCount: quotedTextMatches.length, characterId });
         
         // 既存の音声キューをクリア（新しい音声セッション開始）
         this.voiceQueue.clear();
@@ -356,7 +357,7 @@ class TerminalService {
             }
             
             // 音声キューに追加（順次処理）
-            await this.voiceQueue.addToQueue(quotedText);
+            await this.voiceQueue.addToQueue(quotedText, characterId);
         }
         
         // 音声キュー処理完了（気分表示は削除済み）

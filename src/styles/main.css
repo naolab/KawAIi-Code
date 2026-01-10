@@ -537,6 +537,38 @@ body.loaded {
     overflow: hidden;
 }
 
+/* ペインのキャラ選択アイコン */
+.pane-char-button {
+    position: absolute;
+    top: 5px;
+    right: 28px; /* 閉じるボタン(right:5px, width:24px)のすぐ隣 */
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1; /* 常時表示 */
+    transition: all 0.2s ease;
+    z-index: 10;
+    overflow: hidden;
+}
+
+.pane-char-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.pane-char-button img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 /* ペインの閉じるボタン */
 .pane-close-button {
     position: absolute;
@@ -1998,6 +2030,68 @@ input[type="checkbox"]:not(.cli-toggle-label input) {
     height: 28px;
     background: #ddd;
     border-radius: 20px;
+}
+
+/* キャラクター選択ポップアップ */
+.char-select-popup {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    padding: 5px 0;
+    min-width: 150px;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--theme-primary-alpha-20);
+    overflow: hidden;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.char-select-item {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 13px;
+    color: var(--theme-text-primary);
+}
+
+.char-select-item:hover {
+    background: var(--theme-bg-tertiary);
+}
+
+.char-select-item img {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--theme-border);
+}
+
+.char-select-item.active {
+    background: var(--theme-primary-alpha-10);
+    font-weight: bold;
+    color: var(--theme-primary);
+}
+
+.char-select-item.mute-item {
+    color: #666;
+    border-top: 1px solid var(--theme-border);
+    margin-top: 2px;
+    padding-top: 10px;
+}
+
+.char-select-item.mute-item:hover {
+    color: #ff4444;
+    background: rgba(255, 68, 68, 0.1);
+}
     position: relative;
     cursor: pointer;
     border: 2px solid transparent;

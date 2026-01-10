@@ -255,7 +255,7 @@ class HookService {
     }
 
     // Hook専用データ処理（音声再生あり）
-    async processHookOnlyData(data) {
+    async processHookOnlyData(data, characterId = null) {
         // 音声無効時はHook処理もスキップ（パフォーマンス最適化）
         if (!this.terminalApp.voiceEnabled) {
             this.debugLog('🎣 音声無効のためHook処理をスキップ:', data.substring(0, 50) + '...');
@@ -265,7 +265,8 @@ class HookService {
         this.debugLog('🎣 Hook専用データ処理開始:', {
             dataLength: data.length,
             dataPreview: data.substring(0, 300),
-            fullData: data // 全データも表示
+            fullData: data, // 全データも表示
+            characterId
         });
         
         // ◆◇で囲まれたテキストを抽出
@@ -282,8 +283,27 @@ class HookService {
             this.debugLog('🎣 Hook音声合成開始:', text);
             
             try {
+                // キャラクター設定の取得
+                let speakerId = null;
+                let volume = null;
+                
+                if (characterId && this.terminalApp.configManager) {
+                    const char = this.terminalApp.configManager.getCharacterById(characterId);
+                    if (char && char.voice) {
+                        speakerId = char.voice.speakerId;
+                        volume = char.voice.volume;
+                    }
+                }
+
                 // 音声合成を実行
-                const audioData = await this.terminalApp.audioService.synthesizeTextOnly(text);
+                const audioData = await this.terminalApp.audioService.synthesizeTextOnly(
+                    text, 
+                    speakerId, 
+                    volume, 
+                    null, // speed
+                    null  // pitch
+                );
+
                 if (!audioData) {
                     this.debugLog('⚠️ Hook音声合成失敗');
                     continue;

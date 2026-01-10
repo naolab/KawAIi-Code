@@ -78,12 +78,15 @@ class TabManager {
             pane.terminal.write(data);
         }
         
-        // 音声処理は親タブの最初のアクティブなペインのみ（簡易化のため最初のペインを優先）
-        if (this.isParentTab(tab.id) && this.deps.messageAccumulator) {
+        // 音声処理：ペインにキャラクターが設定されている場合のみ実行
+        if (pane.characterId && this.deps.messageAccumulator) {
+            // メッセージ蓄積（ログ用など）
             this.deps.messageAccumulator.addChunk(data);
             
+            // 音声処理パイプラインへ
             if (this.deps.terminalService && this.deps.terminalService.processTerminalData) {
-                this.deps.terminalService.processTerminalData(data);
+                // 第2引数としてcharacterIdを渡す（TerminalService側で対応が必要）
+                this.deps.terminalService.processTerminalData(data, pane.characterId);
             }
         }
     }
@@ -228,6 +231,19 @@ class TabManager {
         pane.className = 'terminal-pane';
         pane.setAttribute('data-pane-id', paneId);
         
+        // キャラクター選択ボタン
+        const charButton = document.createElement('button');
+        charButton.className = 'pane-char-button muted';
+        charButton.title = 'キャラクター選択';
+        // デフォルトはミュートSVG
+        charButton.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white" style="opacity: 0.7;"><path d="M3.63 3.63a.996.996 0 000 1.41L7.29 8.7 7 9H4c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h3l3.29 3.29c.63.63 1.71.18 1.71-.71v-4.17l4.18 4.18c-.49.37-1.02.68-1.6.91-.36.15-.58.53-.58.95 0 .72.73 1.18 1.39.91.8-.33 1.55-.77 2.22-1.31l1.34 1.34a.996.996 0 101.41-1.41L5.05 3.63a.996.996 0 00-1.42 0zM19 12c0 .82-.15 1.61-.41 2.34l1.53 1.53c.56-1.17.88-2.48.88-3.87 0-3.83-2.4-7.11-5.78-8.4-.59-.23-1.22.23-1.22.86v.19c0 .38.25.71.61.85C17.18 6.54 19 9.06 19 12zm-8.71-6.29l-.17.17L12 7.76V6.41c0-.89-1.08-1.34-1.71-.71z"/></svg>';
+        
+        charButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openCharSelectPopup(e, paneId);
+        });
+        pane.appendChild(charButton);
+
         // 閉じるボタン（分割時のみ表示されるようCSSで制御）
         const closeButton = document.createElement('button');
         closeButton.className = 'pane-close-button';
@@ -969,6 +985,143 @@ class TabManager {
         this.deps.resourceManager.addEventListener(input, 'blur', () => {
             commit();
         });
+    }
+
+    // ========================================
+    // キャラクター選択ポップアップ関連
+    // ========================================
+
+    openCharSelectPopup(event, paneId) {
+        // 既存のポップアップを閉じる
+        const existingPopup = document.querySelector('.char-select-popup');
+        if (existingPopup) existingPopup.remove();
+
+        const button = event.currentTarget;
+        const rect = button.getBoundingClientRect();
+        
+        const popup = document.createElement('div');
+        popup.className = 'char-select-popup';
+        
+        // ConfigManagerからキャラクターリストを取得
+        // ※ ConfigManagerはTerminalAppManager経由でアクセスする必要があるため
+        //    dependenciesに含めるか、グローバルから取得する
+        let characters = [];
+        if (this.deps.terminalApp && this.deps.terminalApp.configManager) {
+            characters = this.deps.terminalApp.configManager.getCharacters();
+        } else if (window.terminalApp && window.terminalApp.configManager) {
+            characters = window.terminalApp.configManager.getCharacters();
+        }
+
+        // キャラクターリストを表示
+        characters.forEach(char => {
+            const item = document.createElement('div');
+            item.className = 'char-select-item';
+            
+            const icon = document.createElement('img');
+            icon.src = char.icon || '../assets/icons/new-app-icon.png';
+            
+            const name = document.createElement('span');
+            name.textContent = char.name;
+            
+            item.appendChild(icon);
+            item.appendChild(name);
+            
+            // 現在選択中のキャラならハイライト（pane情報が必要）
+            const { pane } = this.findPaneById(paneId) || {};
+            if (pane && pane.characterId === char.id) {
+                item.classList.add('active');
+            }
+            
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.setPaneCharacter(paneId, char.id);
+                popup.remove();
+            });
+            
+            popup.appendChild(item);
+        });
+
+        // ミュート（OFF）オプション
+        const muteItem = document.createElement('div');
+        muteItem.className = 'char-select-item mute-item';
+        muteItem.innerHTML = '<span>🔇</span><span>読み上げなし</span>';
+        muteItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.setPaneCharacter(paneId, null); // nullでミュート
+            popup.remove();
+        });
+        popup.appendChild(muteItem);
+
+        // ポップアップ配置（ボタンの左下に表示）
+        document.body.appendChild(popup);
+        
+        const popupRect = popup.getBoundingClientRect();
+        let left = rect.right - popupRect.width;
+        let top = rect.bottom + 5;
+        
+        // 画面外にはみ出さないように調整
+        if (left < 0) left = 10;
+        if (top + popupRect.height > window.innerHeight) top = rect.top - popupRect.height - 5;
+        
+        popup.style.left = `${left}px`;
+        popup.style.top = `${top}px`;
+
+        // 外部クリックで閉じる処理
+        const closeHandler = (e) => {
+            if (!popup.contains(e.target) && e.target !== button) {
+                popup.remove();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        // 即座に閉じないようにsetTimeout
+        setTimeout(() => document.addEventListener('click', closeHandler), 0);
+    }
+
+    setPaneCharacter(paneId, characterId) {
+        const result = this.findPaneById(paneId);
+        if (!result) return;
+        
+        const { pane } = result;
+        pane.characterId = characterId; // キャラIDを設定（nullならOFF）
+        
+        // UI更新
+        this.updatePaneCharButton(pane);
+        
+        debugLog(`🔊 Pane ${paneId} character set to: ${characterId || 'Muted'}`);
+    }
+
+    updatePaneCharButton(pane) {
+        if (!pane || !pane.element) return;
+        
+        const button = pane.element.querySelector('.pane-char-button');
+        if (!button) return;
+        
+        if (pane.characterId) {
+            // キャラクターが設定されている場合
+            let char = null;
+            
+            // ConfigManagerからキャラ情報を取得
+            if (this.deps.terminalApp && this.deps.terminalApp.configManager) {
+                char = this.deps.terminalApp.configManager.getCharacterById(pane.characterId);
+            } else if (window.terminalApp && window.terminalApp.configManager) {
+                char = window.terminalApp.configManager.getCharacterById(pane.characterId);
+            }
+            
+            const charIcon = char?.icon || '../assets/icons/new-app-icon.png';
+            
+            button.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = charIcon;
+            button.appendChild(img);
+            
+            button.classList.remove('muted');
+            button.title = char ? `キャラクター: ${char.name}` : 'キャラクター変更';
+        } else {
+            // ミュートの場合
+            button.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white" style="opacity: 0.7;"><path d="M3.63 3.63a.996.996 0 000 1.41L7.29 8.7 7 9H4c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h3l3.29 3.29c.63.63 1.71.18 1.71-.71v-4.17l4.18 4.18c-.49.37-1.02.68-1.6.91-.36.15-.58.53-.58.95 0 .72.73 1.18 1.39.91.8-.33 1.55-.77 2.22-1.31l1.34 1.34a.996.996 0 101.41-1.41L5.05 3.63a.996.996 0 00-1.42 0zM19 12c0 .82-.15 1.61-.41 2.34l1.53 1.53c.56-1.17.88-2.48.88-3.87 0-3.83-2.4-7.11-5.78-8.4-.59-.23-1.22.23-1.22.86v.19c0 .38.25.71.61.85C17.18 6.54 19 9.06 19 12zm-8.71-6.29l-.17.17L12 7.76V6.41c0-.89-1.08-1.34-1.71-.71z"/></svg>';
+            button.classList.add('muted');
+            button.title = '読み上げなし（クリックして選択）';
+        }
     }
 
     /**
