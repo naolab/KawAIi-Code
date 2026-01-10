@@ -537,6 +537,42 @@ body.loaded {
     overflow: hidden;
 }
 
+/* ペインの閉じるボタン */
+.pane-close-button {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.2);
+    border: none;
+    color: white;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.terminal-pane:hover .pane-close-button {
+    opacity: 1;
+}
+
+.pane-close-button:hover {
+    background: rgba(255, 60, 60, 0.8);
+    transform: scale(1.1);
+}
+
+/* ペインが1つしかない（分割されていない）場合は閉じるボタンを隠す */
+.terminal-wrapper:not(.split-h):not(.split-v) .pane-close-button {
+    display: none !important;
+}
+
 /* 壁紙設定用スタイル */
 .wallpaper-controls {
     display: flex;

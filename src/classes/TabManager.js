@@ -198,6 +198,17 @@ class TabManager {
         pane.className = 'terminal-pane';
         pane.setAttribute('data-pane-id', paneId);
         
+        // 閉じるボタン（分割時のみ表示されるようCSSで制御）
+        const closeButton = document.createElement('button');
+        closeButton.className = 'pane-close-button';
+        closeButton.innerHTML = '&times;';
+        closeButton.title = 'Close pane';
+        closeButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.deletePane(paneId);
+        });
+        pane.appendChild(closeButton);
+        
         const container = document.createElement('div');
         container.className = 'xterm-container';
         pane.appendChild(container);
@@ -315,10 +326,8 @@ class TabManager {
         
         // レイアウトの更新
         tab.layout = direction === 'vertical' ? 'split-v' : 'split-h';
-        wrapper.classList.remove('split-v');
-        if (tab.layout === 'split-v') {
-            wrapper.classList.add('split-v');
-        }
+        wrapper.classList.remove('split-v', 'split-h');
+        wrapper.classList.add(tab.layout);
         
         wrapper.appendChild(paneElement);
         
@@ -462,6 +471,11 @@ class TabManager {
         if (activeWrapper) {
             activeWrapper.style.display = 'flex';
             activeWrapper.classList.add('active');
+            // レイアウトクラスの適用を保証
+            activeWrapper.classList.remove('split-h', 'split-v');
+            if (activeTab.layout !== 'single') {
+                activeWrapper.classList.add(activeTab.layout);
+            }
         }
         
         // アクティブペインにフォーカス
@@ -550,6 +564,79 @@ class TabManager {
         
         delete this.tabs[tabId];
         this.renderTabs();
+    }
+
+    async deletePane(paneId) {
+        const result = this.findPaneById(paneId);
+        if (!result) return;
+        
+        const { tab, pane } = result;
+        
+        // 最後の1つのペインは削除させない（代わりにタブ自体を削除すべき）
+        if (tab.panes.length <= 1) {
+            debugLog('Cannot delete the last pane in a tab. Delete the tab instead.');
+            return;
+        }
+        
+        debugLog(`Deleting pane ${paneId} from tab ${tab.id}`);
+        
+        // プロセスの停止
+        if (pane.isRunning && window.electronAPI && window.electronAPI.tab) {
+            try {
+                await window.electronAPI.tab.delete(pane.id);
+            } catch (e) {
+                debugError('Error deleting pane process:', e);
+            }
+        }
+        
+        // イベントリスナーの解除
+        if (pane.eventListeners) {
+            pane.eventListeners.forEach(d => d.dispose());
+            pane.eventListeners = [];
+        }
+        
+        // ターミナルの破棄
+        if (pane.terminal) {
+            pane.terminal.dispose();
+        }
+        
+        // DOM要素の削除
+        if (pane.element && pane.element.parentNode) {
+            pane.element.parentNode.removeChild(pane.element);
+        }
+        
+        // データ構造から削除
+        const paneIndex = tab.panes.indexOf(pane);
+        if (paneIndex !== -1) {
+            tab.panes.splice(paneIndex, 1);
+        }
+        
+        // レイアウトの更新（最後の1つになったらsingleに戻す）
+        if (tab.panes.length === 1) {
+            tab.layout = 'single';
+            const wrapper = document.getElementById(`terminal-${tab.id}`);
+            if (wrapper) {
+                wrapper.classList.remove('split-h', 'split-v');
+            }
+        }
+        
+        // フォーカスの更新（削除されたペインがアクティブだった場合、別のペインへ）
+        if (tab.activePaneId === paneId) {
+            tab.activePaneId = tab.panes[0].id;
+        }
+        
+        this.focusPane(tab.activePaneId);
+        this.updateTabUI();
+        
+        // 残ったペインのリサイズ
+        setTimeout(() => {
+            tab.panes.forEach(p => {
+                if (p.fitAddon) p.fitAddon.fit();
+                if (p.isRunning && p.terminal) {
+                    window.electronAPI.tab.resize(p.id, p.terminal.cols, p.terminal.rows);
+                }
+            });
+        }, 100);
     }
 
     renderTabs() {
