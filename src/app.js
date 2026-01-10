@@ -175,17 +175,13 @@ class TerminalApp {
         debugLog('⏳ DOM要素の準備完了を待機中...');
         return new Promise(resolve => {
             const checkElements = () => {
-                const statusElement = document.getElementById('connection-status-modal');
                 const settingsModal = document.getElementById('settings-modal');
                 
-                if (statusElement && settingsModal) {
+                if (settingsModal) {
                     debugLog('✅ DOM要素の準備完了');
                     resolve();
                 } else {
-                    debugLog('🔄 DOM要素待機中...', { 
-                        statusElement: !!statusElement, 
-                        settingsModal: !!settingsModal 
-                    });
+                    debugLog('🔄 DOM要素待機中...');
                     setTimeout(checkElements, 100);
                 }
             };
@@ -538,8 +534,6 @@ class TerminalApp {
                 statusElementModal.className = `status-${status}`;
                 debugLog('✅ ローカル/VoiceVOX使用時: UI更新成功:', { text, status, voiceEngine });
             }
-        } else {
-            debugError('❌ UI要素が見つかりません: connection-status-modal');
         }
     }
 
@@ -776,10 +770,7 @@ async function forcedConnectionCheck() {
     debugLog('🔧 強制接続チェック実行');
     
     const statusElement = document.getElementById('connection-status-modal');
-    if (!statusElement) {
-        debugError('❌ connection-status-modal要素が見つかりません');
-        return;
-    }
+    if (!statusElement) return;
     
     if (statusElement.textContent === '接続確認中...') {
         debugLog('🔄 接続確認中状態を検出、手動チェック実行');
@@ -829,10 +820,7 @@ function startContinuousConnectionMonitoring() {
 // 継続的な接続チェック（軽量版）
 async function continuousConnectionCheck() {
     const statusElement = document.getElementById('connection-status-modal');
-    if (!statusElement) {
-        debugLog('❌ connection-status-modal要素が見つかりません（継続チェック）');
-        return;
-    }
+    if (!statusElement) return;
     
     // クラウドAPI使用時はスキップ（updateConnectionStatus()に任せる）
     const unifiedConfig = getSafeUnifiedConfig();

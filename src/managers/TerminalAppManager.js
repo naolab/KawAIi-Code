@@ -37,11 +37,11 @@ class TerminalAppManager {
             // 4. ターミナル関連サービスの初期化
             await this.initializeTerminalServices();
             
-            // 5. UI関連サービスの初期化
-            await this.initializeUIServices();
-            
-            // 6. モジュールの初期化
+            // 5. モジュールの初期化（UIの前に初期化して設定を読み込んでおく）
             await this.initializeModules();
+            
+            // 6. UI関連サービスの初期化
+            await this.initializeUIServices();
             
             // 7. サービス間の連携設定
             await this.setupServiceIntegration();
@@ -379,8 +379,6 @@ class TerminalAppManager {
                 }
             }
         }
-        
-        this.terminalApp.updateVoiceControls();
         
         // 手動チェックフラグをリセット
         if (isManualCheck) {
