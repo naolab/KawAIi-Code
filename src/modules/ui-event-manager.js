@@ -1811,9 +1811,8 @@ class UIEventManager {
             speakerSelect.innerHTML = '';
             
             const unifiedConfig = getSafeUnifiedConfig();
-            this.debugLog('unifiedConfig取得完了');
             
-            // プレースホルダーオプションを追加
+            // プレースホルダーオプション
             const placeholderOption = document.createElement('option');
             placeholderOption.value = '';
             placeholderOption.textContent = '音声モデルを選択してください';
@@ -1823,51 +1822,26 @@ class UIEventManager {
             
             // カスタムモデルリストを取得
             const customModels = await unifiedConfig.get('cloudCustomModels', []);
-            this.debugLog('カスタムモデルリスト取得:', { count: customModels.length, models: customModels });
             
             // カスタムモデルをドロップダウンに追加
-            customModels.forEach((model, index) => {
+            customModels.forEach((model) => {
                 const option = document.createElement('option');
-                option.value = model.uuid;  // UUIDをvalueに設定
+                option.value = model.uuid;
                 option.textContent = model.name;
-                option.dataset.uuid = model.uuid;  // data属性としてもUUIDを保存
                 speakerSelect.appendChild(option);
             });
             
-            // 保存された選択値を復元（なければプレースホルダー）
-            let savedSelection = '';
-            try {
-                if (window.electronAPI && window.electronAPI.config) {
-                    savedSelection = await window.electronAPI.config.get('cloudSelectedModel') || '';
-                } else {
-                    savedSelection = await unifiedConfig.get('cloudSelectedModel', '');
-                }
-            } catch (error) {
-                this.debugError('保存された選択値取得エラー:', error);
-            }
-
-            // 選択値を設定（存在しない場合はプレースホルダーを表示）
-            const optionExists = Array.from(speakerSelect.options).some(option => option.value === savedSelection);
-            speakerSelect.value = optionExists ? savedSelection : '';
-            
-            this.debugLog('クラウドAPI話者選択を設定完了:', { 
-                customModelCount: customModels.length, 
-                optionCount: speakerSelect.options.length,
-                savedSelection,
-                finalValue: speakerSelect.value
-            });
+            // モデル追加オプション
+            const addOption = document.createElement('option');
+            addOption.value = 'add_new_model';
+            addOption.textContent = '➕ 新しいモデルを追加...';
+            addOption.style.color = 'var(--theme-primary)';
+            addOption.style.fontWeight = 'bold';
+            speakerSelect.appendChild(addOption);
             
         } catch (error) {
             this.debugError('クラウドAPI話者選択設定エラー:', error);
-            
-            // フォールバック：プレースホルダーのみ表示
-            speakerSelect.innerHTML = '';
-            const placeholderOption = document.createElement('option');
-            placeholderOption.value = '';
-            placeholderOption.textContent = '音声モデルが利用できません';
-            placeholderOption.disabled = true;
-            placeholderOption.selected = true;
-            speakerSelect.appendChild(placeholderOption);
+            speakerSelect.innerHTML = '<option>読み込みエラー</option>';
         }
     }
 
@@ -2894,31 +2868,40 @@ class UIEventManager {
      */
     async updateCharacterSpeakerSelect(engine, selectedSpeakerId = null) {
         const speakerSelect = document.getElementById('char-speaker-select');
-        if (!speakerSelect) return;
+        const speakerContainer = document.getElementById('char-speaker-select-container');
+        const cloudSettings = document.getElementById('char-cloud-settings');
+        
+        if (!speakerSelect || !speakerContainer || !cloudSettings) return;
+
+        if (engine === 'aivis-cloud') {
+            // クラウドAPIの場合: ドロップダウンを隠してAPIキー/UUID入力欄を表示
+            speakerContainer.style.display = 'none';
+            cloudSettings.style.display = 'block';
+            return;
+        } else {
+            // その他: 入力欄を隠してドロップダウンを表示
+            speakerContainer.style.display = 'block';
+            cloudSettings.style.display = 'none';
+        }
 
         // ローディング表示
         speakerSelect.innerHTML = '<option>読み込み中...</option>';
         speakerSelect.disabled = true;
 
         try {
-            if (engine === 'aivis-cloud') {
-                // Cloud APIの場合は専用の処理（既存のpopulateCloudApiSpeakersを再利用）
-                await this.populateCloudApiSpeakers(speakerSelect);
-            } else {
-                // ローカルまたはVoiceVOX
-                // AudioServiceのloadSpeakersを使ってリストを取得
-                // ※ ここでAudioServiceが初期化されている前提
-                if (!this.app.audioService) {
-                    throw new Error('AudioService not initialized');
-                }
+            // ローカルまたはVoiceVOX
+            // AudioServiceのloadSpeakersを使ってリストを取得
+            // ※ ここでAudioServiceが初期化されている前提
+            if (!this.app.audioService) {
+                throw new Error('AudioService not initialized');
+            }
 
-                const result = await this.app.audioService.loadSpeakers(engine);
-                if (result.success) {
-                    this.updateSpeakerSelectOptions(speakerSelect, result.speakers, selectedSpeakerId);
-                } else {
-                    speakerSelect.innerHTML = '<option value="0">読み込み失敗</option>';
-                    this.debugError('Speaker load failed:', result.error);
-                }
+            const result = await this.app.audioService.loadSpeakers(engine);
+            if (result.success) {
+                this.updateSpeakerSelectOptions(speakerSelect, result.speakers, selectedSpeakerId);
+            } else {
+                speakerSelect.innerHTML = '<option value="0">読み込み失敗</option>';
+                this.debugError('Speaker load failed:', result.error);
             }
         } catch (error) {
             this.debugError('Character speaker select update error:', error);
@@ -2971,6 +2954,25 @@ class UIEventManager {
                 const engine = e.target.value;
                 await this.updateCharacterSpeakerSelect(engine);
             }, 'char-engine-select');
+        }
+
+        // 話者選択変更（モデル追加への誘導）
+        const speakerSelect = document.getElementById('char-speaker-select');
+        if (speakerSelect) {
+            this.safeAddEventListener(speakerSelect, 'change', (e) => {
+                if (e.target.value === 'add_new_model') {
+                    // 音声設定タブへ切り替え
+                    const voiceNav = document.querySelector('.settings-nav-item[data-section="voice"]');
+                    if (voiceNav) voiceNav.click();
+                    
+                    // クラウドAPI設定を表示させる（必要なら）
+                    const cloudRadio = document.getElementById('voice-engine-cloud');
+                    if (cloudRadio) cloudRadio.click();
+                    
+                    // 選択をリセット
+                    e.target.value = '';
+                }
+            }, 'char-speaker-select');
         }
 
         // 新規作成ボタン
@@ -3120,6 +3122,10 @@ class UIEventManager {
         // 話者リスト更新と選択
         await this.updateCharacterSpeakerSelect(engine, char.voice?.speakerId || 0);
         
+        // Cloud API用フィールドの設定
+        document.getElementById('char-cloud-api-key').value = char.voice?.cloudApiKey || '';
+        document.getElementById('char-cloud-model-uuid').value = char.voice?.modelUuid || '';
+        
         document.getElementById('char-prompt-input').value = char.prompt || '';
 
         // スライダー設定
@@ -3213,7 +3219,10 @@ class UIEventManager {
                     ? parseInt(document.getElementById('char-speaker-select').value) 
                     : document.getElementById('char-speaker-select').value,
                 interval: parseFloat(document.getElementById('char-interval-slider').value),
-                volume: parseInt(document.getElementById('char-volume-slider').value)
+                volume: parseInt(document.getElementById('char-volume-slider').value),
+                // Cloud API用設定
+                cloudApiKey: document.getElementById('char-cloud-api-key').value,
+                modelUuid: document.getElementById('char-cloud-model-uuid').value
             },
             prompt: document.getElementById('char-prompt-input').value,
             icon: document.getElementById('char-icon-img').src
@@ -3272,9 +3281,25 @@ class UIEventManager {
         const speakerVal = document.getElementById('char-speaker-select').value;
         const speakerId = /^\d+$/.test(speakerVal) ? parseInt(speakerVal) : speakerVal;
         
+        // Cloud API用の設定を取得
+        const cloudApiKey = document.getElementById('char-cloud-api-key').value;
+        const modelUuid = document.getElementById('char-cloud-model-uuid').value;
+        
+        // エンジンを取得
+        const engine = document.getElementById('char-engine-select').value || 'aivis-local';
+        
         if (this.app.audioService) {
             // デフォルト値を使用: volume=100 (1.0), speed=1.2, pitch=0.0
-            const audioData = await this.app.audioService.synthesizeTextOnly(text, speakerId, 100, 1.2, 0.0);
+            const audioData = await this.app.audioService.synthesizeTextOnly(
+                text, 
+                speakerId, 
+                100, 
+                1.2, 
+                0.0,
+                cloudApiKey,
+                modelUuid,
+                engine
+            );
             if (audioData) {
                 await this.app.audioService.playAppInternalAudio(audioData, text);
             } else {

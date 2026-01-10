@@ -89,6 +89,13 @@ class AudioService {
             await this.updateApiSettings();
             
             const targetEngine = engine || this.voiceEngine;
+            
+            // Cloud APIの場合はリスト取得をスキップ（UUID指定のため）
+            if (targetEngine === 'aivis-cloud') {
+                this.debugLog('Cloud API: Speaker list loading skipped (UUID mode)');
+                return { success: true, speakers: [] };
+            }
+
             const endpoint = this.getApiEndpoint(targetEngine);
             const headers = this.getRequestHeaders();
 
@@ -122,7 +129,7 @@ class AudioService {
     }
 
     // 音声合成のみ実行（再生は別途）
-    async synthesizeTextOnly(text, overrideSpeakerId = null, overrideVolume = null, overrideSpeed = null, overridePitch = null) {
+    async synthesizeTextOnly(text, overrideSpeakerId = null, overrideVolume = null, overrideSpeed = null, overridePitch = null, overrideCloudApiKey = null, overrideModelUuid = null, overrideEngine = null) {
         if (!text || text.trim() === '') {
             this.debugLog('音声合成スキップ: 空のテキスト');
             return null;
@@ -134,11 +141,15 @@ class AudioService {
             // API設定を更新
             await this.updateApiSettings();
 
+            // エンジンの決定（オーバーライド優先）
+            const targetEngine = overrideEngine || this.voiceEngine;
+            const isCloudRequest = targetEngine === 'aivis-cloud';
+
             // パラメータの決定（オーバーライド優先）
             let speakerId = overrideSpeakerId;
             if (speakerId === null) {
                 // VoiceVOX使用時は専用の話者IDを使用
-                if (this.voiceEngine === 'voicevox') {
+                if (targetEngine === 'voicevox') {
                     speakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
                 } else {
                     speakerId = await unifiedConfig.get('defaultSpeakerId', this.selectedSpeaker);
@@ -159,22 +170,18 @@ class AudioService {
                 volume,
                 speed,
                 pitch,
-                voiceEngine: this.voiceEngine,
-                useCloudAPI: this.useCloudAPI
+                voiceEngine: targetEngine,
+                useCloudAPI: isCloudRequest,
+                hasCloudApiKey: !!overrideCloudApiKey,
+                hasModelUuid: !!overrideModelUuid
             });
-            const endpoint = this.getApiEndpoint();
+            const endpoint = this.getApiEndpoint(targetEngine);
             const headers = {
                 ...this.getRequestHeaders(),
                 'Content-Type': 'application/json'
             };
             
-            this.debugLog('音声合成API詳細:', {
-                endpoint,
-                headers: this.useCloudAPI ? { 'Authorization': '[設定済み]', 'Content-Type': 'application/json' } : headers,
-                useCloudAPI: this.useCloudAPI
-            });
-            
-            if (this.useCloudAPI) {
+            if (isCloudRequest) {
                 // 感情分析実行
                 const emotion = this.terminalApp.emotionAnalyzer 
                     ? this.terminalApp.emotionAnalyzer.analyzeEmotion(text)
@@ -183,23 +190,23 @@ class AudioService {
                 // SSML強化テキスト処理
                 const enhancedText = this.enhanceTextWithSSML(text, emotion);
                 
-                // 話者選択を取得（クラウドAPI用）
-                let cloudSpeakerId = 'default';
-                if (overrideSpeakerId) {
-                    cloudSpeakerId = overrideSpeakerId;
-                } else {
-                    try {
-                        const speakerSelect = document.getElementById('speaker-select-modal');
-                        if (speakerSelect && speakerSelect.value) {
-                            cloudSpeakerId = speakerSelect.value;
-                        }
-                    } catch (error) {
-                        this.debugError('話者選択取得エラー:', error);
-                    }
+                // クラウドAPIリクエストヘッダー構築
+                const reqHeaders = {
+                    'accept': 'audio/mp3',
+                    'Content-Type': 'application/json'
+                };
+                
+                // APIキー（オーバーライド優先）
+                const apiKey = overrideCloudApiKey || this.cloudApiKey;
+                if (apiKey) {
+                    reqHeaders['Authorization'] = `Bearer ${apiKey}`;
                 }
                 
+                // モデルUUID（オーバーライド優先、なければspeakerIdをフォールバックとして使用）
+                const targetModelUuid = overrideModelUuid || overrideSpeakerId || 'default';
+                
                 // 感情に応じたパラメータ構築（話者IDを含む）
-                const cloudPayload = await this.buildCloudApiParams(enhancedText.text, emotion, speed, volume, cloudSpeakerId);
+                const cloudPayload = await this.buildCloudApiParams(enhancedText.text, emotion, speed, volume, targetModelUuid);
                 cloudPayload.use_ssml = enhancedText.use_ssml;
                 // Cloud APIでのピッチ指定方法は要確認だが、一旦パラメータに追加しておく
                 if (pitch !== 0.0) cloudPayload.pitch = pitch;
@@ -212,7 +219,7 @@ class AudioService {
                 
                 const synthesisResponse = await fetch(`${endpoint}/tts/synthesize`, {
                     method: 'POST',
-                    headers,
+                    headers: reqHeaders,
                     body: JSON.stringify(cloudPayload)
                 });
 
@@ -235,7 +242,7 @@ class AudioService {
                         
                         const retryResponse = await fetch(`${endpoint}/tts/synthesize`, {
                             method: 'POST',
-                            headers,
+                            headers: reqHeaders,
                             body: JSON.stringify(fallbackPayload)
                         });
                         
@@ -262,8 +269,9 @@ class AudioService {
                     this.debugLog('ローカルエンジンにフォールバック中...');
                     const originalCloudSetting = this.useCloudAPI;
                     try {
-                        this.useCloudAPI = false;
-                        const fallbackAudioData = await this.synthesizeTextOnly(text, speakerId, volume, speed, pitch);
+                        this.useCloudAPI = false; // 一時的にフラグ変更（再帰呼び出し用）
+                        // ここでは引数でエンジンを指定して再帰呼び出し
+                        const fallbackAudioData = await this.synthesizeTextOnly(text, speakerId, volume, speed, pitch, null, null, 'aivis-local');
                         this.debugLog('ローカルエンジンフォールバック成功');
                         return fallbackAudioData;
                     } catch (fallbackError) {
@@ -292,7 +300,7 @@ class AudioService {
                         statusText: queryResponse.statusText,
                         errorText,
                         endpoint,
-                        useCloudAPI: this.useCloudAPI
+                        useCloudAPI: isCloudRequest
                     });
                     throw new Error(`音声クエリ生成失敗: ${queryResponse.status} - ${errorText}`);
                 }
@@ -318,7 +326,7 @@ class AudioService {
                         statusText: synthesisResponse.statusText,
                         errorText,
                         endpoint,
-                        useCloudAPI: this.useCloudAPI
+                        useCloudAPI: isCloudRequest
                     });
                     throw new Error(`音声合成失敗: ${synthesisResponse.status} - ${errorText}`);
                 }
@@ -800,32 +808,17 @@ class AudioService {
             // エンジンごとに接続テストエンドポイントを切り替え
             switch (this.voiceEngine) {
                 case 'aivis-cloud':
-                    // クラウドAPIの場合は/speakersエンドポイントで接続テスト
-                    try {
-                        const testEndpoint = `${endpoint}/speakers`;
-                        const response = await fetch(testEndpoint, { headers });
-
-                        if (response.ok) {
-                            this.connectionStatus = 'connected';
-                            this.terminalApp.connectionStatus = 'connected';
-                            this.debugLog('クラウドAPI接続成功');
-                            return { success: true };
-                        } else {
-                            const errorText = await response.text();
-                            this.connectionStatus = 'disconnected';
-                            this.terminalApp.connectionStatus = 'disconnected';
-                            this.debugLog('クラウドAPI接続失敗:', {
-                                status: response.status,
-                                statusText: response.statusText,
-                                errorText
-                            });
-                            return { success: false, error: `API接続失敗: ${response.status} - ${errorText}` };
-                        }
-                    } catch (error) {
-                        this.connectionStatus = 'error';
-                        this.terminalApp.connectionStatus = 'error';
-                        this.debugLog('クラウドAPI接続エラー:', error.message);
-                        return { success: false, error: error.message };
+                    // クラウドAPIの場合はAPIキーの有無のみ確認（エンドポイントが存在しないため）
+                    if (this.cloudApiKey) {
+                        this.connectionStatus = 'connected';
+                        this.terminalApp.connectionStatus = 'connected';
+                        this.debugLog('クラウドAPI接続状態: キー設定済み');
+                        return { success: true };
+                    } else {
+                        this.connectionStatus = 'disconnected';
+                        this.terminalApp.connectionStatus = 'disconnected';
+                        this.debugLog('クラウドAPI接続失敗: APIキー未設定');
+                        return { success: false, error: 'APIキーが設定されていません' };
                     }
 
                 case 'voicevox':

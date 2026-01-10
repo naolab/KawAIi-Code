@@ -333,12 +333,23 @@
                                                                 <option value="aivis-cloud">Aivis Cloud</option>
                                                             </select>
                                                         </div>
-                                                                                                                                                                        <div style="flex: 1;">
+                                                                                                                                                                        <div style="flex: 1;" id="char-speaker-select-container">
                                                                                                                                                                             <label style="font-size: 12px; display: block; margin-bottom: 4px;">話者</label>
                                                                                                                                                                             <select id="char-speaker-select" class="speaker-select" style="width: 100%;">
                                                                                                                                                                                 <option value="0">読み込み中...</option>
                                                                                                                                                                             </select>
                                                                                                                                                                         </div>                                                                                                            </div>
+                                                    
+                                                    <div id="char-cloud-settings" style="margin-top: 10px; display: none; background: var(--theme-bg-tertiary); padding: 10px; border-radius: 6px;">
+                                                        <div style="margin-bottom: 8px;">
+                                                            <label style="font-size: 12px; display: block; margin-bottom: 4px;">Aivis Cloud APIキー</label>
+                                                            <input type="password" id="char-cloud-api-key" placeholder="aivis-..." class="setting-input" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--theme-border);">
+                                                        </div>
+                                                        <div>
+                                                            <label style="font-size: 12px; display: block; margin-bottom: 4px;">モデルUUID</label>
+                                                            <input type="text" id="char-cloud-model-uuid" placeholder="00000000-0000-0000-0000-000000000000" class="setting-input" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--theme-border); font-family: monospace;">
+                                                        </div>
+                                                    </div>
                                                         
                                                                                                                                                                 <button id="char-test-voice-btn" class="simple-btn" style="width: auto; align-self: flex-start;">テスト発話</button>
                                                                                                                                                             </div>

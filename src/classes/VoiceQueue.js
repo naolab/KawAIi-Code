@@ -166,6 +166,9 @@ class VoiceQueue {
                 let speakerId = null;
                 let volume = null;
                 let intervalSeconds = 0.5; // デフォルト
+                let cloudApiKey = null;
+                let modelUuid = null;
+                let engine = 'aivis-local';
                 
                 if (characterId && this.terminalApp.configManager) {
                     const char = this.terminalApp.configManager.getCharacterById(characterId);
@@ -173,6 +176,9 @@ class VoiceQueue {
                         speakerId = char.voice.speakerId;
                         volume = char.voice.volume; // 0-100
                         intervalSeconds = char.voice.interval !== undefined ? char.voice.interval : 1.0;
+                        cloudApiKey = char.voice.cloudApiKey;
+                        modelUuid = char.voice.modelUuid;
+                        engine = char.voice.engine || 'aivis-local';
                     }
                 }
                 
@@ -184,13 +190,16 @@ class VoiceQueue {
 
                 // 音声合成のみ（再生なし）
                 // AudioServiceを直接呼び出してオーバーライドパラメータを渡す
-                // synthesizeTextOnly(text, overrideSpeakerId, overrideVolume, overrideSpeed, overridePitch)
+                // synthesizeTextOnly(text, overrideSpeakerId, overrideVolume, overrideSpeed, overridePitch, cloudApiKey, modelUuid, overrideEngine)
                 const audioData = await this.terminalApp.audioService.synthesizeTextOnly(
                     text, 
                     speakerId, 
                     volume, 
                     null, // speed (UIから削除されたためnull)
-                    null  // pitch (UIから削除されたためnull)
+                    null, // pitch (UIから削除されたためnull)
+                    cloudApiKey,
+                    modelUuid,
+                    engine
                 );
                 
                 if (audioData) {
