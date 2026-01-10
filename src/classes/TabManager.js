@@ -426,21 +426,28 @@ class TabManager {
             eventListeners: []
         };
 
+        // ★ 重要: フラットなリストにも追加してID検索可能にする
+        // これがないと handleTabData でペインが見つからずデータが表示されない
+        // newPaneNode と同じオブジェクト参照を入れることで状態を共有する
+        const flatPane = newPaneNode; 
+        tab.panes.push(flatPane);
+
         // アクティブペインを含むコンテナノードを作成
         const parentNode = this.findParentNode(tab.layoutRoot, activePaneNode.id);
+        const originalSize = activePaneNode.size; // 元のサイズを保持
         activePaneNode.size = 0.5;
 
         const containerNode = {
             type: 'container',
             direction: direction,
-            size: activePaneNode.size,  // 元のペインのサイズを継承
+            size: originalSize,  // 元のペインのサイズを継承
             children: [activePaneNode, newPaneNode]
         };
 
         if (parentNode) {
             // アクティブペインを親の子リストから新しいコンテナに置き換え
             const index = parentNode.children.indexOf(activePaneNode);
-            containerNode.size = activePaneNode.size;  // 親サイズを維持
+            // containerNode.sizeは既にoriginalSizeで設定済み
             parentNode.children[index] = containerNode;
         } else {
             // アクティブペインがルート（単一ペイン）の場合、ルートを置き換え
@@ -450,6 +457,9 @@ class TabManager {
 
         // レイアウト全体を再レンダリング
         this.renderTabLayout(tab);
+
+        // DOMとターミナルのサイズが確定するまで待機
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         // 新しいペインでシェル起動
         await this.startShellForPane(tab.id, newPaneId);
@@ -505,9 +515,25 @@ class TabManager {
                 paneNode.eventListeners = [];
             }
 
+            // 起動前にサイズを合わせる
+            if (paneNode.fitAddon && paneNode.element && paneNode.element.offsetParent) {
+                try {
+                    paneNode.fitAddon.fit();
+                    debugLog(`📏 Fitted pane ${paneId} before start`);
+                } catch (e) {
+                    debugError(`Error fitting pane ${paneId}:`, e);
+                }
+            }
+
             // 現在のターミナルサイズを取得
-            const cols = paneNode.terminal ? paneNode.terminal.cols : 80;
-            const rows = paneNode.terminal ? paneNode.terminal.rows : 24;
+            // 最小サイズを保証 (cols: 2, rows: 1) - node-ptyの制限
+            let cols = paneNode.terminal ? paneNode.terminal.cols : 80;
+            let rows = paneNode.terminal ? paneNode.terminal.rows : 24;
+
+            if (cols < 2) cols = 80;
+            if (rows < 1) rows = 24;
+
+            debugLog(`🚀 Creating shell for pane ${paneId} with size ${cols}x${rows}`);
 
             // バックエンドでPTYプロセス作成（paneIdをそのままPtyIDとして使用）
             const result = await window.electronAPI.tab.create(paneId, cols, rows);
@@ -732,6 +758,12 @@ class TabManager {
 
         if (paneNode.terminal) {
             paneNode.terminal.dispose();
+        }
+
+        // フラットなリストからも削除
+        const paneIndex = tab.panes.findIndex(p => p.id === paneId);
+        if (paneIndex !== -1) {
+            tab.panes.splice(paneIndex, 1);
         }
 
         // 木構造から削除
@@ -1475,7 +1507,9 @@ class TabManager {
                 if (node.terminal) {
                     const xtermContainer = paneElement.querySelector('.xterm-container');
                     if (xtermContainer && !node.terminal.element) {
+                        debugLog(`🖥️  ターミナル ${node.id} を DOM に接続中...`);
                         node.terminal.open(xtermContainer);
+                        debugLog(`✅ ターミナル ${node.id} 接続完了`);
                     }
                 }
             }
