@@ -11,10 +11,11 @@ class TabManager {
         this.deps = dependencies;
         this.tabs = {};
         this.activeTabId = null;
-       this.parentTabId = null;
-       this.nextTabNumber = 1;
-       this.tabOrder = []; // タブの順序を管理する配列
-       this.MAX_TABS = 10; // タブの最大数を10個に制限
+        this.parentTabId = null;
+        this.nextTabNumber = 1;
+        this.nextPaneNumber = 1; // 内部ペイン（PTY）用のユニークID
+        this.tabOrder = []; // タブの順序を管理する配列
+        this.MAX_TABS = 10; // タブの最大数を10個に制限
         this.dragState = null; // タブドラッグの状態管理
         this.onGlobalTabPointerMove = (event) => this.handleTabPointerMove(event);
         this.onGlobalTabPointerUp = (event) => this.handleTabPointerUp(event);
@@ -63,159 +64,269 @@ class TabManager {
         debugLog('🛡️ TabManager イベントリスナー初期化完了（重複防止済み）');
     }
     
-    handleTabData(tabId, data) {
-        const tab = this.tabs[tabId];
-        if (!tab) {
-            debugLog(`Received data for unknown tab: ${tabId}`);
+    handleTabData(paneId, data) {
+        const result = this.findPaneById(paneId);
+        if (!result) {
+            debugLog(`Received data for unknown pane: ${paneId}`);
             return;
         }
         
-        // ターミナルに出力（全タブ）
-        if (tab.terminal) {
-            tab.terminal.write(data);
+        const { tab, pane } = result;
+        
+        // ターミナルに出力
+        if (pane.terminal) {
+            pane.terminal.write(data);
         }
         
-        // 音声処理は親タブのみ（Phase 2A: 事前フィルタリング改善）
-        if (this.isParentTab(tabId) && this.deps.messageAccumulator) {
-            debugLog(`🎵 親タブ${tabId}のデータを音声処理パイプラインに送信:`, data.substring(0, 50) + '...');
+        // 音声処理は親タブの最初のアクティブなペインのみ（簡易化のため最初のペインを優先）
+        if (this.isParentTab(tab.id) && this.deps.messageAccumulator) {
             this.deps.messageAccumulator.addChunk(data);
             
-            // タブシステム使用時も音声処理を確実に実行
             if (this.deps.terminalService && this.deps.terminalService.processTerminalData) {
-                debugLog(`🎤 親タブ${tabId}の音声処理を直接実行`);
                 this.deps.terminalService.processTerminalData(data);
             }
-        } else if (!this.isParentTab(tabId)) {
-            debugLog(`🔇 非親タブ${tabId}のデータは音声処理をスキップ:`, data.substring(0, 30) + '...');
         }
     }
     
-    handleTabExit(tabId, exitCode) {
-        const tab = this.tabs[tabId];
-        if (!tab) {
-            debugLog(`Tab exit event for unknown tab: ${tabId}`);
+    findPaneById(paneId) {
+        for (const tabId of this.tabOrder) {
+            const tab = this.tabs[tabId];
+            const pane = tab.panes.find(p => p.id === paneId);
+            if (pane) {
+                return { tab, pane };
+            }
+        }
+        return null;
+    }
+    
+    handleTabExit(paneId, exitCode) {
+        const result = this.findPaneById(paneId);
+        if (!result) {
+            debugLog(`Exit event for unknown pane: ${paneId}`);
             return;
         }
         
-        debugLog(`Tab ${tabId} process exited with code: ${exitCode}`);
-        
-        // 停止時のメッセージを削除（シンプル化）
-        // if (tab.terminal) {
-        //     if (exitCode === 0) {
-        //         tab.terminal.writeln('\r\n\x1b[90m[プロセス正常終了] 新しいタブを作成してください\x1b[0m');
-        //     } else {
-        //         tab.terminal.writeln(`\r\n\x1b[31m[プロセス異常終了: ${exitCode}] 新しいタブを作成してください\x1b[0m`);
-        //     }
-        // }
+        const { tab, pane } = result;
+        debugLog(`Pane ${paneId} in tab ${tab.id} exited with code: ${exitCode}`);
+        pane.isRunning = false;
     }
 
     async createInitialTab() {
         // 既存のターミナルを最初のタブとして登録
         const tabId = `tab-${this.nextTabNumber++}`;
+        const paneId = `pane-${this.nextPaneNumber++}`;
         
-        // 既存の#terminal要素をリネームして統一化
-        const existingTerminal = document.getElementById('terminal');
-        const newTerminalId = `terminal-${tabId}`;
-        if (existingTerminal) {
-            existingTerminal.id = newTerminalId;
-            existingTerminal.className = 'terminal-wrapper active';
+        // 既存の#terminal要素をリネームしてコンテナとして再利用
+        const existingWrapper = document.getElementById('terminal');
+        if (existingWrapper) {
+            existingWrapper.id = `terminal-${tabId}`;
+            existingWrapper.className = 'terminal-wrapper active';
+            existingWrapper.innerHTML = ''; // クリアしてペインを追加できるようにする
         }
+        
+        // 最初のペインを作成
+        const paneElement = this.createPaneElement(paneId);
+        if (existingWrapper) {
+            existingWrapper.appendChild(paneElement);
+        }
+        
+        const terminal = this.deps.mainTerminal;
+        const fitAddon = this.deps.mainFitAddon;
+        
+        // ターミナルをペインのコンテナに接続
+        terminal.open(paneElement.querySelector('.xterm-container'));
+        
+        const pane = {
+            id: paneId,
+            terminal: terminal,
+            fitAddon: fitAddon,
+            element: paneElement,
+            isRunning: false,
+            eventListeners: []
+        };
         
         this.tabs[tabId] = {
             id: tabId,
-            name: `Tab #${tabId.split('-')[1]}`,
-            aiType: null,
+            name: `Tab #1`,
+            panes: [pane],
+            activePaneId: paneId,
+            layout: 'single', // single, split-h, split-v
             isParent: true,
             isActive: true,
-            isRunning: false,
-            terminal: this.deps.mainTerminal,
-            fitAddon: this.deps.mainFitAddon,
-            element: existingTerminal, // リネーム後の要素を参照
             createdAt: Date.now()
         };
         
         this.activeTabId = tabId;
         this.parentTabId = tabId;
-        
-        // タブ順序配列に追加
         this.tabOrder.push(tabId);
         
         this.renderTabs();
         
         // 初期タブでシェルを起動
-        await this.startShellForTab(tabId);
+        await this.startShellForPane(tabId, paneId);
+    }
+
+    createPaneElement(paneId) {
+        const pane = document.createElement('div');
+        pane.className = 'terminal-pane';
+        pane.setAttribute('data-pane-id', paneId);
+        
+        const container = document.createElement('div');
+        container.className = 'xterm-container';
+        pane.appendChild(container);
+        
+        // フォーカスイベント
+        pane.addEventListener('mousedown', () => {
+            this.focusPane(paneId);
+        });
+        
+        return pane;
+    }
+
+    focusPane(paneId) {
+        const result = this.findPaneById(paneId);
+        if (!result) return;
+        
+        const { tab, pane } = result;
+        
+        // UIの更新
+        tab.panes.forEach(p => {
+            p.element.classList.remove('focused');
+        });
+        pane.element.classList.add('focused');
+        
+        tab.activePaneId = paneId;
+        if (pane.terminal) {
+            pane.terminal.focus();
+        }
     }
 
     async createEmptyTab() {
         // タブ数制限チェック
         if (Object.keys(this.tabs).length >= this.MAX_TABS) {
-            // ターミナルに警告メッセージを表示
             const activeTab = this.tabs[this.activeTabId];
-            if (activeTab && activeTab.terminal) {
-                activeTab.terminal.writeln('\r\n\x1b[33m⚠️ タブの最大数（10個）に達しています。既存のタブを閉じてから新しいタブを作成してください。\x1b[0m');
+            if (activeTab && activeTab.panes.length > 0) {
+                const activePane = activeTab.panes.find(p => p.id === activeTab.activePaneId) || activeTab.panes[0];
+                if (activePane.terminal) {
+                    activePane.terminal.writeln('\r\n\x1b[33m⚠️ タブの最大数（10個）に達しています。既存のタブを閉じてから新しいタブを作成してください。\x1b[0m');
+                }
             }
             return null;
         }
         
         const tabId = `tab-${this.nextTabNumber++}`;
+        const paneId = `pane-${this.nextPaneNumber++}`;
         const tabName = `Tab #${this.nextTabNumber - 1}`;
         
-        // 新しいターミナル要素を作成
-        const terminalElement = document.createElement('div');
-        terminalElement.id = `terminal-${tabId}`;
-        terminalElement.className = 'terminal-wrapper';
-        terminalElement.style.display = 'none'; // 初期状態は非表示
+        // 新しいターミナルラッパー要素を作成
+        const wrapper = document.createElement('div');
+        wrapper.id = `terminal-${tabId}`;
+        wrapper.className = 'terminal-wrapper';
+        wrapper.style.display = 'none';
         
         const terminalContainer = document.getElementById('terminal-container');
         if (terminalContainer) {
-            terminalContainer.appendChild(terminalElement);
+            terminalContainer.appendChild(wrapper);
         }
+        
+        // 最初のペインを作成
+        const paneElement = this.createPaneElement(paneId);
+        wrapper.appendChild(paneElement);
         
         // 新しいTerminalインスタンスを作成
         const terminal = new Terminal(TerminalFactory.createConfig());
         const fitAddon = new FitAddon.FitAddon();
         terminal.loadAddon(fitAddon);
         terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
-        terminal.open(terminalElement);
-        
-        // ターミナルサイズ調整を遅延実行（確実にDOM要素が準備されてから）
-        setTimeout(() => {
-            fitAddon.fit();
-        }, 50);
+        terminal.open(paneElement.querySelector('.xterm-container'));
         
         // タブデータを作成
+        const pane = {
+            id: paneId,
+            terminal: terminal,
+            fitAddon: fitAddon,
+            element: paneElement,
+            isRunning: false,
+            eventListeners: []
+        };
+        
         this.tabs[tabId] = {
             id: tabId,
             name: tabName,
-            aiType: null,
+            panes: [pane],
+            activePaneId: paneId,
+            layout: 'single',
             isParent: false,
             isActive: false,
-            isRunning: false,
-            terminal: terminal,
-            fitAddon: fitAddon,
-            element: terminalElement,
-            createdAt: Date.now(),
-            lightRefreshInterval: null // 軽量リフレッシュ用インターバル
+            createdAt: Date.now()
         };
         
-        // タブ順序配列に追加
         this.tabOrder.push(tabId);
         
         this.renderTabs();
         this.switchTab(tabId);
 
         // 新しく作成したタブにシェルを起動
-        await this.startShellForTab(tabId);
-
-        // 軽量リフレッシュを開始
-        this.startTabLightRefresh(tabId);
+        await this.startShellForPane(tabId, paneId);
 
         return tabId;
     }
 
+    async splitTab(direction = 'horizontal') {
+        const tab = this.tabs[this.activeTabId];
+        if (!tab) return;
+        
+        if (tab.panes.length >= 4) { // 分割数制限
+            return;
+        }
+        
+        const paneId = `pane-${this.nextPaneNumber++}`;
+        const paneElement = this.createPaneElement(paneId);
+        
+        const wrapper = document.getElementById(`terminal-${tab.id}`);
+        if (!wrapper) return;
+        
+        // レイアウトの更新
+        tab.layout = direction === 'vertical' ? 'split-v' : 'split-h';
+        wrapper.classList.remove('split-v');
+        if (tab.layout === 'split-v') {
+            wrapper.classList.add('split-v');
+        }
+        
+        wrapper.appendChild(paneElement);
+        
+        const terminal = new Terminal(TerminalFactory.createConfig());
+        const fitAddon = new FitAddon.FitAddon();
+        terminal.loadAddon(fitAddon);
+        terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
+        terminal.open(paneElement.querySelector('.xterm-container'));
+        
+        const pane = {
+            id: paneId,
+            terminal: terminal,
+            fitAddon: fitAddon,
+            element: paneElement,
+            isRunning: false,
+            eventListeners: []
+        };
+        
+        tab.panes.push(pane);
+        this.focusPane(paneId);
+        
+        // シェル起動
+        await this.startShellForPane(tab.id, paneId);
+        
+        // 全ペインのリサイズ
+        setTimeout(() => {
+            tab.panes.forEach(p => {
+                if (p.fitAddon) p.fitAddon.fit();
+            });
+        }, 100);
+    }
 
 
-    async startShellForTab(tabId) {
+
+    async startShellForPane(tabId, paneId) {
         try {
             if (!window.electronAPI || !window.electronAPI.tab) {
                 debugError('ElectronAPI.tab not available');
@@ -223,72 +334,54 @@ class TabManager {
             }
 
             const tab = this.tabs[tabId];
-            if (!tab) {
-                debugError(`Tab ${tabId} not found`);
+            if (!tab) return false;
+            const pane = tab.panes.find(p => p.id === paneId);
+            if (!pane) {
+                debugError(`Pane ${paneId} not found in tab ${tabId}`);
                 return false;
             }
 
-            debugLog(`Starting shell for tab ${tabId}`);
+            debugLog(`Starting shell for pane ${paneId} in tab ${tabId}`);
             
-            // 既存のイベントリスナーをクリーンアップ
-            if (tab.eventListeners) {
-                tab.eventListeners.forEach(disposable => {
+            // クリーンアップ
+            if (pane.eventListeners) {
+                pane.eventListeners.forEach(disposable => {
                     if (disposable && typeof disposable.dispose === 'function') {
                         disposable.dispose();
                     }
                 });
-                tab.eventListeners = [];
-            } else {
-                tab.eventListeners = [];
+                pane.eventListeners = [];
             }
             
-            // バックエンドでPTYプロセス作成
-            const result = await window.electronAPI.tab.create(tabId);
+            // バックエンドでPTYプロセス作成（paneIdをそのままPtyIDとして使用）
+            const result = await window.electronAPI.tab.create(paneId);
             if (!result.success) {
-                debugError(`Failed to create tab process: ${result.error}`);
-                tab.terminal.writeln(`\x1b[31mError: ${result.error}\x1b[0m`);
+                debugError(`Failed to create pane process: ${result.error}`);
+                pane.terminal.writeln(`\x1b[31mError: ${result.error}\x1b[0m`);
                 return false;
             }
             
-            // ターミナルをプロセスに接続
-            const terminal = tab.terminal;
+            const terminal = pane.terminal;
+            pane.eventListeners.push(terminal.onData((data) => {
+                window.electronAPI.tab.write(paneId, data);
+            }));
             
-            // ユーザー入力をプロセスに送信
-            const onDataListener = terminal.onData((data) => {
-                window.electronAPI.tab.write(tabId, data);
-            });
-            tab.eventListeners.push(onDataListener);
+            pane.eventListeners.push(terminal.onResize(({ cols, rows }) => {
+                window.electronAPI.tab.resize(paneId, cols, rows);
+            }));
             
-            // リサイズ処理
-            const onResizeListener = terminal.onResize(({ cols, rows }) => {
-                window.electronAPI.tab.resize(tabId, cols, rows);
-            });
-            tab.eventListeners.push(onResizeListener);
-            
-            // ターミナルサイズを適切に調整
             setTimeout(() => {
-                this.deps.handleResize();
-                
-                if (tab.fitAddon && tab.terminal) {
-                    tab.fitAddon.fit();
-                    window.electronAPI.tab.resize(tabId, tab.terminal.cols, tab.terminal.rows);
-                    debugLog(`Tab ${tabId} resized to ${tab.terminal.cols}x${tab.terminal.rows}`);
+                if (pane.fitAddon && pane.terminal) {
+                    pane.fitAddon.fit();
+                    window.electronAPI.tab.resize(paneId, pane.terminal.cols, pane.terminal.rows);
                 }
             }, 200);
             
-            tab.isRunning = true;
+            pane.isRunning = true;
             this.updateTabUI();
-            if (this.deps && this.deps.updateButtons) {
-                this.deps.updateButtons();
-            }
-            
-            debugLog(`Tab ${tabId} shell startup completed`);
             return true;
         } catch (error) {
-            debugError(`Error starting shell for tab ${tabId}:`, error);
-            if (this.tabs[tabId]) {
-                this.tabs[tabId].terminal.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
-            }
+            debugError(`Error starting shell for pane ${paneId}:`, error);
             return false;
         }
     }
@@ -296,42 +389,29 @@ class TabManager {
     async stopShellForTab(tabId) {
         try {
             const tab = this.tabs[tabId];
-            if (!tab) {
-                debugError(`Tab ${tabId} not found`);
-                return false;
-            }
+            if (!tab) return false;
 
-            // イベントリスナーをクリーンアップ
-            if (tab.eventListeners) {
-                tab.eventListeners.forEach(disposable => {
-                    if (disposable && typeof disposable.dispose === 'function') {
-                        disposable.dispose();
-                    }
-                });
-                tab.eventListeners = [];
-            }
+            for (const pane of tab.panes) {
+                if (pane.eventListeners) {
+                    pane.eventListeners.forEach(disposable => {
+                        if (disposable && typeof disposable.dispose === 'function') {
+                            disposable.dispose();
+                        }
+                    });
+                    pane.eventListeners = [];
+                }
 
-            if (window.electronAPI && window.electronAPI.tab) {
-                await window.electronAPI.tab.delete(tabId);
-                debugLog(`Shell stopped for tab ${tabId}`);
-            }
-
-            // タブ状態を更新
-            tab.isRunning = false;
-
-            // ターミナルをクリア
-            if (tab.terminal) {
-                tab.terminal.clear();
+                if (window.electronAPI && window.electronAPI.tab) {
+                    await window.electronAPI.tab.delete(pane.id);
+                    debugLog(`Shell stopped for pane ${pane.id}`);
+                }
+                pane.isRunning = false;
             }
             
             this.updateTabUI();
-            if (this.deps && this.deps.updateButtons) {
-                this.deps.updateButtons();
-            }
-
             return true;
         } catch (error) {
-            debugError(`Error stopping shell for tab ${tabId}:`, error);
+            debugError(`Error stopping shells for tab ${tabId}:`, error);
             return false;
         }
     }
@@ -339,46 +419,40 @@ class TabManager {
     switchTab(tabId) {
         if (!this.tabs[tabId]) return;
         
-        // 全てのタブを非表示（確実な表示制御）
+        // 全てのタブを非表示
         Object.values(this.tabs).forEach(tab => {
             tab.isActive = false;
-            if (tab.element) {
-                tab.element.style.display = 'none';
-                tab.element.classList.remove('active');
+            const wrapper = document.getElementById(`terminal-${tab.id}`);
+            if (wrapper) {
+                wrapper.style.display = 'none';
+                wrapper.classList.remove('active');
             }
         });
         
         // アクティブタブを表示
         const activeTab = this.tabs[tabId];
         activeTab.isActive = true;
-        if (activeTab.element) {
-            activeTab.element.style.display = 'block';
-            activeTab.element.classList.add('active');
+        const activeWrapper = document.getElementById(`terminal-${activeTab.id}`);
+        if (activeWrapper) {
+            activeWrapper.style.display = 'flex';
+            activeWrapper.classList.add('active');
         }
-        activeTab.terminal.focus();
         
-        // ターミナルサイズを調整
-        if (activeTab.fitAddon) {
-            setTimeout(() => {
-                // デバウンス処理付きリサイズ制御
-                this.deps.handleResize();
-                
-                activeTab.fitAddon.fit();
-                // AI起動中のタブの場合、バックエンドプロセスにもリサイズを通知
-                if (activeTab.isRunning && activeTab.terminal) {
-                    window.electronAPI.tab.resize(tabId, activeTab.terminal.cols, activeTab.terminal.rows);
-                    debugLog(`Active tab ${tabId} resized to ${activeTab.terminal.cols}x${activeTab.terminal.rows}`);
+        // アクティブペインにフォーカス
+        this.focusPane(activeTab.activePaneId);
+        
+        // 全ペインのリサイズ
+        setTimeout(() => {
+            activeTab.panes.forEach(p => {
+                if (p.fitAddon) p.fitAddon.fit();
+                if (p.isRunning && p.terminal) {
+                    window.electronAPI.tab.resize(p.id, p.terminal.cols, p.terminal.rows);
                 }
-            }, 100); // Claude Codeの表示が落ち着くまで少し待つ
-        }
+            });
+        }, 100);
         
         this.activeTabId = tabId;
         this.updateTabUI();
-        
-        // ボタン状態を更新（アクティブタブ変更時）
-        if (this.deps && this.deps.updateButtons) {
-            this.deps.updateButtons();
-        }
     }
 
     /**
@@ -408,80 +482,47 @@ class TabManager {
 
     async deleteTab(tabId) {
         if (!this.tabs[tabId] || Object.keys(this.tabs).length === 1) {
-            return; // 最後のタブは削除不可
+            return;
         }
         
         const tab = this.tabs[tabId];
         
-        // 1. 軽量リフレッシュインターバルを停止
-        this.stopTabLightRefresh(tabId);
-
-        // 2. イベントリスナーをクリーンアップ
-        if (tab.eventListeners) {
-            tab.eventListeners.forEach(disposable => {
-                if (disposable && typeof disposable.dispose === 'function') {
-                    disposable.dispose();
-                }
-            });
-            tab.eventListeners = [];
-        }
-        
-        // 2. PTYプロセスの終了処理
-        if (window.electronAPI && window.electronAPI.tab) {
-            try {
-                await window.electronAPI.tab.delete(tabId);
-                debugLog(`PTY process for tab ${tabId} terminated`);
-            } catch (error) {
-                debugError(`Failed to terminate PTY process for tab ${tabId}:`, error);
+        // 全ペインの停止
+        for (const pane of tab.panes) {
+            if (pane.eventListeners) {
+                pane.eventListeners.forEach(d => d.dispose());
+            }
+            if (window.electronAPI && window.electronAPI.tab) {
+                try {
+                    await window.electronAPI.tab.delete(pane.id);
+                } catch (e) {}
+            }
+            if (pane.terminal) {
+                pane.terminal.dispose();
             }
         }
         
-        // 3. ターミナルの前処理
-        
-        // 3. ターミナルインスタンスの破棄
-        if (tab.terminal) {
-            try {
-                tab.terminal.dispose();
-                debugLog(`Terminal instance for tab ${tabId} disposed`);
-            } catch (error) {
-                debugError(`Error disposing terminal for tab ${tabId}:`, error);
-            }
+        // ラッパーDOMの削除
+        const wrapper = document.getElementById(`terminal-${tab.id}`);
+        if (wrapper && wrapper.parentNode) {
+            wrapper.parentNode.removeChild(wrapper);
         }
         
-        // 4. DOM要素の削除
-        if (tab.element && tab.element.parentNode) {
-            tab.element.parentNode.removeChild(tab.element);
-            debugLog(`DOM element for tab ${tabId} removed`);
-        }
-        
-        // 5. 親タブ変更時の処理
+        // 管理データの更新
         if (tab.isParent) {
-            const remainingTabs = Object.keys(this.tabs).filter(id => id !== tabId);
-            if (remainingTabs.length > 0) {
-                this.setParentTab(remainingTabs[0]);
-                debugLog(`Parent tab switched from ${tabId} to ${remainingTabs[0]}`);
-            }
+            const nextParent = this.tabOrder.find(id => id !== tabId);
+            if (nextParent) this.setParentTab(nextParent);
         }
         
-        // 6. アクティブタブの場合、他のタブに切り替え
         if (this.activeTabId === tabId) {
-            const remainingTabs = Object.keys(this.tabs).filter(id => id !== tabId);
-            if (remainingTabs.length > 0) {
-                this.switchTab(remainingTabs[0]);
-                debugLog(`Active tab switched from ${tabId} to ${remainingTabs[0]}`);
-            }
+            const nextActive = this.tabOrder.find(id => id !== tabId);
+            if (nextActive) this.switchTab(nextActive);
         }
         
-        // 7. タブ順序配列から削除
-        const orderIndex = this.tabOrder.indexOf(tabId);
-        if (orderIndex !== -1) {
-            this.tabOrder.splice(orderIndex, 1);
-        }
+        const index = this.tabOrder.indexOf(tabId);
+        if (index !== -1) this.tabOrder.splice(index, 1);
         
-        // 8. タブデータ削除
         delete this.tabs[tabId];
-        debugLog(`Tab data for ${tabId} deleted`);
-        
         this.renderTabs();
     }
 
@@ -518,35 +559,40 @@ class TabManager {
         tab.className = `tab ${tabData.isActive ? 'active' : ''}`;
         tab.setAttribute('data-tab-id', tabData.id);
         
-        // カスタムドラッグを設定（横方向のみ）
         tab.draggable = false;
         this.deps.resourceManager.addEventListener(tab, 'pointerdown', (e) => this.handleTabPointerDown(e, tabData, tab));
         
-        // 星マーク
         const star = document.createElement('span');
         star.className = `parent-star ${tabData.isParent ? 'active' : 'inactive'}`;
         star.textContent = tabData.isParent ? '★' : '☆';
+        star.title = tabData.isParent ? '親タブ（音声処理対象）' : '親タブに設定';
         this.deps.resourceManager.addEventListener(star, 'click', (e) => {
             e.stopPropagation();
             this.setParentTab(tabData.id);
         });
         
-        // タブ名
         const name = document.createElement('span');
         name.className = 'tab-name';
         name.textContent = tabData.name;
-        // タブ名のリネーム（ダブルクリック → インライン編集）
         name.title = 'ダブルクリックで名前を変更';
-        // クリックで親のタブ切替を抑制
-        this.deps.resourceManager.addEventListener(name, 'mousedown', (e) => {
-            e.stopPropagation();
-        });
         this.deps.resourceManager.addEventListener(name, 'dblclick', (e) => {
             e.stopPropagation();
             this.openRenameEditor(tabData.id);
         });
         
-        // 閉じるボタン
+        // 分割ボタン
+        const splitH = document.createElement('button');
+        splitH.className = 'tab-icon-btn';
+        splitH.innerHTML = '<span class="icon-split-h"></span>';
+        splitH.title = '横に分割';
+        splitH.onclick = (e) => { e.stopPropagation(); this.splitTab('horizontal'); };
+
+        const splitV = document.createElement('button');
+        splitV.className = 'tab-icon-btn';
+        splitV.innerHTML = '<span class="icon-split-v"></span>';
+        splitV.title = '縦に分割';
+        splitV.onclick = (e) => { e.stopPropagation(); this.splitTab('vertical'); };
+        
         const closeBtn = document.createElement('button');
         closeBtn.className = 'close-button';
         closeBtn.textContent = '×';
@@ -555,19 +601,14 @@ class TabManager {
             await this.deleteTab(tabData.id);
         });
         
-        // タブクリックイベント（ResourceManager経由）
         this.deps.resourceManager.addEventListener(tab, 'click', () => {
             this.switchTab(tabData.id);
-        });
-        // 右クリックでリネーム（インライン編集）
-        this.deps.resourceManager.addEventListener(tab, 'contextmenu', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.openRenameEditor(tabData.id);
         });
         
         tab.appendChild(star);
         tab.appendChild(name);
+        tab.appendChild(splitH);
+        tab.appendChild(splitV);
         tab.appendChild(closeBtn);
         
         return tab;

@@ -3,21 +3,21 @@
 /* テーマカラーパレット（テーマ切り替え対応） */
 :root {
     /* 現在のテーマカラー（デフォルトはオレンジ） */
-    --theme-primary: #FF8C42;
-    --theme-primary-light: #FFB366;
-    --theme-primary-dark: #E67E22;
-    --theme-primary-darker: #FF6B35;
-    
+    --theme-primary: #ff8c42;
+    --theme-primary-light: #ffb366;
+    --theme-primary-dark: #e67e22;
+    --theme-primary-darker: #ff6b35;
+
     /* アクセントカラー */
-    --theme-accent: #FF6347;
-    --theme-accent-gold: #FFD700;
-    --theme-accent-light: #FFED4E;
-    
+    --theme-accent: #ff6347;
+    --theme-accent-gold: #ffd700;
+    --theme-accent-light: #ffed4e;
+
     /* 背景・ベース */
-    --theme-bg-primary: #FFF8F0;
-    --theme-bg-secondary: #FFF5F0;
-    --theme-bg-tertiary: #F0EAD6;
-    
+    --theme-bg-primary: #fff8f0;
+    --theme-bg-secondary: #fff5f0;
+    --theme-bg-tertiary: #f0ead6;
+
     /* 透明度バリエーション */
     --theme-primary-alpha-10: rgba(255, 140, 66, 0.1);
     --theme-primary-alpha-15: rgba(255, 140, 66, 0.15);
@@ -28,88 +28,88 @@
     --theme-primary-alpha-60: rgba(255, 140, 66, 0.6);
     --theme-primary-alpha-80: rgba(255, 140, 66, 0.8);
     --theme-primary-alpha-90: rgba(255, 140, 66, 0.9);
-    
+
     --theme-light-alpha-10: rgba(255, 183, 102, 0.1);
     --theme-light-alpha-20: rgba(255, 183, 102, 0.2);
     --theme-light-alpha-30: rgba(255, 183, 102, 0.3);
     --theme-light-alpha-50: rgba(255, 183, 102, 0.5);
     --theme-light-alpha-90: rgba(255, 183, 102, 0.9);
-    
+
     /* テキストカラー */
-    --theme-text-primary: #4A3728;
-    --theme-text-secondary: #2D1F17;
+    --theme-text-primary: #4a3728;
+    --theme-text-secondary: #2d1f17;
     --theme-text-light: white;
 }
 
 /* テーマ別カラーパレット定義 */
 /* オレンジテーマ */
 :root {
-    --orange-primary: #FF8C42;
-    --orange-primary-light: #FFB366;
-    --orange-primary-dark: #E67E22;
-    --orange-primary-darker: #FF6B35;
-    --orange-accent: #FF6347;
-    --orange-bg-primary: #FFF8F0;
-    --orange-bg-secondary: #FFF5F0;
-    --orange-bg-tertiary: #F0EAD6;
-    --orange-text-primary: #4A3728;
-    --orange-text-secondary: #2D1F17;
+    --orange-primary: #ff8c42;
+    --orange-primary-light: #ffb366;
+    --orange-primary-dark: #e67e22;
+    --orange-primary-darker: #ff6b35;
+    --orange-accent: #ff6347;
+    --orange-bg-primary: #fff8f0;
+    --orange-bg-secondary: #fff5f0;
+    --orange-bg-tertiary: #f0ead6;
+    --orange-text-primary: #4a3728;
+    --orange-text-secondary: #2d1f17;
 }
 
 /* ピンクテーマ */
 :root {
-    --pink-primary: #FF6B9D;
-    --pink-primary-light: #FF8FAD;
-    --pink-primary-dark: #E91E63;
-    --pink-primary-darker: #C2185B;
-    --pink-accent: #FF1744;
-    --pink-bg-primary: #FFF0F5;
-    --pink-bg-secondary: #FFEBEF;
-    --pink-bg-tertiary: #FCE4EC;
-    --pink-text-primary: #4A1B2F;
-    --pink-text-secondary: #2D1017;
+    --pink-primary: #ff6b9d;
+    --pink-primary-light: #ff8fad;
+    --pink-primary-dark: #e91e63;
+    --pink-primary-darker: #c2185b;
+    --pink-accent: #ff1744;
+    --pink-bg-primary: #fff0f5;
+    --pink-bg-secondary: #ffebef;
+    --pink-bg-tertiary: #fce4ec;
+    --pink-text-primary: #4a1b2f;
+    --pink-text-secondary: #2d1017;
 }
 
 /* ブルーテーマ */
 :root {
-    --blue-primary: #4285F4;
-    --blue-primary-light: #66A3FF;
-    --blue-primary-dark: #1976D2;
-    --blue-primary-darker: #0D47A1;
-    --blue-accent: #2196F3;
-    --blue-bg-primary: #F0F8FF;
-    --blue-bg-secondary: #EBF5FF;
-    --blue-bg-tertiary: #E3F2FD;
-    --blue-text-primary: #1B3A4A;
-    --blue-text-secondary: #10252D;
+    --blue-primary: #4285f4;
+    --blue-primary-light: #66a3ff;
+    --blue-primary-dark: #1976d2;
+    --blue-primary-darker: #0d47a1;
+    --blue-accent: #2196f3;
+    --blue-bg-primary: #f0f8ff;
+    --blue-bg-secondary: #ebf5ff;
+    --blue-bg-tertiary: #e3f2fd;
+    --blue-text-primary: #1b3a4a;
+    --blue-text-secondary: #10252d;
 }
 
 /* グリーンテーマ */
 :root {
-    --green-primary: #4CAF50;
-    --green-primary-light: #66BB6A;
-    --green-primary-dark: #2E7D32;
-    --green-primary-darker: #1B5E20;
-    --green-accent: #00C853;
-    --green-bg-primary: #F0FFF0;
-    --green-bg-secondary: #EBFFEB;
-    --green-bg-tertiary: #E8F5E8;
-    --green-text-primary: #1B4A1B;
-    --green-text-secondary: #102D10;
+    --green-primary: #4caf50;
+    --green-primary-light: #66bb6a;
+    --green-primary-dark: #2e7d32;
+    --green-primary-darker: #1b5e20;
+    --green-accent: #00c853;
+    --green-bg-primary: #f0fff0;
+    --green-bg-secondary: #ebffeb;
+    --green-bg-tertiary: #e8f5e8;
+    --green-text-primary: #1b4a1b;
+    --green-text-secondary: #102d10;
 }
 
 /* パープルテーマ */
 :root {
-    --purple-primary: #9C27B0;
-    --purple-primary-light: #BA68C8;
-    --purple-primary-dark: #673AB7;
-    --purple-primary-darker: #4A148C;
-    --purple-accent: #E040FB;
-    --purple-bg-primary: #FFF0FF;
-    --purple-bg-secondary: #FFEBFF;
-    --purple-bg-tertiary: #F3E5F5;
-    --purple-text-primary: #4A1B4A;
-    --purple-text-secondary: #2D102D;
+    --purple-primary: #9c27b0;
+    --purple-primary-light: #ba68c8;
+    --purple-primary-dark: #673ab7;
+    --purple-primary-darker: #4a148c;
+    --purple-accent: #e040fb;
+    --purple-bg-primary: #fff0ff;
+    --purple-bg-secondary: #ffebff;
+    --purple-bg-tertiary: #f3e5f5;
+    --purple-text-primary: #4a1b4a;
+    --purple-text-secondary: #2d102d;
 }
 
 /* テーマ選択UIのスタイル */
@@ -138,7 +138,7 @@
 }
 
 .theme-option.active .theme-preview::after {
-    content: '✓';
+    content: "✓";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -156,8 +156,9 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-    background: url('assets/wallpapers/default/default.png') center/cover fixed;
+    font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+    background: url("assets/wallpapers/default/default.png") center/cover fixed;
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -223,7 +224,6 @@ body.loaded {
     gap: 10px;
     align-items: center;
 }
-
 
 /* メインコンテンツを左右分割 */
 .main-content {
@@ -381,7 +381,7 @@ body.loaded {
     padding: 8px 16px;
     background: var(--theme-primary-alpha-20);
     border: none;
-    color: #4A3728;
+    color: #4a3728;
     cursor: pointer;
     font-size: 16px;
     font-weight: bold;
@@ -425,6 +425,56 @@ body.loaded {
     flex-shrink: 0;
 }
 
+/* タブ内アクションボタン */
+.tab-icon-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    margin: 0 2px;
+    cursor: pointer;
+    color: var(--theme-primary-alpha-60);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.tab-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.4);
+    color: var(--theme-primary);
+}
+
+.icon-split-h, .icon-split-v {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid currentColor;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.icon-split-h::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 1.5px;
+    height: 100%;
+    background: currentColor;
+    transform: translateX(-50%);
+}
+
+.icon-split-v::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1.5px;
+    background: currentColor;
+    transform: translateY(-50%);
+}
+
 /* ターミナルコンテナ */
 .terminal-container {
     position: relative;
@@ -439,11 +489,8 @@ body.loaded {
     width: 100%;
     height: 100%;
     display: none;
-    overflow: auto;
-    flex: 1;
-    padding: 20px 29px 20px 11px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    background: #F0EAD6;
+    flex-direction: row; /* Default split H if split */
+    background: #f0ead6;
     will-change: auto;
     contain: layout style paint;
     transform: translate3d(0, 0, 0);
@@ -453,7 +500,37 @@ body.loaded {
 }
 
 .terminal-wrapper.active {
-    display: block;
+    display: flex;
+}
+
+.terminal-wrapper.split-v {
+    flex-direction: column;
+}
+
+.terminal-pane {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    border: 1px solid var(--theme-primary-alpha-20);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.terminal-pane.focused {
+    outline: 2px solid var(--theme-primary-alpha-80);
+    z-index: 5;
+}
+
+.terminal-pane .xterm-container {
+    flex: 1;
+    padding: 15px 20px;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+    background: #f0ead6;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* 壁紙設定用スタイル */
@@ -497,29 +574,13 @@ body.loaded {
     -ms-overflow-style: none !important;
 }
 
-#terminal {
-    flex: 1;
-    padding: 20px 29px 20px 11px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    background: #F0EAD6;
-    overflow: auto;
-    will-change: auto;
-    contain: layout style paint;
-    transform: translate3d(0, 0, 0);
-    backface-visibility: hidden;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-}
-
-/* ターミナルのスクロールバーを非表示 */
-#terminal::-webkit-scrollbar {
+/* #terminal and generic terminal styles moved to .terminal-pane .xterm-container */
+.terminal-pane .xterm-container::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;
 }
 
-#terminal {
+.terminal-pane .xterm-container {
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
 }
@@ -586,7 +647,7 @@ body.loaded {
 
 /* 紙飛行機アイコン */
 .send-btn::before {
-    content: '';
+    content: "";
     position: absolute;
     width: 0;
     height: 0;
@@ -598,7 +659,7 @@ body.loaded {
 }
 
 .send-btn::after {
-    content: '';
+    content: "";
     position: absolute;
     width: 0;
     height: 0;
@@ -741,7 +802,7 @@ body.loaded {
 #terminal-mini {
     height: 200px;
     padding: 10px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
     font-size: 11px;
     color: #00ff41;
     overflow-y: auto;
@@ -758,11 +819,11 @@ body.loaded {
 .quick-btn {
     padding: 6px 12px;
     background: rgba(255, 255, 255, 0.9);
-    border: 2px solid #FFB6C1;
+    border: 2px solid #ffb6c1;
     border-radius: 15px;
     cursor: pointer;
     font-size: 11px;
-    color: #FF69B4;
+    color: #ff69b4;
     font-weight: 600;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
@@ -770,7 +831,7 @@ body.loaded {
 }
 
 .quick-btn:hover {
-    background: linear-gradient(135deg, #FF69B4, #FFB6C1);
+    background: linear-gradient(135deg, #ff69b4, #ffb6c1);
     color: white;
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(255, 105, 180, 0.4);
@@ -797,7 +858,11 @@ body.loaded {
 .voice-message {
     margin-bottom: 8px;
     padding: 8px 12px;
-    background: linear-gradient(135deg, var(--theme-primary-alpha-10), var(--theme-light-alpha-10));
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary-alpha-10),
+        var(--theme-light-alpha-10)
+    );
     border-left: 3px solid var(--theme-primary);
     border-radius: 8px;
     contain: layout style;
@@ -806,7 +871,7 @@ body.loaded {
 .voice-speaker {
     font-size: 10px;
     font-weight: 700;
-    color: #FF69B4;
+    color: #ff69b4;
     margin-bottom: 3px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -829,7 +894,7 @@ body.loaded {
 
 /* 設定ボタン - ピュアCSS */
 .settings-btn:not(.history-btn):not(.help-btn)::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -838,10 +903,10 @@ body.loaded {
     height: 8px;
     background: var(--theme-primary);
     transition: transform 0.3s ease;
-    box-shadow: 
-        /* 上下の縦向きの歯のみ */
-        0 -8.3px 0 0 var(--theme-primary),                    /* 0度 - 上（縦向き） */
-        0 8.3px 0 0 var(--theme-primary);                     /* 180度 - 下（縦向き） */
+    box-shadow:
+        /* 上下の縦向きの歯のみ */ 0 -8.3px 0 0 var(--theme-primary),
+        /* 0度 - 上（縦向き） */ 0 8.3px 0 0
+        var(--theme-primary); /* 180度 - 下（縦向き） */
 }
 
 .settings-btn {
@@ -855,7 +920,7 @@ body.loaded {
     transition: all 0.3s ease;
     backdrop-filter: blur(15px);
     border: 2px solid var(--theme-light-alpha-90);
-    box-shadow: 
+    box-shadow:
         0 4px 15px var(--theme-primary-alpha-20),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
     display: flex;
@@ -867,7 +932,7 @@ body.loaded {
 .settings-btn:hover {
     transform: translateY(-2px) scale(1.05);
     background: rgba(255, 255, 255, 0.95);
-    box-shadow: 
+    box-shadow:
         0 8px 25px var(--theme-primary-alpha-30),
         inset 0 1px 0 rgba(255, 255, 255, 1);
     border-color: var(--theme-primary-light);
@@ -879,7 +944,7 @@ body.loaded {
 
 .settings-btn:active {
     transform: translateY(0) scale(0.95);
-    box-shadow: 
+    box-shadow:
         0 2px 8px var(--theme-primary-alpha-20),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
@@ -893,9 +958,9 @@ body.loaded {
     width: 8px;
     height: 4.5px;
     background: var(--theme-primary);
-    box-shadow: 
-        8.3px 0 0 0 var(--theme-primary),                     /* 右の横向き歯 */
-        -8.3px 0 0 0 var(--theme-primary);                    /* 左の横向き歯 */
+    box-shadow:
+        8.3px 0 0 0 var(--theme-primary),
+        /* 右の横向き歯 */ -8.3px 0 0 0 var(--theme-primary); /* 左の横向き歯 */
     z-index: 2;
     transition: transform 0.3s ease;
 }
@@ -940,7 +1005,7 @@ body.loaded {
 
 /* ギアの中心穴（内側の円） - history-btnとhelp-btnには適用しない */
 .settings-btn:not(.history-btn):not(.help-btn)::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -971,7 +1036,7 @@ body.loaded {
     backdrop-filter: blur(15px);
     background: rgba(255, 255, 255, 0.85);
     border: 2px solid var(--theme-light-alpha-90);
-    box-shadow: 
+    box-shadow:
         0 4px 15px var(--theme-primary-alpha-20),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
     display: flex;
@@ -983,7 +1048,7 @@ body.loaded {
 .simple-btn:hover {
     transform: translateY(-2px) scale(1.05);
     background: rgba(255, 255, 255, 0.95);
-    box-shadow: 
+    box-shadow:
         0 8px 25px var(--theme-primary-alpha-30),
         inset 0 1px 0 rgba(255, 255, 255, 1);
     border-color: var(--theme-primary-light);
@@ -996,7 +1061,7 @@ body.loaded {
 
 /* 開始ボタン - 右向き三角形 */
 .start-btn::before {
-    content: '';
+    content: "";
     width: 0;
     height: 0;
     border-left: 12px solid var(--theme-primary);
@@ -1010,7 +1075,7 @@ body.loaded {
 
 /* 停止ボタン - 四角形 */
 .stop-btn::before {
-    content: '';
+    content: "";
     width: 14px;
     height: 14px;
     background: var(--theme-primary);
@@ -1036,7 +1101,7 @@ body.loaded {
 /* ターミナル表示時のアイコン（目を開いた状態） */
 /* 楕円の外枠（白目） */
 .terminal-toggle-btn::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1051,7 +1116,7 @@ body.loaded {
 
 /* 白い円（虹彩） - 楕円の短い辺と同じ直径 */
 .terminal-toggle-btn::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1077,7 +1142,6 @@ body.loaded {
     transition: all 0.2s ease;
     z-index: 3;
 }
-
 
 /* 全状態で目玉アイコンを固定表示（状態別スタイルを削除） */
 
@@ -1109,7 +1173,7 @@ body.loaded {
     color: white;
     transform: translateY(-2px) scale(1.05);
     background: rgba(255, 255, 255, 0.95);
-    box-shadow: 
+    box-shadow:
         0 8px 25px var(--theme-primary-alpha-40),
         0 3px 10px var(--theme-light-alpha-30);
     border-color: var(--theme-primary-light);
@@ -1124,7 +1188,7 @@ body.loaded {
 
 /* ヘルプボタンに「？」マークを表示 */
 .help-btn::after {
-    content: '?';
+    content: "?";
     display: flex !important;
     align-items: center;
     justify-content: center;
@@ -1160,7 +1224,7 @@ body.loaded {
 
 /* 時計の外枠 */
 .history-btn::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1200,7 +1264,7 @@ body.loaded {
 
 /* 中心点 */
 .history-btn::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1216,7 +1280,7 @@ body.loaded {
 .history-btn:hover {
     transform: translateY(-2px) scale(1.05);
     background: rgba(255, 255, 255, 0.95);
-    box-shadow: 
+    box-shadow:
         0 8px 25px var(--theme-primary-alpha-40),
         0 3px 10px var(--theme-light-alpha-30);
     border-color: var(--theme-primary-light);
@@ -1229,7 +1293,11 @@ body.loaded {
     font-size: 14px;
     font-weight: 600;
     min-width: 100px;
-    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary),
+        var(--theme-primary-light)
+    );
     color: white;
     border: 2px solid transparent;
     box-shadow: 0 2px 8px var(--theme-primary-alpha-20);
@@ -1240,7 +1308,11 @@ body.loaded {
 
 .help-modal .simple-btn:hover {
     transform: translateY(-2px) scale(1.05);
-    background: linear-gradient(135deg, var(--theme-primary-light), var(--theme-primary));
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary-light),
+        var(--theme-primary)
+    );
     box-shadow: 0 4px 12px var(--theme-primary-alpha-30);
 }
 
@@ -1260,9 +1332,6 @@ body.loaded {
     border-color: var(--theme-primary);
     background: white;
 }
-
-
-
 
 /* モーダル基底スタイル */
 .settings-modal, .help-modal {
@@ -1299,7 +1368,11 @@ body.loaded {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary) 0%,
+        var(--theme-primary-light) 100%
+    );
     border-radius: 24px 24px 0 0;
     color: white;
     flex-shrink: 0;
@@ -1344,7 +1417,11 @@ body.loaded {
 }
 
 .help-nav-item.active {
-    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary) 0%,
+        var(--theme-primary-light) 100%
+    );
     color: white;
     border-left: 4px solid var(--theme-primary-dark);
 }
@@ -1355,7 +1432,9 @@ body.loaded {
     overflow-y: auto;
     padding: 40px;
     background: white;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+        Arial, sans-serif;
 }
 
 /* セクション */
@@ -1423,7 +1502,11 @@ body.loaded {
 }
 
 .settings-nav-item.active {
-    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary) 0%,
+        var(--theme-primary-light) 100%
+    );
     color: white;
     border-left: 4px solid var(--theme-primary-dark);
 }
@@ -1529,7 +1612,7 @@ body.loaded {
     font-size: 15px;
 }
 
-.help-content-main ul, 
+.help-content-main ul,
 .help-content-main ol {
     margin: 20px 0;
     padding-left: 28px;
@@ -1551,7 +1634,7 @@ body.loaded {
     background: #f8f9fa;
     padding: 4px 8px;
     border-radius: 4px;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
     font-size: 14px;
     color: #e74c3c;
     border: 1px solid #ecf0f1;
@@ -1633,7 +1716,7 @@ body.loaded {
 .help-content::-webkit-scrollbar-track {
     background: transparent;
     border-radius: 4px;
-    margin: 24px 0;  /* スクロールバーの上下余白を拡大 */
+    margin: 24px 0; /* スクロールバーの上下余白を拡大 */
 }
 
 .help-content::-webkit-scrollbar-thumb {
@@ -1650,7 +1733,11 @@ body.loaded {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary) 0%,
+        var(--theme-primary-light) 100%
+    );
     border-bottom: none;
     position: sticky;
     top: 0;
@@ -1696,7 +1783,7 @@ body.loaded {
 }
 
 .help-section h4::before {
-    content: '•';
+    content: "•";
     color: var(--theme-primary-light);
     font-size: 20px;
     font-weight: bold;
@@ -1754,7 +1841,11 @@ body.loaded {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary) 0%,
+        var(--theme-primary-light) 100%
+    );
     border-bottom: none;
     position: sticky;
     top: 0;
@@ -1816,7 +1907,7 @@ body.loaded {
 }
 
 .setting-group label::before {
-    content: ''; /* ドットを非表示にする */
+    content: ""; /* ドットを非表示にする */
     color: var(--theme-primary-light);
     font-size: 20px;
     font-weight: bold;
@@ -1836,12 +1927,16 @@ input[type="checkbox"]:not(.cli-toggle-label input) {
 }
 
 input[type="checkbox"]:not(.cli-toggle-label input):checked {
-    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary),
+        var(--theme-primary-light)
+    );
     border-color: var(--theme-primary);
 }
 
 input[type="checkbox"]:not(.cli-toggle-label input)::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 2px;
     left: 2px;
@@ -1892,7 +1987,11 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, var(--theme-bg-primary) 100%);
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.8) 0%,
+        var(--theme-bg-primary) 100%
+    );
     border-radius: 12px;
     border: 2px solid var(--theme-light-alpha-20);
 }
@@ -1912,13 +2011,13 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 .status-connected {
-    color: #4CAF50 !important;
+    color: #4caf50 !important;
     background: rgba(76, 175, 80, 0.1) !important;
     border-color: rgba(76, 175, 80, 0.3) !important;
 }
 
 .status-disconnected {
-    color: #F44336 !important;
+    color: #f44336 !important;
     background: rgba(244, 67, 54, 0.1) !important;
     border-color: rgba(244, 67, 54, 0.3) !important;
 }
@@ -1930,7 +2029,11 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     font-size: 14px;
     font-weight: 600;
     min-width: 100px;
-    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary),
+        var(--theme-primary-light)
+    );
     color: white;
     border: 2px solid transparent;
     box-shadow: 0 2px 8px var(--theme-primary-alpha-20);
@@ -1946,7 +2049,11 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     min-width: 100px;
     width: auto;
     height: auto;
-    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary),
+        var(--theme-primary-light)
+    );
     color: white;
     border: 2px solid transparent;
     box-shadow: 0 2px 8px var(--theme-primary-alpha-20);
@@ -1973,7 +2080,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     .claude-md-action-buttons {
         gap: 4px !important;
     }
-    
+
     .claude-md-load-buttons .simple-btn,
     .claude-md-action-buttons .simple-btn {
         flex: 1 1 calc(50% - 2px) !important;
@@ -1999,7 +2106,11 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     font-size: 14px;
     font-weight: 600;
     min-width: 140px; /* 横幅を140pxに拡大 */
-    background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
+    background: linear-gradient(
+        135deg,
+        var(--theme-primary),
+        var(--theme-primary-light)
+    );
     color: white;
     border: 2px solid transparent;
     box-shadow: 0 2px 8px var(--theme-primary-alpha-20);
@@ -2008,7 +2119,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 .speech-history-controls .simple-btn:hover {
-    background: linear-gradient(135deg, var(--theme-primary-light), #FFCC99);
+    background: linear-gradient(135deg, var(--theme-primary-light), #ffcc99);
     box-shadow: 0 4px 12px var(--theme-primary-alpha-30);
     transform: translateY(-1px);
 }
@@ -2028,7 +2139,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 #terminal-mini::-webkit-scrollbar-track {
     background: transparent;
     border-radius: 4px;
-    margin: 24px 0;  /* スクロールバーの上下余白を拡大 */
+    margin: 24px 0; /* スクロールバーの上下余白を拡大 */
 }
 
 .chat-messages::-webkit-scrollbar-thumb,
@@ -2047,7 +2158,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     .message {
         animation: fadeInUp 0.2s ease;
     }
-    
+
     @keyframes fadeInUp {
         from {
             opacity: 0;
@@ -2068,7 +2179,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 .settings-content::-webkit-scrollbar-track {
     background: transparent;
     border-radius: 4px;
-    margin: 24px 0;  /* スクロールバーの上下余白を拡大 */
+    margin: 24px 0; /* スクロールバーの上下余白を拡大 */
 }
 
 .settings-content::-webkit-scrollbar-thumb {
@@ -2149,7 +2260,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 .cli-toggle-switch::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 2px;
     left: 2px;

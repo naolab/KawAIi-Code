@@ -82,7 +82,21 @@ class TerminalService {
             // デバウンス処理付きリサイズ制御
             this.handleResize();
             
-            if (this.fitAddon) {
+            // タブシステムが有効な場合、アクティブなタブの全ペインをリサイズ
+            if (this.terminalApp.tabManager && this.terminalApp.tabManager.activeTabId) {
+                const activeTab = this.terminalApp.tabManager.tabs[this.terminalApp.tabManager.activeTabId];
+                if (activeTab) {
+                    activeTab.panes.forEach(pane => {
+                        if (pane.fitAddon) {
+                            pane.fitAddon.fit();
+                            if (pane.isRunning && pane.terminal) {
+                                window.electronAPI.tab.resize(pane.id, pane.terminal.cols, pane.terminal.rows);
+                            }
+                        }
+                    });
+                }
+            } else if (this.fitAddon) {
+                // シングルターミナルモード（後方互換性）
                 this.fitAddon.fit();
                 if (this.isTerminalRunning) {
                     window.electronAPI.terminal.resize(
@@ -159,7 +173,10 @@ class TerminalService {
         this.terminalApp.updateStatus(`Starting shell in active tab...`);
         
         try {
-            const success = await this.terminalApp.tabManager.startShellForTab(this.terminalApp.tabManager.activeTabId);
+            const success = await this.terminalApp.tabManager.startShellForPane(
+                this.terminalApp.tabManager.activeTabId,
+                activeTab.activePaneId
+            );
             if (success) {
                 activeTab.isRunning = true;
                 this.terminalApp.updateStatus(`Terminal ready in tab`);
