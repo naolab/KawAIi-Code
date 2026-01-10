@@ -254,6 +254,9 @@ class UIEventManager {
         // VRM設定のイベントリスナー
         await this.setupVRMSettingsEventListeners();
 
+        // キャラクター設定のイベントリスナー
+        await this.setupCharacterSettingsEventListeners();
+
         if (closeSettingsBtn && settingsModal) {
             closeSettingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'none';
@@ -838,9 +841,9 @@ class UIEventManager {
      */
     async getDefaultClaudeMdContent() {
         // ConfigManagerからデフォルト内容を取得
-        if (this.app.terminalApp && this.app.terminalApp.configManager) {
+        if (this.app && this.app.configManager) {
             try {
-                return await this.app.terminalApp.configManager.getCombinedAiMdContent();
+                return await this.app.configManager.getCombinedAiMdContent();
             } catch (error) {
                 this.debugError('ConfigManager経由での内容取得エラー:', error);
             }
@@ -2631,6 +2634,11 @@ class UIEventManager {
                         targetElement.classList.add('active');
                     }
 
+                    // キャラクター設定タブの場合、リストを再描画
+                    if (targetSection === 'character') {
+                        this.renderCharacterList();
+                    }
+
                     this.debugLog(`設定セクション切り替え: ${targetSection}`);
                 });
             });
@@ -2878,6 +2886,319 @@ class UIEventManager {
                 autoUpdaterStatus.textContent = 'バックグラウンドで自動更新中...';
                 autoUpdaterStatus.style.color = 'var(--theme-text-primary)';
                 break;
+        }
+    }
+
+    /**
+     * キャラクター設定関連のイベントリスナー設定
+     */
+    async setupCharacterSettingsEventListeners() {
+        this.debugLog('setupCharacterSettingsEventListeners: Started');
+        
+        const addCharacterBtn = document.getElementById('add-character-btn');
+        const saveCharacterBtn = document.getElementById('save-character-btn');
+        const deleteCharacterBtn = document.getElementById('delete-character-btn');
+        const testVoiceBtn = document.getElementById('char-test-voice-btn');
+        const vrmSelectBtn = document.getElementById('char-select-vrm-btn');
+        const iconInput = document.getElementById('char-icon-upload');
+        const iconPreview = document.querySelector('.char-icon-preview');
+
+        this.debugLog('Character settings elements check:', {
+            addCharacterBtn: !!addCharacterBtn,
+            saveCharacterBtn: !!saveCharacterBtn,
+            deleteCharacterBtn: !!deleteCharacterBtn,
+            testVoiceBtn: !!testVoiceBtn
+        });
+
+        // 新規作成ボタン
+        if (addCharacterBtn) {
+            this.safeAddEventListener(addCharacterBtn, 'click', async (e) => {
+                e.preventDefault(); // 念のため
+                this.debugLog('New Character Button Clicked');
+                await this.createNewCharacter();
+            }, 'add-character-btn');
+        } else {
+            this.debugError('Add character button not found');
+        }
+
+        // 保存ボタン
+        if (saveCharacterBtn) {
+            this.safeAddEventListener(saveCharacterBtn, 'click', async () => {
+                await this.saveCurrentCharacter();
+            }, 'save-character-btn');
+        }
+
+        // 削除ボタン
+        if (deleteCharacterBtn) {
+            this.safeAddEventListener(deleteCharacterBtn, 'click', async () => {
+                await this.deleteCurrentCharacter();
+            }, 'delete-character-btn');
+        }
+
+        // テスト発話ボタン
+        if (testVoiceBtn) {
+            this.safeAddEventListener(testVoiceBtn, 'click', async () => {
+                await this.testCharacterVoice();
+            }, 'char-test-voice-btn');
+        }
+
+        // VRMファイル選択ボタン
+        if (vrmSelectBtn) {
+            this.safeAddEventListener(vrmSelectBtn, 'click', async () => {
+                // input type="file" を使う
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.vrm';
+                fileInput.onchange = (e) => {
+                    if (e.target.files.length > 0) {
+                        const file = e.target.files[0];
+                        // file.path はElectron環境でのみ取得可能 (contextIsolation: false)
+                        document.getElementById('char-vrm-path-input').value = file.path;
+                    }
+                };
+                fileInput.click();
+            }, 'char-select-vrm-btn');
+        }
+
+        // アイコンアップロード
+        if (iconPreview && iconInput) {
+            this.safeAddEventListener(iconPreview, 'click', () => {
+                iconInput.click();
+            }, 'char-icon-preview');
+
+            this.safeAddEventListener(iconInput, 'change', (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = document.getElementById('char-icon-img');
+                        const placeholder = document.getElementById('char-icon-placeholder');
+                        img.src = e.target.result;
+                        img.style.display = 'block';
+                        placeholder.style.display = 'none';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }, 'char-icon-upload');
+        }
+        
+        // パラメータスライダーの数値表示更新
+        ['speed', 'pitch', 'volume'].forEach(param => {
+            const slider = document.getElementById(`char-${param}-slider`);
+            const display = document.getElementById(`char-${param}-val`);
+            if (slider && display) {
+                this.safeAddEventListener(slider, 'input', (e) => {
+                    display.textContent = e.target.value;
+                }, `char-${param}-slider`);
+            }
+        });
+    }
+
+    // キャラクターリスト描画
+    async renderCharacterList() {
+        const listContainer = document.getElementById('character-list');
+        if (!listContainer) return;
+
+        const configManager = this.app.configManager;
+        const characters = configManager.getCharacters();
+        const currentId = this.editingCharacterId || configManager.currentCharacterId;
+
+        listContainer.innerHTML = '';
+
+        characters.forEach(char => {
+            const item = document.createElement('div');
+            item.className = 'character-list-item';
+            item.style.padding = '10px';
+            item.style.cursor = 'pointer';
+            item.style.borderBottom = '1px solid var(--theme-border)';
+            item.style.backgroundColor = char.id === currentId ? 'var(--theme-bg-tertiary)' : 'transparent';
+            if (char.id === currentId) item.classList.add('active');
+
+            item.innerHTML = `
+                <div style="font-weight: bold; font-size: 14px;">${char.name}</div>
+                <div style="font-size: 11px; color: #666; margin-top: 2px;">${char.description || '説明なし'}</div>
+            `;
+
+            item.addEventListener('click', () => {
+                this.selectCharacter(char.id);
+            });
+
+            listContainer.appendChild(item);
+        });
+    }
+
+    // キャラクター選択
+    async selectCharacter(charId) {
+        const configManager = this.app.configManager;
+        const char = configManager.getCharacterById(charId);
+        if (!char) return;
+
+        // UI更新
+        document.getElementById('no-character-selected').style.display = 'none';
+        document.getElementById('character-detail-content').style.display = 'block';
+
+        // フォームに値をセット
+        document.getElementById('char-name-input').value = char.name || '';
+        document.getElementById('char-desc-input').value = char.description || '';
+        document.getElementById('char-vrm-path-input').value = char.model?.path || '';
+        
+        const engineSelect = document.getElementById('char-engine-select');
+        if(engineSelect) engineSelect.value = char.voice?.engine || 'aivis-local';
+        
+        document.getElementById('char-speaker-id-input').value = char.voice?.speakerId || 0;
+        document.getElementById('char-prompt-input').value = char.prompt || '';
+
+        // スライダー設定
+        const setSlider = (param, value) => {
+            const slider = document.getElementById(`char-${param}-slider`);
+            const display = document.getElementById(`char-${param}-val`);
+            if (slider && display) {
+                slider.value = value;
+                display.textContent = value;
+            }
+        };
+        setSlider('speed', char.voice?.speed ?? 1.0);
+        setSlider('pitch', char.voice?.pitch ?? 0.0);
+        setSlider('volume', char.voice?.volume ?? 1.0);
+
+        // アイコン表示
+        const img = document.getElementById('char-icon-img');
+        const placeholder = document.getElementById('char-icon-placeholder');
+        if (char.icon) {
+            img.src = char.icon;
+            img.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
+        } else {
+            img.src = '';
+            img.style.display = 'none';
+            if (placeholder) placeholder.style.display = 'block';
+        }
+
+        // 選択状態の保存
+        this.editingCharacterId = charId;
+        
+        // 削除ボタンの制御（デフォルトキャラは削除不可にするなど）
+        const deleteBtn = document.getElementById('delete-character-btn');
+        if (deleteBtn) {
+            deleteBtn.disabled = char.isDefault;
+            deleteBtn.style.opacity = char.isDefault ? '0.5' : '1';
+        }
+        
+        // リストのハイライト更新
+        this.renderCharacterList();
+    }
+
+    // 新規キャラクター作成
+    async createNewCharacter() {
+        this.debugLog('Creating new character...');
+        try {
+            const configManager = this.app.configManager;
+            if (!configManager) {
+                this.debugError('ConfigManager not found');
+                return;
+            }
+
+            const newId = `char_${Date.now()}`;
+            const newChar = {
+                id: newId,
+                name: '新しいキャラクター',
+                description: '',
+                voice: { engine: 'aivis-local', speakerId: 0, speed: 1.0, pitch: 0.0, volume: 1.0 },
+                prompt: '',
+                model: { type: 'vrm', path: '' },
+                isDefault: false
+            };
+            
+            const success = await configManager.addCharacter(newChar);
+            if (success) {
+                this.debugLog('New character added:', newId);
+                await this.selectCharacter(newId);
+                this.showNotification('新規キャラクターを作成しました', 'success');
+            } else {
+                this.debugError('Failed to add new character');
+                this.showNotification('キャラクターの作成に失敗しました', 'error');
+            }
+        } catch (error) {
+            this.debugError('Error in createNewCharacter:', error);
+        }
+    }
+
+    // キャラクター保存
+    async saveCurrentCharacter() {
+        if (!this.editingCharacterId) return;
+
+        const updates = {
+            name: document.getElementById('char-name-input').value,
+            description: document.getElementById('char-desc-input').value,
+            model: {
+                type: 'vrm',
+                path: document.getElementById('char-vrm-path-input').value
+            },
+            voice: {
+                engine: document.getElementById('char-engine-select').value,
+                speakerId: parseInt(document.getElementById('char-speaker-id-input').value) || 0,
+                speed: parseFloat(document.getElementById('char-speed-slider').value),
+                pitch: parseFloat(document.getElementById('char-pitch-slider').value),
+                volume: parseFloat(document.getElementById('char-volume-slider').value)
+            },
+            prompt: document.getElementById('char-prompt-input').value,
+            icon: document.getElementById('char-icon-img').src
+        };
+
+        const configManager = this.app.configManager;
+        await configManager.updateCharacter(this.editingCharacterId, updates);
+        
+        // 保存完了表示
+        const status = document.getElementById('char-save-status');
+        if (status) {
+            status.style.display = 'block';
+            setTimeout(() => status.style.display = 'none', 2000);
+        }
+        
+        this.renderCharacterList();
+        
+        // 現在選択中のキャラを更新した場合は、アプリ全体に即時反映させる
+        if (this.editingCharacterId === configManager.currentCharacterId) {
+            await configManager.loadCharacterSettings();
+            this.showNotification('キャラクター設定を適用しました', 'success');
+        }
+    }
+
+    // キャラクター削除
+    async deleteCurrentCharacter() {
+        if (!this.editingCharacterId) return;
+        if (!confirm('このキャラクターを削除しますか？')) return;
+
+        const configManager = this.app.configManager;
+        const success = await configManager.deleteCharacter(this.editingCharacterId);
+        
+        if (success) {
+            this.editingCharacterId = null;
+            document.getElementById('character-detail-content').style.display = 'none';
+            document.getElementById('no-character-selected').style.display = 'flex';
+            this.renderCharacterList();
+            this.showNotification('キャラクターを削除しました', 'info');
+        } else {
+            this.showNotification('削除できませんでした', 'error');
+        }
+    }
+
+    // テスト発話
+    async testCharacterVoice() {
+        const text = "こんにちは、音声テストです。";
+        // const engine = document.getElementById('char-engine-select').value;
+        const speakerId = parseInt(document.getElementById('char-speaker-id-input').value) || 0;
+        const speed = parseFloat(document.getElementById('char-speed-slider').value);
+        const pitch = parseFloat(document.getElementById('char-pitch-slider').value);
+        const volume = parseFloat(document.getElementById('char-volume-slider').value);
+        
+        if (this.app.audioService) {
+            const audioData = await this.app.audioService.synthesizeTextOnly(text, speakerId, volume * 100, speed, pitch);
+            if (audioData) {
+                await this.app.audioService.playAppInternalAudio(audioData, text);
+            } else {
+                this.showNotification('音声生成に失敗しました', 'error');
+            }
         }
     }
 }

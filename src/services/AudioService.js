@@ -113,7 +113,7 @@ class AudioService {
     }
 
     // 音声合成のみ実行（再生は別途）
-    async synthesizeTextOnly(text) {
+    async synthesizeTextOnly(text, overrideSpeakerId = null, overrideVolume = null, overrideSpeed = null, overridePitch = null) {
         if (!text || text.trim() === '') {
             this.debugLog('音声合成スキップ: 空のテキスト');
             return null;
@@ -121,23 +121,35 @@ class AudioService {
 
         try {
             const unifiedConfig = getSafeUnifiedConfig();
-            let speakerId = await unifiedConfig.get('defaultSpeakerId', this.selectedSpeaker);
-            const volume = await unifiedConfig.get('voiceVolume', this.voiceVolume);
-            const speed = 1.2; // 読み上げ速度
-
+            
             // API設定を更新
             await this.updateApiSettings();
 
-            // VoiceVOX使用時は専用の話者IDを使用
-            if (this.voiceEngine === 'voicevox') {
-                speakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
+            // パラメータの決定（オーバーライド優先）
+            let speakerId = overrideSpeakerId;
+            if (speakerId === null) {
+                // VoiceVOX使用時は専用の話者IDを使用
+                if (this.voiceEngine === 'voicevox') {
+                    speakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
+                } else {
+                    speakerId = await unifiedConfig.get('defaultSpeakerId', this.selectedSpeaker);
+                }
             }
+
+            let volume = overrideVolume;
+            if (volume === null) {
+                volume = await unifiedConfig.get('voiceVolume', this.voiceVolume);
+            }
+
+            const speed = overrideSpeed !== null ? overrideSpeed : 1.2; // デフォルト速度
+            const pitch = overridePitch !== null ? overridePitch : 0.0; // デフォルトピッチ
 
             this.debugLog('音声合成開始:', {
                 text: text.substring(0, 30) + '...',
                 speakerId,
                 volume,
                 speed,
+                pitch,
                 voiceEngine: this.voiceEngine,
                 useCloudAPI: this.useCloudAPI
             });
@@ -164,18 +176,24 @@ class AudioService {
                 
                 // 話者選択を取得（クラウドAPI用）
                 let cloudSpeakerId = 'default';
-                try {
-                    const speakerSelect = document.getElementById('speaker-select-modal');
-                    if (speakerSelect && speakerSelect.value) {
-                        cloudSpeakerId = speakerSelect.value;
+                if (overrideSpeakerId) {
+                    cloudSpeakerId = overrideSpeakerId;
+                } else {
+                    try {
+                        const speakerSelect = document.getElementById('speaker-select-modal');
+                        if (speakerSelect && speakerSelect.value) {
+                            cloudSpeakerId = speakerSelect.value;
+                        }
+                    } catch (error) {
+                        this.debugError('話者選択取得エラー:', error);
                     }
-                } catch (error) {
-                    this.debugError('話者選択取得エラー:', error);
                 }
                 
                 // 感情に応じたパラメータ構築（話者IDを含む）
                 const cloudPayload = await this.buildCloudApiParams(enhancedText.text, emotion, speed, volume, cloudSpeakerId);
                 cloudPayload.use_ssml = enhancedText.use_ssml;
+                // Cloud APIでのピッチ指定方法は要確認だが、一旦パラメータに追加しておく
+                if (pitch !== 0.0) cloudPayload.pitch = pitch;
                 
                 // 用途別プリセット適用
                 const preset = this.getAudioPreset('realtime');
@@ -236,7 +254,7 @@ class AudioService {
                     const originalCloudSetting = this.useCloudAPI;
                     try {
                         this.useCloudAPI = false;
-                        const fallbackAudioData = await this.synthesizeTextOnly(text, speakerId, volume, speed);
+                        const fallbackAudioData = await this.synthesizeTextOnly(text, speakerId, volume, speed, pitch);
                         this.debugLog('ローカルエンジンフォールバック成功');
                         return fallbackAudioData;
                     } catch (fallbackError) {
@@ -275,6 +293,7 @@ class AudioService {
                 // 音量と速度を設定
                 audioQuery.volumeScale = volume / 100;
                 audioQuery.speedScale = speed;
+                audioQuery.pitchScale = pitch;
 
                 // 音声を合成
                 const synthesisResponse = await fetch(`${endpoint}/synthesis?speaker=${speakerId}`, {

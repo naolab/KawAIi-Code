@@ -111,6 +111,11 @@
                                 <a
                                     href="#"
                                     class="settings-nav-item"
+                                    data-section="character"
+                                >キャラクター設定</a>
+                                <a
+                                    href="#"
+                                    class="settings-nav-item"
                                     data-section="voice"
                                 >音声設定</a>
                                 <a
@@ -271,6 +276,114 @@
                                 </div>
                             </div>
                             <!-- 基本設定セクション終了 -->
+
+                            <!-- ======================================
+                             キャラクター設定セクション
+                             ====================================== -->
+                            <div
+                                id="settings-section-character"
+                                class="settings-section"
+                            >
+                                <div class="character-settings-container" style="display: flex; gap: 20px; height: 100%; min-height: 500px;">
+                                    <!-- 左側: キャラクターリスト -->
+                                    <div class="character-list-pane" style="width: 220px; border-right: 1px solid var(--theme-primary-alpha-20); padding-right: 15px; display: flex; flex-direction: column;">
+                                        <div class="list-header" style="margin-bottom: 15px;">
+                                            <button id="add-character-btn" class="simple-btn" style="width: 100%;">+ 新規作成</button>
+                                        </div>
+                                        <div id="character-list" class="character-list" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                                            <!-- JSで生成 -->
+                                        </div>
+                                    </div>
+
+                                    <!-- 右側: 詳細設定 -->
+                                    <div class="character-detail-pane" style="flex: 1; overflow-y: auto; padding-left: 5px;">
+                                        <div id="character-detail-content" style="display: none;">
+                                            <div class="setting-group">
+                                                <label>基本情報</label>
+                                                <div style="display: flex; gap: 10px; align-items: flex-start; margin-top: 10px;">
+                                                    <div class="char-icon-preview" style="width: 60px; height: 60px; border-radius: 50%; background: #ddd; overflow: hidden; flex-shrink: 0; position: relative; cursor: pointer;">
+                                                        <img id="char-icon-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                                        <span id="char-icon-placeholder" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: #666;">👤</span>
+                                                        <input type="file" id="char-icon-upload" accept="image/*" style="display: none;">
+                                                    </div>
+                                                    <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                                                        <input type="text" id="char-name-input" placeholder="キャラクター名" class="setting-input" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--theme-border);">
+                                                        <input type="text" id="char-desc-input" placeholder="説明（短いプロフィール）" class="setting-input" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--theme-border);">
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="setting-group">
+                                                <label>モデル設定 (VRM)</label>
+                                                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                                                    <input type="text" id="char-vrm-path-input" placeholder="VRMファイルパス" readonly class="setting-input" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--theme-border); background: rgba(0,0,0,0.05);">
+                                                    <button id="char-select-vrm-btn" class="simple-btn" style="white-space: nowrap;">ファイル選択</button>
+                                                </div>
+                                            </div>
+
+                                            <div class="setting-group">
+                                                <label>音声設定</label>
+                                                <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 10px;">
+                                                    <div style="display: flex; gap: 10px;">
+                                                        <div style="flex: 1;">
+                                                            <label style="font-size: 12px; display: block; margin-bottom: 4px;">エンジン</label>
+                                                            <select id="char-engine-select" class="speaker-select" style="width: 100%;">
+                                                                <option value="aivis-local">AivisSpeech (Local)</option>
+                                                                <option value="voicevox">VOICEVOX</option>
+                                                                <option value="aivis-cloud">Aivis Cloud</option>
+                                                            </select>
+                                                        </div>
+                                                        <div style="flex: 1;">
+                                                            <label style="font-size: 12px; display: block; margin-bottom: 4px;">話者ID</label>
+                                                            <input type="number" id="char-speaker-id-input" placeholder="0" class="setting-input" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--theme-border);">
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="voice-params" style="background: var(--theme-bg-tertiary); padding: 10px; border-radius: 6px;">
+                                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                                            <span style="font-size: 12px; width: 40px;">速度</span>
+                                                            <input type="range" id="char-speed-slider" min="0.5" max="2.0" step="0.1" value="1.0" style="flex: 1;">
+                                                            <span id="char-speed-val" style="font-size: 12px; width: 30px; text-align: right;">1.0</span>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                                            <span style="font-size: 12px; width: 40px;">ピッチ</span>
+                                                            <input type="range" id="char-pitch-slider" min="-0.15" max="0.15" step="0.01" value="0.0" style="flex: 1;">
+                                                            <span id="char-pitch-val" style="font-size: 12px; width: 30px; text-align: right;">0.0</span>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                                            <span style="font-size: 12px; width: 40px;">音量</span>
+                                                            <input type="range" id="char-volume-slider" min="0.0" max="2.0" step="0.1" value="1.0" style="flex: 1;">
+                                                            <span id="char-volume-val" style="font-size: 12px; width: 30px; text-align: right;">1.0</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <button id="char-test-voice-btn" class="simple-btn" style="width: auto; align-self: flex-start;">🔊 テスト発話</button>
+                                                </div>
+                                            </div>
+
+                                            <div class="setting-group">
+                                                <label>プロンプト設定 (キャラクターの性格・振る舞い)</label>
+                                                <div style="margin-top: 8px;">
+                                                    <textarea id="char-prompt-input" style="width: 100%; height: 250px; padding: 10px; border: 1px solid var(--theme-border); border-radius: 4px; font-family: monospace; font-size: 12px; resize: vertical; line-height: 1.4;"></textarea>
+                                                </div>
+                                            </div>
+
+                                            <div class="action-buttons" style="margin-top: 30px; display: flex; justify-content: space-between; padding-top: 20px; border-top: 1px solid var(--theme-border);">
+                                                <button id="delete-character-btn" class="simple-btn delete-btn" style="background-color: #ff4444; border-color: #ff4444; color: white;">削除</button>
+                                                <div style="display: flex; gap: 10px;">
+                                                    <span id="char-save-status" style="font-size: 12px; color: green; align-self: center; display: none;">保存しました</span>
+                                                    <button id="save-character-btn" class="simple-btn" style="min-width: 120px;">保存</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div id="no-character-selected" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888;">
+                                            <span style="font-size: 48px; margin-bottom: 10px;">👥</span>
+                                            <p>左側のリストからキャラクターを選択するか、<br>新規作成してください</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- キャラクター設定セクション終了 -->
 
                             <!-- ======================================
                              音声セクション

@@ -39,7 +39,7 @@ function createWindow() {
       contextIsolation: false,
       preload: path.join(__dirname, 'src', 'preload.js'),
       webSecurity: false,
-      devTools: false
+      devTools: true
     },
     titleBarStyle: 'hiddenInset',
     show: false
@@ -137,7 +137,7 @@ function createWindow() {
     if (input.key === 'F12' ||
         (input.meta && input.alt && input.key && input.key.toLowerCase() === 'i') ||
         (input.control && input.shift && input.key && input.key.toLowerCase() === 'i')) {
-      event.preventDefault();
+      // event.preventDefault();
     }
   });
   
@@ -195,7 +195,7 @@ function createWindow() {
   });
 
   // DevTools for debugging
-  // mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
 
   // Initialize voice service
   voiceService = new VoiceService();
