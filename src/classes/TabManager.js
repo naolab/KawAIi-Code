@@ -167,6 +167,9 @@ class TabManager {
         this.parentTabId = tabId;
         this.tabOrder.push(tabId);
         
+        // フォーカスを設定
+        this.focusPane(paneId);
+        
         this.renderTabs();
         
         // ターミナルのサイズを確定させてから起動（プロンプト消失防止）
@@ -183,6 +186,9 @@ class TabManager {
                     // シェル起動前にもう一度だけ微小待機（サイズ変更の伝播待ち）
                     await new Promise(resolve => setTimeout(resolve, 100));
                     await this.startShellForPane(tabId, paneId);
+                    
+                    // 起動後に再度フォーカス（念のため）
+                    if (terminal) terminal.focus();
                 } catch (e) {
                     debugError('📏 Initial tab fit error:', e);
                     await this.startShellForPane(tabId, paneId);

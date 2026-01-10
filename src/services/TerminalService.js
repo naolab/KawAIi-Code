@@ -69,13 +69,6 @@ class TerminalService {
             debugLog('🛡️ シンプル重複防止システム初期化完了');
         }
 
-        // Handle terminal input
-        this.terminal.onData((data) => {
-            if (this.isTerminalRunning) {
-                window.electronAPI.terminal.write(data);
-            }
-        });
-
         // Handle window resize (ResourceManager経由)
         this.resourceManager.addEventListener(window, 'resize', () => {
             // デバウンス処理付きリサイズ制御

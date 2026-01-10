@@ -8,8 +8,8 @@ class TabManagerDependencies {
         this.messageAccumulator = terminalApp.messageAccumulator;
         
         // メインターミナルとFitAddon
-        this.mainTerminal = terminalApp.terminal;
-        this.mainFitAddon = terminalApp.fitAddon;
+        this.mainTerminal = terminalApp.terminalService ? terminalApp.terminalService.terminal : null;
+        this.mainFitAddon = terminalApp.terminalService ? terminalApp.terminalService.fitAddon : null;
         
         // リサイズ処理
         this.handleResize = () => terminalApp.handleResize();
