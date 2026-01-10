@@ -151,13 +151,26 @@ class TabManager {
             isRunning: false,
             eventListeners: []
         };
-        
+
+        // 木構造のルートノードを作成
+        const layoutRoot = {
+            type: 'terminal',
+            id: paneId,
+            size: 1.0,
+            terminal: terminal,
+            fitAddon: fitAddon,
+            element: paneElement,
+            isRunning: false,
+            eventListeners: []
+        };
+
         this.tabs[tabId] = {
             id: tabId,
             name: `Tab #1`,
             panes: [pane],
             activePaneId: paneId,
-            layout: 'single', // single, split-h, split-v
+            layout: 'single', // 後方互換性のため保持
+            layoutRoot: layoutRoot,  // 木構造ルート
             isParent: true,
             isActive: true,
             createdAt: Date.now()
@@ -239,21 +252,39 @@ class TabManager {
     }
 
     focusPane(paneId) {
-        const result = this.findPaneById(paneId);
-        if (!result) return;
-        
-        const { tab, pane } = result;
-        
-        // UIの更新
-        tab.panes.forEach(p => {
-            p.element.classList.remove('focused');
+        const tab = this.tabs[this.activeTabId];
+        if (!tab) return;
+
+        // マイグレーション実行
+        this.migrateTabLayout(tab);
+
+        if (!tab.layoutRoot) return;
+
+        // 木構造からペインノードを取得
+        const paneNode = this.findNodeById(tab.layoutRoot, paneId);
+        if (!paneNode || paneNode.type !== 'terminal') return;
+
+        // 全ペインからfocusedクラスを削除
+        this.forEachTerminalNode(tab.layoutRoot, (node) => {
+            if (node.element) {
+                node.element.classList.remove('focused');
+            }
         });
-        pane.element.classList.add('focused');
-        
-        tab.activePaneId = paneId;
-        if (pane.terminal) {
-            pane.terminal.focus();
+
+        // 対象ペインにfocusedクラスを追加
+        if (paneNode.element) {
+            paneNode.element.classList.add('focused');
         }
+
+        // アクティブペインIDを更新
+        tab.activePaneId = paneId;
+
+        // ターミナルにフォーカス
+        if (paneNode.terminal) {
+            paneNode.terminal.focus();
+        }
+
+        debugLog(`🎯 フォーカス更新: ${paneId}`);
     }
 
     async createEmptyTab() {
@@ -304,13 +335,26 @@ class TabManager {
             isRunning: false,
             eventListeners: []
         };
-        
+
+        // 木構造のルートノードを作成
+        const layoutRoot = {
+            type: 'terminal',
+            id: paneId,
+            size: 1.0,
+            terminal: terminal,
+            fitAddon: fitAddon,
+            element: paneElement,
+            isRunning: false,
+            eventListeners: []
+        };
+
         this.tabs[tabId] = {
             id: tabId,
             name: tabName,
             panes: [pane],
             activePaneId: paneId,
             layout: 'single',
+            layoutRoot: layoutRoot,  // 木構造ルート
             isParent: false,
             isActive: false,
             createdAt: Date.now()
