@@ -178,15 +178,18 @@ class TabManager {
             setTimeout(async () => {
                 try {
                     // ラッパーが表示されていることを確認
-                    if (wrapper && wrapper.offsetParent !== null) {
+                    if (existingWrapper && existingWrapper.offsetParent !== null) {
+                        // 複数回fit()を実行して確実にサイズを確定
+                        fitAddon.fit();
+                        await new Promise(resolve => setTimeout(resolve, 100));
                         fitAddon.fit();
                         debugLog('📏 Initial tab fit() executed');
                     }
-                    
-                    // シェル起動前にもう一度だけ待機
-                    await new Promise(resolve => setTimeout(resolve, 200));
+
+                    // シェル起動前にもう一度待機（DOM反映を確実にする）
+                    await new Promise(resolve => setTimeout(resolve, 300));
                     await this.startShellForPane(tabId, paneId);
-                    
+
                     // 起動後にフォーカスを当てる（複数回呼んで確実にする）
                     this.focusPane(paneId);
                     if (terminal) {
@@ -195,13 +198,13 @@ class TabManager {
                         const textarea = terminal.element ? terminal.element.querySelector('.xterm-helper-textarea') : null;
                         if (textarea) textarea.focus();
                     }
-                    
+
                     debugLog('✅ Initial tab activation complete');
                 } catch (e) {
                     debugError('📏 Initial tab fit error:', e);
                     await this.startShellForPane(tabId, paneId);
                 }
-            }, 300); // 待機時間を100msから300msに増加
+            }, 400); // 待機時間を400msに増加
         } else {
             await this.startShellForPane(tabId, paneId);
         }
