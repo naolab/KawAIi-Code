@@ -3077,9 +3077,17 @@ class UIEventManager {
             item.style.backgroundColor = char.id === currentId ? 'var(--theme-bg-tertiary)' : 'transparent';
             if (char.id === currentId) item.classList.add('active');
 
+            const iconUrl = char.icon || '../assets/icons/new-app-icon.png';
             item.innerHTML = `
-                <div style="font-weight: bold; font-size: 14px;">${char.name}</div>
-                <div style="font-size: 11px; color: #666; margin-top: 2px;">${char.description || '説明なし'}</div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #ddd; overflow: hidden; flex-shrink: 0; border: 1px solid var(--theme-primary-alpha-20);">
+                        <img src="${iconUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <div style="flex: 1; overflow: hidden;">
+                        <div style="font-weight: bold; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--theme-text-primary);">${char.name}</div>
+                        <div style="font-size: 10px; color: var(--theme-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${char.description || '説明なし'}</div>
+                    </div>
+                </div>
             `;
 
             item.addEventListener('click', () => {
