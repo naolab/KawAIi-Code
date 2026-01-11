@@ -2438,7 +2438,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 /* キャラクター切り替えボタン */
 .character-change-btn {
     position: absolute;
-    top: 40px;
+    top: 80px;
     right: 20px;
     width: 24px;
     height: 24px;
@@ -2492,7 +2492,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 /* キャラクター選択ポップアップ */
 .character-select-overlay {
     position: absolute;
-    top: 70px;
+    top: 110px;
     right: 20px;
     width: 180px;
     background: rgba(255, 255, 255, 0.95);

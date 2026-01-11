@@ -440,12 +440,13 @@ class CharacterDisplayManager {
         const charId = this.currentSettings.singleCharacter;
         const character = configManager.getCharacterById(charId);
 
-        if (character && character.iconPath) {
-            // パスから画像を表示（ローカルファイルアクセス制限に注意が必要だが、src属性ならElectronでは通る場合が多い）
-            this.elements.charIcon.src = character.iconPath;
+        if (character) {
+            // char.icon (優先) または char.iconPath を使用
+            const iconUrl = character.icon || character.iconPath || '../assets/icons/new-app-icon.png';
+            this.elements.charIcon.src = iconUrl;
         } else {
-            // デフォルトアイコン（プレースホルダー）
-            this.elements.charIcon.src = '../assets/icons/app-icon.svg'; // 仮のアイコン
+            // デフォルトアイコン
+            this.elements.charIcon.src = '../assets/icons/new-app-icon.png';
         }
     }
 
@@ -484,7 +485,7 @@ class CharacterDisplayManager {
             // アイコン
             const icon = document.createElement('img');
             icon.className = 'character-select-icon';
-            icon.src = char.iconPath || '../assets/icons/app-icon.svg';
+            icon.src = char.icon || char.iconPath || '../assets/icons/new-app-icon.png';
             item.appendChild(icon);
 
             // 情報
