@@ -2563,35 +2563,43 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 /* アイコン表示モード用エリア */
 .icon-display-area {
     position: absolute;
-    top: 0;
+    /* character-main の padding-top:70px を考慮 */
+    top: 70px;
     left: 0;
-    width: 100%;
-    height: 100%;
+    right: 0;
+    /* ターミナルセクションと同じ高さ (100vh - header70px - margin50px - padding20px) */
+    height: calc(100vh - 70px - 50px - 20px);
     display: none; /* デフォルト非表示 */
-    place-items: center;
-    place-content: center;
-    gap: 16px;
-    padding: 24px;
+    gap: 0;
+    padding: 0;
     z-index: 5;
     background: transparent;
     pointer-events: none;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
-/* カード数に応じたレイアウト */
+/* カード数に応じたレイアウト - 1枚の時は画面いっぱい */
 .icon-display-area[data-count="1"] {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr;
 }
 
-.icon-display-area[data-count="2"],
+/* 2-3枚の時は縦に分割 */
+.icon-display-area[data-count="2"] {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+
 .icon-display-area[data-count="3"] {
     display: grid;
     grid-template-columns: 1fr;
-    grid-auto-rows: auto;
-    align-content: center;
+    grid-template-rows: 1fr 1fr 1fr;
 }
 
+/* 4枚の時は2x2グリッド */
 .icon-display-area[data-count="4"] {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2604,37 +2612,34 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     align-items: center;
     justify-content: center;
     gap: 12px;
-    padding: 20px;
+    padding: 16px;
+    width: 100%;
+    height: 100%;
+    min-height: 0; /* グリッドセル内で縮小可能にする */
     background: linear-gradient(145deg, 
         #2a2a3e 0%,
         #1e1e2e 100%);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 24px;
     pointer-events: auto;
-    min-width: 120px;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
-.icon-character-node:hover {
-    transform: translateY(-4px);
-    box-shadow: 
-        0 16px 48px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
+/* アイコンサイズ - 親の高さに応じて調整 */
 .icon-character-circle {
-    width: 80px;
-    height: 80px;
+    width: auto;
+    height: 60%;
+    max-height: 200px;
+    aspect-ratio: 1;
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.3);
-    border: 3px solid rgba(255, 255, 255, 0.25);
+    border: 4px solid rgba(255, 255, 255, 0.25);
     overflow: hidden;
     position: relative;
+    flex-shrink: 0;
     box-shadow: 
-        0 4px 16px rgba(0, 0, 0, 0.2),
+        0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 2px rgba(255, 255, 255, 0.1);
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

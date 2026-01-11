@@ -246,7 +246,8 @@ class CharacterDisplayManager {
             this.elements.vrmIframe.style.display = selectedMode === 'single' ? 'block' : 'none';
         }
         if (this.elements.iconDisplayArea) {
-            this.elements.iconDisplayArea.style.display = selectedMode === 'icon' ? 'flex' : 'none';
+            // グリッドレイアウトはCSSで制御するため、displayはgridに設定
+            this.elements.iconDisplayArea.style.display = selectedMode === 'icon' ? 'grid' : 'none';
             if (selectedMode === 'icon') {
                 this.updateIconDisplay();
             }
