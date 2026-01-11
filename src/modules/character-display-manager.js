@@ -516,6 +516,13 @@ class CharacterDisplayManager {
             circle.appendChild(img);
 
             node.appendChild(circle);
+
+            // キャラクター名を追加 (Badge style)
+            const nameLabel = document.createElement('div');
+            nameLabel.className = 'icon-character-name';
+            nameLabel.textContent = char.name || 'Unknown';
+            node.appendChild(nameLabel);
+
             this.elements.iconDisplayArea.appendChild(node);
         });
     }

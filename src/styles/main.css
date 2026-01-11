@@ -2625,10 +2625,26 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     pointer-events: auto;
     box-sizing: border-box;
     overflow: hidden;
+    position: relative; /* バッジの基準 */
 }
 
-.icon-character-node:hover {
-    /* ホバーエフェクトなし（ターミナルと同じ挙動） */
+
+
+.icon-character-name {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    pointer-events: none;
+    max-width: calc(100% - 16px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* アイコンサイズ - 親の高さに応じて調整 */
