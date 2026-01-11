@@ -440,7 +440,7 @@ class TerminalService {
                 });
                 
                 // 高度なデータ処理（重複防止付き）
-                this.handleTerminalData(data);
+                this.processTerminalData(data);
             });
 
             // Handle Shell exit
