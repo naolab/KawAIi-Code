@@ -92,6 +92,10 @@ class CharacterDisplayManager {
         // キャラクター切り替えボタン (オーバーレイUI)
         this.elements.charChangeBtn = document.getElementById('character-change-btn');
         this.elements.charIcon = document.getElementById('current-char-icon');
+
+        // アイコン表示エリア
+        this.elements.iconDisplayArea = document.getElementById('icon-display-area');
+        this.elements.vrmIframe = document.getElementById('vrm-iframe');
     }
 
     setupEventListeners() {
@@ -221,15 +225,32 @@ class CharacterDisplayManager {
         if (this.elements.modeIcon?.checked) selectedMode = 'icon';
         if (this.elements.modeMulti?.checked) selectedMode = 'multi';
 
+        // 内部状態を更新（重要：他関数の動作の基準になるため）
+        this.currentSettings.mode = selectedMode;
+
         // 設定エリアの表示・非表示を切り替え
         if (this.elements.singleSettings) this.elements.singleSettings.style.display = selectedMode === 'single' ? 'block' : 'none';
         if (this.elements.iconSettings) this.elements.iconSettings.style.display = selectedMode === 'icon' ? 'block' : 'none';
         if (this.elements.multiSettings) this.elements.multiSettings.style.display = selectedMode === 'multi' ? 'block' : 'none';
 
-        // キャラクター切り替えボタンの表示制御（シングルモードのみ表示）
-        if (this.elements.charChangeBtn) {
-            this.elements.charChangeBtn.style.display = selectedMode === 'single' ? 'flex' : 'none';
+        // VRM / アイコン表示エリアの切り替え
+        if (this.elements.vrmIframe) {
+            this.elements.vrmIframe.style.display = selectedMode === 'single' ? 'block' : 'none';
         }
+        if (this.elements.iconDisplayArea) {
+            this.elements.iconDisplayArea.style.display = selectedMode === 'icon' ? 'flex' : 'none';
+            if (selectedMode === 'icon') {
+                this.updateIconDisplay();
+            }
+        }
+
+        // キャラクター切り替えボタンの表示制御（シングル/アイコンモードで表示）
+        if (this.elements.charChangeBtn) {
+            this.elements.charChangeBtn.style.display = (selectedMode === 'single' || selectedMode === 'icon') ? 'flex' : 'none';
+        }
+
+        // モード変更をVRMビューワーに通知
+        this.notifyVRMViewer();
     }
 
     async loadSettings() {
@@ -313,6 +334,7 @@ class CharacterDisplayManager {
 
         // アイコンを更新
         this.updateCharacterIcon();
+        this.updateIconDisplay();
     }
 
     showSaveStatus() {
@@ -451,6 +473,69 @@ class CharacterDisplayManager {
     }
 
     /**
+     * アイコン表示エリアを更新
+     */
+    updateIconDisplay() {
+        if (!this.elements.iconDisplayArea || this.currentSettings.mode !== 'icon') return;
+
+        const configManager = window.terminalApp?.configManager;
+        if (!configManager) return;
+
+        // 既存のアイコンをクリア
+        this.elements.iconDisplayArea.innerHTML = '';
+
+        // 設定されたすべてのキャラクターを表示
+        const charIds = this.currentSettings.iconCharacters || [];
+        
+        charIds.forEach(id => {
+            const char = configManager.getCharacterById(id);
+            if (!char) return;
+
+            const node = document.createElement('div');
+            node.className = 'icon-character-node';
+            node.id = `icon-node-${id}`;
+
+            const circle = document.createElement('div');
+            circle.className = 'icon-character-circle';
+            circle.id = `icon-circle-${id}`;
+
+            const img = document.createElement('img');
+            img.src = char.icon || char.iconPath || '../assets/icons/new-app-icon.png';
+            circle.appendChild(img);
+
+            node.appendChild(circle);
+            this.elements.iconDisplayArea.appendChild(node);
+        });
+    }
+
+    /**
+     * 喋っている状態をセット
+     */
+    setSpeakingState(charId, isSpeaking) {
+        // アイコンモード用のハイライト
+        const circle = document.getElementById(`icon-circle-${charId}`);
+        if (circle) {
+            if (isSpeaking) {
+                circle.classList.add('is-speaking');
+            } else {
+                circle.classList.remove('is-speaking');
+            }
+        }
+
+        // シングルモード（右上アイコン）用のハイライト
+        if (this.currentSettings.mode === 'single' && charId === this.currentSettings.singleCharacter) {
+            const btn = document.getElementById('character-change-btn');
+            if (btn) {
+                if (isSpeaking) {
+                    btn.classList.add('is-speaking');
+                } else {
+                    btn.classList.remove('is-speaking');
+                }
+            }
+        }
+    }
+
+    /**
      * キャラクター選択ポップアップを表示
      */
     showCharacterSelectPopup() {
@@ -474,11 +559,18 @@ class CharacterDisplayManager {
         characters.forEach(char => {
             const item = document.createElement('div');
             item.className = 'character-select-item';
-            if (char.id === this.currentSettings.singleCharacter) {
+            
+            // アクティブ状態の判定
+            const isActive = this.currentSettings.mode === 'single'
+                ? (char.id === this.currentSettings.singleCharacter)
+                : (this.currentSettings.iconCharacters.includes(char.id));
+
+            if (isActive) {
                 item.classList.add('active');
             }
 
-            item.addEventListener('click', () => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
                 this.handleCharacterSelect(char.id);
             });
 
@@ -496,13 +588,6 @@ class CharacterDisplayManager {
             name.className = 'character-select-name';
             name.textContent = char.name || char.id;
             info.appendChild(name);
-
-            if (char.description) {
-                const desc = document.createElement('div');
-                desc.className = 'character-select-desc';
-                desc.textContent = char.description;
-                info.appendChild(desc);
-            }
 
             item.appendChild(info);
             popup.appendChild(item);
@@ -529,20 +614,71 @@ class CharacterDisplayManager {
      * キャラクター選択時の処理
      */
     handleCharacterSelect(charId) {
-        // 設定更新
-        this.currentSettings.singleCharacter = charId;
+        if (this.currentSettings.mode === 'single') {
+            // シングルモード：入れ替え
+            this.currentSettings.singleCharacter = charId;
+            this.closeCharacterSelectPopup();
+        } else if (this.currentSettings.mode === 'icon') {
+            // アイコンモード：トグル（追加・削除）
+            if (!this.currentSettings.iconCharacters) {
+                this.currentSettings.iconCharacters = [];
+            }
+            const index = this.currentSettings.iconCharacters.indexOf(charId);
+            if (index > -1) {
+                // 既に選択されていれば削除（ただし最低1体は残す）
+                if (this.currentSettings.iconCharacters.length > 1) {
+                    this.currentSettings.iconCharacters.splice(index, 1);
+                }
+            } else {
+                // 選択されていなければ追加
+                this.currentSettings.iconCharacters.push(charId);
+            }
+            // ポップアップを閉じずに選択状態のみ更新
+            this.updateCharacterSelectPopupActiveStates();
+        }
         
         // 設定画面のセレクトボックスも同期
         if (this.elements.singleSelect) {
-            this.elements.singleSelect.value = charId;
+            this.elements.singleSelect.value = this.currentSettings.singleCharacter;
         }
 
         // 保存と反映
         this.saveSettings();
-        this.applySettings(); // UI更新含む
+        
+        // アイコン表示の更新などを実行
+        this.updateCharacterIcon();
+        if (this.currentSettings.mode === 'icon') {
+            this.updateIconDisplay();
+        }
+    }
 
-        // ポップアップを閉じる
-        this.closeCharacterSelectPopup();
+    /**
+     * ポップアップ内の選択状態（activeクラス）のみを更新
+     */
+    updateCharacterSelectPopupActiveStates() {
+        const popup = document.querySelector('.character-select-overlay');
+        if (!popup) return;
+
+        const configManager = window.terminalApp?.configManager;
+        if (!configManager) return;
+        
+        const characters = configManager.getCharacters();
+        const items = popup.querySelectorAll('.character-select-item');
+
+        items.forEach((item, index) => {
+            const char = characters[index];
+            if (!char) return;
+
+            const isActive = this.currentSettings.mode === 'single'
+                ? (char.id === this.currentSettings.singleCharacter)
+                : (this.currentSettings.iconCharacters.includes(char.id));
+
+            if (isActive) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
     }
 
     // 現在の設定を取得（外部から参照用）

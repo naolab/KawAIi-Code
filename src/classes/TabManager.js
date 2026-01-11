@@ -77,15 +77,17 @@ class TabManager {
             pane.terminal.write(data);
         }
         
-        // 音声処理：ペインにキャラクターが設定されている場合のみ実行
-        if (pane.characterId && this.deps.messageAccumulator) {
+        // 音声処理：キャラクターが設定されているか、デフォルトが利用可能な場合
+        const effectiveCharId = pane.characterId || (window.characterDisplayManager?.currentSettings?.singleCharacter);
+        
+        if (effectiveCharId && this.deps.messageAccumulator) {
             // メッセージ蓄積（ログ用など）
             this.deps.messageAccumulator.addChunk(data);
             
             // 音声処理パイプラインへ
             if (this.deps.terminalService && this.deps.terminalService.processTerminalData) {
-                // 第2引数としてcharacterIdを渡す（TerminalService側で対応が必要）
-                this.deps.terminalService.processTerminalData(data, pane.characterId);
+                // 第2引数としてeffectiveCharIdを渡す
+                this.deps.terminalService.processTerminalData(data, effectiveCharId);
             }
         }
     }

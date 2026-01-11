@@ -193,8 +193,14 @@ class HookService {
                 await this.terminalApp.processEmotionForVRM(text, audioData.buffer);
             }
             
-            // 音声再生開始をVRMに通知
+            // 再生開始をVRMに通知
             this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('playing');
+
+            // 喋っている状態をセット（Hookファイル再生用）
+            let highlightId = (window.characterDisplayManager?.currentSettings?.singleCharacter);
+            if (highlightId && window.characterDisplayManager) {
+                window.characterDisplayManager.setSpeakingState(highlightId, true);
+            }
             
             // 音声をAudioオブジェクトで再生
             const audioBlob = new Blob([audioData], { type: 'audio/wav' });
@@ -208,10 +214,15 @@ class HookService {
             
             // 再生完了を待機
             await new Promise((resolve, reject) => {
-                audio.onended = () => {
+                const finishPlayback = () => {
                     this.debugLog('🎣 Hook音声再生完了');
                     this.terminalApp.voicePlayingState.isPlayingHook = false;
                     
+                    // ハイライト解除
+                    if (highlightId) {
+                        window.characterDisplayManager?.setSpeakingState(highlightId, false);
+                    }
+
                     // 音声終了をVRMに通知（表情リセット）
                     this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('ended');
                     
@@ -226,13 +237,17 @@ class HookService {
                     
                     // リソースをクリーンアップ
                     URL.revokeObjectURL(audioUrl);
-                    
                     resolve();
                 };
+
+                audio.onended = finishPlayback;
                 
                 audio.onerror = (error) => {
                     this.debugError('❌ Hook音声再生エラー:', error);
                     this.terminalApp.voicePlayingState.isPlayingHook = false;
+                    if (highlightId && window.characterDisplayManager) {
+                        window.characterDisplayManager.setSpeakingState(highlightId, false);
+                    }
                     URL.revokeObjectURL(audioUrl);
                     reject(error);
                 };
@@ -312,8 +327,23 @@ class HookService {
                 // 統一感情処理メソッドを使用（二重処理を回避）
                 await this.terminalApp.processEmotionForVRM(text, audioData);
                 
+                // 喋っている状態をセット
+                let highlightId = characterId || (window.characterDisplayManager?.currentSettings?.singleCharacter);
+                if (highlightId && window.characterDisplayManager) {
+                    window.characterDisplayManager.setSpeakingState(highlightId, true);
+                }
+
                 // 音声再生（AudioService経由）
                 await this.terminalApp.audioService.playAudio(audioData, text);
+                
+                // 喋っている状態を解除（再生完了を待つ）
+                if (highlightId && window.characterDisplayManager) {
+                    if (this.terminalApp.audioService.waitForPlaybackComplete) {
+                        await this.terminalApp.audioService.waitForPlaybackComplete();
+                    }
+                    window.characterDisplayManager.setSpeakingState(highlightId, false);
+                }
+
                 this.debugLog('🎣 Hook音声再生完了');
                 
             } catch (error) {

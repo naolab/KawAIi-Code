@@ -203,11 +203,22 @@ class VoiceQueue {
                 );
                 
                 if (audioData) {
+                    // 喋っている状態をセット
+                    let highlightId = characterId || (window.characterDisplayManager?.currentSettings?.singleCharacter);
+                    if (highlightId && window.characterDisplayManager) {
+                        window.characterDisplayManager.setSpeakingState(highlightId, true);
+                    }
+
                     // 合成した音声をplayAppInternalAudioで再生
                     await this.terminalApp.playAppInternalAudio(audioData, text);
                     
                     // 音声再生完了まで待機
                     await this.waitForVoiceComplete();
+
+                    // 喋っている状態を解除
+                    if (highlightId && window.characterDisplayManager) {
+                        window.characterDisplayManager.setSpeakingState(highlightId, false);
+                    }
                     
                     // 読み上げ間隔制御
                     const intervalMs = intervalSeconds * 1000;
