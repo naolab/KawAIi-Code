@@ -709,7 +709,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const app = new TerminalApp();
             // グローバル参照を保存（ConsentServiceから参照するため）
             window.terminalApp = app;
-            
+
+            // キャラクター表示マネージャーを初期化
+            const characterDisplayManager = new CharacterDisplayManager();
+            window.characterDisplayManager = characterDisplayManager;
+
             // デバッグ統計ボタンのイベントリスナーを追加
             const debugStatsBtn = document.getElementById('debug-stats-btn');
             if (debugStatsBtn) {
