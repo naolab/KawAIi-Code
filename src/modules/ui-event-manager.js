@@ -1431,9 +1431,12 @@ class UIEventManager {
                 encryptedApiKey = await unifiedConfig.get('aivisCloudApiKey', '');
             }
 
-            // ラジオボタンの状態を更新
+            // 状態の判定のみ維持
             const isCloudAPI = voiceEngine === 'aivis-cloud';
             const isVoiceVOX = voiceEngine === 'voicevox';
+
+            /*
+            // ラジオボタンの状態を更新
             const voiceEngineLocalRadio = document.getElementById('voice-engine-local');
             const voiceEngineCloudRadio = document.getElementById('voice-engine-cloud');
             const voiceEngineVoicevoxRadio = document.getElementById('voice-engine-voicevox');
@@ -1444,13 +1447,17 @@ class UIEventManager {
                     voiceEngineVoicevoxRadio.checked = isVoiceVOX;
                 }
             }
+            */
 
+            /*
             // API設定エリアの表示/非表示を更新
             const cloudApiSettings = document.getElementById('cloud-api-settings');
             if (cloudApiSettings) {
                 cloudApiSettings.style.display = isCloudAPI ? 'block' : 'none';
             }
+            */
             
+            /*
             // APIキー入力欄の更新
             const cloudApiKeyInput = document.getElementById('cloud-api-key-input');
             if (cloudApiKeyInput) {
@@ -1463,6 +1470,7 @@ class UIEventManager {
                     cloudApiKeyInput.dataset.hasKey = 'false';
                 }
             }
+            */
             
             console.log('🔄 音声エンジン設定を同期:', { voiceEngine, isCloudAPI, isVoiceVOX, hasApiKey: !!encryptedApiKey });
             
