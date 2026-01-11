@@ -15,16 +15,16 @@ function fixHtmlFile(filePath) {
   
   let content = fs.readFileSync(filePath, 'utf8');
   
-  // 絶対パスを相対パスに変換
-  content = content.replace(/href="\/_next\//g, 'href="./_next/');
-  content = content.replace(/src="\/_next\//g, 'src="./_next/');
-  content = content.replace(/href="\/favicon/g, 'href="./favicon');
-  content = content.replace(/src="\/file\.svg"/g, 'src="./file.svg"');
-  content = content.replace(/src="\/globe\.svg"/g, 'src="./globe.svg"');
-  content = content.replace(/src="\/next\.svg"/g, 'src="./next.svg"');
-  content = content.replace(/src="\/vercel\.svg"/g, 'src="./vercel.svg"');
-  content = content.replace(/src="\/window\.svg"/g, 'src="./window.svg"');
-  content = content.replace(/src="\/settings-icon\.svg"/g, 'src="./settings-icon.svg"');
+  // 絶対パスを相対パスに変換 (より汎用的なパターン)
+  // 1. href="/_next/ -> href="./_next/
+  // 2. src="/_next/ -> src="./_next/
+  // 3. JSON内の "/_next/ -> "./_next/
+  content = content.replace(/(href|src)="\/_next\//g, '$1="./_next/');
+  content = content.replace(/:"\/_next\//g, ':"./_next/');
+  content = content.replace(/,"\/_next\//g, ',"./_next/');
+  
+  // favicon ya svg も同様に
+  content = content.replace(/(href|src)="\/(favicon|file\.svg|globe\.svg|next\.svg|vercel\.svg|window\.svg|settings-icon\.svg)/g, '$1="./$2');
   
   fs.writeFileSync(filePath, content);
   console.log(`Fixed: ${filePath}`);

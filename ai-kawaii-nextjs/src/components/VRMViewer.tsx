@@ -87,9 +87,15 @@ export default function VRMViewer({ className }: VRMViewerProps) {
   // 自動読み込みは無効化 - CharacterDisplayManagerが全VRM読み込みを管理
   // アプリ起動時にCharacterDisplayManagerからloadVRMFileまたはloadDefaultVRMが呼ばれる
   useEffect(() => {
-    // 初期化時のログのみ（自動読み込みは行わない）
-    console.log('🤖 [VRMViewer] Ready to receive VRM from CharacterDisplayManager')
-    // CharacterDisplayManagerがVRMを送信するまで待機
+    // URLからcharIdを取得（マルチ表示用）
+    const params = new URLSearchParams(window.location.search)
+    const charId = params.get('charId')
+    
+    // 初期化時のログのみ
+    console.log(`🤖 [VRMViewer] Ready to receive VRM from CharacterDisplayManager (ID: ${charId || 'main'})`)
+    
+    // 親アプリに準備完了を通知
+    window.parent.postMessage({ type: 'vrm-viewer-ready', charId }, '*')
   }, []) // 初回マウント時のみ
 
   return (

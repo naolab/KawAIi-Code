@@ -42,6 +42,7 @@ class CharacterDisplayManager {
         };
 
         this.iframes = new Map(); // charId -> iframe elements for multi/single mode
+        this.viewerReadyStates = new Map(); // charId -> promise resolve function
         
         this.init();
     }
@@ -132,6 +133,21 @@ class CharacterDisplayManager {
             if (!e.target.closest('.character-select-overlay') && 
                 !e.target.closest('.character-change-btn')) {
                 this.closeCharacterSelectPopup();
+            }
+        });
+
+        // VRMビューワー（iframe）からの準備完了通知を待機
+        window.addEventListener('message', (event) => {
+            if (event.data?.type === 'vrm-viewer-ready') {
+                const charId = event.data.charId || 'main';
+                console.log(`[CDM] Received vrm-viewer-ready from ${charId}`);
+                
+                // 待機中のPromiseを解決
+                if (this.viewerReadyStates.has(charId)) {
+                    const resolve = this.viewerReadyStates.get(charId);
+                    resolve(true);
+                    this.viewerReadyStates.delete(charId);
+                }
             }
         });
     }
@@ -372,72 +388,16 @@ class CharacterDisplayManager {
     async loadAndSendSingleCharacter() {
         try {
             const characterId = this.currentSettings.singleCharacter;
-            console.log('loadAndSendSingleCharacter: Target ID =', characterId);
+            if (!characterId) return;
 
-            if (!characterId) {
-                console.warn('No character selected for single mode');
-                return;
-            }
-
-            // ConfigManagerからキャラクター情報を取得
-            const configManager = window.terminalApp?.configManager;
-            if (!configManager) {
-                console.error('ConfigManager not found');
-                return;
-            }
-
-            const character = configManager.getCharacterById(characterId);
-            console.log('loadAndSendSingleCharacter: Character Data =', character);
-
-            if (!character) {
-                console.error('Character not found:', characterId);
-                return;
-            }
-
-            // アイコンを更新
+            // IDに基づいてロードと送信を行う（共通化されたロジックを使用）
+            await this.loadAndSendCharacterById(characterId);
+            
+            // アイコンのみ個別に更新
             this.updateCharacterIcon();
-
-            // VRMファイルパスを取得 (データ構造の互換性維持)
-            const vrmPath = character.vrmPath || character.model?.path;
-            console.log('loadAndSendSingleCharacter: VRM Path =', vrmPath);
-
-            if (!vrmPath) {
-                console.warn('Character has no VRM path:', characterId);
-                // デフォルトVRMを読み込む
-                this.sendLoadDefaultVRM();
-                return;
-            }
-
-            console.log('Loading VRM file via Electron API:', vrmPath);
-
-            // ElectronAPIでVRMファイルを読み込む
-            const result = await window.electronAPI.vrm.loadFile(vrmPath);
-            console.log('loadAndSendSingleCharacter: API Result =', result.success ? 'Success' : 'Failure', result.error || '');
-
-            if (!result.success) {
-                console.error('Failed to load VRM file:', result.error);
-                // エラー時はデフォルトVRMにフォールバック
-                this.sendLoadDefaultVRM();
-                return;
-            }
-
-            // VRMビューワーにpostMessage
-            const iframe = document.getElementById('vrm-iframe');
-            if (iframe && iframe.contentWindow) {
-                iframe.contentWindow.postMessage({
-                    type: 'loadVRM',
-                    fileData: result.data,
-                    fileName: result.filename || vrmPath
-                }, '*');
-
-                console.log('Sent VRM data to viewer:', vrmPath);
-            } else {
-                console.error('VRM iframe not found or not ready');
-            }
-
+            
         } catch (error) {
-            console.error('Error loading single character VRM:', error);
-            // エラー時はデフォルトVRMにフォールバック
+            console.error('Error in loadAndSendSingleCharacter:', error);
             this.sendLoadDefaultVRM();
         }
     }
@@ -550,8 +510,8 @@ class CharacterDisplayManager {
             const iframe = document.createElement('iframe');
             iframe.className = 'vrm-character-iframe';
             iframe.id = `vrm-iframe-${id}`;
-            // パラメータとしてキャラクターIDを付与（将来的にカスタマイズするため）
-            iframe.src = `./vrm-viewer/index.html?charId=${id}`;
+            // パラメータとしてキャラクターIDを付与
+            iframe.src = `../ai-kawaii-nextjs/out/index.html?charId=${id}`;
             
             node.appendChild(iframe);
 
@@ -565,10 +525,8 @@ class CharacterDisplayManager {
         });
 
         // iframe生成後にマッピングを更新し、レンダリング状態を同期
-        setTimeout(() => {
-            this.updateIframeMap();
-            this.syncAllRenderStates();
-        }, 100);
+        this.updateIframeMap();
+        this.syncAllRenderStates();
     }
 
     async loadAndSendMultiCharacters() {
@@ -580,26 +538,66 @@ class CharacterDisplayManager {
 
     async loadAndSendCharacterById(charId) {
         try {
+            console.log(`[CDM] Starting loadAndSendCharacterById for ${charId}`);
             const configManager = window.terminalApp?.configManager;
             if (!configManager) return;
 
             const character = configManager.getCharacterById(charId);
-            if (!character) return;
+            if (!character) {
+                console.error(`[CDM] Character not found for ID: ${charId}`);
+                return;
+            }
 
             const vrmPath = character.vrmPath || character.model?.path;
-            if (!vrmPath) return;
+            if (!vrmPath) {
+                console.warn(`[CDM] No VRM path for character: ${charId}`);
+                return;
+            }
 
+            console.log(`[CDM] Loading VRM file from: ${vrmPath}`);
             const result = await window.electronAPI.vrm.loadFile(vrmPath);
-            if (!result.success) return;
+            if (!result.success) {
+                console.error(`[CDM] Failed to load VRM file: ${result.error}`);
+                return;
+            }
 
-            this.postToViewerById(charId, {
+            // iframeが読み込まれるのを待つ
+            const iframe = this.iframes.get(charId);
+            if (iframe) {
+                console.log(`[CDM] Waiting for viewer-ready message from ${charId}...`);
+                // Next.jsのハイドレーション（Ready通知）を待機（最大8秒）
+                const isReady = await new Promise(resolve => {
+                    // シングルモードの場合は 'main'、マルチモードの場合は charId で待機
+                    const waitId = (this.currentSettings.mode === 'single') ? 'main' : charId; 
+                    this.viewerReadyStates.set(waitId, resolve);
+                    
+                    setTimeout(() => {
+                        if (this.viewerReadyStates.has(waitId)) {
+                            this.viewerReadyStates.delete(waitId);
+                            resolve(false);
+                        }
+                    }, 8000);
+                });
+
+                if (!isReady) {
+                    console.warn(`[CDM] Viewer for character ${charId} timed out or no ready message, attempting to send anyway.`);
+                } else {
+                    console.log(`[CDM] Viewer ${charId} is ready.`);
+                }
+            }
+
+            console.log(`[CDM] Sending loadVRM message to ${charId}`);
+            const sent = this.postToViewerById(charId, {
                 type: 'loadVRM',
                 fileData: result.data,
                 fileName: result.filename || vrmPath
             });
 
+            if (!sent) {
+                console.error(`[CDM] Failed to send loadVRM message to ${charId}`);
+            }
         } catch (error) {
-            console.error(`Error loading VRM for character ${charId}:`, error);
+            console.error('[CDM] Error in loadAndSendCharacterById:', error);
         }
     }
 
@@ -720,7 +718,7 @@ class CharacterDisplayManager {
     /**
      * キャラクター選択時の処理
      */
-    handleCharacterSelect(charId) {
+    async handleCharacterSelect(charId) {
         if (this.currentSettings.mode === 'single') {
             // シングルモード：入れ替え
             this.currentSettings.singleCharacter = charId;
@@ -779,6 +777,9 @@ class CharacterDisplayManager {
         } else if (this.currentSettings.mode === 'multi') {
             this.updateMultiDisplay();
         }
+
+        // 重要: 設定変更をVRMビューワーに通知してVRMを再ロードさせる
+        await this.notifyVRMViewer();
     }
 
     /**
