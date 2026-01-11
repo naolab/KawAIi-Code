@@ -2607,14 +2607,12 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 
 /* Discord風喋っている時のエフェクト */
 .icon-character-circle.is-speaking {
-    border-color: #5ff05f;
-    box-shadow: 0 0 15px #5ff05f, 0 0 5px #5ff05f inset;
+    border: 4px solid #43b581;
     transform: scale(1.05);
 }
 
 .character-change-btn.is-speaking {
-    border-color: #5ff05f;
-    box-shadow: 0 0 15px rgba(95, 240, 95, 0.6);
+    border: 2.5px solid #43b581;
     transform: scale(1.1);
     opacity: 1 !important;
 }
