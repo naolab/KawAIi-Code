@@ -2650,7 +2650,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 /* アイコンサイズ - 親の高さに応じて調整 */
 .icon-character-circle {
     width: auto;
-    height: 60%;
+    height: 60%; /* デフォルト (1-2枚) */
     max-height: 200px;
     aspect-ratio: 1;
     border-radius: 50%;
@@ -2663,6 +2663,16 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
         0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 2px rgba(255, 255, 255, 0.1);
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 3枚の時は少し大きく */
+.icon-display-area[data-count="3"] .icon-character-circle {
+    height: 70%;
+}
+
+/* 4枚の時は少し小さく */
+.icon-display-area[data-count="4"] .icon-character-circle {
+    height: 50%;
 }
 
 .icon-character-circle img {
