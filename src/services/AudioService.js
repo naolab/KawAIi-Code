@@ -12,7 +12,7 @@ class AudioService {
         this.speakers = [];
         this.selectedSpeaker = 888753760; // デフォルト話者ID
         this.connectionStatus = 'disconnected';
-        this.voiceVolume = 25;
+        this.voiceVolume = 80; // デフォルト音量を少し上げる
         this.debugLog = debugLog;
         this.debugError = debugError;
         
@@ -20,12 +20,9 @@ class AudioService {
         this.baseUrl = 'http://localhost:10101';
         this.cloudApiUrl = 'https://api.aivis-project.com/v1';
         this.voicevoxUrl = 'http://127.0.0.1:50021';
-        this.voiceEngine = 'aivis-local'; // aivis-local / aivis-cloud / voicevox
+        this.voiceEngine = 'aivis-local'; // デフォルト。ConfigManagerから上書きされる
         this.useCloudAPI = false;
         this.cloudApiKey = '';
-
-        // 音声再生状態は統一管理システムを使用（app.js）
-        // 注意: updateApiSettings()はTerminalAppManager.jsで明示的に呼ばれる
     }
 
     // API設定を更新
@@ -126,6 +123,57 @@ class AudioService {
             this.debugError('話者リスト読み込み失敗:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    /**
+     * キャラクターIDに基づいて音声合成。ConfigManagerから最新設定を引く。
+     */
+    async synthesizeTextByCharacter(text, characterId) {
+        console.log(`[AudioService] synthesizeTextByCharacter:`, { text: text.substring(0, 20), characterId });
+        if (!text) return null;
+
+        const configManager = this.terminalApp.configManager || window.terminalApp?.configManager;
+        if (!configManager) {
+            console.error('[AudioService] ConfigManager not found');
+            return null;
+        }
+
+        // IDがない場合はConfigManagerのデフォルト（現在の主役）を使用
+        const targetId = characterId || configManager.currentCharacterId || 'char_mona';
+        const char = configManager.getCharacterById(targetId);
+        
+        console.log(`[AudioService] Character lookup result:`, { 
+            requestedId: characterId, 
+            targetId: targetId, 
+            foundCharName: char?.name,
+            foundCharId: char?.id,
+            voice: char?.voice,
+            isDefaultFallback: char?.id !== targetId
+        });
+        
+        if (!char || !char.voice) {
+            console.error(`[AudioService] Character settings not found for ID: ${targetId}`);
+            return null;
+        }
+
+        const v = char.voice;
+        console.log(`[AudioService] Using voice settings:`, {
+            engine: v.engine,
+            speakerId: v.speakerId,
+            volume: v.volume,
+            speed: v.speed
+        });
+
+        return await this.synthesizeTextOnly(
+            text,
+            v.speakerId,
+            v.volume,
+            v.speed,
+            v.pitch,
+            v.cloudApiKey,
+            v.modelUuid,
+            v.engine
+        );
     }
 
     // 音声合成のみ実行（再生は別途）
@@ -295,15 +343,15 @@ class AudioService {
 
                 if (!queryResponse.ok) {
                     const errorText = await queryResponse.text();
-                    this.debugError('音声クエリ生成失敗:', {
+                    this.debugError('[AudioService] 音声クエリ生成失敗:', {
                         status: queryResponse.status,
                         statusText: queryResponse.statusText,
                         errorText,
-                        endpoint,
-                        useCloudAPI: isCloudRequest
+                        url: queryResponse.url
                     });
-                    throw new Error(`音声クエリ生成失敗: ${queryResponse.status} - ${errorText}`);
+                    throw new Error(`音声クエリ生成失敗: ${queryResponse.status}`);
                 }
+                this.debugLog('[AudioService] 音声クエリ生成成功');
 
                 const audioQuery = await queryResponse.json();
                 
@@ -321,15 +369,15 @@ class AudioService {
 
                 if (!synthesisResponse.ok) {
                     const errorText = await synthesisResponse.text();
-                    this.debugError('音声合成失敗:', {
+                    this.debugError('[AudioService] 音声合成失敗:', {
                         status: synthesisResponse.status,
                         statusText: synthesisResponse.statusText,
                         errorText,
-                        endpoint,
-                        useCloudAPI: isCloudRequest
+                        url: synthesisResponse.url
                     });
-                    throw new Error(`音声合成失敗: ${synthesisResponse.status} - ${errorText}`);
+                    throw new Error(`音声合成失敗: ${synthesisResponse.status}`);
                 }
+                this.debugLog('[AudioService] 音声合成成功');
 
                 const audioData = await synthesisResponse.arrayBuffer();
                 this.debugLog('音声合成成功:', `${audioData.byteLength}バイト`);
@@ -592,7 +640,11 @@ class AudioService {
             this.terminalApp.voicePlayingState.currentAudioUrl = audioUrl;
 
             // 音声を再生
-            await audio.play();
+            this.debugLog('[AudioService] audio.play() 実行直前');
+            await audio.play().catch(e => {
+                this.debugError('[AudioService] audio.play() 失敗:', e);
+                throw e;
+            });
             this.debugLog('アプリ内音声再生開始完了');
 
             // 再生完了を待機（改善版）

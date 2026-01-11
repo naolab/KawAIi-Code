@@ -209,12 +209,21 @@ class TerminalApp {
 
 
     // 統一感情処理メソッド（全音声で使用）
-    async processEmotionForVRM(text, audioData) {
+    async processEmotionForVRM(text, audioData, characterId = null) {
         try {
             // 音声無効時は感情処理もスキップ（パフォーマンス最適化）
             if (!this.voiceEnabled) {
                 debugLog('🎭 音声無効のため感情処理をスキップ:', text ? text.substring(0, 30) + '...' : '');
                 return null;
+            }
+
+            // 表示中のキャラと喋っているキャラが一致するかチェック（Singleモード時）
+            const cdm = window.characterDisplayManager;
+            if (cdm && cdm.currentSettings.mode === 'single' && characterId) {
+                if (characterId !== cdm.currentSettings.singleCharacter) {
+                    debugLog(`🎭 別のキャラ (${characterId}) が喋っているためVRM連動をスキップ (表示中: ${cdm.currentSettings.singleCharacter})`);
+                    return null;
+                }
             }
             
             debugLog('🎭 統一感情処理開始:', text ? text.substring(0, 30) + '...' : '');
@@ -250,7 +259,7 @@ class TerminalApp {
     }
 
     // アプリ内音声再生（VoiceQueue用）- AudioServiceに委譲
-    async playAppInternalAudio(audioData, text) {
+    async playAppInternalAudio(audioData, text, characterId = null) {
         // 音声無効時は全処理をスキップ（パフォーマンス最適化）
         if (!this.voiceEnabled) {
             debugLog('🎵 音声無効のためplayAppInternalAudioをスキップ:', text ? text.substring(0, 30) + '...' : '');
@@ -264,10 +273,11 @@ class TerminalApp {
         
         try {
             // 統一感情処理メソッドを使用
-            await this.processEmotionForVRM(text, audioData);
+            await this.processEmotionForVRM(text, audioData, characterId);
             
             // 音声再生開始をVRMビューワーに通知
-            this.vrmIntegrationService.notifyAudioStateToVRM('playing');
+            // characterIdを渡すことで、どのモデルを動かすか指定可能にする
+            this.vrmIntegrationService.notifyAudioStateToVRM('playing', characterId);
             
             // AudioServiceに音声再生を委譲
             await this.audioService.playAppInternalAudio(audioData, text);
@@ -704,13 +714,34 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingScreen.show();
     
     // アプリ初期化処理
-    setTimeout(() => {
+    setTimeout(async () => {
         try {
             const app = new TerminalApp();
             // グローバル参照を保存（ConsentServiceから参照するため）
             window.terminalApp = app;
+            
+            // アプリの初期化（サービスの初期化など）を待機
+            // app.init() はコンストラクタで呼ばれているが、その完了を待つ仕組みが必要
+            // 既存の app.init() は Promise を返さないかもしれないので、
+            // app オブジェクトに ready プロミスを持たせるか、明示的に待つ
+            
+            // キャラクター表示マネージャーを初期化 (app の準備ができてから)
+            // 一旦 TerminalAppManager.js 内で初期化するように変更するのが筋が良いが、
+            // app.js で制御している現状に合わせて Promise で待機するように誘導
+            
+            // 後続の処理のために app オブジェクトを準備
+            if (app.appManager) {
+                // 初期化完了を待つ (TerminalAppManager 内で initialized フラグが立つまで)
+                const waitForInit = () => new Promise(resolve => {
+                    const check = () => {
+                        if (app.appManager.initialized) resolve();
+                        else setTimeout(check, 100);
+                    };
+                    check();
+                });
+                await waitForInit();
+            }
 
-            // キャラクター表示マネージャーを初期化
             const characterDisplayManager = new CharacterDisplayManager();
             window.characterDisplayManager = characterDisplayManager;
 

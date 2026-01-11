@@ -82,15 +82,15 @@ class MessageAccumulator {
         debugLog(`🔧 コールバック設定完了 - 現在のコールバック:`, this.processCallback);
     }
     
-    addChunk(data) {
+    addChunk(data, characterId = null) {
         const hasQuotes = data.includes('◆') && data.includes('◇');
         
-        this.debugLogSafe(`${this.logPrefix} 🔍 チャンク受信: 括弧=${hasQuotes}, 長さ=${data.length}, プレビュー="${data.substring(0, 30)}..."`);
+        this.debugLogSafe(`${this.logPrefix} 🔍 チャンク受信: 括弧=${hasQuotes}, 長さ=${data.length}, characterId=${characterId}, プレビュー="${data.substring(0, 30)}..."`);
         
         if (hasQuotes) {
             // ◆◇テキストを検出 - 直接処理
             this.debugLogSafe(`${this.logPrefix} 🔍 音声テキスト抽出完了: "${data.match(/◆([^◇]+)◇/g)?.[0]?.substring(0, 20)}..."`);
-            this.processImmediately(data);
+            this.processImmediately(data, characterId);
             
         } else {
             this.debugLogSafe(`${this.logPrefix} ⏭️ チャンクをスキップ - ◆◇なし`);
@@ -99,11 +99,13 @@ class MessageAccumulator {
 
     /**
      * ◆◇テキストを含むデータを即座に処理
+     * @param {string} data - 処理対象データ
+     * @param {string|null} characterId - キャラクターID
      */
-    processImmediately(data) {
+    processImmediately(data, characterId = null) {
         if (this.processCallback) {
-            this.debugLogSafe(`${this.logPrefix} 🚀 ◆◇テキスト即座処理実行`);
-            this.processCallback(data);
+            this.debugLogSafe(`${this.logPrefix} 🚀 ◆◇テキスト即座処理実行 (characterId: ${characterId})`);
+            this.processCallback(data, characterId);
         } else {
             this.debugLogSafe(`${this.logPrefix} ❌ processCallback未設定`);
         }

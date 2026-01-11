@@ -64,6 +64,7 @@ class TabManager {
     }
     
     handleTabData(paneId, data) {
+        debugLog(`[TabManager] handleTabData called:`, { paneId, dataLength: data.length, preview: data.substring(0, 50) });
         const result = this.findPaneById(paneId);
         if (!result) {
             debugLog(`Received data for unknown pane: ${paneId}`);
@@ -78,11 +79,44 @@ class TabManager {
         }
         
         // 音声処理：キャラクターが設定されているか、デフォルトが利用可能な場合
-        const effectiveCharId = pane.characterId || (window.characterDisplayManager?.currentSettings?.singleCharacter);
+        // pane.characterId === null は「読み上げOFF」を意味する
+        let effectiveCharId = pane.characterId;
+        let charIdSource = 'pane_setting';
         
+        // まだ一度も設定されていない場合（undefined）のみ表示設定のキャラにフォールバック
+        if (effectiveCharId === undefined) {
+            const cdm = window.characterDisplayManager;
+            if (cdm && cdm.currentSettings) {
+                // 表示モードに応じて適切なキャラIDを取得
+                if (cdm.currentSettings.mode === 'single') {
+                    effectiveCharId = cdm.currentSettings.singleCharacter;
+                } else if (cdm.currentSettings.mode === 'icon' && cdm.currentSettings.iconCharacters?.length > 0) {
+                    // アイコンモードでは最初のキャラを使用（暫定）
+                    effectiveCharId = cdm.currentSettings.iconCharacters[0];
+                }
+            }
+            charIdSource = 'display_manager_fallback';
+            console.log('[TabManager] Fallback character resolution:', {
+                mode: cdm?.currentSettings?.mode,
+                singleCharacter: cdm?.currentSettings?.singleCharacter,
+                effectiveCharId
+            });
+        }
+        
+        // ログ出力でペイン設定状況を可視化
+        debugLog(`[TabManager] Pane ${paneId} character resolution:`, {
+            paneCharacterId: pane.characterId,
+            effectiveCharId: effectiveCharId,
+            source: charIdSource,
+            isMuted: effectiveCharId === null,
+            willProcess: !!(effectiveCharId && this.deps.messageAccumulator)
+        });
+        
+        // effectiveCharId が null の場合は読み上げスキップ
         if (effectiveCharId && this.deps.messageAccumulator) {
-            // メッセージ蓄積（ログ用など）
-            this.deps.messageAccumulator.addChunk(data);
+            debugLog(`[TabManager] Passing data to TerminalService:`, { paneId, effectiveCharId });
+            // メッセージ蓄積（ログ用など）- キャラクターIDも渡す
+            this.deps.messageAccumulator.addChunk(data, effectiveCharId);
             
             // 音声処理パイプラインへ
             if (this.deps.terminalService && this.deps.terminalService.processTerminalData) {
@@ -1029,16 +1063,24 @@ class TabManager {
     }
 
     setPaneCharacter(paneId, characterId) {
+        console.log(`[TabManager] setPaneCharacter called:`, { paneId, characterId });
         const result = this.findPaneById(paneId);
-        if (!result) return;
+        if (!result) {
+            console.warn(`[TabManager] Pane not found:`, paneId);
+            return;
+        }
         
         const { pane } = result;
+        const prevCharacterId = pane.characterId;
         pane.characterId = characterId; // キャラIDを設定（nullならOFF）
         
         // UI更新
         this.updatePaneCharButton(pane);
         
-        debugLog(`🔊 Pane ${paneId} character set to: ${characterId || 'Muted'}`);
+        console.log(`[TabManager] 🔊 Pane ${paneId} character changed:`, {
+            previous: prevCharacterId === undefined ? 'undefined (will fallback)' : (prevCharacterId || 'Muted'),
+            new: characterId || 'Muted'
+        });
     }
 
     updatePaneCharButton(pane) {

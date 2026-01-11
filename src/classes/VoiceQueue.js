@@ -76,6 +76,7 @@ class VoiceQueue {
     
     // キューに音声テキストを追加
     async addToQueue(text, characterId = null) {
+        this.debugLog(`[VoiceQueue] addToQueue:`, { text: text.substring(0, 20), characterId });
         // 重複チェック（最優先で実行）
         if (this.duplicateChecker && this.duplicateChecker.isDuplicate(text)) {
             this.debugLog('🚫 重複テキストのため音声キューをスキップ:', { 
@@ -162,55 +163,37 @@ class VoiceQueue {
                 // 音声再生状態を設定
                 this.terminalApp.voicePlayingState.isPlaying = true;
                 
-                // キャラクター設定の取得
-                let speakerId = null;
-                let volume = null;
-                let intervalSeconds = 0.5; // デフォルト
-                let cloudApiKey = null;
-                let modelUuid = null;
-                let engine = 'aivis-local';
+                this.debugLog(`[VoiceQueue] Processing sequence for characterId: ${characterId}`);
+                // IDベースで音声合成を依頼（最新設定をAudioService内で解決）
+                // characterId が無い場合は AudioService 側でデフォルトキャラが選ばれる
+                const audioData = await this.terminalApp.audioService.synthesizeTextByCharacter(text, characterId);
                 
-                if (characterId && this.terminalApp.configManager) {
-                    const char = this.terminalApp.configManager.getCharacterById(characterId);
-                    if (char && char.voice) {
-                        speakerId = char.voice.speakerId;
-                        volume = char.voice.volume; // 0-100
-                        intervalSeconds = char.voice.interval !== undefined ? char.voice.interval : 1.0;
-                        cloudApiKey = char.voice.cloudApiKey;
-                        modelUuid = char.voice.modelUuid;
-                        engine = char.voice.engine || 'aivis-local';
-                    }
-                }
+                this.debugLog(`[VoiceQueue] Synthesis result:`, audioData ? `Success (${audioData.byteLength} bytes)` : 'Failed (null)');
                 
-                // 設定がない場合はConfigManagerのデフォルト値を使用（AudioService内で処理されるためnullでOK）
-                // ただしintervalはここで制御するため取得必要
-                if (!characterId) {
-                    intervalSeconds = await getSafeUnifiedConfig().get('voiceIntervalSeconds', 0.5);
+                // 再生間隔（インターバル）のみこちらで制御
+                let intervalSeconds = 0.5;
+                const char = this.terminalApp.configManager?.getCharacterById(characterId);
+                if (char && char.voice && char.voice.interval !== undefined) {
+                    intervalSeconds = char.voice.interval;
+                    this.debugLog(`[VoiceQueue] Character interval from settings: ${intervalSeconds}s for ${char.name}`);
+                } else if (!characterId) {
+
+                    intervalSeconds = 0.5; // デフォルト
                 }
 
-                // 音声合成のみ（再生なし）
-                // AudioServiceを直接呼び出してオーバーライドパラメータを渡す
-                // synthesizeTextOnly(text, overrideSpeakerId, overrideVolume, overrideSpeed, overridePitch, cloudApiKey, modelUuid, overrideEngine)
-                const audioData = await this.terminalApp.audioService.synthesizeTextOnly(
-                    text, 
-                    speakerId, 
-                    volume, 
-                    null, // speed (UIから削除されたためnull)
-                    null, // pitch (UIから削除されたためnull)
-                    cloudApiKey,
-                    modelUuid,
-                    engine
-                );
-                
                 if (audioData) {
                     // 喋っている状態をセット
+                    // デフォルトキャラの場合のハイライト対象は CDM 側で解決するのが理想だが、
+                    // 現状の CDM は ID 指定が必要なため、ここで確定させる
                     let highlightId = characterId || (window.characterDisplayManager?.currentSettings?.singleCharacter);
+
                     if (highlightId && window.characterDisplayManager) {
                         window.characterDisplayManager.setSpeakingState(highlightId, true);
                     }
-
+                    
                     // 合成した音声をplayAppInternalAudioで再生
-                    await this.terminalApp.playAppInternalAudio(audioData, text);
+                    // characterId を渡すことで、VRMの口パク対象を限定できるようにする
+                    await this.terminalApp.playAppInternalAudio(audioData, text, characterId);
                     
                     // 音声再生完了まで待機
                     await this.waitForVoiceComplete();
@@ -222,7 +205,6 @@ class VoiceQueue {
                     
                     // 読み上げ間隔制御
                     const intervalMs = intervalSeconds * 1000;
-                    
                     if (intervalMs > 0) {
                         this.debugLog(`⏱️ 読み上げ間隔待機: ${intervalSeconds}秒`);
                         await new Promise(resolve => setTimeout(resolve, intervalMs));

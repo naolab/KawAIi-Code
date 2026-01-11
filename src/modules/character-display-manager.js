@@ -48,6 +48,14 @@ class CharacterDisplayManager {
         // DOM要素を取得
         this.setupDOMReferences();
 
+        // ConfigManagerの準備を待機
+        const configManager = window.terminalApp?.configManager;
+        if (!configManager) {
+            console.warn('[CharacterDisplayManager] ConfigManager not ready, retrying in 500ms...');
+            setTimeout(() => this.init(), 500);
+            return;
+        }
+
         // 設定を読み込み
         await this.loadSettings();
 
@@ -512,7 +520,7 @@ class CharacterDisplayManager {
      * 喋っている状態をセット
      */
     setSpeakingState(charId, isSpeaking) {
-        // アイコンモード用のハイライト
+        // アイコンモード用のハイライト (アイコンエリアに存在する場合)
         const circle = document.getElementById(`icon-circle-${charId}`);
         if (circle) {
             if (isSpeaking) {
@@ -522,8 +530,11 @@ class CharacterDisplayManager {
             }
         }
 
-        // シングルモード（右上アイコン）用のハイライト
-        if (this.currentSettings.mode === 'single' && charId === this.currentSettings.singleCharacter) {
+        // シングルモードのメインボタン（シングルキャラ or アイコンモードでもメインに設定されているキャラ）
+        // ユーザーの利便性のため、現在メインボタンが担当しているキャラであればモードに関わらず光らせる
+        const isMainSpeaker = (this.currentSettings.mode === 'single' && charId === this.currentSettings.singleCharacter);
+        
+        if (isMainSpeaker) {
             const btn = document.getElementById('character-change-btn');
             if (btn) {
                 if (isSpeaking) {

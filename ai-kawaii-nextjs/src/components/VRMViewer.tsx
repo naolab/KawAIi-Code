@@ -84,28 +84,13 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     setVrmInfo
   })
 
-  // アプリ起動時にデフォルトVRMを自動読み込み
+  // 自動読み込みは無効化 - CharacterDisplayManagerが全VRM読み込みを管理
+  // アプリ起動時にCharacterDisplayManagerからloadVRMFileまたはloadDefaultVRMが呼ばれる
   useEffect(() => {
-    let mounted = true
-    
-    // シーンが初期化された後にデフォルトVRMを読み込む
-    const autoLoadDefaultVRM = async () => {
-      // シーンの初期化を待つ
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // マウント済み & デフォルトVRMが未ロードの場合のみ読み込み
-      if (mounted && !vrmRef.current && !loading) {
-        console.log('🤖 [VRMViewer useEffect] アプリ起動時にデフォルトVRMを自動読み込み開始')
-        await loadDefaultVRM()
-      }
-    }
-
-    autoLoadDefaultVRM()
-    
-    return () => {
-      mounted = false
-    }
-  }, []) // 初回マウント時のみ実行するように修正
+    // 初期化時のログのみ（自動読み込みは行わない）
+    console.log('🤖 [VRMViewer] Ready to receive VRM from CharacterDisplayManager')
+    // CharacterDisplayManagerがVRMを送信するまで待機
+  }, []) // 初回マウント時のみ
 
   return (
     <div 

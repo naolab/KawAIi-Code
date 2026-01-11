@@ -124,7 +124,14 @@ class ConfigManager {
                 this.currentCharacterId = config.selectedCharacterId || 'char_mona';
 
                 if (savedCharacters && savedCharacters.length > 0) {
-                    this.characters = savedCharacters;
+                    this.characters = savedCharacters.map(c => {
+                        // モネのパスが古い形式（public/Mone_default.vrm）なら修正
+                        if (c.id === 'char_mona' && (c.model?.path === 'public/Mone_default.vrm' || c.vrmPath === 'public/Mone_default.vrm')) {
+                            if (c.model) c.model.path = 'ai-kawaii-nextjs/public/Mone_default.vrm';
+                            c.vrmPath = 'ai-kawaii-nextjs/public/Mone_default.vrm';
+                        }
+                        return c;
+                    });
                     logger.debug('Loaded characters:', this.characters.length);
                 } else {
                     // 初期キャラクター（モネ）を作成
@@ -136,8 +143,10 @@ class ConfigManager {
                         voice: {
                             engine: 'aivis-local',
                             speakerId: 888753760, // モネ（AivisSpeech）
-                            interval: 1.0,
-                            volume: 50
+                            interval: 0.5, // より自然な間隔に変更
+                            volume: 80,    // 聞き取りやすい大きさに変更
+                            speed: 1.2,    // 速度も追加
+                            pitch: 0.0
                         },
                         model: {
                             type: 'vrm',
@@ -213,8 +222,26 @@ class ConfigManager {
         return this.characters;
     }
 
+    /**
+     * IDに基づいてキャラクター設定（声、速度など全て）を取得
+     * 存在しない場合はデフォルトキャラを返す（安全策）
+     */
     getCharacterById(id) {
-        return this.characters.find(c => c.id === id);
+        console.log('[ConfigManager] getCharacterById:', { 
+            requestedId: id, 
+            availableIds: this.characters.map(c => c.id) 
+        });
+        if (!id) {
+            console.log('[ConfigManager] No ID provided, returning default');
+            return this.characters[0];
+        }
+        const char = this.characters.find(c => c.id === id);
+        if (!char) {
+            console.warn('[ConfigManager] Character not found, falling back to default:', id);
+        } else {
+            console.log('[ConfigManager] Found character:', char.name, 'speakerId:', char.voice?.speakerId);
+        }
+        return char || this.characters[0];
     }
 
     async addCharacter(character) {

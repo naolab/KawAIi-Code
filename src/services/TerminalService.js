@@ -314,6 +314,8 @@ class TerminalService {
     // アプリ内監視モード処理
     async processAppInternalMode(data, characterId = null) {
         try {
+            debugLog(`[TerminalService] processAppInternalMode called:`, { dataLength: data.length, characterId });
+            
             // ProcessingCacheによる最適化されたテキストクリーニング
             const cleanData = this.processingCache.optimizedTextCleaning(data);
             
@@ -322,6 +324,11 @@ class TerminalService {
                 cleanData, 
                 /◆([^◇]+)◇/gs
             );
+            
+            debugLog(`[TerminalService] Regex match result:`, { 
+                matchCount: quotedTextMatches ? quotedTextMatches.length : 0,
+                matches: quotedTextMatches ? quotedTextMatches.slice(0, 3) : []
+            });
             
             if (quotedTextMatches && quotedTextMatches.length > 0) {
                 // ◆◇内のテキストを一個ずつ処理
@@ -340,6 +347,7 @@ class TerminalService {
 
     // カッコ内のテキストを一個ずつ順次処理（音声キューイングシステム使用）
     async processQuotedTexts(quotedTextMatches, characterId = null) {
+    debugLog(`[TerminalService] processQuotedTexts matches: ${quotedTextMatches.length}, characterId: ${characterId}`);
         debugLog('🎵 processQuotedTexts開始:', { matchCount: quotedTextMatches.length, characterId });
         
         // 既存の音声キューをクリア（新しい音声セッション開始）
