@@ -43,6 +43,7 @@ class CharacterDisplayManager {
 
         this.iframes = new Map(); // charId -> iframe elements for multi/single mode
         this.viewerReadyStates = new Map(); // charId -> promise resolve function
+        this.isNotifying = false; // 通知処理の競合防止ロック
         
         this.init();
     }
@@ -283,23 +284,37 @@ class CharacterDisplayManager {
     }
 
     async notifyVRMViewer() {
-        // iframe マッピングを更新
-        this.updateIframeMap();
-
-        // モード別の通知
-        if (this.currentSettings.mode === 'single') {
-            await this.loadAndSendSingleCharacter();
-        } else if (this.currentSettings.mode === 'multi') {
-            await this.loadAndSendMultiCharacters();
-        } else {
-            // アイコンモードなどの場合
-            this.postToAllViewers({
-                type: 'displaySettingsChanged',
-                settings: this.currentSettings
-            });
+        // 通知の競合を防ぐための簡易ロック
+        if (this.isNotifying) {
+            console.log('[CDM] Notification already in progress, skipping...');
+            return;
         }
+        this.isNotifying = true;
 
-        console.log(`Notified VRM viewer(s) of display settings change (Mode: ${this.currentSettings.mode})`);
+        try {
+            // 新規ロード開始前に待機状態をクリア
+            this.viewerReadyStates.clear();
+
+            // iframe マッピングを更新
+            this.updateIframeMap();
+
+            // モード別の通知
+            if (this.currentSettings.mode === 'single') {
+                await this.loadAndSendSingleCharacter();
+            } else if (this.currentSettings.mode === 'multi') {
+                await this.loadAndSendMultiCharacters();
+            } else {
+                // アイコンモードなどの場合
+                this.postToAllViewers({
+                    type: 'displaySettingsChanged',
+                    settings: this.currentSettings
+                });
+            }
+
+            console.log(`Notified VRM viewer(s) of display settings change (Mode: ${this.currentSettings.mode})`);
+        } finally {
+            this.isNotifying = false;
+        }
     }
 
     /**
@@ -527,6 +542,9 @@ class CharacterDisplayManager {
         // iframe生成後にマッピングを更新し、レンダリング状態を同期
         this.updateIframeMap();
         this.syncAllRenderStates();
+        
+        // DOMへの反映とiframeの初期化を待つための微小な待機
+        return new Promise(resolve => setTimeout(resolve, 100));
     }
 
     async loadAndSendMultiCharacters() {
@@ -772,18 +790,21 @@ class CharacterDisplayManager {
             this.updateCharacterSelectPopupActiveStates();
         }
         
-        // 保存と反映
-        this.saveSettings();
+        // 保存と反映（saveSettings内でnotifyVRMViewerが呼ばれる）
+        await this.saveSettings();
         
         // 表示の更新を実行
         this.updateCharacterIcon();
         if (this.currentSettings.mode === 'icon') {
             this.updateIconDisplay();
         } else if (this.currentSettings.mode === 'multi') {
-            this.updateMultiDisplay();
+            await this.updateMultiDisplay();
         }
 
-        // 重要: 設定変更をVRMビューワーに通知してVRMを再ロードさせる
+        // 重要: 設定変更を反映（saveSettingsで既に呼ばれているが、
+        // モード遷移（Single->Multiなど）でIFRAMEが差し替えられた場合
+        // 直後の saveSettings 時点では IFRAME がまだ存在しない可能性があるため、
+        // 念のためここでも呼ぶ。ただし isNotifying ロックにより安全。
         await this.notifyVRMViewer();
     }
 
