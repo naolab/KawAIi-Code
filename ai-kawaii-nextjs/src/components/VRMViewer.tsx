@@ -96,6 +96,18 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     
     // 親アプリに準備完了を通知
     window.parent.postMessage({ type: 'vrm-viewer-ready', charId }, '*')
+
+    // マネージャーからの確認リクエストに応答する仕組みを追加
+    const handleCheckReady = (event: MessageEvent) => {
+      if (event.data?.type === 'checkReady') {
+        window.parent.postMessage({ type: 'vrm-viewer-ready', charId }, '*')
+      }
+    }
+    window.addEventListener('message', handleCheckReady)
+    
+    return () => {
+      window.removeEventListener('message', handleCheckReady)
+    }
   }, []) // 初回マウント時のみ
 
   return (

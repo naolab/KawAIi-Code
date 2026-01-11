@@ -71,11 +71,11 @@ class CharacterDisplayManager {
         // 現在の設定を反映
         this.applySettings();
 
-        // VRMビューワーが準備完了するまで少し待つ
+        // VRMビューワーが準備完了するまで待つ（1秒に短縮し、各要素でもチェックを走らせる）
         setTimeout(async () => {
             // 起動時に現在の設定をVRMビューワーに適用
             await this.notifyVRMViewer();
-        }, 2000);
+        }, 1000);
 
         console.log('✅ CharacterDisplayManager initialized');
     }
@@ -531,9 +531,8 @@ class CharacterDisplayManager {
 
     async loadAndSendMultiCharacters() {
         const charIds = this.currentSettings.multiCharacters || [];
-        for (const id of charIds) {
-            await this.loadAndSendCharacterById(id);
-        }
+        // 並列でロードを開始して効率化
+        await Promise.all(charIds.map(id => this.loadAndSendCharacterById(id)));
     }
 
     async loadAndSendCharacterById(charId) {
@@ -565,6 +564,12 @@ class CharacterDisplayManager {
             const iframe = this.iframes.get(charId);
             if (iframe) {
                 console.log(`[CDM] Waiting for viewer-ready message from ${charId}...`);
+                
+                // ビューワーに対して「準備できたか？」と問いかける（再送を促すHandshake）
+                if (iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({ type: 'checkReady' }, '*');
+                }
+
                 // Next.jsのハイドレーション（Ready通知）を待機（最大8秒）
                 const isReady = await new Promise(resolve => {
                     // シングルモードの場合は 'main'、マルチモードの場合は charId で待機
