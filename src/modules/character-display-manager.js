@@ -60,6 +60,12 @@ class CharacterDisplayManager {
         // 現在の設定を反映
         this.applySettings();
 
+        // VRMビューワーが準備完了するまで少し待つ
+        setTimeout(async () => {
+            // 起動時に現在の設定をVRMビューワーに適用
+            await this.notifyVRMViewer();
+        }, 2000);
+
         console.log('✅ CharacterDisplayManager initialized');
     }
 
@@ -277,17 +283,96 @@ class CharacterDisplayManager {
         }, 2000);
     }
 
-    notifyVRMViewer() {
+    async notifyVRMViewer() {
         // VRMビューワーに表示設定変更を通知
         const iframe = document.getElementById('vrm-iframe');
         if (!iframe || !iframe.contentWindow) return;
 
-        iframe.contentWindow.postMessage({
-            type: 'displaySettingsChanged',
-            settings: this.currentSettings
-        }, '*');
+        // シングルキャラモードの場合、VRMファイルを読み込んで送信
+        if (this.currentSettings.mode === 'single') {
+            await this.loadAndSendSingleCharacter();
+        }
+        // アイコンモード・マルチモードは後で実装
+        else {
+            iframe.contentWindow.postMessage({
+                type: 'displaySettingsChanged',
+                settings: this.currentSettings
+            }, '*');
+        }
 
         console.log('Notified VRM viewer of display settings change');
+    }
+
+    async loadAndSendSingleCharacter() {
+        try {
+            const characterId = this.currentSettings.singleCharacter;
+            if (!characterId) {
+                console.warn('No character selected for single mode');
+                return;
+            }
+
+            // ConfigManagerからキャラクター情報を取得
+            const configManager = window.terminalApp?.configManager;
+            if (!configManager) {
+                console.error('ConfigManager not found');
+                return;
+            }
+
+            const character = configManager.getCharacterById(characterId);
+            if (!character) {
+                console.error('Character not found:', characterId);
+                return;
+            }
+
+            // VRMファイルパスを取得
+            const vrmPath = character.vrmPath;
+            if (!vrmPath) {
+                console.warn('Character has no VRM path:', characterId);
+                // デフォルトVRMを読み込む
+                this.sendLoadDefaultVRM();
+                return;
+            }
+
+            console.log('Loading VRM file:', vrmPath);
+
+            // ElectronAPIでVRMファイルを読み込む
+            const result = await window.electronAPI.vrm.loadFile(vrmPath);
+
+            if (!result.success) {
+                console.error('Failed to load VRM file:', result.error);
+                // エラー時はデフォルトVRMにフォールバック
+                this.sendLoadDefaultVRM();
+                return;
+            }
+
+            // VRMビューワーにpostMessage
+            const iframe = document.getElementById('vrm-iframe');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'loadVRM',
+                    fileData: result.data,
+                    fileName: result.filename || vrmPath
+                }, '*');
+
+                console.log('Sent VRM data to viewer:', vrmPath);
+            }
+
+        } catch (error) {
+            console.error('Error loading single character VRM:', error);
+            // エラー時はデフォルトVRMにフォールバック
+            this.sendLoadDefaultVRM();
+        }
+    }
+
+    sendLoadDefaultVRM() {
+        const iframe = document.getElementById('vrm-iframe');
+        if (!iframe || !iframe.contentWindow) return;
+
+        iframe.contentWindow.postMessage({
+            type: 'loadDefaultVRM'
+        }, '*');
+
+        console.log('Sent loadDefaultVRM message');
     }
 
     // 現在の設定を取得（外部から参照用）
