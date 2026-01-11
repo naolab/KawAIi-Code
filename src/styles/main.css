@@ -2591,14 +2591,14 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr 1fr;
-    gap: 4px;
+    gap: 8px;
 }
 
 .icon-display-area[data-count="3"] {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr 1fr 1fr;
-    gap: 4px;
+    gap: 8px;
 }
 
 /* 4枚の時は2x2グリッド（ギャップあり） */
@@ -2606,7 +2606,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
-    gap: 4px;
+    gap: 8px;
 }
 
 .icon-character-node {
