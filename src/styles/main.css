@@ -2438,10 +2438,10 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 /* キャラクター切り替えボタン */
 .character-change-btn {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 40px;
-    height: 40px;
+    top: 15px;
+    right: 15px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(5px);
@@ -2471,7 +2471,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 .character-change-btn::after {
     content: "キャラ変更";
     position: absolute;
-    top: 45px;
+    top: 30px;
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.7);
@@ -2492,13 +2492,14 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 /* キャラクター選択ポップアップ */
 .character-select-overlay {
     position: absolute;
-    top: 90px;
-    right: 20px;
-    width: 250px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    padding: 10px;
+    top: 45px;
+    right: 15px;
+    width: 180px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    padding: 5px;
     z-index: 21;
     animation: fadeInScale 0.2s ease-out;
     border: 1px solid var(--theme-primary-alpha-20);
@@ -2509,11 +2510,11 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 .character-select-item {
     display: flex;
     align-items: center;
-    padding: 8px 10px;
-    border-radius: 8px;
+    padding: 6px 10px;
+    border-radius: 4px;
     cursor: pointer;
     transition: background 0.2s;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .character-select-item:last-child {
@@ -2521,23 +2522,22 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 .character-select-item:hover {
-    background: var(--theme-bg-secondary);
+    background: var(--theme-bg-tertiary);
 }
 
 .character-select-item.active {
     background: var(--theme-primary-alpha-10);
-    border: 1px solid var(--theme-primary-alpha-30);
+    color: var(--theme-primary);
+    font-weight: bold;
 }
 
 .character-select-icon {
-    width: 40px;
-    height: 40px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    margin-right: 12px;
+    margin-right: 10px;
     object-fit: cover;
-    background: #f0f0f0;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid var(--theme-border);
 }
 
 .character-select-info {
@@ -2545,19 +2545,12 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 }
 
 .character-select-name {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13px;
     color: var(--theme-text-primary);
 }
 
 .character-select-desc {
-    font-size: 11px;
-    color: #888;
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 150px;
+    display: none; /* ペイン側のスタイルに合わせて非表示に */
 }
 
 @keyframes fadeInScale {
