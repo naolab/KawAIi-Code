@@ -1059,7 +1059,12 @@ function stopHookNotificationWatcher() {
 // VRM file loading handler
 ipcMain.handle('load-vrm-file', async (event, filename) => {
   try {
-    const vrmPath = path.join(__dirname, filename);
+    let vrmPath = filename;
+    // 相対パスの場合は __dirname と結合
+    if (!path.isAbsolute(filename)) {
+      vrmPath = path.join(__dirname, filename);
+    }
+    
     debugLog('VRMファイル読み込み中:', vrmPath);
     
     if (!fs.existsSync(vrmPath)) {
@@ -1071,7 +1076,7 @@ ipcMain.handle('load-vrm-file', async (event, filename) => {
     
     return { 
       success: true, 
-      data: Array.from(vrmData), // Convert Buffer to Array for IPC
+      data: vrmData.toString('base64'), // Base64文字列として返す
       filename: filename 
     };
   } catch (error) {

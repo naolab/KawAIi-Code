@@ -88,6 +88,10 @@ class CharacterDisplayManager {
         // 保存ボタン
         this.elements.saveBtn = document.getElementById('save-display-settings-btn');
         this.elements.saveStatus = document.getElementById('display-settings-save-status');
+
+        // キャラクター切り替えボタン (オーバーレイUI)
+        this.elements.charChangeBtn = document.getElementById('character-change-btn');
+        this.elements.charIcon = document.getElementById('current-char-icon');
     }
 
     setupEventListeners() {
@@ -102,6 +106,22 @@ class CharacterDisplayManager {
         if (this.elements.saveBtn) {
             this.elements.saveBtn.addEventListener('click', () => this.saveSettings());
         }
+
+        // キャラクター切り替えボタン
+        if (this.elements.charChangeBtn) {
+            this.elements.charChangeBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // バブリング防止
+                this.showCharacterSelectPopup();
+            });
+        }
+
+        // 画面クリックでポップアップを閉じる
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.character-select-overlay') && 
+                !e.target.closest('.character-change-btn')) {
+                this.closeCharacterSelectPopup();
+            }
+        });
     }
 
     async loadCharacterLists() {
@@ -205,6 +225,11 @@ class CharacterDisplayManager {
         this.elements.singleSettings.style.display = selectedMode === 'single' ? 'block' : 'none';
         this.elements.iconSettings.style.display = selectedMode === 'icon' ? 'block' : 'none';
         this.elements.multiSettings.style.display = selectedMode === 'multi' ? 'block' : 'none';
+
+        // キャラクター切り替えボタンの表示制御（シングルモードのみ表示）
+        if (this.elements.charChangeBtn) {
+            this.elements.charChangeBtn.style.display = selectedMode === 'single' ? 'flex' : 'none';
+        }
     }
 
     async loadSettings() {
@@ -222,12 +247,20 @@ class CharacterDisplayManager {
     async saveSettings() {
         try {
             // 現在のUIの状態から設定を取得
-            const settings = {
-                mode: this.getSelectedMode(),
-                singleCharacter: this.elements.singleSelect?.value || 'char_mona',
-                iconCharacters: this.getCheckedCharacters('icon'),
-                multiCharacters: this.getCheckedCharacters('multi')
-            };
+            // ※UI操作からの保存時は、現在値が反映されていることを前提とする
+            // 設定画面が開かれていない場合は、内部stateを優先する
+            
+            const settings = { ...this.currentSettings };
+
+            // 設定画面要素が存在し、表示されている場合のみDOMから値を取得
+            // （キャラクター切り替えポップアップからの変更時はDOMを見ない）
+            const settingsModal = document.getElementById('settings-modal');
+            if (settingsModal && settingsModal.style.display !== 'none') {
+                settings.mode = this.getSelectedMode();
+                settings.singleCharacter = this.elements.singleSelect?.value || 'char_mona';
+                settings.iconCharacters = this.getCheckedCharacters('icon');
+                settings.multiCharacters = this.getCheckedCharacters('multi');
+            }
 
             // LocalStorageに保存
             localStorage.setItem(this.storageKey, JSON.stringify(settings));
@@ -242,7 +275,7 @@ class CharacterDisplayManager {
             console.log('Saved character display settings:', settings);
         } catch (error) {
             console.error('Failed to save character display settings:', error);
-            alert('設定の保存に失敗しました');
+            // alert('設定の保存に失敗しました'); // 頻繁に出るとうざいので抑制
         }
     }
 
@@ -270,8 +303,16 @@ class CharacterDisplayManager {
             this.elements.modeMulti.checked = true;
         }
 
+        // 設定画面のセレクトボックスも同期
+        if (this.elements.singleSelect) {
+            this.elements.singleSelect.value = this.currentSettings.singleCharacter;
+        }
+
         // 設定エリアの表示を更新
         this.onModeChange();
+
+        // アイコンを更新
+        this.updateCharacterIcon();
     }
 
     showSaveStatus() {
@@ -306,6 +347,8 @@ class CharacterDisplayManager {
     async loadAndSendSingleCharacter() {
         try {
             const characterId = this.currentSettings.singleCharacter;
+            console.log('loadAndSendSingleCharacter: Target ID =', characterId);
+
             if (!characterId) {
                 console.warn('No character selected for single mode');
                 return;
@@ -319,13 +362,20 @@ class CharacterDisplayManager {
             }
 
             const character = configManager.getCharacterById(characterId);
+            console.log('loadAndSendSingleCharacter: Character Data =', character);
+
             if (!character) {
                 console.error('Character not found:', characterId);
                 return;
             }
 
-            // VRMファイルパスを取得
-            const vrmPath = character.vrmPath;
+            // アイコンを更新
+            this.updateCharacterIcon();
+
+            // VRMファイルパスを取得 (データ構造の互換性維持)
+            const vrmPath = character.vrmPath || character.model?.path;
+            console.log('loadAndSendSingleCharacter: VRM Path =', vrmPath);
+
             if (!vrmPath) {
                 console.warn('Character has no VRM path:', characterId);
                 // デフォルトVRMを読み込む
@@ -333,10 +383,11 @@ class CharacterDisplayManager {
                 return;
             }
 
-            console.log('Loading VRM file:', vrmPath);
+            console.log('Loading VRM file via Electron API:', vrmPath);
 
             // ElectronAPIでVRMファイルを読み込む
             const result = await window.electronAPI.vrm.loadFile(vrmPath);
+            console.log('loadAndSendSingleCharacter: API Result =', result.success ? 'Success' : 'Failure', result.error || '');
 
             if (!result.success) {
                 console.error('Failed to load VRM file:', result.error);
@@ -355,6 +406,8 @@ class CharacterDisplayManager {
                 }, '*');
 
                 console.log('Sent VRM data to viewer:', vrmPath);
+            } else {
+                console.error('VRM iframe not found or not ready');
             }
 
         } catch (error) {
@@ -373,6 +426,122 @@ class CharacterDisplayManager {
         }, '*');
 
         console.log('Sent loadDefaultVRM message');
+    }
+
+    /**
+     * 現在のキャラクターのアイコンを更新
+     */
+    updateCharacterIcon() {
+        if (!this.elements.charIcon) return;
+
+        const configManager = window.terminalApp?.configManager;
+        if (!configManager) return;
+
+        const charId = this.currentSettings.singleCharacter;
+        const character = configManager.getCharacterById(charId);
+
+        if (character && character.iconPath) {
+            // パスから画像を表示（ローカルファイルアクセス制限に注意が必要だが、src属性ならElectronでは通る場合が多い）
+            this.elements.charIcon.src = character.iconPath;
+        } else {
+            // デフォルトアイコン（プレースホルダー）
+            this.elements.charIcon.src = '../assets/icons/app-icon.svg'; // 仮のアイコン
+        }
+    }
+
+    /**
+     * キャラクター選択ポップアップを表示
+     */
+    showCharacterSelectPopup() {
+        // 既に表示されていたら閉じる
+        if (document.querySelector('.character-select-overlay')) {
+            this.closeCharacterSelectPopup();
+            return;
+        }
+
+        const configManager = window.terminalApp?.configManager;
+        if (!configManager) return;
+
+        const characters = configManager.getCharacters();
+        if (!characters || characters.length === 0) return;
+
+        // ポップアップコンテナ作成
+        const popup = document.createElement('div');
+        popup.className = 'character-select-overlay';
+
+        // キャラクターリスト生成
+        characters.forEach(char => {
+            const item = document.createElement('div');
+            item.className = 'character-select-item';
+            if (char.id === this.currentSettings.singleCharacter) {
+                item.classList.add('active');
+            }
+
+            item.addEventListener('click', () => {
+                this.handleCharacterSelect(char.id);
+            });
+
+            // アイコン
+            const icon = document.createElement('img');
+            icon.className = 'character-select-icon';
+            icon.src = char.iconPath || '../assets/icons/app-icon.svg';
+            item.appendChild(icon);
+
+            // 情報
+            const info = document.createElement('div');
+            info.className = 'character-select-info';
+            
+            const name = document.createElement('div');
+            name.className = 'character-select-name';
+            name.textContent = char.name || char.id;
+            info.appendChild(name);
+
+            if (char.description) {
+                const desc = document.createElement('div');
+                desc.className = 'character-select-desc';
+                desc.textContent = char.description;
+                info.appendChild(desc);
+            }
+
+            item.appendChild(info);
+            popup.appendChild(item);
+        });
+
+        // character-section 内に追加（相対位置用）
+        const charSection = document.querySelector('.character-main');
+        if (charSection) {
+            charSection.appendChild(popup);
+        }
+    }
+
+    /**
+     * キャラクター選択ポップアップを閉じる
+     */
+    closeCharacterSelectPopup() {
+        const popup = document.querySelector('.character-select-overlay');
+        if (popup) {
+            popup.remove();
+        }
+    }
+
+    /**
+     * キャラクター選択時の処理
+     */
+    handleCharacterSelect(charId) {
+        // 設定更新
+        this.currentSettings.singleCharacter = charId;
+        
+        // 設定画面のセレクトボックスも同期
+        if (this.elements.singleSelect) {
+            this.elements.singleSelect.value = charId;
+        }
+
+        // 保存と反映
+        this.saveSettings();
+        this.applySettings(); // UI更新含む
+
+        // ポップアップを閉じる
+        this.closeCharacterSelectPopup();
     }
 
     // 現在の設定を取得（外部から参照用）

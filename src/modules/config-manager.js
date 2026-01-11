@@ -141,7 +141,7 @@ class ConfigManager {
                         },
                         model: {
                             type: 'vrm',
-                            path: 'public/Mone_default.vrm'
+                            path: 'ai-kawaii-nextjs/public/Mone_default.vrm'
                         },
                         prompt: DEFAULT_CHARACTER_PROMPT,
                         isDefault: true

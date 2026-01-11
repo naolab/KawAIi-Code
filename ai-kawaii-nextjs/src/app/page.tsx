@@ -28,7 +28,22 @@ export default function Home() {
       // VRMファイル読み込みメッセージ
       if (event.data?.type === 'loadVRM' && event.data.fileData) {
         try {
-          const file = new File([event.data.fileData], event.data.fileName, { type: 'application/octet-stream' })
+          let fileBits;
+          if (typeof event.data.fileData === 'string') {
+            // Base64文字列の場合（新仕様）
+            const binStr = atob(event.data.fileData);
+            const len = binStr.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              bytes[i] = binStr.charCodeAt(i);
+            }
+            fileBits = [bytes];
+          } else {
+            // 配列の場合（旧仕様）
+            fileBits = [event.data.fileData];
+          }
+
+          const file = new File(fileBits, event.data.fileName, { type: 'application/octet-stream' })
           window.dispatchEvent(new CustomEvent('loadVRM', { detail: file }))
         } catch (error) {
           console.error('VRMファイル読み込みエラー:', error)
