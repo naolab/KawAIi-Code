@@ -35,23 +35,34 @@ class VRMIntegrationService {
 
     // VRMビューワーの準備状態をチェック
     checkVRMViewerReady() {
-        const iframe = document.getElementById('vrm-iframe');
-        if (iframe && iframe.contentWindow) {
-            // 既に準備完了している場合は重複ログを避ける
-            if (!this.vrmViewerReady) {
-                this.vrmIframeElement = iframe;
+        if (window.characterDisplayManager) {
+            const mode = window.characterDisplayManager.currentSettings?.mode;
+            if (mode === 'single') {
+                const charId = window.characterDisplayManager.currentSettings.singleCharacter;
+                const iframe = document.getElementById(`vrm-iframe-${charId}`);
+                if (iframe && iframe.contentWindow) {
+                    if (!this.vrmViewerReady) {
+                        this.vrmIframeElement = iframe;
+                        this.vrmViewerReady = true;
+                        this.debugLog(`🎭 VRMビューワー (${charId}) 準備完了`);
+                    }
+                    return;
+                }
+            } else if (mode === 'multi' || mode === 'icon') {
+                // マルチ/アイコンモードはCDMが管理するので、ここでは準備完了扱いとしておく（個別の配信はCDMが行う）
                 this.vrmViewerReady = true;
-                this.debugLog('🎭 VRMビューワー準備完了');
+                this.vrmIframeElement = null; // CDM経由で送るため不要
+                return;
             }
-        } else {
-            this.vrmViewerReady = false;
-            this.vrmIframeElement = null;
-            // 再チェック回数を制限
-            if (!this.retryCount) this.retryCount = 0;
-            if (this.retryCount < 5) {
-                this.retryCount++;
-                setTimeout(() => this.checkVRMViewerReady(), 1000);
-            }
+        }
+
+        // フォールバック or 待機
+        this.vrmViewerReady = false;
+        this.vrmIframeElement = null;
+        if (!this.retryCount) this.retryCount = 0;
+        if (this.retryCount < 10) { // 少し回数を増やす
+            this.retryCount++;
+            setTimeout(() => this.checkVRMViewerReady(), 1000);
         }
     }
 

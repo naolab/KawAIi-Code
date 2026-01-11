@@ -95,17 +95,8 @@ class CharacterDisplayManager {
         this.elements.charChangeBtn = document.getElementById('character-change-btn');
         this.elements.charIcon = document.getElementById('current-char-icon');
 
-        // アイコン表示エリア
+        // アイコン表示エリア（全モード共通のコンテナ）
         this.elements.iconDisplayArea = document.getElementById('icon-display-area');
-        
-        // メインのVRM iframe
-        const mainIframe = document.getElementById('vrm-iframe');
-        this.elements.vrmIframe = mainIframe;
-        if (mainIframe) {
-            // シングルモード用のiframeとしてあらかじめ追加しておく
-            // ※IDが確定しない初期化時はとりあえずnullキーまたは特別なキーで管理するか、
-            // applySettings内で紐付け直す。
-        }
     }
 
     setupEventListeners() {
@@ -178,18 +169,17 @@ class CharacterDisplayManager {
         // 内部状態を更新
         this.currentSettings.mode = selectedMode;
 
-        // VRM / アイコン表示エリアの切り替え
-        if (this.elements.vrmIframe) {
-            this.elements.vrmIframe.style.display = selectedMode === 'single' ? 'block' : 'none';
-        }
-
+        // 表示エリアの状態をリセット
         if (this.elements.iconDisplayArea) {
-            // アイコンモードまたはマルチモードの時に表示（両方 grid を使う）
-            const isGridMode = selectedMode === 'icon' || selectedMode === 'multi';
-            this.elements.iconDisplayArea.style.display = isGridMode ? 'grid' : 'none';
+            this.elements.iconDisplayArea.setAttribute('data-mode', selectedMode);
+            
+            // アイコンモード、マルチモード、またはシングルモード（動的生成）の時に表示
+            this.elements.iconDisplayArea.style.display = 'grid'; 
             
             if (selectedMode === 'icon') {
                 this.updateIconDisplay();
+            } else if (selectedMode === 'single') {
+                await this.updateSingleDisplay();
             } else if (selectedMode === 'multi') {
                 await this.updateMultiDisplay();
             }
@@ -298,6 +288,13 @@ class CharacterDisplayManager {
             // 新規ロード開始前に待機状態をクリア
             this.viewerReadyStates.clear();
 
+            // 表示エリアの更新（iframe生成）
+            if (this.currentSettings.mode === 'single') {
+                await this.updateSingleDisplay();
+            } else if (this.currentSettings.mode === 'multi') {
+                await this.updateMultiDisplay();
+            }
+
             // iframe マッピングを更新
             this.updateIframeMap();
 
@@ -326,12 +323,14 @@ class CharacterDisplayManager {
     updateIframeMap() {
         this.iframes.clear();
 
-        if (this.currentSettings.mode === 'single') {
+        const mode = this.currentSettings.mode;
+        if (mode === 'single') {
             const charId = this.currentSettings.singleCharacter;
-            if (charId && this.elements.vrmIframe) {
-                this.iframes.set(charId, this.elements.vrmIframe);
+            const iframe = document.getElementById(`vrm-iframe-${charId}`);
+            if (charId && iframe) {
+                this.iframes.set(charId, iframe);
             }
-        } else if (this.currentSettings.mode === 'multi') {
+        } else if (mode === 'multi') {
             const charIds = this.currentSettings.multiCharacters || [];
             charIds.forEach(id => {
                 const iframe = document.getElementById(`vrm-iframe-${id}`);
@@ -421,13 +420,13 @@ class CharacterDisplayManager {
     }
 
     sendLoadDefaultVRM() {
-        const iframe = document.getElementById('vrm-iframe');
+        const charId = this.currentSettings.singleCharacter;
+        const iframe = document.getElementById(`vrm-iframe-${charId}`);
         if (!iframe || !iframe.contentWindow) return;
 
         iframe.contentWindow.postMessage({
             type: 'loadDefaultVRM'
         }, '*');
-
         console.log('Sent loadDefaultVRM message');
     }
 
@@ -463,6 +462,9 @@ class CharacterDisplayManager {
 
         // 既存のアイコンをクリア
         this.elements.iconDisplayArea.innerHTML = '';
+        
+        // モード属性をセット (CSS用)
+        this.elements.iconDisplayArea.setAttribute('data-mode', 'icon');
 
         // 設定されたすべてのキャラクターを表示
         const charIds = this.currentSettings.iconCharacters || [];
@@ -499,9 +501,9 @@ class CharacterDisplayManager {
     }
 
     /**
-     * マルチVRM表示エリアを更新
+     * マルチキャラクター表示の更新
      */
-    updateMultiDisplay() {
+    async updateMultiDisplay() {
         if (!this.elements.iconDisplayArea || this.currentSettings.mode !== 'multi') return;
 
         const configManager = window.terminalApp?.configManager;
@@ -509,6 +511,9 @@ class CharacterDisplayManager {
 
         // 既存のコンテンツをクリア
         this.elements.iconDisplayArea.innerHTML = '';
+        
+        // モード属性をセット (CSS用)
+        this.elements.iconDisplayArea.setAttribute('data-mode', 'multi');
 
         // 設定されたすべてのキャラクターを表示
         const charIds = this.currentSettings.multiCharacters || [];
@@ -547,6 +552,50 @@ class CharacterDisplayManager {
         this.syncAllRenderStates();
         
         // DOMへの反映とiframeの初期化を待つための微小な待機
+        return new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    /**
+     * シングルキャラクター表示の更新
+     */
+    async updateSingleDisplay() {
+        if (!this.elements.iconDisplayArea || this.currentSettings.mode !== 'single') return;
+
+        const configManager = window.terminalApp?.configManager;
+        if (!configManager) return;
+
+        // 既存のコンテンツをクリア
+        this.elements.iconDisplayArea.innerHTML = '';
+        
+        // モード属性をセット (CSS用)
+        this.elements.iconDisplayArea.setAttribute('data-mode', 'single');
+        this.elements.iconDisplayArea.setAttribute('data-count', '1');
+
+        // シングルキャラクターを1枚だけ表示
+        const id = this.currentSettings.singleCharacter;
+        if (!id) return;
+
+        const char = configManager.getCharacterById(id);
+        if (!char) return;
+
+        const node = document.createElement('div');
+        node.className = 'vrm-character-node';
+        node.id = `vrm-node-${id}`;
+
+        // VRM Viewer iframeを追加
+        const iframe = document.createElement('iframe');
+        iframe.className = 'vrm-character-iframe';
+        iframe.id = `vrm-iframe-${id}`;
+        iframe.src = `../ai-kawaii-nextjs/out/index.html?charId=${id}`;
+        
+        node.appendChild(iframe);
+        this.elements.iconDisplayArea.appendChild(node);
+
+        // iframe生成後にマッピングを更新し、レンダリング状態を同期
+        this.updateIframeMap();
+        this.syncAllRenderStates();
+        
+        // DOMへの反映を待つ
         return new Promise(resolve => setTimeout(resolve, 100));
     }
 
@@ -593,8 +642,8 @@ class CharacterDisplayManager {
 
                 // Next.jsのハイドレーション（Ready通知）を待機（最大8秒）
                 const isReady = await new Promise(resolve => {
-                    // シングルモードの場合は 'main'、マルチモードの場合は charId で待機
-                    const waitId = (this.currentSettings.mode === 'single') ? 'main' : charId; 
+                    // 全てのモードで個別の charId で待機するように統一
+                    const waitId = charId; 
                     this.viewerReadyStates.set(waitId, resolve);
                     
                     setTimeout(() => {
@@ -803,6 +852,8 @@ class CharacterDisplayManager {
             this.updateIconDisplay();
         } else if (this.currentSettings.mode === 'multi') {
             await this.updateMultiDisplay();
+        } else if (this.currentSettings.mode === 'single') {
+            await this.updateSingleDisplay();
         }
 
         // DOM再構築後に通知を実行

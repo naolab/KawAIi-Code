@@ -2579,6 +2579,24 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     overflow: hidden;
 }
 
+/* 統合されたシングル表示用のスタイル */
+.icon-display-area[data-mode="single"] {
+    display: block;
+    top: 0;
+    height: 100%;
+    z-index: 1; /* iframe が最前面に来るように */
+}
+
+.icon-display-area[data-mode="single"] .vrm-character-node {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    /* 旧 vrm-iframe のスタイルに合わせる */
+    margin-top: -70px;
+    height: calc(100% + 70px);
+}
+
 /* カード数に応じたレイアウト - 1枚の時は画面いっぱい */
 .icon-display-area[data-count="1"] {
     display: grid;
@@ -2640,6 +2658,7 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     height: 100%;
     border: none;
     display: block;
+    background: transparent;
 }
 
 
