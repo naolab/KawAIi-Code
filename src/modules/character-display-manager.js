@@ -222,9 +222,9 @@ class CharacterDisplayManager {
         if (this.elements.modeMulti?.checked) selectedMode = 'multi';
 
         // 設定エリアの表示・非表示を切り替え
-        this.elements.singleSettings.style.display = selectedMode === 'single' ? 'block' : 'none';
-        this.elements.iconSettings.style.display = selectedMode === 'icon' ? 'block' : 'none';
-        this.elements.multiSettings.style.display = selectedMode === 'multi' ? 'block' : 'none';
+        if (this.elements.singleSettings) this.elements.singleSettings.style.display = selectedMode === 'single' ? 'block' : 'none';
+        if (this.elements.iconSettings) this.elements.iconSettings.style.display = selectedMode === 'icon' ? 'block' : 'none';
+        if (this.elements.multiSettings) this.elements.multiSettings.style.display = selectedMode === 'multi' ? 'block' : 'none';
 
         // キャラクター切り替えボタンの表示制御（シングルモードのみ表示）
         if (this.elements.charChangeBtn) {
@@ -257,9 +257,9 @@ class CharacterDisplayManager {
             const settingsModal = document.getElementById('settings-modal');
             if (settingsModal && settingsModal.style.display !== 'none') {
                 settings.mode = this.getSelectedMode();
-                settings.singleCharacter = this.elements.singleSelect?.value || 'char_mona';
-                settings.iconCharacters = this.getCheckedCharacters('icon');
-                settings.multiCharacters = this.getCheckedCharacters('multi');
+                if (this.elements.singleSelect) settings.singleCharacter = this.elements.singleSelect.value;
+                if (this.elements.iconCheckboxes) settings.iconCharacters = this.getCheckedCharacters('icon');
+                if (this.elements.multiCheckboxes) settings.multiCharacters = this.getCheckedCharacters('multi');
             }
 
             // LocalStorageに保存
