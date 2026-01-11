@@ -118,7 +118,10 @@ class CharacterDisplayManager {
 
         // 保存ボタン
         if (this.elements.saveBtn) {
-            this.elements.saveBtn.addEventListener('click', () => this.saveSettings());
+            this.elements.saveBtn.addEventListener('click', async () => {
+                await this.saveSettings();
+                await this.notifyVRMViewer();
+            });
         }
 
         // キャラクター切り替えボタン
@@ -166,7 +169,7 @@ class CharacterDisplayManager {
     }
 
 
-    onModeChange() {
+    async onModeChange() {
         // 選択されたモードを取得
         let selectedMode = 'single';
         if (this.elements.modeIcon?.checked) selectedMode = 'icon';
@@ -188,7 +191,7 @@ class CharacterDisplayManager {
             if (selectedMode === 'icon') {
                 this.updateIconDisplay();
             } else if (selectedMode === 'multi') {
-                this.updateMultiDisplay();
+                await this.updateMultiDisplay();
             }
         }
 
@@ -201,7 +204,7 @@ class CharacterDisplayManager {
         this.syncAllRenderStates();
 
         // モード変更を通知
-        this.notifyVRMViewer();
+        await this.notifyVRMViewer();
     }
 
     async loadSettings() {
@@ -237,9 +240,9 @@ class CharacterDisplayManager {
 
             // 保存完了メッセージを表示
             this.showSaveStatus();
-
-            // VRMビューワーに通知
-            this.notifyVRMViewer();
+            
+            // notifyVRMViewer は呼び出し元で制御する (競合回避のため)
+            // this.notifyVRMViewer();
 
             console.log('Saved character display settings:', settings);
         } catch (error) {
@@ -790,10 +793,11 @@ class CharacterDisplayManager {
             this.updateCharacterSelectPopupActiveStates();
         }
         
-        // 保存と反映（saveSettings内でnotifyVRMViewerが呼ばれる）
+        // 保存と反映（saveSettings内でのnotifyVRMViewer呼び出しは削除済み）
+        // 純粋に設定保存のみ行う
         await this.saveSettings();
         
-        // 表示の更新を実行
+        // 表示の更新を実行（DOMの再構築）
         this.updateCharacterIcon();
         if (this.currentSettings.mode === 'icon') {
             this.updateIconDisplay();
@@ -801,10 +805,7 @@ class CharacterDisplayManager {
             await this.updateMultiDisplay();
         }
 
-        // 重要: 設定変更を反映（saveSettingsで既に呼ばれているが、
-        // モード遷移（Single->Multiなど）でIFRAMEが差し替えられた場合
-        // 直後の saveSettings 時点では IFRAME がまだ存在しない可能性があるため、
-        // 念のためここでも呼ぶ。ただし isNotifying ロックにより安全。
+        // DOM再構築後に通知を実行
         await this.notifyVRMViewer();
     }
 
