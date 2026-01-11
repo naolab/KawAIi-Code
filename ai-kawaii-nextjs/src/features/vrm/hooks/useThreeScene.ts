@@ -116,8 +116,16 @@ export const useThreeScene = ({
     const targetFPS = 35
     const frameInterval = 1000 / targetFPS
     
+    // 描画状態フラグ
+    const isRenderingRef = { current: true }
+
     const animate = (currentTime: number) => {
       animationIdRef.current = requestAnimationFrame(animate)
+      
+      // 休止中の場合は描画をスキップ（CPU/GPU負荷軽減）
+      if (!isRenderingRef.current) {
+        return
+      }
       
       // フレームレート制限（35fps）
       if (currentTime - lastFrameTime < frameInterval) {
@@ -229,8 +237,21 @@ export const useThreeScene = ({
 
     // postMessageでElectronから音声データを受信
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== 'file://') return // Electronからのメッセージのみ受信
+      // 開発中は 'http://localhost:3000' などからも来る場合があるが、
+      // 基本は 'file://' か、オリジンを制限しない（Electron内なので）
       
+      // 描画の一時停止・再開
+      if (event.data.type === 'suspendRender') {
+        debugLog('💤 [VRMViewer] Rendering suspended')
+        isRenderingRef.current = false
+        return
+      }
+      if (event.data.type === 'resumeRender') {
+        debugLog('⚡ [VRMViewer] Rendering resumed')
+        isRenderingRef.current = true
+        return
+      }
+
       if (event.data.type === 'lipSync' && event.data.audioData) {
         debugLog('🎭 postMessageで音声データ受信, サイズ:', event.data.audioData.length, 'amplifyLipSync:', event.data.amplifyLipSync)
         const audioBuffer = new Uint8Array(event.data.audioData).buffer

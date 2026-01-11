@@ -560,7 +560,7 @@ class AudioService {
     }
 
     // アプリ内音声再生
-    async playAppInternalAudio(audioData, text) {
+    async playAppInternalAudio(audioData, text, characterId = null) {
         if (!audioData) {
             this.debugLog('音声再生スキップ: 音声データなし');
             return;
@@ -597,12 +597,10 @@ class AudioService {
 
             // VRMリップシンク用に音声データを送信
             if (this.terminalApp.vrmIntegrationService) {
-                // Cloud APIの場合は振幅増幅フラグを付けて送信
-                if (this.useCloudAPI) {
-                    this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData, { amplifyLipSync: true });
-                } else {
-                    this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData);
-                }
+                this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData, { 
+                    amplifyLipSync: this.useCloudAPI,
+                    characterId: characterId
+                });
             }
 
             // 既存音声の安全なクリーンアップ
@@ -647,8 +645,13 @@ class AudioService {
             });
             this.debugLog('アプリ内音声再生開始完了');
 
+            // VRMに再生開始を通知
+            if (this.terminalApp.vrmIntegrationService) {
+                this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('playing', characterId);
+            }
+
             // 再生完了を待機（改善版）
-            await this.waitForAudioCompletion(audio, audioUrl);
+            await this.waitForAudioCompletion(audio, audioUrl, characterId);
 
         } catch (error) {
             this.debugError('アプリ内音声再生エラー:', error);
@@ -1117,7 +1120,7 @@ class AudioService {
     /**
      * 音声完了の確実な待機
      */
-    async waitForAudioCompletion(audio, audioUrl) {
+    async waitForAudioCompletion(audio, audioUrl, characterId = null) {
         return new Promise((resolve) => {
             let isResolved = false;
             
@@ -1151,7 +1154,7 @@ class AudioService {
                 
                 // 音声終了をVRMビューワーに通知
                 if (this.terminalApp.vrmIntegrationService) {
-                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('ended');
+                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('ended', characterId);
                 }
                 
                 cleanup();
@@ -1162,7 +1165,7 @@ class AudioService {
                 
                 // エラー時もVRMビューワーに通知
                 if (this.terminalApp.vrmIntegrationService) {
-                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('error');
+                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('error', characterId);
                 }
                 
                 cleanup();

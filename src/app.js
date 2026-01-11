@@ -236,7 +236,7 @@ class TerminalApp {
                 } else {
                     arrayBuffer = audioData;
                 }
-                this.vrmIntegrationService.sendAudioToVRM(arrayBuffer);
+                this.vrmIntegrationService.sendAudioToVRM(arrayBuffer, { characterId: characterId });
                 debugLog('🎭 VRMリップシンク用音声データ送信完了');
             }
             
@@ -245,8 +245,8 @@ class TerminalApp {
                 const emotionResult = await window.electronAPI.voice.getEmotion(text);
                 if (emotionResult.success && emotionResult.emotion) {
                     // 3. VRMに感情データを送信
-                    this.vrmIntegrationService.sendEmotionToVRM(emotionResult.emotion);
-                    debugLog('😊 統一感情処理完了:', emotionResult.emotion);
+                    this.vrmIntegrationService.sendEmotionToVRM(emotionResult.emotion, characterId);
+                    debugLog('😊 統一感情処理完了:', emotionResult.emotion, 'To:', characterId || 'All');
                     return emotionResult.emotion;
                 } else {
                     debugLog('⚠️ 感情分析結果が無効:', emotionResult);
@@ -280,17 +280,20 @@ class TerminalApp {
             this.vrmIntegrationService.notifyAudioStateToVRM('playing', characterId);
             
             // AudioServiceに音声再生を委譲
-            await this.audioService.playAppInternalAudio(audioData, text);
+            // AudioService内でも notifyAudioStateToVRM や sendAudioToVRM が呼ばれる可能性があるが、
+            // 二重送信になってもVRM側でタイムスタンプ等で制御されるため、一旦許容する。
+            // 本来は AudioService 側の呼び出しを整理すべきだが、他からの呼び出しも考慮して残す。
+            await this.audioService.playAppInternalAudio(audioData, text, characterId);
             
-            // 音声終了をVRMビューワーに通知（表情リセットのため）
-            this.vrmIntegrationService.notifyAudioStateToVRM('ended');
+            // 音声終了をVRMビューワーに通知
+            this.vrmIntegrationService.notifyAudioStateToVRM('ended', characterId);
             
             // 表情を中性に戻す（明示的リセット）
             setTimeout(() => {
                 this.vrmIntegrationService.sendEmotionToVRM({ 
                     emotion: 'neutral', 
                     weight: 0 
-                });
+                }, characterId);
                 debugLog('🎭 表情を中性にリセット完了');
             }, 100); // 100ms後にリセット
             

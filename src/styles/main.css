@@ -2609,7 +2609,9 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     gap: 8px;
 }
 
-.icon-character-node {
+/* 共通のカードスタイル */
+.icon-character-node,
+.vrm-character-node {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2626,6 +2628,18 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     box-sizing: border-box;
     overflow: hidden;
     position: relative; /* バッジの基準 */
+}
+
+/* VRMモード時はパディングなし（VRMを大きく見せるため） */
+.vrm-character-node {
+    padding: 0;
+}
+
+.vrm-character-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
 }
 
 

@@ -41,6 +41,8 @@ class CharacterDisplayManager {
             saveStatus: null
         };
 
+        this.iframes = new Map(); // charId -> iframe elements for multi/single mode
+        
         this.init();
     }
 
@@ -83,16 +85,6 @@ class CharacterDisplayManager {
         this.elements.modeIcon = document.getElementById('display-mode-icon');
         this.elements.modeMulti = document.getElementById('display-mode-multi');
 
-        // 設定エリア
-        this.elements.singleSettings = document.getElementById('single-mode-settings');
-        this.elements.iconSettings = document.getElementById('icon-mode-settings');
-        this.elements.multiSettings = document.getElementById('multi-mode-settings');
-
-        // セレクト・チェックボックスコンテナ
-        this.elements.singleSelect = document.getElementById('single-character-select');
-        this.elements.iconCheckboxes = document.getElementById('icon-character-checkboxes');
-        this.elements.multiCheckboxes = document.getElementById('multi-character-checkboxes');
-
         // 保存ボタン
         this.elements.saveBtn = document.getElementById('save-display-settings-btn');
         this.elements.saveStatus = document.getElementById('display-settings-save-status');
@@ -103,7 +95,15 @@ class CharacterDisplayManager {
 
         // アイコン表示エリア
         this.elements.iconDisplayArea = document.getElementById('icon-display-area');
-        this.elements.vrmIframe = document.getElementById('vrm-iframe');
+        
+        // メインのVRM iframe
+        const mainIframe = document.getElementById('vrm-iframe');
+        this.elements.vrmIframe = mainIframe;
+        if (mainIframe) {
+            // シングルモード用のiframeとしてあらかじめ追加しておく
+            // ※IDが確定しない初期化時はとりあえずnullキーまたは特別なキーで管理するか、
+            // applySettings内で紐付け直す。
+        }
     }
 
     setupEventListeners() {
@@ -136,96 +136,18 @@ class CharacterDisplayManager {
         });
     }
 
+    /**
+     * キャラクターリストの取得（ポップアップ用）
+     */
     async loadCharacterLists() {
-        try {
-            // ConfigManagerからキャラクターリストを取得
-            const configManager = window.terminalApp?.configManager;
-            if (!configManager) {
-                console.warn('ConfigManager not found, using default character');
-                return;
-            }
-
-            const characters = configManager.getCharacters();
-
-            // シングルモード用のセレクトを生成
-            this.populateSingleSelect(characters);
-
-            // アイコンモード用のチェックボックスを生成
-            this.populateCheckboxes(this.elements.iconCheckboxes, characters, 'icon');
-
-            // マルチモード用のチェックボックスを生成
-            this.populateCheckboxes(this.elements.multiCheckboxes, characters, 'multi');
-
-        } catch (error) {
-            console.error('Failed to load character lists:', error);
+        // 現在はポップアップ表示時に動的に生成するため、ここでは何もしない、
+        // もしくは将来のキャッシュ用に残しておく
+        const configManager = window.terminalApp?.configManager;
+        if (configManager) {
+            configManager.getCharacters();
         }
     }
 
-    populateSingleSelect(characters) {
-        if (!this.elements.singleSelect) return;
-
-        // 既存のオプションをクリア
-        this.elements.singleSelect.innerHTML = '';
-
-        // キャラクターリストからオプションを生成
-        characters.forEach(char => {
-            const option = document.createElement('option');
-            option.value = char.id;
-            option.textContent = char.name || char.id;
-            this.elements.singleSelect.appendChild(option);
-        });
-
-        // 現在の設定を選択状態にする
-        this.elements.singleSelect.value = this.currentSettings.singleCharacter;
-    }
-
-    populateCheckboxes(container, characters, mode) {
-        if (!container) return;
-
-        // 既存のチェックボックスをクリア
-        container.innerHTML = '';
-
-        // キャラクターリストからチェックボックスを生成
-        characters.forEach(char => {
-            const label = document.createElement('label');
-            label.className = 'radio-label';
-            label.style.cursor = 'pointer';
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.value = char.id;
-            checkbox.dataset.mode = mode;
-
-            // 現在の設定でチェック状態を設定
-            const selectedChars = mode === 'icon'
-                ? this.currentSettings.iconCharacters
-                : this.currentSettings.multiCharacters;
-            checkbox.checked = selectedChars.includes(char.id);
-
-            // マルチモードの場合は最大4体制限
-            if (mode === 'multi') {
-                checkbox.addEventListener('change', (e) => this.onMultiCheckboxChange(e));
-            }
-
-            const span = document.createElement('span');
-            span.textContent = char.name || char.id;
-
-            label.appendChild(checkbox);
-            label.appendChild(span);
-            container.appendChild(label);
-        });
-    }
-
-    onMultiCheckboxChange(event) {
-        // マルチモードの場合、最大4体までに制限
-        const checkboxes = this.elements.multiCheckboxes.querySelectorAll('input[type="checkbox"]');
-        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-
-        if (checkedCount > 4) {
-            event.target.checked = false;
-            alert('マルチキャラモードは最大4体までです');
-        }
-    }
 
     onModeChange() {
         // 選択されたモードを取得
@@ -233,32 +155,35 @@ class CharacterDisplayManager {
         if (this.elements.modeIcon?.checked) selectedMode = 'icon';
         if (this.elements.modeMulti?.checked) selectedMode = 'multi';
 
-        // 内部状態を更新（重要：他関数の動作の基準になるため）
+        // 内部状態を更新
         this.currentSettings.mode = selectedMode;
-
-        // 設定エリアの表示・非表示を切り替え
-        if (this.elements.singleSettings) this.elements.singleSettings.style.display = selectedMode === 'single' ? 'block' : 'none';
-        if (this.elements.iconSettings) this.elements.iconSettings.style.display = selectedMode === 'icon' ? 'block' : 'none';
-        if (this.elements.multiSettings) this.elements.multiSettings.style.display = selectedMode === 'multi' ? 'block' : 'none';
 
         // VRM / アイコン表示エリアの切り替え
         if (this.elements.vrmIframe) {
             this.elements.vrmIframe.style.display = selectedMode === 'single' ? 'block' : 'none';
         }
+
         if (this.elements.iconDisplayArea) {
-            // グリッドレイアウトはCSSで制御するため、displayはgridに設定
-            this.elements.iconDisplayArea.style.display = selectedMode === 'icon' ? 'grid' : 'none';
+            // アイコンモードまたはマルチモードの時に表示（両方 grid を使う）
+            const isGridMode = selectedMode === 'icon' || selectedMode === 'multi';
+            this.elements.iconDisplayArea.style.display = isGridMode ? 'grid' : 'none';
+            
             if (selectedMode === 'icon') {
                 this.updateIconDisplay();
+            } else if (selectedMode === 'multi') {
+                this.updateMultiDisplay();
             }
         }
 
-        // キャラクター切り替えボタンの表示制御（シングル/アイコンモードで表示）
+        // キャラクター切り替えボタンの表示制御
         if (this.elements.charChangeBtn) {
-            this.elements.charChangeBtn.style.display = (selectedMode === 'single' || selectedMode === 'icon') ? 'flex' : 'none';
+            this.elements.charChangeBtn.style.display = 'flex';
         }
 
-        // モード変更をVRMビューワーに通知
+        // 描画状態の同期（一時停止・再開）
+        this.syncAllRenderStates();
+
+        // モード変更を通知
         this.notifyVRMViewer();
     }
 
@@ -282,14 +207,11 @@ class CharacterDisplayManager {
             
             const settings = { ...this.currentSettings };
 
-            // 設定画面要素が存在し、表示されている場合のみDOMから値を取得
-            // （キャラクター切り替えポップアップからの変更時はDOMを見ない）
             const settingsModal = document.getElementById('settings-modal');
             if (settingsModal && settingsModal.style.display !== 'none') {
                 settings.mode = this.getSelectedMode();
-                if (this.elements.singleSelect) settings.singleCharacter = this.elements.singleSelect.value;
-                if (this.elements.iconCheckboxes) settings.iconCharacters = this.getCheckedCharacters('icon');
-                if (this.elements.multiCheckboxes) settings.multiCharacters = this.getCheckedCharacters('multi');
+                // キャラクター選択はポップアップ側で currentSettings に直接反映されているため
+                // ここで DOM から取得し直す必要はない
             }
 
             // LocalStorageに保存
@@ -315,13 +237,6 @@ class CharacterDisplayManager {
         return 'single';
     }
 
-    getCheckedCharacters(mode) {
-        const container = mode === 'icon' ? this.elements.iconCheckboxes : this.elements.multiCheckboxes;
-        if (!container) return [];
-
-        const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked');
-        return Array.from(checkboxes).map(cb => cb.value);
-    }
 
     applySettings() {
         // ラジオボタンの選択状態を設定
@@ -333,10 +248,6 @@ class CharacterDisplayManager {
             this.elements.modeMulti.checked = true;
         }
 
-        // 設定画面のセレクトボックスも同期
-        if (this.elements.singleSelect) {
-            this.elements.singleSelect.value = this.currentSettings.singleCharacter;
-        }
 
         // 設定エリアの表示を更新
         this.onModeChange();
@@ -356,23 +267,106 @@ class CharacterDisplayManager {
     }
 
     async notifyVRMViewer() {
-        // VRMビューワーに表示設定変更を通知
-        const iframe = document.getElementById('vrm-iframe');
-        if (!iframe || !iframe.contentWindow) return;
+        // iframe マッピングを更新
+        this.updateIframeMap();
 
-        // シングルキャラモードの場合、VRMファイルを読み込んで送信
+        // モード別の通知
         if (this.currentSettings.mode === 'single') {
             await this.loadAndSendSingleCharacter();
-        }
-        // アイコンモード・マルチモードは後で実装
-        else {
-            iframe.contentWindow.postMessage({
+        } else if (this.currentSettings.mode === 'multi') {
+            await this.loadAndSendMultiCharacters();
+        } else {
+            // アイコンモードなどの場合
+            this.postToAllViewers({
                 type: 'displaySettingsChanged',
                 settings: this.currentSettings
+            });
+        }
+
+        console.log(`Notified VRM viewer(s) of display settings change (Mode: ${this.currentSettings.mode})`);
+    }
+
+    /**
+     * 現在のモードと設定に基づいて iframe マッピングを最新にする
+     */
+    updateIframeMap() {
+        this.iframes.clear();
+
+        if (this.currentSettings.mode === 'single') {
+            const charId = this.currentSettings.singleCharacter;
+            if (charId && this.elements.vrmIframe) {
+                this.iframes.set(charId, this.elements.vrmIframe);
+            }
+        } else if (this.currentSettings.mode === 'multi') {
+            const charIds = this.currentSettings.multiCharacters || [];
+            charIds.forEach(id => {
+                const iframe = document.getElementById(`vrm-iframe-${id}`);
+                if (iframe) {
+                    this.iframes.set(id, iframe);
+                }
+            });
+        }
+    }
+
+    /**
+     * 全ビューワーに対して描画の一時停止/再開を同期
+     */
+    syncAllRenderStates() {
+        const mode = this.currentSettings.mode;
+
+        // 全てのiframeに対して一旦停止または再開を判断
+        // 基本的に display:none のものは停止させるのが安全
+        
+        // 1. メインiframe (Singleキャラ)
+        if (this.elements.vrmIframe) {
+            const shouldRun = (mode === 'single');
+            this.elements.vrmIframe.contentWindow?.postMessage({
+                type: shouldRun ? 'resumeRender' : 'suspendRender'
             }, '*');
         }
 
-        console.log('Notified VRM viewer of display settings change');
+        // 2. マルチモードの各iframe
+        const multiIds = this.currentSettings.multiCharacters || [];
+        multiIds.forEach(id => {
+            const iframe = document.getElementById(`vrm-iframe-${id}`);
+            if (iframe) {
+                const shouldRun = (mode === 'multi');
+                iframe.contentWindow?.postMessage({
+                    type: shouldRun ? 'resumeRender' : 'suspendRender'
+                }, '*');
+            }
+        });
+    }
+
+    /**
+     * 特定のキャラクターのビューワーにメッセージ送信
+     */
+    postToViewerById(charId, message) {
+        const iframe = this.iframes.get(charId);
+        if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage(message, '*');
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * すべての（生きている）ビューワーにメッセージ送信
+     */
+    postToAllViewers(message) {
+        // メインiframe
+        if (this.elements.vrmIframe && this.elements.vrmIframe.contentWindow) {
+            this.elements.vrmIframe.contentWindow.postMessage(message, '*');
+        }
+
+        // マルチ用iframes
+        const multiIds = this.currentSettings.multiCharacters || [];
+        multiIds.forEach(id => {
+            const iframe = document.getElementById(`vrm-iframe-${id}`);
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage(message, '*');
+            }
+        });
     }
 
     async loadAndSendSingleCharacter() {
@@ -480,7 +474,6 @@ class CharacterDisplayManager {
             this.elements.charIcon.src = '../assets/icons/new-app-icon.png';
         }
     }
-
     /**
      * アイコン表示エリアを更新
      */
@@ -528,17 +521,104 @@ class CharacterDisplayManager {
     }
 
     /**
+     * マルチVRM表示エリアを更新
+     */
+    updateMultiDisplay() {
+        if (!this.elements.iconDisplayArea || this.currentSettings.mode !== 'multi') return;
+
+        const configManager = window.terminalApp?.configManager;
+        if (!configManager) return;
+
+        // 既存のコンテンツをクリア
+        this.elements.iconDisplayArea.innerHTML = '';
+
+        // 設定されたすべてのキャラクターを表示
+        const charIds = this.currentSettings.multiCharacters || [];
+        
+        // カード数に応じたレイアウト用のdata属性を設定
+        this.elements.iconDisplayArea.setAttribute('data-count', Math.min(charIds.length, 4).toString());
+        
+        charIds.forEach(id => {
+            const char = configManager.getCharacterById(id);
+            if (!char) return;
+
+            const node = document.createElement('div');
+            node.className = 'vrm-character-node';
+            node.id = `vrm-node-${id}`;
+
+            // VRM Viewer iframeを追加
+            const iframe = document.createElement('iframe');
+            iframe.className = 'vrm-character-iframe';
+            iframe.id = `vrm-iframe-${id}`;
+            // パラメータとしてキャラクターIDを付与（将来的にカスタマイズするため）
+            iframe.src = `./vrm-viewer/index.html?charId=${id}`;
+            
+            node.appendChild(iframe);
+
+            // キャラクター名を追加 (Badge style)
+            const nameLabel = document.createElement('div');
+            nameLabel.className = 'icon-character-name'; // アイコンモードと同じスタイルを使用
+            nameLabel.textContent = char.name || 'Unknown';
+            node.appendChild(nameLabel);
+
+            this.elements.iconDisplayArea.appendChild(node);
+        });
+
+        // iframe生成後にマッピングを更新し、レンダリング状態を同期
+        setTimeout(() => {
+            this.updateIframeMap();
+            this.syncAllRenderStates();
+        }, 100);
+    }
+
+    async loadAndSendMultiCharacters() {
+        const charIds = this.currentSettings.multiCharacters || [];
+        for (const id of charIds) {
+            await this.loadAndSendCharacterById(id);
+        }
+    }
+
+    async loadAndSendCharacterById(charId) {
+        try {
+            const configManager = window.terminalApp?.configManager;
+            if (!configManager) return;
+
+            const character = configManager.getCharacterById(charId);
+            if (!character) return;
+
+            const vrmPath = character.vrmPath || character.model?.path;
+            if (!vrmPath) return;
+
+            const result = await window.electronAPI.vrm.loadFile(vrmPath);
+            if (!result.success) return;
+
+            this.postToViewerById(charId, {
+                type: 'loadVRM',
+                fileData: result.data,
+                fileName: result.filename || vrmPath
+            });
+
+        } catch (error) {
+            console.error(`Error loading VRM for character ${charId}:`, error);
+        }
+    }
+
+    /**
      * 喋っている状態をセット
      */
     setSpeakingState(charId, isSpeaking) {
-        // アイコンモード用のハイライト (アイコンエリアに存在する場合)
-        const circle = document.getElementById(`icon-circle-${charId}`);
-        if (circle) {
-            if (isSpeaking) {
-                circle.classList.add('is-speaking');
-            } else {
-                circle.classList.remove('is-speaking');
-            }
+        // アイコンモード用のハイライト
+        const iconCircle = document.getElementById(`icon-circle-${charId}`);
+        if (iconCircle) {
+            if (isSpeaking) iconCircle.classList.add('is-speaking');
+            else iconCircle.classList.remove('is-speaking');
+        }
+
+        // マルチモード用のハイライト
+        const vrmNode = document.getElementById(`vrm-node-${charId}`);
+        if (vrmNode) {
+            if (isSpeaking) vrmNode.classList.add('is-speaking');
+            else vrmNode.classList.remove('is-speaking');
         }
 
         // シングルモードのメインボタン（シングルキャラ or アイコンモードでもメインに設定されているキャラ）
@@ -583,9 +663,14 @@ class CharacterDisplayManager {
             item.className = 'character-select-item';
             
             // アクティブ状態の判定
-            const isActive = this.currentSettings.mode === 'single'
-                ? (char.id === this.currentSettings.singleCharacter)
-                : (this.currentSettings.iconCharacters.includes(char.id));
+            let isActive = false;
+            if (this.currentSettings.mode === 'single') {
+                isActive = (char.id === this.currentSettings.singleCharacter);
+            } else if (this.currentSettings.mode === 'icon') {
+                isActive = (this.currentSettings.iconCharacters?.includes(char.id));
+            } else if (this.currentSettings.mode === 'multi') {
+                isActive = (this.currentSettings.multiCharacters?.includes(char.id));
+            }
 
             if (isActive) {
                 item.classList.add('active');
@@ -652,25 +737,47 @@ class CharacterDisplayManager {
                     this.currentSettings.iconCharacters.splice(index, 1);
                 }
             } else {
-                // 選択されていなければ追加
-                this.currentSettings.iconCharacters.push(charId);
+                // 最大4体まで
+                if (this.currentSettings.iconCharacters.length < 4) {
+                    this.currentSettings.iconCharacters.push(charId);
+                } else {
+                    alert('表示できるのは最大4体までです');
+                }
+            }
+            // ポップアップを閉じずに選択状態のみ更新
+            this.updateCharacterSelectPopupActiveStates();
+        } else if (this.currentSettings.mode === 'multi') {
+            // マルチモード：トグル（追加・削除）
+            if (!this.currentSettings.multiCharacters) {
+                this.currentSettings.multiCharacters = [];
+            }
+            const index = this.currentSettings.multiCharacters.indexOf(charId);
+            if (index > -1) {
+                // 既に選択されていれば削除（ただし最低1体は残す）
+                if (this.currentSettings.multiCharacters.length > 1) {
+                    this.currentSettings.multiCharacters.splice(index, 1);
+                }
+            } else {
+                // 最大4体まで
+                if (this.currentSettings.multiCharacters.length < 4) {
+                    this.currentSettings.multiCharacters.push(charId);
+                } else {
+                    alert('表示できるのは最大4体までです');
+                }
             }
             // ポップアップを閉じずに選択状態のみ更新
             this.updateCharacterSelectPopupActiveStates();
         }
         
-        // 設定画面のセレクトボックスも同期
-        if (this.elements.singleSelect) {
-            this.elements.singleSelect.value = this.currentSettings.singleCharacter;
-        }
-
         // 保存と反映
         this.saveSettings();
         
-        // アイコン表示の更新などを実行
+        // 表示の更新を実行
         this.updateCharacterIcon();
         if (this.currentSettings.mode === 'icon') {
             this.updateIconDisplay();
+        } else if (this.currentSettings.mode === 'multi') {
+            this.updateMultiDisplay();
         }
     }
 
@@ -691,9 +798,14 @@ class CharacterDisplayManager {
             const char = characters[index];
             if (!char) return;
 
-            const isActive = this.currentSettings.mode === 'single'
-                ? (char.id === this.currentSettings.singleCharacter)
-                : (this.currentSettings.iconCharacters.includes(char.id));
+            let isActive = false;
+            if (this.currentSettings.mode === 'single') {
+                isActive = (char.id === this.currentSettings.singleCharacter);
+            } else if (this.currentSettings.mode === 'icon') {
+                isActive = (this.currentSettings.iconCharacters?.includes(char.id));
+            } else if (this.currentSettings.mode === 'multi') {
+                isActive = (this.currentSettings.multiCharacters?.includes(char.id));
+            }
 
             if (isActive) {
                 item.classList.add('active');

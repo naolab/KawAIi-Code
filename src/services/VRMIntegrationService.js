@@ -90,11 +90,8 @@ class VRMIntegrationService {
 
     // VRMビューワーに音声データを送信
     sendAudioToVRM(audioData, options = {}) {
-        if (!this.vrmViewerReady || !this.vrmIframeElement) {
-            this.debugLog('🎭 VRMビューワー未準備 - 音声データ送信スキップ');
-            return false;
-        }
-
+        const charId = options.characterId || null;
+        
         try {
             // ArrayBufferをArray形式に変換（既存の実装と互換性を保つため）
             const audioArray = Array.from(new Uint8Array(audioData));
@@ -108,15 +105,29 @@ class VRMIntegrationService {
                 amplifyLipSync: options.amplifyLipSync || false
             };
 
-            // postMessageでVRMビューワーに送信
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            // CharacterDisplayManager経由で送信（ID指定があればルーティング、なければメインまたは全送信）
+            if (window.characterDisplayManager) {
+                if (charId) {
+                    const sent = window.characterDisplayManager.postToViewerById(charId, message);
+                    if (sent) {
+                        this.debugLog(`🎭 VRM音声データ送信完了 (ID: ${charId})`);
+                        return true;
+                    }
+                }
+                
+                // 特定のID宛でない、またはIDが見つからない場合は全ビューワー（またはメイン）に送信
+                window.characterDisplayManager.postToAllViewers(message);
+                this.debugLog('🎭 VRM音声データ送信完了 (All Viewers)');
+                return true;
+            }
+
+            // フォールバック（CDMがない場合、従来通りメインのみ）
+            if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+                return true;
+            }
             
-            this.debugLog('🎭 VRM音声データ送信完了:', {
-                dataSize: audioData.byteLength,
-                timestamp: message.timestamp
-            });
-            
-            return true;
+            return false;
             
         } catch (error) {
             this.debugError('🎭 VRM音声データ送信エラー:', error);
@@ -125,12 +136,7 @@ class VRMIntegrationService {
     }
 
     // 感情データをVRMビューワーに送信
-    sendEmotionToVRM(emotion) {
-        if (!this.vrmViewerReady || !this.vrmIframeElement) {
-            this.debugLog('🎭 VRMビューワー未準備 - 感情データ送信スキップ');
-            return false;
-        }
-
+    sendEmotionToVRM(emotion, charId = null) {
         try {
             const message = {
                 type: 'emotion',
@@ -138,15 +144,21 @@ class VRMIntegrationService {
                 timestamp: Date.now()
             };
 
-            // postMessageでVRMビューワーに送信
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            if (window.characterDisplayManager) {
+                if (charId) {
+                    window.characterDisplayManager.postToViewerById(charId, message);
+                } else {
+                    window.characterDisplayManager.postToAllViewers(message);
+                }
+                return true;
+            }
+
+            if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+                return true;
+            }
             
-            this.debugLog('🎭 VRM感情データ送信完了:', {
-                emotion: emotion,
-                timestamp: message.timestamp
-            });
-            
-            return true;
+            return false;
             
         } catch (error) {
             this.debugError('🎭 VRM感情データ送信エラー:', error);
@@ -155,12 +167,7 @@ class VRMIntegrationService {
     }
 
     // 音声状態をVRMビューワーに通知
-    notifyAudioStateToVRM(state) {
-        if (!this.vrmViewerReady || !this.vrmIframeElement) {
-            this.debugLog('🎭 VRMビューワー未準備 - 音声状態通知スキップ');
-            return false;
-        }
-
+    notifyAudioStateToVRM(state, charId = null) {
         try {
             const message = {
                 type: 'audioState',
@@ -168,15 +175,21 @@ class VRMIntegrationService {
                 timestamp: Date.now()
             };
 
-            // postMessageでVRMビューワーに送信
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            if (window.characterDisplayManager) {
+                if (charId) {
+                    window.characterDisplayManager.postToViewerById(charId, message);
+                } else {
+                    window.characterDisplayManager.postToAllViewers(message);
+                }
+                return true;
+            }
+
+            if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+                return true;
+            }
             
-            this.debugLog('🎭 VRM音声状態通知完了:', {
-                state: state,
-                timestamp: message.timestamp
-            });
-            
-            return true;
+            return false;
             
         } catch (error) {
             this.debugError('🎭 VRM音声状態通知エラー:', error);
@@ -247,14 +260,13 @@ class VRMIntegrationService {
                 timestamp: Date.now()
             };
 
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            if (window.characterDisplayManager) {
+                window.characterDisplayManager.postToAllViewers(message);
+            } else if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            }
             
-            this.debugLog('🎭 VRM一括データ送信完了:', {
-                hasAudio: !!audioData,
-                hasEmotion: !!emotion,
-                audioState: audioState,
-                timestamp: message.timestamp
-            });
+            this.debugLog('🎭 VRM一括データ送信完了');
             
             return true;
             
@@ -277,7 +289,11 @@ class VRMIntegrationService {
                 timestamp: Date.now()
             };
 
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            if (window.characterDisplayManager) {
+                window.characterDisplayManager.postToAllViewers(message);
+            } else if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            }
             
             this.debugLog('🎭 VRMビューワーリセット完了');
             return true;
