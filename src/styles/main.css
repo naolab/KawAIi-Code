@@ -2440,8 +2440,8 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     position: absolute;
     top: 80px;
     right: 20px;
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(5px);
