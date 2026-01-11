@@ -2634,12 +2634,12 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     position: absolute;
     bottom: 8px;
     left: 8px;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.45);
     color: white;
     padding: 2px 8px;
     border-radius: 6px;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: bold;
     pointer-events: none;
     max-width: calc(100% - 16px);
     overflow: hidden;
