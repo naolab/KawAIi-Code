@@ -111,6 +111,11 @@
                                 <a
                                     href="#"
                                     class="settings-nav-item"
+                                    data-section="display"
+                                >表示設定</a>
+                                <a
+                                    href="#"
+                                    class="settings-nav-item"
                                     data-section="character"
                                 >キャラクター設定</a>
                                 <a
@@ -243,28 +248,37 @@
                                         ></textarea>
                                     </div>
 
-                                    <!-- 読み込みボタン群 -->
-                                    <div
-                                        class="claude-md-load-buttons"
-                                        style="display: flex; gap: 6px; margin-top: 10px"
+                                <!-- 読み込みボタン群 -->
+                                <div
+                                    class="claude-md-load-buttons"
+                                    style="display: flex; gap: 6px; margin-top: 10px"
+                                >
+                                    <button
+                                        id="claude-md-load-btn"
+                                        class="simple-btn"
+                                        style="flex: 1; min-width: 140px"
                                     >
-                                        <button
-                                            id="claude-md-load-btn"
-                                            class="simple-btn"
-                                            style="flex: 1; min-width: 140px"
-                                        >
-                                            既存のファイルを読み込み
-                                        </button>
-                                        <button
-                                            id="claude-md-default-btn"
-                                            class="simple-btn"
-                                            style="flex: 1; min-width: 140px"
-                                        >
-                                            デフォルト内容を読み込み
-                                        </button>
-                                    </div>
+                                        既存のファイルを読み込み
+                                    </button>
+                                    <button
+                                        id="claude-md-default-btn"
+                                        class="simple-btn"
+                                        style="flex: 1; min-width: 140px"
+                                    >
+                                        デフォルト内容を読み込み
+                                    </button>
                                 </div>
+                            </div>
+                            </div>
+                            <!-- 基本設定セクション終了 -->
 
+                            <!-- ======================================
+                             表示設定セクション
+                             ====================================== -->
+                            <div
+                                id="settings-section-display"
+                                class="settings-section"
+                            >
                                 <!-- キャラクター表示設定セクション -->
                                 <div class="setting-group">
                                     <label>キャラクター表示設定</label>
@@ -324,7 +338,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- 基本設定セクション終了 -->
+                            <!-- 表示設定セクション終了 -->
 
                             <!-- ======================================
                              キャラクター設定セクション
