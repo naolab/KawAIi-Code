@@ -515,13 +515,7 @@ class CharacterDisplayManager {
             img.src = char.icon || char.iconPath || '../assets/icons/new-app-icon.png';
             circle.appendChild(img);
 
-            // キャラクター名を追加
-            const nameLabel = document.createElement('div');
-            nameLabel.className = 'icon-character-name';
-            nameLabel.textContent = char.name || 'Unknown';
-
             node.appendChild(circle);
-            node.appendChild(nameLabel);
             this.elements.iconDisplayArea.appendChild(node);
         });
     }
