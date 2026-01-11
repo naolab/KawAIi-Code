@@ -245,8 +245,9 @@ class ConfigManager {
     }
 
     async addCharacter(character) {
-        // IDの重複チェック
-        if (this.getCharacterById(character.id)) {
+        // IDの重複チェック（直接配列を検索、getCharacterByIdはフォールバックするため使用不可）
+        const existingChar = this.characters.find(c => c.id === character.id);
+        if (existingChar) {
             logger.error('Character ID already exists:', character.id);
             return false;
         }

@@ -495,6 +495,9 @@ class CharacterDisplayManager {
         // 設定されたすべてのキャラクターを表示
         const charIds = this.currentSettings.iconCharacters || [];
         
+        // カード数に応じたレイアウト用のdata属性を設定
+        this.elements.iconDisplayArea.setAttribute('data-count', Math.min(charIds.length, 4).toString());
+        
         charIds.forEach(id => {
             const char = configManager.getCharacterById(id);
             if (!char) return;
@@ -511,7 +514,13 @@ class CharacterDisplayManager {
             img.src = char.icon || char.iconPath || '../assets/icons/new-app-icon.png';
             circle.appendChild(img);
 
+            // キャラクター名を追加
+            const nameLabel = document.createElement('div');
+            nameLabel.className = 'icon-character-name';
+            nameLabel.textContent = char.name || 'Unknown';
+
             node.appendChild(circle);
+            node.appendChild(nameLabel);
             this.elements.iconDisplayArea.appendChild(node);
         });
     }
