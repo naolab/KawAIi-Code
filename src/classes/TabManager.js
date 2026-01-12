@@ -328,12 +328,11 @@ class TabManager {
     async createEmptyTab() {
         // タブ数制限チェック
         if (Object.keys(this.tabs).length >= this.MAX_TABS) {
-            const activeTab = this.tabs[this.activeTabId];
-            if (activeTab && activeTab.panes.length > 0) {
-                const activePane = activeTab.panes.find(p => p.id === activeTab.activePaneId) || activeTab.panes[0];
-                if (activePane.terminal) {
-                    activePane.terminal.writeln('\r\n\x1b[33m⚠️ タブの最大数（10個）に達しています。既存のタブを閉じてから新しいタブを作成してください。\x1b[0m');
-                }
+            if (this.deps.showNotification) {
+                this.deps.showNotification(`タブの最大数（${this.MAX_TABS}個）に達しています。既存のタブを閉じてから新しいタブを作成してください。`, 'warning');
+            } else {
+                // フォールバック（通常は発生しない）
+                console.warn(`タブの最大数（${this.MAX_TABS}個）に達しています。`);
             }
             return null;
         }
@@ -428,10 +427,11 @@ class TabManager {
         const terminalCount = this.countTerminalNodes(tab.layoutRoot);
         if (terminalCount >= 4) {
             debugLog('⚠️  最大ペイン数（4個）に達しています');
-            // アクティブペインに警告表示
-            const activeNode = this.findNodeById(tab.layoutRoot, tab.activePaneId);
-            if (activeNode && activeNode.terminal) {
-                activeNode.terminal.writeln('\r\n\x1b[33m⚠️  最大ペイン数（4個）に達しています\x1b[0m');
+            if (this.deps.showNotification) {
+                this.deps.showNotification('最大ペイン数（4個）に達しています', 'warning');
+            } else {
+                // フォールバック（通常は発生しない）
+                console.warn('最大ペイン数（4個）に達しています');
             }
             return;
         }
@@ -983,8 +983,6 @@ class TabManager {
         popup.className = 'char-select-popup';
         
         // ConfigManagerからキャラクターリストを取得
-        // ※ ConfigManagerはTerminalAppManager経由でアクセスする必要があるため
-        //    dependenciesに含めるか、グローバルから取得する
         let characters = [];
         if (this.deps.terminalApp && this.deps.terminalApp.configManager) {
             characters = this.deps.terminalApp.configManager.getCharacters();
@@ -992,31 +990,56 @@ class TabManager {
             characters = window.terminalApp.configManager.getCharacters();
         }
 
+        // 現在全ペインで使用されている文字IDのリストを取得
+        const selectedCharIds = this.getSelectedCharacters();
+        const { pane: currentPane } = this.findPaneById(paneId) || {};
+
         // キャラクターリストを表示
         characters.forEach(char => {
             const item = document.createElement('div');
             item.className = 'char-select-item';
             
+            // 既に使用されているキャラかチェック（自分自身が今使っているキャラ以外）
+            const isInUse = selectedCharIds.includes(char.id) && (!currentPane || currentPane.characterId !== char.id);
+            if (isInUse) {
+                item.classList.add('in-use');
+                item.title = '他のペインで使用中です';
+            }
+
             const icon = document.createElement('img');
             icon.src = char.icon || '../assets/icons/new-app-icon.png';
             
             const name = document.createElement('span');
             name.textContent = char.name;
+            if (isInUse) {
+                name.textContent += ' (使用中)';
+            }
             
             item.appendChild(icon);
             item.appendChild(name);
             
-            // 現在選択中のキャラならハイライト（pane情報が必要）
-            const { pane } = this.findPaneById(paneId) || {};
-            if (pane && pane.characterId === char.id) {
+            // 現在選択中のキャラならハイライト
+            if (currentPane && currentPane.characterId === char.id) {
                 item.classList.add('active');
             }
             
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.setPaneCharacter(paneId, char.id);
-                popup.remove();
-            });
+            if (!isInUse) {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.setPaneCharacter(paneId, char.id);
+                    popup.remove();
+                });
+            } else {
+                // 使用中の場合はクリックを無効化するスタイルを適用
+                item.style.opacity = '0.5';
+                item.style.cursor = 'not-allowed';
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (this.deps.showNotification) {
+                        this.deps.showNotification(`${char.name} は他のペインで使用中です`, 'info');
+                    }
+                });
+            }
             
             popup.appendChild(item);
         });
@@ -1089,32 +1112,45 @@ class TabManager {
         const button = pane.element.querySelector('.pane-char-button');
         if (!button) return;
         
+        let char = null;
         if (pane.characterId) {
-            // キャラクターが設定されている場合
-            let char = null;
-            
             // ConfigManagerからキャラ情報を取得
             if (this.deps.terminalApp && this.deps.terminalApp.configManager) {
                 char = this.deps.terminalApp.configManager.getCharacterById(pane.characterId);
             } else if (window.terminalApp && window.terminalApp.configManager) {
                 char = window.terminalApp.configManager.getCharacterById(pane.characterId);
             }
-            
-            const charIcon = char?.icon || '../assets/icons/new-app-icon.png';
-            
-            button.innerHTML = '';
-            const img = document.createElement('img');
-            img.src = charIcon;
-            button.appendChild(img);
-            
+        }
+        
+        if (char) {
+            // キャラクターが設定されている場合
+            button.innerHTML = `<img src="${char.icon || '../assets/icons/new-app-icon.png'}" width="20" height="20" style="border-radius: 50%; object-fit: cover;">`;
             button.classList.remove('muted');
-            button.title = char ? `キャラクター: ${char.name}` : 'キャラクター変更';
+            button.title = `${char.name} が読み上げ中`;
         } else {
-            // ミュートの場合
+            // ミュートの場合、またはキャラが見つからない場合
+            if (pane.characterId) pane.characterId = null; // 見つからない場合はクリア
             button.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white" style="opacity: 0.7;"><path d="M3.63 3.63a.996.996 0 000 1.41L7.29 8.7 7 9H4c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h3l3.29 3.29c.63.63 1.71.18 1.71-.71v-4.17l4.18 4.18c-.49.37-1.02.68-1.6.91-.36.15-.58.53-.58.95 0 .72.73 1.18 1.39.91.8-.33 1.55-.77 2.22-1.31l1.34 1.34a.996.996 0 101.41-1.41L5.05 3.63a.996.996 0 00-1.42 0zM19 12c0 .82-.15 1.61-.41 2.34l1.53 1.53c.56-1.17.88-2.48.88-3.87 0-3.83-2.4-7.11-5.78-8.4-.59-.23-1.22.23-1.22.86v.19c0 .38.25.71.61.85C17.18 6.54 19 9.06 19 12zm-8.71-6.29l-.17.17L12 7.76V6.41c0-.89-1.08-1.34-1.71-.71z"/></svg>';
             button.classList.add('muted');
             button.title = '読み上げなし（クリックして選択）';
         }
+    }
+
+    /**
+     * 全てのペインで選択されているキャラクターIDのリストを取得
+     */
+    getSelectedCharacters() {
+        const selectedIds = [];
+        Object.values(this.tabs).forEach(tab => {
+            if (tab.panes) {
+                tab.panes.forEach(pane => {
+                    if (pane.characterId) {
+                        selectedIds.push(pane.characterId);
+                    }
+                });
+            }
+        });
+        return selectedIds;
     }
 
     /**

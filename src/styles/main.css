@@ -2737,6 +2737,23 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
     z-index: 10;
 }
 
+/* キャラクター選択ポップアップの使用中スタイル */
+.char-select-item.in-use {
+    opacity: 0.5 !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    cursor: not-allowed !important;
+    position: relative;
+    color: #888 !important;
+}
+
+.char-select-item.in-use:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.char-select-item.in-use img {
+    filter: grayscale(100%);
+}
+
 
 
 @keyframes fadeInScale {
