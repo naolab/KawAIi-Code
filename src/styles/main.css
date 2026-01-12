@@ -2733,7 +2733,6 @@ input[type="checkbox"]:not(.cli-toggle-label input):checked::before {
 .vrm-character-node.is-speaking {
     border: 4px solid #43b581 !important;
     box-shadow: 0 0 20px rgba(67, 181, 129, 0.5);
-    transform: scale(1.02);
     transition: all 0.2s ease;
     z-index: 10;
 }
