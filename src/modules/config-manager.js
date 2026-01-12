@@ -566,8 +566,8 @@ class ConfigManager {
                 return { success: false, hadBackup: false };
             }
 
-            // Claude系の場合は従来通り（ホームディレクトリ、バックアップなし）
-            const targetDir = os.homedir();
+            // 優先順位: 1. 設定された保存先フォルダ 2. ホームディレクトリ
+            const targetDir = this.claudeWorkingDir || os.homedir();
             const aiMdPath = path.join(targetDir, aiMdFilename);
             await fs.promises.writeFile(aiMdPath, combinedContent, 'utf8');
             logger.debug(`${aiMdFilename} successfully written to:`, aiMdPath);
@@ -606,7 +606,7 @@ class ConfigManager {
             const aiMdFilename = 'CLAUDE.md';
 
             // Claude系の場合は従来通り削除のみ
-            const targetDir = os.homedir();
+            const targetDir = this.claudeWorkingDir || os.homedir();
             const aiMdPath = path.join(targetDir, aiMdFilename);
 
             if (fs.existsSync(aiMdPath)) {

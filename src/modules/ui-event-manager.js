@@ -699,16 +699,22 @@ class UIEventManager {
      */
     async loadExistingClaudeMd(fileName = 'CLAUDE.md') {
         try {
-            // 作業ディレクトリから読み込み
-            const workspaceResult = await window.electronAPI.getClaudeCwd();
-            this.debugLog('作業ディレクトリ取得結果:', workspaceResult);
+            // 保存先フォルダから読み込み
+            let targetDir = this.app.claudeWorkingDir;
             
-            if (!workspaceResult.success) {
-                this.debugError('作業ディレクトリ取得失敗:', workspaceResult);
-                return { success: false, message: '作業ディレクトリが設定されていません' };
+            // 未設定の場合はAPI経由（またはホームディレクトリ）を試行
+            if (!targetDir) {
+                const workspaceResult = await window.electronAPI.getClaudeCwd();
+                if (workspaceResult.success) {
+                    targetDir = workspaceResult.cwd;
+                } else {
+                    const { os } = window.electronAPI;
+                    targetDir = os.homedir();
+                }
             }
+            this.debugLog('読み込み対象ディレクトリ:', targetDir);
             
-            const targetPath = workspaceResult.cwd + '/' + fileName;
+            const targetPath = targetDir + '/' + fileName;
             this.debugLog('読み込み対象パス:', targetPath);
             
             // ファイルを読み込み
@@ -721,7 +727,7 @@ class UIEventManager {
             this.debugError(`${fileName}読み込みエラー詳細:`, { error, code: error.code, message: error.message });
             
             if (error.code === 'ENOENT') {
-                return { success: false, message: `作業ディレクトリに${fileName}ファイルが見つかりません` };
+                return { success: false, message: `指定されたフォルダに${fileName}ファイルが見つかりません` };
             }
             this.debugError(`既存${fileName}読み込みエラー:`, error);
             return { success: false, message: 'ファイルの読み込みに失敗しました' };
@@ -744,13 +750,20 @@ class UIEventManager {
                 return { success: false, message: 'MDファイルの内容が空です' };
             }
             
-            // 作業ディレクトリに生成
-            const workspaceResult = await window.electronAPI.getClaudeCwd();
-            if (!workspaceResult.success) {
-                return { success: false, message: '作業ディレクトリが設定されていません' };
+            // 保存先フォルダに生成
+            let targetDir = this.app.claudeWorkingDir;
+            
+            if (!targetDir) {
+                const workspaceResult = await window.electronAPI.getClaudeCwd();
+                if (workspaceResult.success) {
+                    targetDir = workspaceResult.cwd;
+                } else {
+                    const { os } = window.electronAPI;
+                    targetDir = os.homedir();
+                }
             }
             
-            const targetPath = workspaceResult.cwd + '/' + fileName;
+            const targetPath = targetDir + '/' + fileName;
             
             // ファイルを書き込み
             const { fs } = window.electronAPI;
@@ -1263,7 +1276,7 @@ class UIEventManager {
                 this.app.claudeWorkingDir = result.path; // クラス変数を更新
                 if (claudeCwdDisplay) claudeCwdDisplay.textContent = this.app.claudeWorkingDir;
                 if (claudeCwdMessage) {
-                    claudeCwdMessage.textContent = `作業ディレクトリを\'${result.path}\'に設定しました。`;
+                    claudeCwdMessage.textContent = `生成先フォルダを\'${result.path}\'に設定しました。`;
                     claudeCwdMessage.style.color = 'green';
                 }
                 
@@ -1277,7 +1290,7 @@ class UIEventManager {
 
             } else if (result.success && !result.path) {
                 if (claudeCwdMessage) {
-                    claudeCwdMessage.textContent = '作業ディレクトリの選択がキャンセルされました。';
+                    claudeCwdMessage.textContent = 'フォルダの選択がキャンセルされました。';
                     claudeCwdMessage.style.color = 'orange';
                 }
             } else {
@@ -1289,7 +1302,7 @@ class UIEventManager {
         } catch (error) {
             console.error('Electron APIの呼び出し中にエラーが発生しました:', error);
             if (claudeCwdMessage) {
-                claudeCwdMessage.textContent = '作業ディレクトリの設定中にエラーが発生しました。';
+                claudeCwdMessage.textContent = '生成先フォルダの設定中にエラーが発生しました。';
                 claudeCwdMessage.style.color = 'red';
             }
         }
