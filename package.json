@@ -66,7 +66,9 @@
       "!ai-kawaii-nextjs/server.log"
     ],
     "asarUnpack": [
-      "node_modules/node-pty/**/*"
+      "node_modules/node-pty/**/*",
+      "ai-kawaii-nextjs/out/*.vrm",
+      "ai-kawaii-nextjs/out/*.vrma"
     ],
     "mac": {
       "icon": "assets/icons/new-app-icon.icns",

@@ -1060,13 +1060,48 @@ function stopHookNotificationWatcher() {
 ipcMain.handle('load-vrm-file', async (event, filename) => {
   try {
     let vrmPath = filename;
+    
+    // パス修正ロジックを追加（もしパスに public が含まれていて存在しない場合、 out を試す）
+    if (vrmPath.includes('ai-kawaii-nextjs/public/') && !fs.existsSync(vrmPath)) {
+      const fallbackPath = vrmPath.replace('ai-kawaii-nextjs/public/', 'ai-kawaii-nextjs/out/');
+      debugLog('VRMファイルパス修正試行:', vrmPath, '->', fallbackPath);
+      vrmPath = fallbackPath;
+    }
+
     // 相対パスの場合は __dirname と結合
-    if (!path.isAbsolute(filename)) {
-      vrmPath = path.join(__dirname, filename);
+    if (!path.isAbsolute(vrmPath)) {
+      vrmPath = path.join(__dirname, vrmPath);
+    }
+    
+    // パッケージ化されたアプリでは、asarUnpackされたファイルはapp.asar.unpackedにある
+    // app.asar内を指している場合はapp.asar.unpackedに変換して確認
+    if (vrmPath.includes('app.asar') && !vrmPath.includes('app.asar.unpacked')) {
+      const unpackedPath = vrmPath.replace('app.asar', 'app.asar.unpacked');
+      if (fs.existsSync(unpackedPath)) {
+        vrmPath = unpackedPath;
+        debugLog('VRMファイル: asarUnpackedパスを使用:', vrmPath);
+      }
     }
     
     debugLog('VRMファイル読み込み中:', vrmPath);
     
+    if (!fs.existsSync(vrmPath)) {
+      // 最後の試みとして ai-kawaii-nextjs/out を直接探す
+      if (vrmPath.includes('ai-kawaii-nextjs')) {
+          const parts = vrmPath.split(path.sep);
+          const idx = parts.findIndex(p => p === 'ai-kawaii-nextjs');
+          if (idx !== -1) {
+              const baseDir = parts.slice(0, idx + 1).join(path.sep);
+              const fileName = path.basename(vrmPath);
+              const lastChancePath = path.join(baseDir, 'out', fileName);
+              if (fs.existsSync(lastChancePath)) {
+                  vrmPath = lastChancePath;
+                  debugLog('VRMファイル: 最終手段で見つかったパス:', vrmPath);
+              }
+          }
+      }
+    }
+
     if (!fs.existsSync(vrmPath)) {
       throw new Error(`VRM file not found: ${vrmPath}`);
     }
