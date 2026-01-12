@@ -1,6 +1,8 @@
 # 🎀 KawAIi Code
 
-Claude CodeとアニメキャラクターVRMが対話するデスクトップアプリケーションです。美しいカワイイデザインで、Claude Codeを直感的に操作できます。macOSとWindowsの両方で動作するクロスプラットフォーム設計です。
+Claude
+CodeとアニメキャラクターVRMが対話するデスクトップアプリケーションです。美しいカワイイデザインで、Claude
+Codeを直感的に操作できます。macOSとWindowsの両方で動作するクロスプラットフォーム設計です。
 
 ![KawAIi Code](https://img.shields.io/badge/status-ready_for_distribution-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)
@@ -9,16 +11,19 @@ Claude CodeとアニメキャラクターVRMが対話するデスクトップア
 ## ✨ 特徴
 
 - 🎀 **カワイイデザイン**: 3D VRMキャラクターとアニメUI
-- 💬 **AIアシスタント選択**: Claude Code、Claude Code (Dangerous)、Gemini CLI、OpenAI Codexから選択可能
-- 🖥️ **デスクトップアプリ**: Electronベースのネイティブアプリ
+- 💬 **AIアシスタント連携**: Claude Code, Gemini CLI, OpenAI
+  Codex等のCLIツールとシームレスに統合
+- 🖥️ **強力なターミナル**: xterm.jsベース、マルチタブ、画面分割（Split
+  Panes）、ドラッグ移動対応
 - 🔄 **リアルタイム応答**: AIアシスタントとのライブ通信
-- 🎨 **3D VRMビューワー**: Three.js/VRM対応の3Dキャラクター表示
-- 🗣️ **音声合成**: AivisSpeech連携による音声読み上げ
-- 🎭 **キャラクターアニメーション**: アイドルアニメーション・LipSync機能
-- 📝 **動的プロンプト管理**: AI起動時にキャラクター設定やプロジェクト固有の指示を`.md`ファイルとして自動生成・更新（Claudeはホームディレクトリ、Geminiは作業ディレクトリ）
-- 🖼️ **カスタム壁紙**: 時間帯別デフォルト壁紙・ユーザー壁紙アップロード対応
-- ⚙️ **設定管理**: キャラクター変更・作業ディレクトリ設定・プロジェクト固有設定
-- 🔧 **モジュラー設計**: リファクタリング済みの保守しやすいコード構造
+- 🎨 **カスタマイズ**: VS Code
+  Darkなどのテーマ切り替え、カスタム壁紙、VRMキャラクター変更
+- 🗣️ **音声合成**: AivisSpeech/VOICEVOX (ローカル)、Aivis Cloud API (クラウド)
+  対応
+- 🎭 **キャラクターアニメーション**: アイドルアニメーション・LipSync・感情表現
+- 📝 **動的プロンプト管理**:
+  プロジェクトごとに作業ディレクトリ(CWD)を設定し、`.md`コンテキストファイルを生成・管理
+- ⚙️ **設定管理**: GUIによる直感的な設定変更
 
 ## 📥 インストール（ユーザー向け）
 
@@ -31,6 +36,7 @@ Claude CodeとアニメキャラクターVRMが対話するデスクトップア
 以下から使用したいAIアシスタントをインストールしてください：
 
 **Claude Code（推奨）**
+
 ```bash
 # Claude Code（Anthropic公式CLI）をインストール
 # 公式サイト: https://claude.ai/code
@@ -41,9 +47,12 @@ brew install anthropics/claude/claude
 claude --version
 ```
 
-Windows環境では、公式インストーラ（https://claude.ai/code）から `claude.exe` を取得するか、`choco install claude` や `scoop install claude` で PATH に追加してください。
+Windows環境では、公式インストーラ（https://claude.ai/code）から `claude.exe`
+を取得するか、`choco install claude` や `scoop install claude` で PATH
+に追加してください。
 
 **Gemini CLI**
+
 ```bash
 # Gemini CLI（Google公式CLI）をインストール
 # 公式サイト: https://github.com/gemini-cli/gemini-cli
@@ -54,6 +63,7 @@ gemini --version
 ```
 
 **OpenAI Codex**
+
 ```bash
 # OpenAI Codex（OpenAI公式CLI）をインストール
 # npmを使用
@@ -66,37 +76,51 @@ brew install codex
 codex --version
 ```
 
-※ 設定画面で使用するAIアシスタントを選択できます。複数インストールすることも可能です。
+※
+設定画面で使用するAIアシスタントを選択できます。複数インストールすることも可能です。
 
 #### 2. 音声機能（オプション）
+
 音声読み上げを使用する場合、以下のいずれかが必要：
-- **AivisSpeech Engine** (無料・ローカル): [公式サイト](https://aivis-project.com/)からダウンロード
-- **VOICEVOX** (無料・ローカル): [公式サイト](https://voicevox.hiroshiba.jp/)からダウンロード
+
+- **AivisSpeech Engine** (無料・ローカル):
+  [公式サイト](https://aivis-project.com/)からダウンロード
+- **VOICEVOX** (無料・ローカル):
+  [公式サイト](https://voicevox.hiroshiba.jp/)からダウンロード
 - **Aivis Cloud API** (有料・クラウド): APIキーを取得して設定画面で設定
 
 ### 配布版ダウンロード
-1. GoogleドライブまたはGitHub Releasesから最新の`KawAIi-Code-1.0.0-arm64.dmg`をダウンロード
 
-2. **DMGファイルをマウント**  
+1. GoogleドライブまたはGitHub
+   Releasesから最新の`KawAIi-Code-1.0.0-arm64.dmg`をダウンロード
+
+2. **DMGファイルをマウント**\
    ダウンロードした`.dmg`ファイルをダブルクリックしてマウント
 
-3. **アプリをインストール**  
+3. **アプリをインストール**\
    マウントされたディスクイメージ内の`KawAIi Code.app`をApplicationsフォルダにドラッグ&ドロップ
 
-4. **起動**  
+4. **起動**\
    アプリをダブルクリックして起動
 
 #### Windows版インストール
-1. GitHub Releasesから最新の `KawAIi-Code-<version>-win-x64.exe`（NSISインストーラ） をダウンロード
-2. ダウンロードした `.exe` をダブルクリックし、SmartScreen の警告が出た場合は「詳細情報」→「実行」を選択
+
+1. GitHub Releasesから最新の
+   `KawAIi-Code-<version>-win-x64.exe`（NSISインストーラ） をダウンロード
+2. ダウンロードした `.exe` をダブルクリックし、SmartScreen
+   の警告が出た場合は「詳細情報」→「実行」を選択
 3. インストーラの指示に従ってインストール（ショートカット作成・スタートメニュー登録など）
-4. インストール完了後、スタートメニューまたはデスクトップアイコンから KawAIi Code を起動
+4. インストール完了後、スタートメニューまたはデスクトップアイコンから KawAIi
+   Code を起動
 
 ### ✨ 署名付きビルドについて
+
 このアプリは署名付きでビルドされているため、macOSの標準的なDMGインストーラーから直接インストールできます。従来の隔離属性削除手順は不要になりました。
 
 ### システム要件
-- **対応OS**: Windows 10/11 64-bit、macOS 10.15 (Catalina) 以降、Linux x64 (AppImage)
+
+- **対応OS**: Windows 10/11 64-bit、macOS 10.15 (Catalina) 以降、Linux x64
+  (AppImage)
 - **CPU**: Apple Silicon (M1/M2/M3) または Intel 64-bit、Windows 64-bit (x64)
 - **AIアシスタントCLI**（Claude Code、Gemini CLI、OpenAI Codex等のいずれか必須）
 - **2GB以上の空きディスク容量**
@@ -113,6 +137,7 @@ codex --version
 <summary>📱 <strong>3分で始める KawAIi Code</strong></summary>
 
 #### 最初のAI会話
+
 1. **Claude Code CLI が正常にインストールされていることを確認**
    ```bash
    claude --version
@@ -122,7 +147,9 @@ codex --version
 4. 右側の3Dキャラクター（モネ）がAIの返答に合わせて表情変化
 
 #### 音声機能を有効にする（オプション）
-- AivisSpeech Engine (`127.0.0.1:10101`) または VOICEVOX (`127.0.0.1:50021`) を起動
+
+- AivisSpeech Engine (`127.0.0.1:10101`) または VOICEVOX (`127.0.0.1:50021`)
+  を起動
 - 音声機能を有効にすると、キャラクターが返答を読み上げます
 - 感情に応じた自然な表情変化を楽しめます
 
@@ -132,24 +159,29 @@ codex --version
 <summary>⚙️ <strong>初回セットアップ</strong></summary>
 
 #### 音声機能の設定（オプション）
+
 以下のいずれかの方法で音声機能を有効にできます：
 
 **方法1: AivisSpeech Engine（ローカル）**
+
 1. [AivisSpeech公式サイト](https://aivis-project.com/)からダウンロード・インストール
 2. AivisSpeech Engine を起動（ポート: `127.0.0.1:10101`）
 3. KawAIi Code で音声機能が自動的に有効化
 
 **方法2: VOICEVOX（ローカル）**
+
 1. [VOICEVOX公式サイト](https://voicevox.hiroshiba.jp/)からダウンロード・インストール
 2. VOICEVOX を起動（ポート: `127.0.0.1:50021`）
 3. 設定画面 → 音声エンジン選択で「VOICEVOX」を選択し、テスト再生で接続確認
 
 **方法3: Aivis Cloud API（クラウド）**
+
 1. 設定画面から「クラウドAPI使用」を有効化
 2. Aivis Cloud APIキーを設定
 3. インターネット経由で音声合成を利用
 
 #### 作業ディレクトリの設定
+
 - 設定画面から作業したいプロジェクトフォルダを選択
 - Claude Codeがそのフォルダで動作します
 
@@ -161,17 +193,21 @@ codex --version
 <summary>🤖 <strong>Claude Code ガイド</strong></summary>
 
 #### Claude Code 機能
+
 **🔹 通常モード**
+
 - **用途**: 一般的なプログラミング支援、コードレビュー
 - **特徴**: 安全性重視、権限チェックあり
 - **推奨**: 通常の開発作業全般
 
-**🔹 Dangerous モード**  
+**🔹 Dangerous モード**
+
 - **用途**: システム設定変更、高度な操作
 - **特徴**: 権限チェックをスキップ、より自由度が高い
 - **注意**: ⚠️ 上級者向け、慎重に使用してください
 
 #### CLAUDE.md設定（手動）
+
 - **設定画面**から`CLAUDE.md`の内容を編集可能
 - **「生成」ボタン**で作業ディレクトリに`CLAUDE.md`を作成
 - プロジェクト固有のAI指示を設定できます
@@ -182,35 +218,43 @@ codex --version
 <summary>🎭 <strong>VRMキャラクター活用法</strong></summary>
 
 #### デフォルトキャラクター
+
 - **モネ**: 照れ屋で優しいプログラミングアシスタント
 - **表情変化**: AI応答の感情に合わせて自動変更
 - **自然な動き**: 待機中も自然な動作
 
 #### カスタムキャラクター
+
 **VRMファイルのアップロード**
+
 1. 右上の **⚙️ 設定** ボタンをクリック
 2. **「VRMファイルを選択」** をクリック
 3. お好みの `.vrm` ファイルを選択
 
 **対応VRM形式**
+
 - **VRM 0.x**: フル対応
 - **VRM 1.0**: 基本対応
 - **ファイルサイズ**: 推奨 50MB以下
 
 #### 表情・動作機能
+
 **🔹 感情パターン**
-| AI応答内容 | 表情変化 |
-|------------|----------|
-| 成功・完了 | 😊 喜び |
+
+| AI応答内容   | 表情変化      |
+| ------------ | ------------- |
+| 成功・完了   | 😊 喜び       |
 | エラー・失敗 | 😟 困った表情 |
-| 説明・解説 | 🤔 真剣な表情 |
-| 褒められた時 | 😳 照れ |
+| 説明・解説   | 🤔 真剣な表情 |
+| 褒められた時 | 😳 照れ       |
 
 **🔹 音声連動**
+
 - **LipSync**: 音声再生時の口の動き
 - **自然な表情**: 読み上げ内容に応じた表情変化
 
-> **🎨 カスタマイズヒント**: VRoidStudio等で作成したオリジナルキャラクターも使用可能！
+> **🎨 カスタマイズヒント**:
+> VRoidStudio等で作成したオリジナルキャラクターも使用可能！
 
 </details>
 
@@ -218,9 +262,11 @@ codex --version
 <summary>🔊 <strong>音声機能設定ガイド</strong></summary>
 
 #### 音声機能の選択肢
+
 KawAIi Codeでは2つの音声合成方法を選択できます：
 
 **🔹 AivisSpeech Engine（ローカル）**
+
 1. **AivisSpeech Engine** をダウンロード
    - 公式サイト: [https://aivis-project.com/](https://aivis-project.com/)
    - 対応OS: Windows, macOS, Linux
@@ -232,6 +278,7 @@ KawAIi Codeでは2つの音声合成方法を選択できます：
    - AI応答時に音声読み上げ開始
 
 **🔹 Aivis Cloud API（クラウド）**
+
 1. **設定画面を開く**
    - 右上の⚙️設定ボタンをクリック
 2. **クラウドAPI設定**
@@ -242,7 +289,8 @@ KawAIi Codeでは2つの音声合成方法を選択できます：
    - インターネット経由で高品質音声合成
    - システムリソース使用量が少ない
 
-> **💡 選択のコツ**: 
+> **💡 選択のコツ**:
+>
 > - **ローカル**: 低遅延、オフライン利用可能
 > - **クラウド**: 高品質、システム負荷軽減
 
@@ -251,46 +299,31 @@ KawAIi Codeでは2つの音声合成方法を選択できます：
 <details>
 <summary>🎨 <strong>カスタマイズ & 設定</strong></summary>
 
-#### 壁紙システム
-**🔹 カスタム壁紙**
-1. 設定画面から **「壁紙アップロード」**
-2. 対応形式: `JPG`, `PNG`, `MP4` (動画壁紙対応!)
-3. 推奨解像度: 1920x1080以上
+#### テーマ & 壁紙
 
-#### ターミナル設定
-**タブ機能**
-- **最大10個** のターミナルを同時実行
-- タブ切り替えで複数プロジェクト管理
-- 各タブで異なるディレクトリ設定可能
-- ドラッグ&ドロップでタブ順序変更
-- ダブルクリックまたは右クリックでタブ名変更
+- **VS Code Dark**:
+  エンジニア利用に特化したダークテーマ。ターミナル背景と一体化します。
+- **壁紙**: JPG/PNG/MP4（動画）をアップロード可能。
+- **推し色テーマ**: ピンク、ブルー、グリーン、オレンジ、パープルから選択可能。
 
-**表示設定**
-- **眼のアイコン**: ターミナル表示/非表示切り替え
-- **フォントサイズ**: 設定画面で調整可能
-- **カラーテーマ**: ダーク/ライトモード対応
+#### ターミナル機能 (New!)
 
-#### プロジェクト設定
-**作業ディレクトリ**
-- プロジェクトごとに異なるディレクトリ設定
-- Claude Code起動時に自動でディレクトリ移動
-- 設定は自動保存・復元
+- **タブ管理**: 複数のターミナルをタブで管理。ドラッグで並び替え可能。
+- **画面分割**: タブ内で `右クリック` -> `Split Right/Down` で画面分割が可能。
+- **ドラッグ移動**: ウィンドウ上部のヘッダーバーを掴んで自由に配置変更。
 
-**プロジェクト固有設定**
-- **CLAUDE.md**: 設定画面で内容を編集し、手動で生成
-- **設定ファイル**: プロジェクトごとの個別設定保存
-- **キャラクター設定**: プロジェクト別キャラクター割り当て
+#### AIプロジェクト管理
 
-> **🚀 プロTip**: 
-> - 複数プロジェクトで異なるキャラクターを使い分け
-> - プロジェクト固有のCLAUDE.mdでAI特化
-> - タブ機能でフロント・バック同時開発
+- **CWD設定**: プロジェクトごとに「作業ディレクトリ」を個別に記憶。
+- **MD生成**:
+  CLIツールのためのコンテキストファイル（`CLAUDE.md`等）をGUIから生成。キャラクターの口調やプロジェクトのルールを定義できます。
 
 </details>
 
 ## 🛠️ 技術スタック
 
 ### フロントエンド
+
 - **Electron**: デスクトップアプリフレームワーク
 - **Next.js**: VRMビューワー（静的ファイル化済み）
 - **Three.js**: 3Dレンダリングエンジン
@@ -298,6 +331,7 @@ KawAIi Codeでは2つの音声合成方法を選択できます：
 - **xterm.js**: ターミナルエミュレーター
 
 ### バックエンド & アーキテクチャ
+
 - **Node.js**: Electronメインプロセス
 - **node-pty**: ターミナルプロセス管理 (Claude Code / Gemini Code Assist)
 - **AivisSpeech**: 音声合成エンジン連携
@@ -305,6 +339,7 @@ KawAIi Codeでは2つの音声合成方法を選択できます：
 - **LocalStorage**: ユーザー設定の永続化
 
 ### 配布・ビルド
+
 - **electron-builder**: パッケージング・配布
 - **webpack**: モジュールバンドラー
 
@@ -352,57 +387,53 @@ KawAIi-Code/
 ├── package.json                    # Electronアプリ設定
 ├── main.js                         # Electronメインプロセス
 ├── src/
-│   ├── index.html                  # メインHTML
-│   ├── app.js                      # メインレンダラープロセス（1163行）
-│   ├── modules/                    # 独立モジュール
-│   │   ├── wallpaper-system.js    # 壁紙システム（372行）
-│   │   └── config-manager.js      # 設定管理（244行）
-│   ├── preload.js                  # プリロードスクリプト
-│   ├── voiceService.js            # 音声機能サービス
-│   └── vrm-viewer/                # Next.jsビルド済み静的ファイル
-│       ├── index.html             # VRMビューワー
-│       ├── kotone_claude1.vrm     # デフォルトVRMモデル
-│       └── _next/                 # Next.jsアセット
-├── ai-kawaii-nextjs/              # Next.jsソースコード
-│   ├── src/
-│   │   ├── app/                   # App Router
-│   │   ├── components/            # VRMViewer等
-│   │   └── features/              # LipSync等機能
-│   └── public/                    # パブリックアセット
-├── assets/
-│   └── icons/                     # アプリアイコン
-├── dist/                          # 配布ファイル出力
-└── docs/                          # ドキュメント
+│   ├── index.html                  # メインHTML Layout
+│   ├── app.js                      # アプリケーションエントリーポイント
+│   ├── modules/                    # 機能モジュール (Theme, Config, VRM, etc.)
+│   ├── classes/                    # クラス定義 (TabManager, TerminalWrapper, etc.)
+│   ├── services/                   # サービス層 (Audio, Terminal, Integration)
+│   ├── styles/                     # CSS (包括的なテーマ定義)
+│   └── vrm-viewer/                 # VRM表示用サブシステム
+├── ai-kawaii-nextjs/               # Next.jsベースのUIコンポーネントソース
+└── docs/                           # ドキュメント類
 ```
 
 ### 設計思想・アーキテクチャ
 
 #### 1. ハイブリッドアーキテクチャ
-- **Electronメインプロセス**: AIアシスタント統合 (Claude Code / Gemini Code Assist)、音声機能、システム統合
-- **Next.js VRMビューワー**: 3Dキャラクター表示・アニメーション（静的ファイル化）
+
+- **Electronメインプロセス**: AIアシスタント統合 (Claude Code / Gemini Code
+  Assist)、音声機能、システム統合
+- **Next.js VRMビューワー**:
+  3Dキャラクター表示・アニメーション（静的ファイル化）
 - **PostMessage通信**: プロセス間通信でリアルタイム連携
 
 #### 2. モジュラー設計による保守性向上
+
 - **壁紙システム**: 時間帯別切り替え、ユーザーアップロード、アニメーション制御
 - **設定管理**: キャラクター変更、プロジェクト固有設定、ユーザー設定の一元管理
 - **責務分離**: 機能ごとの独立モジュールで可読性・メンテナンス性を向上
 
 #### 3. 動的なAIプロンプト管理
+
 - AIアシスタント起動時に、キャラクター設定と作業ディレクトリ内の`.md`ファイルを統合したプロンプトを生成
 - Claude Code向けにはホームディレクトリに`CLAUDE.md`を生成し、停止時に削除
 - Gemini Code Assist向けには作業ディレクトリに`GEMINI.md`を生成し、停止時に削除
 
 #### 4. 静的ファイル統合による配布最適化
+
 - Next.js開発サーバー依存を排除
 - webpack相対パス設定で単体動作実現
 - file://プロトコル対応によるセキュリティ確保
 
 #### 5. パフォーマンス最適化
+
 - VRMレンダリング35fps制限
 - LipSyncサンプルレート最適化（CPU使用率削減）
 - 条件付きレンダリング・アニメーション間引き
 
 #### 6. ユーザビリティ重視
+
 - ワンクリックインストール（DMG配布）
 - 設定UI統合（VRM変更・デフォルト読み込み）
 - 直感的な操作フロー
@@ -410,17 +441,22 @@ KawAIi-Code/
 ## 🐛 トラブルシューティング
 
 ### 起動時の問題
+
 **セキュリティ警告が表示される場合：**
+
 1. システム環境設定 → セキュリティとプライバシー
 2. 「このまま開く」をクリック
 3. または：Control+クリックでコンテキストメニューから「開く」
 
 **VRMキャラクターが表示されない場合：**
+
 - アプリを完全に終了し、再起動
 - macOSのセキュリティ設定でファイルアクセス許可確認
 
 ### Claude Code関連
+
 **Claude Codeが起動しない場合：**
+
 ```bash
 # Claude Code確認
 claude --version
@@ -434,18 +470,23 @@ chmod +x $(which claude)
 ```
 
 **「Claude Code が見つかりません」エラーの場合：**
+
 1. Claude Code CLI がインストールされていることを確認
 2. ターミナルで `claude --version` が実行できることを確認
 3. PATHにclaude コマンドが含まれていることを確認
 
 ### 音声機能
+
 **音声が再生されない場合：**
+
 1. AivisSpeech Engineが起動しているか確認
 2. ポート10101が使用可能か確認
 3. システムの音声出力設定を確認
 
 ### パフォーマンス
+
 **動作が重い場合：**
+
 - VRMフレームレートは自動調整済み（35fps）
 - 他のアプリケーションを終了してメモリを確保
 - Activity Monitorでシステムリソース確認

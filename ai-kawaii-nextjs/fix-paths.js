@@ -23,6 +23,14 @@ function fixHtmlFile(filePath) {
   content = content.replace(/:"\/_next\//g, ':"./_next/');
   content = content.replace(/,"\/_next\//g, ',"./_next/');
   
+  // React Server Components (RSC) payload内のパスも修正
+  // HL["/_next/ -> HL["./_next/ (CSS/JS プリロード)
+  content = content.replace(/HL\["\/_next\//g, 'HL["./_next/');
+  // \\"/_next/ -> \\"./_next/ (エスケープされたJSONパス)
+  content = content.replace(/\\"\/_next\//g, '\\"./_next/');
+  // "href":"/_next -> "href":"./_next (React要素のプロパティ)
+  content = content.replace(/"href":"\/_next\//g, '"href":"./_next/');
+  
   // favicon ya svg も同様に
   content = content.replace(/(href|src)="\/(favicon|file\.svg|globe\.svg|next\.svg|vercel\.svg|window\.svg|settings-icon\.svg)/g, '$1="./$2');
   
