@@ -387,15 +387,7 @@ class CharacterDisplayManager {
      * すべての（生きている）ビューワーにメッセージ送信
      */
     postToAllViewers(message) {
-        // メインiframe
-        if (this.elements.vrmIframe && this.elements.vrmIframe.contentWindow) {
-            this.elements.vrmIframe.contentWindow.postMessage(message, '*');
-        }
-
-        // マルチ用iframes
-        const multiIds = this.currentSettings.multiCharacters || [];
-        multiIds.forEach(id => {
-            const iframe = document.getElementById(`vrm-iframe-${id}`);
+        this.iframes.forEach(iframe => {
             if (iframe && iframe.contentWindow) {
                 iframe.contentWindow.postMessage(message, '*');
             }

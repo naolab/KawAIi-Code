@@ -116,29 +116,33 @@ class VRMIntegrationService {
                 amplifyLipSync: options.amplifyLipSync || false
             };
 
-            // CharacterDisplayManager経由で送信（ID指定があればルーティング、なければメインまたは全送信）
+            // CharacterDisplayManager経由で送信（ID指定があればルーティング）
             if (window.characterDisplayManager) {
                 if (charId) {
                     const sent = window.characterDisplayManager.postToViewerById(charId, message);
                     if (sent) {
                         this.debugLog(`🎭 VRM音声データ送信完了 (ID: ${charId})`);
                         return true;
+                    } else {
+                        // 表示キャラが見つからない場合は、バックグラウンド再生に切り替え
+                        this.debugLog(`🎭 キャラクター ${charId} が非表示のため、バックグラウンド再生を実行します`);
+                        return this.playBackgroundAudio(audioData);
                     }
                 }
                 
-                // 特定のID宛でない、またはIDが見つからない場合は全ビューワー（またはメイン）に送信
+                // 特定のID宛でない場合は全ビューワーに送信（従来の互換性）
                 window.characterDisplayManager.postToAllViewers(message);
                 this.debugLog('🎭 VRM音声データ送信完了 (All Viewers)');
                 return true;
             }
 
-            // フォールバック（CDMがない場合、従来通りメインのみ）
+            // フォールバック（CDMがない場合、従来通りメインのみ or バックグラウンド再生）
             if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
                 this.vrmIframeElement.contentWindow.postMessage(message, '*');
                 return true;
+            } else {
+                return this.playBackgroundAudio(audioData);
             }
-            
-            return false;
             
         } catch (error) {
             this.debugError('🎭 VRM音声データ送信エラー:', error);
@@ -157,7 +161,12 @@ class VRMIntegrationService {
 
             if (window.characterDisplayManager) {
                 if (charId) {
-                    window.characterDisplayManager.postToViewerById(charId, message);
+                    const sent = window.characterDisplayManager.postToViewerById(charId, message);
+                    if (sent) return true;
+                    
+                    // ID不一致時は感情を送らない（非表示キャラの感情は不要）
+                    this.debugLog(`🎭 キャラクター ${charId} が非表示のため、感情送信をスキップしました`);
+                    return false;
                 } else {
                     window.characterDisplayManager.postToAllViewers(message);
                 }
@@ -188,7 +197,11 @@ class VRMIntegrationService {
 
             if (window.characterDisplayManager) {
                 if (charId) {
-                    window.characterDisplayManager.postToViewerById(charId, message);
+                    const sent = window.characterDisplayManager.postToViewerById(charId, message);
+                    if (sent) return true;
+                    
+                    // ID不一致時はスキップ
+                    return false;
                 } else {
                     window.characterDisplayManager.postToAllViewers(message);
                 }
@@ -204,6 +217,35 @@ class VRMIntegrationService {
             
         } catch (error) {
             this.debugError('🎭 VRM音声状態通知エラー:', error);
+            return false;
+        }
+    }
+
+    // バックグラウンドで音声を再生（表示キャラがいない場合用）
+    playBackgroundAudio(audioData) {
+        try {
+            const blob = new Blob([audioData], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            
+            audio.onended = () => {
+                URL.revokeObjectURL(url);
+                this.debugLog('🎭 バックグラウンド音声再生終了');
+            };
+            
+            audio.onerror = (e) => {
+                this.debugError('🎭 バックグラウンド音声再生エラー:', e);
+                URL.revokeObjectURL(url);
+            };
+            
+            audio.play().catch(err => {
+                this.debugError('🎭 バックグラウンド音声再生開始エラー:', err);
+                URL.revokeObjectURL(url);
+            });
+            
+            return true;
+        } catch (error) {
+            this.debugError('🎭 バックグラウンド音声再生処理エラー:', error);
             return false;
         }
     }
