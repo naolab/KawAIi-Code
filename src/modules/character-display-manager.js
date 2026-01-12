@@ -627,8 +627,16 @@ class CharacterDisplayManager {
                 return;
             }
 
-            // iframeが読み込まれるのを待つ
-            const iframe = this.iframes.get(charId);
+            // iframeをマップから取得、見つからない場合はDOMから直接取得
+            let iframe = this.iframes.get(charId);
+            if (!iframe) {
+                iframe = document.getElementById(`vrm-iframe-${charId}`);
+                if (iframe) {
+                    this.iframes.set(charId, iframe);
+                    console.log(`[CDM] iframe for ${charId} was not in map, added from DOM`);
+                }
+            }
+
             if (iframe) {
                 console.log(`[CDM] Waiting for viewer-ready message from ${charId}...`);
                 
@@ -656,17 +664,23 @@ class CharacterDisplayManager {
                 } else {
                     console.log(`[CDM] Viewer ${charId} is ready.`);
                 }
+            } else {
+                console.error(`[CDM] iframe not found for ${charId}, cannot send VRM data`);
+                return;
             }
 
             console.log(`[CDM] Sending loadVRM message to ${charId}`);
-            const sent = this.postToViewerById(charId, {
-                type: 'loadVRM',
-                fileData: result.data,
-                fileName: result.filename || vrmPath
-            });
-
-            if (!sent) {
-                console.error(`[CDM] Failed to send loadVRM message to ${charId}`);
+            
+            // 直接iframeのcontentWindowを使用して送信
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'loadVRM',
+                    fileData: result.data,
+                    fileName: result.filename || vrmPath
+                }, '*');
+                console.log(`[CDM] Successfully sent loadVRM message to ${charId}`);
+            } else {
+                console.error(`[CDM] Failed to send loadVRM message to ${charId}: iframe or contentWindow is null`);
             }
         } catch (error) {
             console.error('[CDM] Error in loadAndSendCharacterById:', error);

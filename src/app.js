@@ -703,10 +703,9 @@ class TerminalApp {
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    // ローディング画面を即座に表示
-    const loadingScreen = new LoadingScreen();
-    loadingScreen.show();
+    // Legacy LoadingScreen is removed to improve startup speed and avoid UI conflicts
     
+
     // アプリ初期化処理
     setTimeout(async () => {
         try {
@@ -776,14 +775,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // エラーが発生しても強制的に接続状態をチェック
             forcedConnectionCheck();
         }
-        
-        // 初期化完了後にローディング画面を非表示
-        setTimeout(() => {
-            loadingScreen.hide();
-            // メインアプリを表示
-            document.body.classList.add('loaded');
-        }, 4000);
-    }, 1000); // 1秒間ローディング画面を表示
+        // 初期化完了。即座にメインアプリを表示
+        document.body.classList.add('loaded');
+    }, 100);
     
     // 初回強制接続チェック（フォールバック）
     setTimeout(() => {

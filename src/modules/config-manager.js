@@ -126,9 +126,9 @@ class ConfigManager {
                 if (savedCharacters && savedCharacters.length > 0) {
                     this.characters = savedCharacters.map(c => {
                         // モネのパスが古い形式（public/Mone_default.vrm）なら修正
-                        if (c.id === 'char_mona' && (c.model?.path === 'public/Mone_default.vrm' || c.vrmPath === 'public/Mone_default.vrm')) {
-                            if (c.model) c.model.path = 'ai-kawaii-nextjs/public/Mone_default.vrm';
-                            c.vrmPath = 'ai-kawaii-nextjs/public/Mone_default.vrm';
+                        if (c.id === 'char_mona' && (c.model?.path === 'public/Mone_default.vrm' || c.vrmPath === 'public/Mone_default.vrm' || c.vrmPath?.includes('public/'))) {
+                            if (c.model) c.model.path = 'ai-kawaii-nextjs/out/Mone_default.vrm';
+                            c.vrmPath = 'ai-kawaii-nextjs/out/Mone_default.vrm';
                         }
                         return c;
                     });
@@ -150,7 +150,7 @@ class ConfigManager {
                         },
                         model: {
                             type: 'vrm',
-                            path: 'ai-kawaii-nextjs/public/Mone_default.vrm'
+                            path: 'ai-kawaii-nextjs/out/Mone_default.vrm'
                         },
                         prompt: DEFAULT_CHARACTER_PROMPT,
                         isDefault: true
