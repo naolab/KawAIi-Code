@@ -23,10 +23,18 @@ class AudioService {
         this.voiceEngine = 'aivis-local'; // デフォルト。ConfigManagerから上書きされる
         this.useCloudAPI = false;
         this.cloudApiKey = '';
+        this.lastSettingsUpdate = 0; // キャッシュ用
+        this.settingsCacheInterval = 5000; // 5秒間キャッシュ
     }
 
     // API設定を更新
-    async updateApiSettings() {
+    async updateApiSettings(force = false) {
+        // キャッシュチェック（forceがtrueの場合は強制更新）
+        const now = Date.now();
+        if (!force && (now - this.lastSettingsUpdate < this.settingsCacheInterval)) {
+            return;
+        }
+
         try {
             const unifiedConfig = getSafeUnifiedConfig();
 
@@ -39,11 +47,6 @@ class AudioService {
                 // APIキーは暗号化されているため、window.electronAPI経由で復号化されたキーを取得
                 if (window.electronAPI && window.electronAPI.getCloudApiKey) {
                     this.cloudApiKey = await window.electronAPI.getCloudApiKey();
-                    this.debugLog('APIキー取得:', {
-                        hasKey: !!this.cloudApiKey,
-                        keyLength: this.cloudApiKey ? this.cloudApiKey.length : 0,
-                        keyPrefix: this.cloudApiKey ? this.cloudApiKey.substring(0, 10) + '...' : 'なし'
-                    });
                 }
             }
 
@@ -51,7 +54,8 @@ class AudioService {
                 this.voicevoxUrl = await unifiedConfig.get('voicevoxEndpoint', 'http://127.0.0.1:50021');
             }
 
-            this.debugLog('API設定を更新:', { voiceEngine: this.voiceEngine, endpoint: this.getApiEndpoint() });
+            this.lastSettingsUpdate = now;
+            this.debugLog('API設定を更新（キャッシュ適用可能）:', { voiceEngine: this.voiceEngine, endpoint: this.getApiEndpoint() });
         } catch (error) {
             this.debugError('API設定の更新に失敗:', error);
         }

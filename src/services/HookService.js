@@ -11,7 +11,7 @@ class HookService {
         this.terminalApp = terminalApp;
         this.vrmIntegrationService = vrmIntegrationService;
         // Hook音声再生状態は統一管理システムを使用
-        this.hookWatcherInterval = null;
+        this.hookWatcher = null; // fs.watch インスタンス
         this.debugLog = debugLog;
         this.debugError = debugError;
         
@@ -38,9 +38,9 @@ class HookService {
 
     // Hook監視システムを停止
     stopHookWatcher() {
-        if (this.hookWatcherInterval) {
-            clearInterval(this.hookWatcherInterval);
-            this.hookWatcherInterval = null;
+        if (this.hookWatcher) {
+            this.hookWatcher.close();
+            this.hookWatcher = null;
         }
         this.hookWatcherEnabled = false;
         this.debugLog('🎣 Hook監視システムを停止');
@@ -66,87 +66,113 @@ class HookService {
     }
 
     // Claude Code Hooks用ファイル監視を開始
-    startHookFileWatcher() {
+    async startHookFileWatcher() {
+        const fs = require('fs');
         const path = require('path');
         const os = require('os');
         
         const tempDir = os.tmpdir();
-        this.debugLog('🎣 Hook監視ディレクトリ:', tempDir);
-        
-        this.hookWatcherInterval = setInterval(async () => {
-            if (!this.hookWatcherEnabled) return;
-            
-            try {
-                await this.checkForHookNotifications(tempDir);
-            } catch (error) {
-                this.debugError('🎣 Hook監視エラー:', error);
-            }
-        }, this.hookWatcherIntervalMs);
-    }
-
-    // Hook通知ファイルをチェック
-    async checkForHookNotifications(tempDir) {
-        const fs = require('fs');
-        const path = require('path');
+        this.debugLog('🎣 Hook監視ディレクトリ (fs.watch):', tempDir);
         
         // Hook機能が有効かチェック
         const unifiedConfig = getSafeUnifiedConfig();
         const useHooks = await unifiedConfig.get('useHooks', false);
         
         if (!useHooks) {
-            return; // Hook機能が無効の場合は処理しない
+            this.debugLog('🎣 Hook機能が無効なため、ファイル監視をスキップします');
+            return;
         }
+
+        // 監視開始前に既存のファイルを一度チェック
+        await this.checkForHookNotifications(tempDir);
+
+        try {
+            // ディレクトリ監視を開始
+            this.hookWatcher = fs.watch(tempDir, async (eventType, filename) => {
+                if (!this.hookWatcherEnabled || !filename) return;
+                
+                // Hook通知ファイルのパターン
+                const notificationPattern = /^claude-hook-notification-\d+\.json$/;
+                
+                if (eventType === 'rename' && notificationPattern.test(filename)) {
+                    this.debugLog('🎣 Hookファイル変更を検知:', filename);
+                    // わずかに待機してファイルの書き込み完了を確実にする
+                    setTimeout(async () => {
+                        await this.processHookNotificationFile(tempDir, filename);
+                    }, 50);
+                }
+            });
+
+            this.hookWatcher.on('error', (error) => {
+                this.debugError('🎣 Hook監視サーバーエラー:', error);
+                // 必要に応じて再起動ロジックをここに追加
+            });
+
+        } catch (error) {
+            this.debugError('🎣 Hook監視開始失敗:', error);
+            // フォールバックとして従来のsetIntervalを使用するか検討
+        }
+    }
+
+    // 特定のHook通知ファイルを処理
+    async processHookNotificationFile(tempDir, filename) {
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.join(tempDir, filename);
+
+        if (!fs.existsSync(filePath)) return;
+
+        try {
+            // ファイルを読み込み
+            const content = fs.readFileSync(filePath, 'utf8');
+            const notification = JSON.parse(content);
+            
+            this.debugLog('🎣 Hook通知を処理中:', {
+                filename,
+                hasAudio: !!notification.filepath,
+                hasText: !!notification.text
+            });
+            
+            // 音声ファイルが存在する場合は再生
+            if (notification.filepath && notification.text) {
+                await this.playHookVoiceFile(notification.filepath, notification.text);
+                
+                // 感情データが含まれている場合はIPCで送信
+                if (notification.emotion) {
+                    this.debugLog('😊 感情データを反映:', notification.emotion);
+                    this.terminalApp.sendEmotionToVRM(notification.emotion);
+                }
+            }
+            
+            // 処理後にファイルを削除
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+            
+        } catch (error) {
+            this.debugError('🎣 Hook通知ファイル処理エラー:', error);
+            // 不完全なファイルを削除
+            if (fs.existsSync(filePath)) {
+                try { fs.unlinkSync(filePath); } catch(e) {}
+            }
+        }
+    }
+
+    // Hook通知ディレクトリを一度スキャン（起動時用）
+    async checkForHookNotifications(tempDir) {
+        const fs = require('fs');
+        const path = require('path');
         
         try {
-            // Hook通知ファイルのパターン
             const notificationPattern = /^claude-hook-notification-\d+\.json$/;
-            
             const files = fs.readdirSync(tempDir);
             const hookFiles = files.filter(file => notificationPattern.test(file));
             
             for (const file of hookFiles) {
-                const filePath = path.join(tempDir, file);
-                
-                try {
-                    // ファイルを読み込み
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    const notification = JSON.parse(content);
-                    
-                    this.debugLog('🎣 Hook通知を検出:', {
-                        file,
-                        hasAudio: !!notification.filepath,
-                        hasText: !!notification.text,
-                        hasEmotion: !!notification.emotion
-                    });
-                    
-                    // 音声ファイルが存在する場合は再生
-                    if (notification.filepath && notification.text) {
-                        await this.playHookVoiceFile(notification.filepath, notification.text);
-                        
-                        // 感情データが含まれている場合はIPCで送信
-                        if (notification.emotion) {
-                            this.debugLog('😊 感情データをIPCで送信:', notification.emotion);
-                            // IPCを使って感情データを送信
-                            this.terminalApp.sendEmotionToVRM(notification.emotion);
-                        }
-                    }
-                    
-                    // 処理後にファイルを削除
-                    fs.unlinkSync(filePath);
-                    
-                } catch (error) {
-                    this.debugError('🎣 Hook通知ファイル処理エラー:', error);
-                    // エラーの場合もファイルを削除
-                    try {
-                        fs.unlinkSync(filePath);
-                    } catch (unlinkError) {
-                        this.debugError('🎣 Hook通知ファイル削除エラー:', unlinkError);
-                    }
-                }
+                await this.processHookNotificationFile(tempDir, file);
             }
-            
         } catch (error) {
-            this.debugError('🎣 Hook通知ディレクトリ読み取りエラー:', error);
+            this.debugError('🎣 初期ディレクトリ読み取りエラー:', error);
         }
     }
 

@@ -10,7 +10,7 @@ class MemoryMonitor {
         this.name = options.name || 'MemoryMonitor';
         this.warningThreshold = options.warningThreshold || 0.8; // メモリ使用率80%で警告
         this.criticalThreshold = options.criticalThreshold || 0.9; // メモリ使用率90%で危険
-        this.monitoringInterval = options.monitoringInterval || 30000; // 30秒間隔
+        this.monitoringInterval = options.monitoringInterval || 60000; // 60秒間隔
         this.maxHistorySize = options.maxHistorySize || 100; // 履歴の最大保持数
         
         this.memoryHistory = [];
@@ -338,7 +338,7 @@ if (typeof window !== 'undefined') {
     if (!window.globalMemoryMonitor) {
         window.globalMemoryMonitor = new MemoryMonitor({
             name: 'GlobalMemoryMonitor',
-            monitoringInterval: 30000, // 30秒間隔
+            monitoringInterval: 60000, // 60秒間隔
             warningThreshold: 0.75,
             criticalThreshold: 0.85
         });

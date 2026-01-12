@@ -76,9 +76,7 @@ class TerminalAppManager {
         });
         this.services.processingCache = this.terminalApp.processingCache;
         
-        // 読み上げ履歴管理（削除済み - VoiceQueueの重複チェッカーに統合）
-        // this.terminalApp.speechHistory = new SpeechHistoryManager(200);
-        // this.services.speechHistory = this.terminalApp.speechHistory;
+        // 読み上げ履歴管理（VoiceQueueの重複チェッカーに統合済み）
         
         debugLog('✅ 基础サービス初期化完了');
     }
@@ -302,7 +300,7 @@ class TerminalAppManager {
                 name: 'TerminalAppMemoryMonitor',
                 warningThreshold: 0.75,  // 75%で警告
                 criticalThreshold: 0.85, // 85%で緊急対応
-                monitoringInterval: 30000 // 30秒間隔
+                monitoringInterval: 60000 // 60秒間隔
             });
             this.terminalApp.memoryMonitor.startMonitoring();
             debugLog('🧠 メモリモニター開始完了');
@@ -320,6 +318,9 @@ class TerminalAppManager {
         
         // リアルタイム音声接続監視を開始
         this.startRealtimeConnectionMonitoring();
+        
+        // グローバルメッセージ監視（中央管理）
+        this.setupGlobalMessageListener();
         
         debugLog('✅ 定期処理開始完了');
     }
@@ -400,6 +401,11 @@ class TerminalAppManager {
         
         // 3秒間隔で接続状態をチェック
         this.connectionMonitoringInterval = this.terminalApp.resourceManager.setInterval(async () => {
+            // 音声が無効な場合は監視スキップ（パフォーマンス最適化）
+            if (!this.terminalApp.voiceEnabled) {
+                return;
+            }
+
             // 手動チェック中は実行しない（競合回避）
             if (this.isManualConnectionCheck) {
                 debugLog('🔄 手動チェック中のため監視スキップ');
@@ -422,6 +428,36 @@ class TerminalAppManager {
             this.connectionMonitoringInterval = null;
             debugLog('🛑 リアルタイム音声接続監視停止');
         }
+    }
+
+    /**
+     * グローバルなメッセージリスナーのセットアップ（中央管理）
+     * 各サービスの子iframeからのメッセージを受け取り、適切なサービスに振り分ける
+     */
+    setupGlobalMessageListener() {
+        if (this.globalMessageListener) {
+            window.removeEventListener('message', this.globalMessageListener);
+        }
+
+        this.globalMessageListener = (event) => {
+            const data = event.data;
+            if (!data || typeof data !== 'object') return;
+
+            // 1. VRMViewer ready通知 (CDM優先)
+            if (data.type === 'vrm-viewer-ready') {
+                if (this.terminalApp.characterDisplayManager) {
+                    this.terminalApp.characterDisplayManager.handleViewerReady(data);
+                }
+            }
+            
+            // 2. VRM関連のメッセージ (IntegrationServiceで処理)
+            if (this.terminalApp.vrmIntegrationService) {
+                this.terminalApp.vrmIntegrationService.handleVRMMessage(event);
+            }
+        };
+
+        window.addEventListener('message', this.globalMessageListener);
+        debugLog('📩 グローバルメッセージリスナー（中央管理）をセットアップしました');
     }
 
 

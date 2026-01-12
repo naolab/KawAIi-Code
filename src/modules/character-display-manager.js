@@ -132,19 +132,24 @@ class CharacterDisplayManager {
         });
 
         // VRMビューワー（iframe）からの準備完了通知を待機
-        window.addEventListener('message', (event) => {
-            if (event.data?.type === 'vrm-viewer-ready') {
-                const charId = event.data.charId || 'main';
-                console.log(`[CDM] Received vrm-viewer-ready from ${charId}`);
-                
-                // 待機中のPromiseを解決
-                if (this.viewerReadyStates.has(charId)) {
-                    const resolve = this.viewerReadyStates.get(charId);
-                    resolve(true);
-                    this.viewerReadyStates.delete(charId);
-                }
+    // グローバルなメッセージリスナーはTerminalAppManagerで中央管理されるように移行済み
+    }
+
+    /**
+     * VRMビューワー準備完了のハンドル（TerminalAppManagerから呼び出される）
+     */
+    handleViewerReady(data) {
+        if (data.type === 'vrm-viewer-ready') {
+            const charId = data.charId || 'main';
+            console.log(`[CDM] Received vrm-viewer-ready from ${charId}`);
+            
+            // 待機中のPromiseを解決
+            if (this.viewerReadyStates.has(charId)) {
+                const resolve = this.viewerReadyStates.get(charId);
+                resolve(true);
+                this.viewerReadyStates.delete(charId);
             }
-        });
+        }
     }
 
     /**

@@ -378,12 +378,7 @@ class VRMIntegrationService {
 if (typeof window !== 'undefined') {
     window.VRMIntegrationService = VRMIntegrationService;
     
-    // グローバルメッセージハンドラーを設定
-    window.addEventListener('message', (event) => {
-        if (window.vrmIntegrationService) {
-            window.vrmIntegrationService.handleVRMMessage(event);
-        }
-    });
+    // グローバルなメッセージリスナーはTerminalAppManagerで中央管理されるように移行済み
 }
 
 // Node.js環境での利用
