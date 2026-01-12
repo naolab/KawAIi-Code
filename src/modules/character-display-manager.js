@@ -684,16 +684,20 @@ class CharacterDisplayManager {
             else iconCircle.classList.remove('is-speaking');
         }
 
+        // シングルモード時は強調枠（緑の枠線）を表示しない
+        const isSingleMode = (this.currentSettings.mode === 'single');
+
         // マルチモード用のハイライト
         const vrmNode = document.getElementById(`vrm-node-${charId}`);
         if (vrmNode) {
-            if (isSpeaking) vrmNode.classList.add('is-speaking');
+            if (isSpeaking && !isSingleMode) vrmNode.classList.add('is-speaking');
             else vrmNode.classList.remove('is-speaking');
         }
 
         // シングルモードのメインボタン（シングルキャラ or アイコンモードでもメインに設定されているキャラ）
         // ユーザーの利便性のため、現在メインボタンが担当しているキャラであればモードに関わらず光らせる
-        const isMainSpeaker = (this.currentSettings.mode === 'single' && charId === this.currentSettings.singleCharacter);
+        // ただし、ユーザーの要望によりシングルモード時は光らせない
+        const isMainSpeaker = (this.currentSettings.mode !== 'single' && charId === this.currentSettings.singleCharacter);
         
         if (isMainSpeaker) {
             const btn = document.getElementById('character-change-btn');
