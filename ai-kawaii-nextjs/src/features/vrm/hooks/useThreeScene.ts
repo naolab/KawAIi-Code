@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { VRM } from '@pixiv/three-vrm'
@@ -25,6 +25,7 @@ interface UseThreeSceneProps {
   loadVRMFile: (file: File) => Promise<void>
   loadDefaultVRM: () => Promise<void>
   setVrmInfo: (info: string) => void
+  onFirstFrameRendered?: () => void
 }
 
 export const useThreeScene = ({
@@ -42,8 +43,11 @@ export const useThreeScene = ({
   cameraControlsRef,
   loadVRMFile,
   loadDefaultVRM,
-  setVrmInfo
+  setVrmInfo,
+  onFirstFrameRendered
 }: UseThreeSceneProps) => {
+  const isVrmFirstFrameRenderedRef = useRef(false)
+
   useEffect(() => {
     if (!canvasRef.current) return
 
@@ -157,6 +161,18 @@ export const useThreeScene = ({
       }
       
       renderer.render(scene, camera)
+
+      // VRMが読み込まれてからの初回描画完了を通知
+      if (onFirstFrameRendered && vrmRef.current && !isVrmFirstFrameRenderedRef.current) {
+        debugLog('✨ [useThreeScene] First frame rendered with VRM')
+        isVrmFirstFrameRenderedRef.current = true
+        onFirstFrameRendered()
+      }
+
+      // VRMが存在しない場合はフラグをリセット（次のロードに備える）
+      if (!vrmRef.current && isVrmFirstFrameRenderedRef.current) {
+        isVrmFirstFrameRenderedRef.current = false
+      }
     }
     animate(0)
 
@@ -337,5 +353,5 @@ export const useThreeScene = ({
         rendererRef.current.dispose()
       }
     }
-  }, [cameraRef, cameraControlsRef, emoteControllerRef, lipSyncRef, mixerRef, rendererRef, sceneRef, vrmRef, loadVRMFile, loadDefaultVRM, setVrmInfo, canvasRef, clockRef, animationIdRef, audioContextRef])
+  }, [cameraRef, cameraControlsRef, emoteControllerRef, lipSyncRef, mixerRef, rendererRef, sceneRef, vrmRef, loadVRMFile, loadDefaultVRM, setVrmInfo, canvasRef, clockRef, animationIdRef, audioContextRef, onFirstFrameRendered])
 }

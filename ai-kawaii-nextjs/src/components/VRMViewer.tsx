@@ -40,6 +40,9 @@ export default function VRMViewer({ className }: VRMViewerProps) {
   // アニメーション制御フック
   const { loadIdleAnimation } = useAnimation({ mixerRef })
 
+  // レンダリング開始フラグ（ロード画面の隙間を無くすため）
+  const [isFirstFrameDrawn, setIsFirstFrameDrawn] = React.useState(false)
+
   // カメラ制御フック
   const { resetCamera } = useCamera({ cameraRef, cameraControlsRef })
 
@@ -65,7 +68,19 @@ export default function VRMViewer({ className }: VRMViewerProps) {
   // デフォルトVRMを読み込む（フックから取得）
   const loadDefaultVRM = vrmLoader.loadDefaultVRM
 
+  // ロード開始時に描画フラグをリセット
+  useEffect(() => {
+    if (loading) {
+      setIsFirstFrameDrawn(false)
+    }
+  }, [loading])
+
   // Three.jsシーンの初期化
+  const handleFirstFrameRendered = React.useCallback(() => {
+    console.log('✨ [VRMViewer] First frame rendered, hiding loading screen')
+    setIsFirstFrameDrawn(true)
+  }, [])
+
   useThreeScene({
     canvasRef,
     sceneRef,
@@ -81,7 +96,8 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     cameraControlsRef,
     loadVRMFile,
     loadDefaultVRM,
-    setVrmInfo
+    setVrmInfo,
+    onFirstFrameRendered: handleFirstFrameRendered
   })
 
   // 自動読み込みは無効化 - CharacterDisplayManagerが全VRM読み込みを管理
@@ -135,11 +151,16 @@ export default function VRMViewer({ className }: VRMViewerProps) {
         }}
       />
       
-      {loading && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-lg border-2 border-orange-400 shadow-2xl">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-3 border-orange-500 mx-auto mb-3"></div>
-            <p className="text-sm text-orange-100">VRMを読み込み中...</p>
+      {(loading || !isFirstFrameDrawn) && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center">
+            <div 
+              className="animate-spin rounded-full h-8 w-8 border-b-2 mb-2" 
+              style={{ borderBottomColor: 'var(--theme-primary, #f97316)' }}
+            ></div>
+            <p className="text-xs font-medium" style={{ color: 'var(--theme-primary, #f97316)', textShadow: '0 0 10px rgba(255,255,255,0.8)' }}>
+              読み込み中...
+            </p>
           </div>
         </div>
       )}
