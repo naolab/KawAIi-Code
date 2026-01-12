@@ -80,6 +80,21 @@ class ThemeManager {
                     textPrimary: '#3A254A',
                     textSecondary: '#25152D'
                 }
+            },
+            'vscode-dark': {
+                name: 'VS Dark',
+                colors: {
+                    primary: '#007ACC',
+                    primaryLight: '#3399FF',
+                    primaryDark: '#005FA3',
+                    primaryDarker: '#004475',
+                    accent: '#0E639C',
+                    bgPrimary: '#1E1E1E',
+                    bgSecondary: '#252526',
+                    bgTertiary: '#333333',
+                    textPrimary: '#D4D4D4',
+                    textSecondary: '#CCCCCC'
+                }
             }
         };
 
