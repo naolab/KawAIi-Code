@@ -658,14 +658,7 @@
                                     class="help-nav-item"
                                     data-section="character"
                                 >
-                                    VRMキャラクター
-                                </a>
-                                <a
-                                    href="#"
-                                    class="help-nav-item"
-                                    data-section="claude"
-                                >
-                                    AIアシスタント機能
+                                    キャラクター設定
                                 </a>
                                 <a
                                     href="#"
@@ -728,154 +721,119 @@
                             >
                                 <h2>クイックスタート</h2>
                                 <div class="help-item">
-                                    <h3>使い方ガイド</h3>
+                                    <h3>はじめに</h3>
                                     <p>
-                                        KawAIi Codeの詳しい使い方については、<a
-                                            href="https://kawaii-code.vercel.app/news/3"
-                                            target="_blank"
-                                            style="color: var(--theme-primary); font-weight: bold"
-                                        >公式使い方ガイド</a>をご覧ください。初期設定から便利な機能まで、わかりやすく解説しています。
+                                        KawAIi Codeへようこそ！このアプリは、可愛いキャラクターと一緒に作業できるターミナルアプリです。
                                     </p>
                                 </div>
                                 <div class="help-item">
-                                    <h3>最初の会話</h3>
+                                    <h3>ステップ 1: ターミナルを使う</h3>
                                     <ol>
                                         <li>
-                                            ターミナル画面でコマンド（例:
-                                            `claude`）を入力して対話開始
+                                            アプリ起動後、ターミナルに直接コマンドを入力できます。
                                         </li>
                                         <li>
-                                            右側の3Dキャラクター（モネ）がAIの返答に合わせて表情変化
+                                            <strong>+ボタン</strong>で新しいタブを追加、右クリックで画面分割も可能です。
                                         </li>
                                     </ol>
                                 </div>
                                 <div class="help-item">
-                                    <h3>音声機能を有効にする（オプション）</h3>
-                                    <p>
-                                        音声機能を有効にすると、キャラクターが返答を読み上げます。感情に応じた自然な表情変化を楽しめます。
-                                    </p>
+                                    <h3>ステップ 2: キャラクターを設定</h3>
+                                    <ol>
+                                        <li>
+                                            右上の<strong>設定ボタン（歯車アイコン）</strong>をクリック。
+                                        </li>
+                                        <li>
+                                            「キャラクター設定」から表示キャラや読み上げキャラを選択できます。
+                                        </li>
+                                        <li>
+                                            VRMファイルを追加して、好きなキャラクターを登録することも可能です。
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div class="help-item">
+                                    <h3>便利な機能</h3>
+                                    <ul>
+                                        <li><strong>音声読み上げ:</strong> AivisSpeechやVOICEVOXを起動しておくと、ターミナル出力を読み上げてくれます。</li>
+                                        <li><strong>マルチタブ:</strong> 複数のターミナルをタブで切り替えたり、画面を分割して並行作業ができます。</li>
+                                        <li><strong>テーマ変更:</strong> ダークテーマなど、お好みのテーマを設定画面から選択できます。</li>
+                                    </ul>
                                 </div>
                             </div>
-
-                            <!-- 音声機能 -->
+                            <!-- 音声機能 (ここは変更なしでOKだが、Voicevoxのエンドポイントなど微修正) -->
                             <div id="help-section-voice" class="help-section">
                                 <h2>音声機能</h2>
                                 <div class="help-item">
-                                    <h3>AivisSpeech Engine（ローカル）</h3>
+                                    <h3>AivisSpeech / VOICEVOX (ローカル)</h3>
                                     <p>
-                                        <a
-                                            href="https://aivis-project.com/"
-                                            target="_blank"
-                                        >AivisSpeech公式サイト</a>からAivisSpeech
-                                        Engineをダウンロード・インストールしてください。<strong
-                                        >通常はアプリを起動するだけでOK</strong>です。Engine起動後（ポート:
-                                        127.0.0.1:10101）、KawAIi
-                                        Codeで音声機能が自動的に有効化されます。特別な設定は不要で、バックグラウンドで自動連携します。
+                                        別途ソフトウェアをインストール・起動するだけで、自動的に接続されます。
+                                        バックグラウンドで起動しておけば、特別な設定なしで高品質な読み上げ機能を利用できます。
                                     </p>
                                     <ul>
-                                        <li>
-                                            設定画面 →
-                                            音声エンジン選択で「ローカル（AivisSpeech）」を選択
-                                        </li>
-                                        <li>
-                                            話者一覧が読み込まれたら「テスト再生」で接続確認
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div class="help-item">
-                                    <h3>VOICEVOX（ローカル）</h3>
-                                    <p>
-                                        <a
-                                            href="https://voicevox.hiroshiba.jp/"
-                                            target="_blank"
-                                        >VOICEVOX公式サイト</a>からVOICEVOXをダウンロード・インストールしてください。<strong
-                                        >通常はアプリを起動するだけでOK</strong>です。VOICEVOX起動後（ポート:
-                                        127.0.0.1:50021）、KawAIi
-                                        Codeで音声機能が自動的に有効化されます。特別な設定は不要で、バックグラウンドで自動連携します。
-                                    </p>
-                                    <ul>
-                                        <li>
-                                            設定画面 →
-                                            音声エンジン選択で「VOICEVOX」を選択
-                                        </li>
-                                        <li>
-                                            必要に応じてVOICEVOXエンドポイントを編集（既定:
-                                            http://127.0.0.1:50021）
-                                        </li>
-                                        <li>
-                                            話者一覧が読み込まれたら「テスト再生」で接続確認
-                                        </li>
+                                        <li>設定画面 → 音声エンジン選択で「ローカル（AivisSpeech）」または「VOICEVOX」を選択</li>
+                                        <li>話者一覧が読み込まれたら「テスト再生」で接続確認</li>
                                     </ul>
                                 </div>
                                 <div class="help-item">
                                     <h3>Aivis Cloud API（クラウド）</h3>
                                     <p>
-                                        設定画面から「クラウドAPI使用」を有効化し、Aivis
-                                        Cloud
-                                        APIキーを設定してください。インターネット経由で高品質な音声合成を利用できます。ローカルソフト不要でシステムリソース使用量が少ないのが利点です。
-                                    </p>
-                                    <h4>⚠️ 音声合成モデルの設定が必要</h4>
-                                    <p>
-                                        <strong
-                                        >音声機能を使用するには、音声合成モデルの設定が必要です。</strong>デフォルトの音声モデルは含まれていないため、以下の手順で設定してください：
-                                    </p>
-                                    <ol>
-                                        <li>
-                                            <a
-                                                href="https://hub.aivis-project.com/"
-                                                target="_blank"
-                                            >AivisHub</a>からお好みの音声モデルを探します
-                                        </li>
-                                        <li>
-                                            モデルページでUUIDをコピーします
-                                        </li>
-                                        <li>
-                                            設定画面の「音声合成モデルを追加」でUUIDを入力
-                                        </li>
-                                        <li>
-                                            「追加」ボタンをクリックして話者選択に追加
-                                        </li>
-                                        <li>
-                                            話者選択ドロップダウンから使用したいモデルを選択
-                                        </li>
-                                    </ol>
-                                    <p>
-                                        モデルが設定されていない場合、音声合成は動作せず、エラーメッセージが表示されます。
+                                        設定画面から「クラウドAPI使用」を有効化し、APIキーを設定することで、ローカル負荷なしで高品質音声を利用できます。
+                                        <br>
+                                        ※音声合成モデルのUUID設定が必要です。
                                     </p>
                                 </div>
                             </div>
 
-                            <!-- VRMキャラクター -->
+                            <!-- キャラクター設定 -->
                             <div
                                 id="help-section-character"
                                 class="help-section"
                             >
-                                <h2>VRMキャラクター</h2>
+                                <h2>キャラクター設定</h2>
                                 <div class="help-item">
-                                    <h3>デフォルトキャラクター</h3>
+                                    <h3>表示モード</h3>
                                     <p>
-                                        モネは照れ屋で優しいプログラミングアシスタントです。AI応答の感情に合わせて表情が自動変更され、待機中も自然な動作をします。
+                                        設定画面の「表示設定」から、3つの表示モードを選択できます。
                                     </p>
+                                    <ul>
+                                        <li><strong>シングルキャラ:</strong> お気に入りの1体を大きく表示します。</li>
+                                        <li><strong>アイコンのみ:</strong> 3D描画を抑えて動作を軽くしたい時に適したモードです。</li>
+                                        <li><strong>マルチキャラ:</strong> 登録した複数のキャラクターを並べて表示します。</li>
+                                    </ul>
                                 </div>
                                 <div class="help-item">
-                                    <h3>カスタムキャラクター</h3>
+                                    <h3>表示キャラクター</h3>
                                     <p>
-                                        右上の設定ボタンをクリックし、「VRMファイルを選択」からお好みの.vrmファイルを選択できます。VRM
-                                        0.x（フル対応）、VRM
-                                        1.0（基本対応）に対応しており、ファイルサイズは50MB以下を推奨しています。
+                                        画面右側のキャラクターアイコンから、表示するキャラクターを切り替えられます。
+                                        VRMファイルを追加することで、お好きなキャラクターを登録可能です。
                                     </p>
+                                    <ul>
+                                        <li>VRM 0.x および VRM 1.0 形式に対応</li>
+                                        <li>ドラッグ＆ドロップまたはファイル選択でインポート</li>
+                                    </ul>
                                 </div>
                                 <div class="help-item">
-                                    <h3>表情・動作機能</h3>
+                                    <h3>読み上げキャラクター</h3>
+                                    <p>
+                                        画面上のアイコンから、ターミナル出力を読み上げる際の声（話者）を設定できます。
+                                        表示キャラと読み上げキャラは別々に設定可能です。
+                                    </p>
+                                    <ul>
+                                        <li>キャラクターごとに異なる話者を割り当て可能</li>
+                                        <li>「テスト再生」ボタンで設定した声を確認できます</li>
+                                    </ul>
+                                </div>
+                                <div class="help-item">
+                                    <h3>表情・リアクション</h3>
+                                    <p>
+                                        キャラクターはターミナルの出力内容に応じて表情が変化します。
+                                        音声再生時はリップシンク（口パク）も連動します。
+                                    </p>
                                     <table class="help-table">
                                         <thead>
                                             <tr>
-                                                <th class="help-th">
-                                                    AI応答内容
-                                                </th>
-                                                <th class="help-th">
-                                                    表情変化
-                                                </th>
+                                                <th class="help-th">ターミナル出力</th>
+                                                <th class="help-th">表情変化</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -891,60 +849,8 @@
                                                 <td>説明・解説</td>
                                                 <td>真剣な表情</td>
                                             </tr>
-                                            <tr>
-                                                <td>褒められた時</td>
-                                                <td>照れ</td>
-                                            </tr>
                                         </tbody>
                                     </table>
-                                    <p>
-                                        音声連動機能により、LipSync（音声再生時の口の動き）と自然な表情変化が実現されています。
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- AIアシスタント機能 -->
-                            <div id="help-section-claude" class="help-section">
-                                <h2>AIアシスタント機能</h2>
-                                <div class="help-item">
-                                    <h3>Claude Code</h3>
-                                    <p>
-                                        Anthropic社のClaude Code
-                                        CLIツールを使用します。一般的なプログラミング支援、コードレビューに使用でき、安全性重視で権限チェックありのため、通常の開発作業全般に推奨されます。
-                                    </p>
-                                </div>
-                                <div class="help-item">
-                                    <h3>Claude Code (Dangerous)</h3>
-                                    <p>
-                                        Claude
-                                        Codeの上級者向けモードです。システム設定変更、高度な操作に使用します。権限チェックをスキップしてより自由度が高い操作が可能ですが、慎重に使用してください。
-                                    </p>
-                                </div>
-                                <div class="help-item">
-                                    <h3>Gemini CLI</h3>
-                                    <p>
-                                        Google社のGemini
-                                        CLIツールを使用します。プログラミング支援や質問応答など、幅広いタスクに対応できます。
-                                    </p>
-                                </div>
-                                <div class="help-item">
-                                    <h3>OpenAI Codex</h3>
-                                    <p>
-                                        OpenAI社のCodex
-                                        CLIツールを使用します。自然言語でコードを生成・編集でき、マルチモーダル入力（テキスト、スクリーンショット、図）に対応しています。
-                                    </p>
-                                </div>
-                                <div class="help-item">
-                                    <h3>マークダウン設定（手動）</h3>
-                                    <p>
-                                        各AIアシスタントにモネの魂を吹き込むため、作業ディレクトリにMDファイルを生成する必要があります。このファイルがないと音声読み上げ機能（◆◇で囲まれた部分の読み上げ）が正常に動作しません。
-                                    </p>
-                                    <p>
-                                        キャラクター設定は自由に変更できますが、このアプリはモネを想定して作られているため（表情連動など）、他のキャラクター設定では一部機能が正常に動作しない可能性があります。
-                                    </p>
-                                    <p>
-                                        設定画面の「マークダウン設定」から各ファイルの内容を編集し、「生成」ボタンで作業ディレクトリに作成できます。
-                                    </p>
                                 </div>
                             </div>
 
@@ -955,22 +861,33 @@
                             >
                                 <h2>カスタマイズ</h2>
                                 <div class="help-item">
+                                    <h3>テーマ設定</h3>
+                                    <p>
+                                        設定画面の「テーマ設定」から、アプリ全体の配色を変更できます。
+                                    </p>
+                                    <ul>
+                                        <li><strong>カラーテーマ:</strong> オレンジ、ピンク、ブルー、グリーン、パープルなど、推し色に合わせて変更可能です。</li>
+                                        <li><strong>ダークテーマ:</strong> エンジニア向けのダークテーマも用意しています。ターミナル背景と一体化した見やすい配色です。</li>
+                                    </ul>
+                                </div>
+                                <div class="help-item">
                                     <h3>壁紙システム</h3>
                                     <p>
                                         設定画面から「壁紙アップロード」でカスタム壁紙を設定できます。JPG、PNGに対応しており、ファイルサイズは5MB以下、推奨解像度は1920x1080以上です。
+                                        <br>
+                                        ※「VS Code Dark」テーマ選択時は、視認性を確保するため壁紙が無効化され、ダークグレーの単色背景になります。
                                     </p>
                                 </div>
                                 <div class="help-item">
-                                    <h3>ターミナル設定</h3>
+                                    <h3>ターミナル機能</h3>
                                     <p>
-                                        最大10個のターミナルを同時実行できるタブ機能があります。眼のアイコンで表示/非表示を切り替えできます。
+                                        高度なターミナル管理機能を利用できます。
                                     </p>
-                                </div>
-                                <div class="help-item">
-                                    <h3>プロジェクト設定</h3>
-                                    <p>
-                                        プロジェクトごとに異なる作業ディレクトリを設定できます。MDファイルは設定画面で内容を編集し手動で生成、キャラクター設定もプロジェクト別に割り当て可能です。
-                                    </p>
+                                    <ul>
+                                        <li><strong>タブ機能:</strong> 「+」ボタンで新しいターミナルタブを追加し、複数の作業を並行して行えます。</li>
+                                        <li><strong>画面分割:</strong> タブを右クリックして「分割」を選ぶと、1つのタブ内でターミナルを上下左右に分割できます。</li>
+                                        <li><strong>ドラッグ移動:</strong> アプリ上部のヘッダーバーを掴んで、ウィンドウ全体を自由に移動できます。</li>
+                                    </ul>
                                 </div>
                             </div>
 
@@ -991,37 +908,33 @@
                                         <tbody>
                                             <tr>
                                                 <td>
-                                                    <strong>開始ボタン</strong>
+                                                    <strong>新規タブ (+)</strong>
                                                 </td>
-                                                <td>AIアシスタントを起動</td>
+                                                <td>新しいターミナルタブを作成します。</td>
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <strong>停止ボタン</strong>
+                                                    <strong>設定 (歯車)</strong>
                                                 </td>
-                                                <td>AIアシスタントを停止</td>
+                                                <td>アプリの設定モーダルを開きます。テーマ、音声、キャラクターなどの設定が可能です。</td>
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <strong
-                                                    >表示切り替え</strong>
+                                                    <strong>ヘルプ (?)</strong>
                                                 </td>
-                                                <td>ターミナル表示/非表示</td>
+                                                <td>このヘルプ画面を表示します。</td>
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <strong>設定ボタン</strong>
+                                                    <strong>ターミナル表示 (眼)</strong>
                                                 </td>
-                                                <td>
-                                                    音声・VRM・壁紙・ディレクトリ・MDファイル設定
-                                                </td>
+                                                <td>ターミナルの表示/非表示を切り替えます。キャラとゆっくり話したい時は非表示がおすすめ。</td>
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <strong
-                                                    >ヘルプボタン</strong>
+                                                    <strong>キャラ変更 (アイコン)</strong>
                                                 </td>
-                                                <td>この使い方ガイドを表示</td>
+                                                <td>キャラクターを素早く切り替えるオーバーレイボタンです。</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -1155,15 +1068,18 @@
                                         style="background: var(--theme-bg-secondary); padding: 20px; border-radius: 8px; font-size: 14px; border: 1px solid var(--theme-primary-alpha-20)"
                                     >
                                         <h3 style="margin-top: 0; color: #333">
-                                            現在のバージョン
+                                            最新の変更点
                                         </h3>
+                                        <ul style="margin-top: 10px; padding-left: 20px; line-height: 1.6;">
+                                            <li><strong>ダークテーマ:</strong> エンジニア向けのダークテーマが登場しました。</li>
+                                            <li><strong>ターミナル機能強化:</strong> タブ分割機能、ドラッグ移動機能を追加しました。</li>
+                                            <li><strong>キャラクター設定:</strong> 表示キャラと読み上げキャラを個別に設定可能になりました。</li>
+                                            <li><strong>表示モード:</strong> 3つの表示モード（シングル/アイコン/マルチ）を選択可能になりました。</li>
+                                        </ul>
                                         <p
-                                            style="font-size: 16px; font-weight: 600; color: var(--theme-primary); margin: 10px 0"
+                                            style="font-size: 12px; color: #666; margin-top: 15px; text-align: right;"
                                         >
-                                            開発版（ベータ）
-                                        </p>
-                                        <p style="color: #666; margin: 0">
-                                            最新の機能と改善が含まれています。
+                                            最終更新: 2026/01/12
                                         </p>
                                     </div>
                                 </div>
