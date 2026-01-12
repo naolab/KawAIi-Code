@@ -38,8 +38,8 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       preload: path.join(__dirname, 'src', 'preload.js'),
-      webSecurity: false,
-      devTools: false
+      webSecurity: true,
+      devTools: true
     },
     titleBarStyle: 'hiddenInset',
     show: false
@@ -137,7 +137,7 @@ function createWindow() {
     if (input.key === 'F12' ||
         (input.meta && input.alt && input.key && input.key.toLowerCase() === 'i') ||
         (input.control && input.shift && input.key && input.key.toLowerCase() === 'i')) {
-      event.preventDefault();
+      // event.preventDefault();
     }
   });
   
@@ -195,7 +195,7 @@ function createWindow() {
   });
 
   // DevTools for debugging
-  // mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
 
   // Initialize voice service
   voiceService = new VoiceService();
@@ -293,6 +293,15 @@ app.whenReady().then(async () => {
   await appConfig.loadConfig();
   claudeWorkingDir = appConfig.getClaudeWorkingDir();
   
+  // 作業ディレクトリの存在確認とバリデーション
+  if (!fs.existsSync(claudeWorkingDir)) {
+    errorLog(`設定された作業ディレクトリが存在しません: ${claudeWorkingDir}`);
+    // デフォルト（ホームディレクトリ）にリセット
+    claudeWorkingDir = os.homedir();
+    appConfig.setClaudeWorkingDir(claudeWorkingDir);
+    infoLog(`作業ディレクトリをホームディレクトリにリセットしました: ${claudeWorkingDir}`);
+  }
+
   // 作業ディレクトリをプロセスのcwdに設定
   try {
     process.chdir(claudeWorkingDir);
@@ -571,44 +580,24 @@ ipcMain.handle('auto-updater-install', async () => {
   }
 });
 
+/**
+ * デフォルトのシェルを取得する
+ */
+function getShell() {
+  if (process.platform === 'win32') {
+    return process.env.COMSPEC || 'cmd.exe';
+  } else if (process.platform === 'darwin') {
+    return process.env.SHELL || '/bin/zsh';
+  }
+  return process.env.SHELL || '/bin/bash';
+}
+
 // Claude Code process management
-ipcMain.handle('terminal-start', async (event, aiType) => {
-  infoLog(`AIアシスタントの起動リクエストを受信: ${aiType}`);
+ipcMain.handle('terminal-start', async (event) => {
+  infoLog(`ターミナル（シェル）の起動リクエストを受信`);
 
-  const selectedAI = aiConfigService.getConfig(aiType);
-  if (!selectedAI) {
-    const error = new Error(`無効なAIタイプが指定されました: ${aiType}`);
-    errorLog('Invalid AI type specified:', aiType);
-    dialog.showErrorBox('設定エラー', '指定されたAIタイプが見つかりません');
-    return { success: false, error: error.message };
-  }
-
-  infoLog(`${selectedAI.name} の実行パスを探索中...`);
-  let commandPath = '';
-  for (const testPath of selectedAI.possiblePaths) {
-    try {
-      fs.accessSync(testPath, fs.constants.F_OK);
-      commandPath = testPath;
-      infoLog(`実行可能ファイルを発見: ${commandPath}`);
-      break;
-    } catch (error) {
-      debugLog(`パスが見つかりません: ${testPath}`);
-    }
-  }
-
-  if (!commandPath) {
-    const error = new Error(`${selectedAI.name} の実行可能ファイルが見つかりませんでした`);
-    const userMessage = `${selectedAI.name} の実行可能ファイルが見つかりませんでした。
-
-以下の点を確認してください:
-- ${selectedAI.name} はインストールされていますか？
-- 環境変数PATHは正しく設定されていますか？
-- (必要であれば) CLAUDE_PATH 環境変数を設定してください。`;
-    
-    errorLog('AI executable not found:', { aiType, possiblePaths: selectedAI.possiblePaths });
-    dialog.showErrorBox('起動失敗', userMessage);
-    return { success: false, error: error.message };
-  }
+  const commandPath = getShell();
+  infoLog(`使用シェル: ${commandPath}`);
 
   if (terminalProcess) {
     debugLog('既存のターミナルプロセスを終了中...');
@@ -616,11 +605,11 @@ ipcMain.handle('terminal-start', async (event, aiType) => {
   }
 
   try {
-    infoLog(`${selectedAI.name}をPTYで起動します...`);
+    infoLog(`シェルをPTYで起動します...`);
     debugLog('実行パス:', commandPath);
     debugLog('作業ディレクトリ:', claudeWorkingDir);
     
-    const spawnArgs = selectedAI.arguments || [];
+    const spawnArgs = [];
     terminalProcess = pty.spawn(commandPath, spawnArgs, {
       name: 'xterm-color',
       cols: 80,
@@ -634,17 +623,17 @@ ipcMain.handle('terminal-start', async (event, aiType) => {
       }
     });
 
-    infoLog(`${selectedAI.name}起動完了, PID:`, terminalProcess.pid);
+    infoLog(`ターミナル起動完了, PID:`, terminalProcess.pid);
 
     terminalProcess.onData((data) => {
-      debugLog(`PTY data from ${selectedAI.name}:`, data);
+      debugLog(`PTY data:`, data);
       if (mainWindow) {
         mainWindow.webContents.send('terminal-data', data);
       }
     });
 
     terminalProcess.onExit(({ exitCode, signal }) => {
-      infoLog(`${selectedAI.name}終了:`, { exitCode, signal });
+      infoLog(`ターミナル終了:`, { exitCode, signal });
       if (mainWindow) {
         mainWindow.webContents.send('terminal-exit', exitCode);
       }
@@ -1070,7 +1059,12 @@ function stopHookNotificationWatcher() {
 // VRM file loading handler
 ipcMain.handle('load-vrm-file', async (event, filename) => {
   try {
-    const vrmPath = path.join(__dirname, filename);
+    let vrmPath = filename;
+    // 相対パスの場合は __dirname と結合
+    if (!path.isAbsolute(filename)) {
+      vrmPath = path.join(__dirname, filename);
+    }
+    
     debugLog('VRMファイル読み込み中:', vrmPath);
     
     if (!fs.existsSync(vrmPath)) {
@@ -1082,7 +1076,7 @@ ipcMain.handle('load-vrm-file', async (event, filename) => {
     
     return { 
       success: true, 
-      data: Array.from(vrmData), // Convert Buffer to Array for IPC
+      data: vrmData.toString('base64'), // Base64文字列として返す
       filename: filename 
     };
   } catch (error) {
@@ -1403,21 +1397,12 @@ ipcMain.handle('test-voicevox-connection', async () => {
 // AI設定処理はAIConfigServiceに統一
 
 // タブ作成
-ipcMain.handle('tab-create', async (event, tabId, aiType) => {
+ipcMain.handle('tab-create', async (event, tabId, cols, rows) => {
   try {
-    infoLog(`タブ作成リクエスト: ${tabId}, AI: ${aiType}`);
+    infoLog(`タブ作成リクエスト: ${tabId} (${cols}x${rows})`);
     
-    const aiConfig = aiConfigService.getConfig(aiType);
-    if (!aiConfig) {
-      return { success: false, error: `無効なAIタイプ: ${aiType}` };
-    }
-    
-    let commandPath;
-    try {
-      commandPath = await aiConfigService.findExecutablePath(aiType);
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const commandPath = getShell();
+    infoLog(`使用シェル: ${commandPath}`);
     
     // 既存のプロセスがある場合は終了
     if (terminalProcesses[tabId]) {
@@ -1426,11 +1411,14 @@ ipcMain.handle('tab-create', async (event, tabId, aiType) => {
     }
     
     // 新しいPTYプロセス作成
-    const spawnArgs = aiConfig.arguments || [];
+    const spawnArgs = [];
+    const initialCols = cols || 80;
+    const initialRows = rows || 24;
+    
     terminalProcesses[tabId] = pty.spawn(commandPath, spawnArgs, {
       name: 'xterm-color',
-      cols: 80,
-      rows: 24,
+      cols: initialCols,
+      rows: initialRows,
       cwd: claudeWorkingDir,
       env: {
         ...process.env,

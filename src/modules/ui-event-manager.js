@@ -215,13 +215,14 @@ class UIEventManager {
         this.cleanupAllEventListeners();
         
         await this.setupModalEventListeners();
-        this.setupVoiceControlEventListeners();
         this.setupDirectorySelectionEventListeners();
         this.setupGlobalDebugFunctions();
         
+        // 自動更新機能の制御
+        this.setupAutoUpdaterControls();
+        
         // 初期UI状態を更新
         this.updateButtons();
-        this.updateVoiceControls();
         this.updateTerminalToggleButton();
         
         this.isSetupComplete = true;
@@ -232,104 +233,17 @@ class UIEventManager {
      * モーダル関連のイベントリスナー設定
      */
     async setupModalEventListeners() {
-        const startBtn = document.getElementById('start-ai-selection');
-        const stopBtn = document.getElementById('stop-terminal');
-        const settingsBtn = document.getElementById('settings-btn');
-        const closeSettingsBtn = document.getElementById('close-settings');
-        const settingsModal = document.getElementById('settings-modal');
-        const helpBtn = document.getElementById('help-btn');
-        const closeHelpBtn = document.getElementById('close-help');
-        const helpModal = document.getElementById('help-modal');
-        const hooksGuideModal = document.getElementById('hooks-guide-modal');
-        const closeHooksGuideBtn = document.getElementById('close-hooks-guide');
-
-        // AI選択モーダル用の要素を取得
-        const aiSelectModal = document.getElementById('ai-select-modal');
-        const closeAiSelectBtn = document.getElementById('close-ai-select');
-        const startClaudeBtn = document.getElementById('start-claude');
-        const startClaudeDangerousBtn = document.getElementById('start-claude-dangerous');
-        const startGeminiBtn = document.getElementById('start-gemini');
-        const startCodexBtn = document.getElementById('start-codex');
-        
-        // Claude Code Hooks情報ボタン
-        const hooksInfoBtn = document.getElementById('hooks-info-btn');
-
-        // デバッグ用：要素の取得状況をログ出力
-        this.debugLog('Modal elements check:', {
-            startBtn: !!startBtn,
-            stopBtn: !!stopBtn,
-            settingsBtn: !!settingsBtn,
-            closeSettingsBtn: !!closeSettingsBtn,
-            settingsModal: !!settingsModal,
-            helpBtn: !!helpBtn,
-            closeHelpBtn: !!closeHelpBtn,
-            helpModal: !!helpModal,
-            aiSelectModal: !!aiSelectModal,
-            closeAiSelectBtn: !!closeAiSelectBtn,
-            startClaudeBtn: !!startClaudeBtn,
-            startClaudeDangerousBtn: !!startClaudeDangerousBtn,
-            startGeminiBtn: !!startGeminiBtn,
-            hooksInfoBtn: !!hooksInfoBtn,
-        });
-
-        // ターミナル制御ボタン（初期設定は削除、updateMainCliButtons()で動的に設定）
-        // startBtnのイベントリスナーはupdateMainCliButtons()で設定
-        if (stopBtn) {
-            const stopHandler = () => this.handleStopButtonClick();
-            this.safeAddEventListener(stopBtn, 'click', stopHandler, 'stop-terminal');
-        }
-        
-        // ターミナル切り替えボタン（安全な登録方式）
+        // ターミナル切り替えボタン
         const terminalToggleBtn = document.getElementById('terminal-toggle');
         if (terminalToggleBtn) {
             const terminalToggleHandler = () => this.toggleTerminalVisibility();
             this.safeAddEventListener(terminalToggleBtn, 'click', terminalToggleHandler, 'terminal-toggle');
         }
-
-        // AI選択モーダルのイベント（安全な登録方式）
-        if (closeAiSelectBtn && aiSelectModal) {
-            const closeAiSelectHandler = () => {
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(closeAiSelectBtn, 'click', closeAiSelectHandler, 'close-ai-select');
-        }
-        if (startClaudeBtn && aiSelectModal) {
-            const startClaudeHandler = () => {
-                this.app.startTerminal('claude');
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(startClaudeBtn, 'click', startClaudeHandler, 'start-claude');
-        }
-        if (startClaudeDangerousBtn && aiSelectModal) {
-            const startClaudeDangerousHandler = () => {
-                this.app.startTerminal('claude-dangerous');
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(startClaudeDangerousBtn, 'click', startClaudeDangerousHandler, 'start-claude-dangerous');
-        }
-        if (startGeminiBtn && aiSelectModal) {
-            const startGeminiHandler = () => {
-                this.app.startTerminal('gemini');
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(startGeminiBtn, 'click', startGeminiHandler, 'start-gemini');
-        }
-        if (startCodexBtn && aiSelectModal) {
-            const startCodexHandler = () => {
-                this.app.startTerminal('codex');
-                aiSelectModal.style.display = 'none';
-            };
-            this.safeAddEventListener(startCodexBtn, 'click', startCodexHandler, 'start-codex');
-        }
-        if (aiSelectModal) {
-            aiSelectModal.addEventListener('click', (e) => {
-                if (e.target === aiSelectModal) {
-                    aiSelectModal.style.display = 'none';
-                }
-            });
-        }
         
         // 設定モーダルのイベント
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettingsBtn = document.getElementById('close-settings');
         if (settingsBtn && settingsModal) {
             settingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'flex';
@@ -337,12 +251,9 @@ class UIEventManager {
                 this.initSettingsNavigation(); // タブナビゲーション初期化
             });
         }
-        
-        // CLI選択設定のイベントリスナー
-        await this.setupCliSelectionEventListeners();
 
-        // VRM設定のイベントリスナー
-        await this.setupVRMSettingsEventListeners();
+        // キャラクター設定のイベントリスナー
+        await this.setupCharacterSettingsEventListeners();
 
         if (closeSettingsBtn && settingsModal) {
             closeSettingsBtn.addEventListener('click', () => {
@@ -360,6 +271,9 @@ class UIEventManager {
         }
         
         // ヘルプモーダルのイベント
+        const helpBtn = document.getElementById('help-btn');
+        const helpModal = document.getElementById('help-modal');
+        const closeHelpBtn = document.getElementById('close-help');
         if (helpBtn) {
             this.safeAddEventListener(helpBtn, 'click', async (e) => {
                 if (e && typeof e.preventDefault === 'function') {
@@ -385,6 +299,9 @@ class UIEventManager {
         }
         
         // Hooksガイドモーダルの閉じるボタンとクリック外し
+        const hooksGuideModal = document.getElementById('hooks-guide-modal');
+        const closeHooksGuideBtn = document.getElementById('close-hooks-guide');
+        const hooksInfoBtn = document.getElementById('hooks-info-btn');
         if (closeHooksGuideBtn && hooksGuideModal) {
             closeHooksGuideBtn.addEventListener('click', () => {
                 hooksGuideModal.style.display = 'none';
@@ -402,7 +319,6 @@ class UIEventManager {
         // Claude Code Hooks情報ボタンのイベント
         if (hooksInfoBtn) {
             hooksInfoBtn.addEventListener('click', () => {
-                const hooksGuideModal = document.getElementById('hooks-guide-modal');
                 if (hooksGuideModal) {
                     hooksGuideModal.style.display = 'flex';
                 }
@@ -413,256 +329,6 @@ class UIEventManager {
         await this.setupClaudeMdEventListeners();
 
         this.debugLog('Modal event listeners setup completed');
-    }
-
-    /**
-     * 音声制御関連のイベントリスナー設定
-     */
-    setupVoiceControlEventListeners() {
-        const voiceToggleModal = document.getElementById('voice-toggle-modal');
-        const speakerSelectModal = document.getElementById('speaker-select-modal');
-        const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
-        const testLocalEngineBtn = document.getElementById('test-local-engine-btn');
-
-        this.debugLog('Voice control elements check:', {
-            voiceToggleModal: !!voiceToggleModal,
-            speakerSelectModal: !!speakerSelectModal,
-            refreshConnectionBtnModal: !!refreshConnectionBtnModal,
-            testLocalEngineBtn: !!testLocalEngineBtn
-        });
-
-        if (voiceToggleModal) {
-            const voiceToggleHandler = (e) => {
-                this.app.voiceEnabled = e.target.checked;
-                
-                // 音声オフに切り替えた場合は音声キューをクリア
-                if (!this.app.voiceEnabled && this.app.voiceQueue) {
-                    this.app.voiceQueue.clear();
-                    this.debugLog('音声オフ切り替えによりキューをクリア');
-                }
-                
-                this.updateVoiceControls();
-                this.debugLog('Voice enabled changed:', this.app.voiceEnabled);
-            };
-            
-            // 安全なイベントリスナー登録
-            this.safeAddEventListener(voiceToggleModal, 'change', voiceToggleHandler, 'voice-toggle-modal');
-        }
-
-        if (speakerSelectModal) {
-            const speakerSelectHandler = async (e) => {
-                try {
-                    const selectedValue = e.target.value;
-
-                    // 現在のエンジンタイプを確認
-                    let voiceEngine = 'aivis-local';
-                    try {
-                        if (window.electronAPI && window.electronAPI.getVoiceEngine) {
-                            voiceEngine = await window.electronAPI.getVoiceEngine();
-                        } else {
-                            const config = getSafeUnifiedConfig();
-                            voiceEngine = await config.get('voiceEngine', 'aivis-local');
-                        }
-                    } catch (error) {
-                        this.debugError('エンジン設定取得エラー:', error);
-                    }
-
-                    const isCloudAPI = voiceEngine === 'aivis-cloud';
-                    const isVoiceVOX = voiceEngine === 'voicevox';
-
-                    if (isCloudAPI) {
-                        // クラウドAPI使用時：選択されたモデル（'default' または UUID）を保存
-                        this.app.selectedSpeaker = selectedValue;
-                        this.debugLog('Cloud API speaker selection:', selectedValue);
-
-                        // 設定を永続化（クラウドAPI用の選択値として保存）
-                        if (window.electronAPI && window.electronAPI.config) {
-                            await window.electronAPI.config.set('cloudSelectedModel', selectedValue);
-                        }
-                    } else if (isVoiceVOX) {
-                        // VoiceVOX使用時：voicevoxSpeakerIdに保存
-                        this.app.selectedSpeaker = parseInt(selectedValue);
-
-                        // 設定を永続化（electronAPI.configがない場合はunifiedConfigにフォールバック）
-                        if (window.electronAPI && window.electronAPI.config) {
-                            try {
-                                await window.electronAPI.config.set('voicevoxSpeakerId', this.app.selectedSpeaker);
-                            } catch (saveError) {
-                                this.debugError('設定保存エラー:', saveError);
-                            }
-                        } else {
-                            try {
-                                const config = getSafeUnifiedConfig();
-                                await config.set('voicevoxSpeakerId', this.app.selectedSpeaker);
-                            } catch (fallbackError) {
-                                this.debugError('フォールバック保存エラー:', fallbackError);
-                            }
-                        }
-                        this.debugLog('VoiceVOX speaker setting updated:', this.app.selectedSpeaker);
-                    } else {
-                        // AivisSpeech(ローカル)使用時：数値IDを使用（従来通り）
-                        this.app.selectedSpeaker = parseInt(selectedValue);
-
-                        // 設定を永続化
-                        if (window.electronAPI && window.electronAPI.config) {
-                            await window.electronAPI.config.set('defaultSpeakerId', this.app.selectedSpeaker);
-                        }
-                        this.debugLog('Local speaker setting updated:', this.app.selectedSpeaker);
-                    }
-                } catch (error) {
-                    this.debugError('話者選択処理エラー:', error);
-                }
-            };
-
-            // 安全なイベントリスナー登録
-            this.safeAddEventListener(speakerSelectModal, 'change', speakerSelectHandler, 'speaker-select-modal');
-        }
-
-        if (refreshConnectionBtnModal) {
-            const refreshConnectionHandler = async () => {
-                // 排他制御で重複実行を防止
-                return await this.executeWithLock('refresh-connection', async () => {
-                    // ボタンを無効化してフィードバックを提供
-                    refreshConnectionBtnModal.disabled = true;
-                    refreshConnectionBtnModal.textContent = '接続中...';
-                    
-                    try {
-                        // 手動チェック（フルリトライ）を実行
-                        await this.app.checkVoiceConnection();
-                    } finally {
-                        // ボタンを元に戻す
-                        refreshConnectionBtnModal.disabled = false;
-                        refreshConnectionBtnModal.textContent = '再接続';
-                    }
-                });
-            };
-            
-            // 安全なイベントリスナー登録
-            this.safeAddEventListener(refreshConnectionBtnModal, 'click', refreshConnectionHandler, 'refresh-connection-modal');
-        }
-
-        // ローカルエンジン接続テストボタン
-        if (testLocalEngineBtn) {
-            const testLocalEngineHandler = async () => {
-                // 排他制御で重複実行を防止
-                return await this.executeWithLock('test-local-engine', async () => {
-                    const originalText = testLocalEngineBtn.textContent;
-                    testLocalEngineBtn.disabled = true;
-                    testLocalEngineBtn.textContent = 'テスト中...';
-                    
-                    try {
-                        this.debugLog('🧪 Local engine test started');
-                        
-                        if (this.app && this.app.audioService) {
-                            // ローカルエンジンでの音声合成テストを実行
-                            const testMessage = 'これはローカルエンジンのテスト用メッセージです';
-                            this.debugLog('🎵 Synthesizing test audio with local engine...');
-                            
-                            const audioData = await this.app.audioService.synthesizeTextOnly(testMessage);
-                            if (audioData) {
-                                this.debugLog('✅ Audio synthesis successful, playing...');
-                                await this.app.audioService.playAppInternalAudio(audioData, testMessage);
-                            } else {
-                                this.showNotification('音声の生成に失敗しました', 'error');
-                            }
-                        } else {
-                            this.showNotification('音声システムの初期化に失敗しました。アプリを再起動してください', 'error');
-                        }
-                    } catch (error) {
-                        this.debugError('❌ Local engine test error:', error);
-                        const userFriendlyMessage = this.convertToUserFriendlyError(error.message);
-                        this.showNotification(userFriendlyMessage, 'error');
-                    } finally {
-                        testLocalEngineBtn.disabled = false;
-                        testLocalEngineBtn.textContent = originalText;
-                        this.debugLog('🏁 Local engine test completed');
-                    }
-                });
-            };
-            
-            // 安全なイベントリスナー登録
-            this.safeAddEventListener(testLocalEngineBtn, 'click', testLocalEngineHandler, 'test-local-engine-btn');
-        }
-
-        // 音声読み上げ間隔スライダー
-        const voiceIntervalSlider = document.getElementById('voice-interval-slider');
-        if (voiceIntervalSlider) {
-            // 初期値を統一設定システムから読み込み
-            const initInterval = async () => {
-                const savedInterval = await unifiedConfig.get('voiceIntervalSeconds', this.app.voiceIntervalSeconds);
-                this.app.voiceIntervalSeconds = savedInterval;
-                voiceIntervalSlider.value = savedInterval;
-            };
-            initInterval();
-            
-            const voiceIntervalHandler = async (e) => {
-                const newValue = parseFloat(e.target.value);
-                this.app.voiceIntervalSeconds = newValue;
-                
-                // 統一設定システムに保存
-                await unifiedConfig.set('voiceIntervalSeconds', newValue);
-            };
-            
-            // 安全なイベントリスナー登録
-            this.safeAddEventListener(voiceIntervalSlider, 'input', voiceIntervalHandler, 'voice-interval-slider');
-        }
-
-        // 音量調整スライダー
-        const voiceVolumeSlider = document.getElementById('voice-volume-slider');
-        const volumeValueDisplay = document.getElementById('volume-value-display');
-        if (voiceVolumeSlider) {
-            // 初期値を設定から読み込み
-            const initVolume = async () => {
-                const savedVolume = await unifiedConfig.get('voiceVolume', 50);
-                voiceVolumeSlider.value = savedVolume;
-                // パーセンテージ表示を削除
-                this.app.voiceVolume = savedVolume;
-            };
-            initVolume();
-            
-            const voiceVolumeHandler = async (e) => {
-                const newValue = parseInt(e.target.value);
-                this.app.voiceVolume = newValue;
-                
-                // パーセンテージ表示を削除
-                
-                // 統一設定システムに保存
-                await unifiedConfig.set('voiceVolume', newValue);
-                
-                this.debugLog('Voice volume changed:', newValue);
-            };
-            
-            // 安全なイベントリスナー登録
-            this.safeAddEventListener(voiceVolumeSlider, 'input', voiceVolumeHandler, 'voice-volume-slider');
-        }
-
-        // Aivis Cloud API設定
-        this.setupCloudApiControls();
-
-        // 自動更新機能
-        this.setupAutoUpdaterControls();
-
-        // Hook使用切り替えスイッチ（配布版では無効化）
-        const useHooksToggle = document.getElementById('use-hooks-toggle');
-        if (useHooksToggle) {
-            // 配布版では常時オフに固定し、スイッチを無効化
-            useHooksToggle.checked = false;
-            useHooksToggle.disabled = true;
-            
-            // 親要素にもスタイルを適用（グレーアウト効果）
-            const switchContainer = useHooksToggle.parentElement;
-            if (switchContainer && switchContainer.classList.contains('setting-switch')) {
-                switchContainer.style.opacity = '0.5';
-                switchContainer.style.pointerEvents = 'none';
-            }
-            
-            // 強制的にアプリ内監視モードに設定
-            this.app.switchVoiceMode(false);
-            
-            this.debugLog('Hooks mode disabled for distribution version');
-        }
-
-        this.debugLog('Voice control event listeners setup completed');
     }
 
     /**
@@ -923,9 +589,9 @@ class UIEventManager {
      */
     async getDefaultClaudeMdContent() {
         // ConfigManagerからデフォルト内容を取得
-        if (this.app.terminalApp && this.app.terminalApp.configManager) {
+        if (this.app && this.app.configManager) {
             try {
-                return await this.app.terminalApp.configManager.getCombinedAiMdContent();
+                return await this.app.configManager.getCombinedAiMdContent();
             } catch (error) {
                 this.debugError('ConfigManager経由での内容取得エラー:', error);
             }
@@ -1033,16 +699,22 @@ class UIEventManager {
      */
     async loadExistingClaudeMd(fileName = 'CLAUDE.md') {
         try {
-            // 作業ディレクトリから読み込み
-            const workspaceResult = await window.electronAPI.getClaudeCwd();
-            this.debugLog('作業ディレクトリ取得結果:', workspaceResult);
+            // 保存先フォルダから読み込み
+            let targetDir = this.app.claudeWorkingDir;
             
-            if (!workspaceResult.success) {
-                this.debugError('作業ディレクトリ取得失敗:', workspaceResult);
-                return { success: false, message: '作業ディレクトリが設定されていません' };
+            // 未設定の場合はAPI経由（またはホームディレクトリ）を試行
+            if (!targetDir) {
+                const workspaceResult = await window.electronAPI.getClaudeCwd();
+                if (workspaceResult.success) {
+                    targetDir = workspaceResult.cwd;
+                } else {
+                    const { os } = window.electronAPI;
+                    targetDir = os.homedir();
+                }
             }
+            this.debugLog('読み込み対象ディレクトリ:', targetDir);
             
-            const targetPath = workspaceResult.cwd + '/' + fileName;
+            const targetPath = targetDir + '/' + fileName;
             this.debugLog('読み込み対象パス:', targetPath);
             
             // ファイルを読み込み
@@ -1055,7 +727,7 @@ class UIEventManager {
             this.debugError(`${fileName}読み込みエラー詳細:`, { error, code: error.code, message: error.message });
             
             if (error.code === 'ENOENT') {
-                return { success: false, message: `作業ディレクトリに${fileName}ファイルが見つかりません` };
+                return { success: false, message: `指定されたフォルダに${fileName}ファイルが見つかりません` };
             }
             this.debugError(`既存${fileName}読み込みエラー:`, error);
             return { success: false, message: 'ファイルの読み込みに失敗しました' };
@@ -1078,13 +750,20 @@ class UIEventManager {
                 return { success: false, message: 'MDファイルの内容が空です' };
             }
             
-            // 作業ディレクトリに生成
-            const workspaceResult = await window.electronAPI.getClaudeCwd();
-            if (!workspaceResult.success) {
-                return { success: false, message: '作業ディレクトリが設定されていません' };
+            // 保存先フォルダに生成
+            let targetDir = this.app.claudeWorkingDir;
+            
+            if (!targetDir) {
+                const workspaceResult = await window.electronAPI.getClaudeCwd();
+                if (workspaceResult.success) {
+                    targetDir = workspaceResult.cwd;
+                } else {
+                    const { os } = window.electronAPI;
+                    targetDir = os.homedir();
+                }
             }
             
-            const targetPath = workspaceResult.cwd + '/' + fileName;
+            const targetPath = targetDir + '/' + fileName;
             
             // ファイルを書き込み
             const { fs } = window.electronAPI;
@@ -1165,55 +844,7 @@ class UIEventManager {
         }
     }
 
-    /**
-     * 音声制御UIの有効・無効状態を更新
-     */
-    async updateVoiceControls() {
-        const speakerSelectModal = document.getElementById('speaker-select-modal');
-        const voiceToggleModal = document.getElementById('voice-toggle-modal');
-        const cooldownInputModal = document.getElementById('voice-cooldown-modal');
-        const refreshConnectionBtnModal = document.getElementById('refresh-connection-modal');
 
-        // クラウドAPI使用時は接続状態に関係なく有効化
-        const unifiedConfig = getSafeUnifiedConfig();
-        const voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
-        const isCloudAPI = voiceEngine === 'aivis-cloud';
-        const canUseVoice = isCloudAPI ? true : (this.app.connectionStatus === 'connected');
-
-        if (voiceToggleModal) {
-            voiceToggleModal.disabled = !canUseVoice;
-        }
-        if (speakerSelectModal) {
-            speakerSelectModal.disabled = !this.app.voiceEnabled || !canUseVoice;
-        }
-        if (refreshConnectionBtnModal) {
-            refreshConnectionBtnModal.disabled = false;
-        }
-
-        // 状態が変化した場合のみログ出力
-        const currentState = JSON.stringify({
-            canUseVoice,
-            voiceEnabled: this.app.voiceEnabled,
-            connectionStatus: this.app.connectionStatus,
-            voiceEngine,
-            isCloudAPI
-        });
-
-        if (this._lastVoiceControlState !== currentState) {
-            this.debugLog('Voice controls updated:', {
-                canUseVoice,
-                voiceEnabled: this.app.voiceEnabled,
-                connectionStatus: this.app.connectionStatus,
-                voiceEngine,
-                isCloudAPI
-            });
-            this._lastVoiceControlState = currentState;
-        }
-    }
-
-    /**
-     * ステータスメッセージを更新
-     */
     updateStatus(message) {
         const statusElement = document.getElementById('status');
         if (statusElement) {
@@ -1456,431 +1087,12 @@ class UIEventManager {
         }, 5000);
     }
 
-    /**
-     * Cloud API設定のイベントリスナー設定
-     */
-    setupCloudApiControls() {
-        // ラジオボタンに変更
-        const voiceEngineLocalRadio = document.getElementById('voice-engine-local');
-        const voiceEngineCloudRadio = document.getElementById('voice-engine-cloud');
-        const voiceEngineVoicevoxRadio = document.getElementById('voice-engine-voicevox');
-        const cloudApiSettings = document.getElementById('cloud-api-settings');
-        const cloudApiKeyInput = document.getElementById('cloud-api-key-input');
-        const testCloudApiBtn = document.getElementById('test-cloud-api-btn');
-        const saveCloudApiBtn = document.getElementById('save-cloud-api-btn');
-        const cloudApiStatus = document.getElementById('cloud-api-status');
-        const modelUuidInput = document.getElementById('model-uuid-input');
-        const addModelBtn = document.getElementById('add-model-btn');
-        
-        // デバッグ用：要素の取得状況をチェック
-        this.debugLog('Voice Engine Radio elements check:', {
-            voiceEngineLocalRadio: !!voiceEngineLocalRadio,
-            voiceEngineCloudRadio: !!voiceEngineCloudRadio,
-            cloudApiSettings: !!cloudApiSettings,
-            cloudApiKeyInput: !!cloudApiKeyInput,
-            testCloudApiBtn: !!testCloudApiBtn,
-            saveCloudApiBtn: !!saveCloudApiBtn,
-            cloudApiStatus: !!cloudApiStatus,
-            modelUuidInput: !!modelUuidInput,
-            addModelBtn: !!addModelBtn
-        });
-
-        if (voiceEngineLocalRadio && voiceEngineCloudRadio) {
-            // 初期値を設定から読み込み
-            const initVoiceEngine = async () => {
-                // ElectronのappConfigから読み込む（実際の保存先）
-                let voiceEngine = 'aivis-local';
-                try {
-                    if (window.electronAPI && window.electronAPI.getVoiceEngine) {
-                        voiceEngine = await window.electronAPI.getVoiceEngine();
-                    } else {
-                        // フォールバック：unifiedConfigから読み込み
-                        voiceEngine = await unifiedConfig.get('voiceEngine', 'aivis-local');
-                    }
-                } catch (error) {
-                    this.debugLog('音声エンジン設定読み込みエラー:', error);
-                    voiceEngine = 'aivis-local';
-                }
-
-                // ラジオボタンの状態を設定
-                const isCloudAPI = voiceEngine === 'aivis-cloud';
-                const isVoiceVOX = voiceEngine === 'voicevox';
-                voiceEngineLocalRadio.checked = !isCloudAPI && !isVoiceVOX;
-                voiceEngineCloudRadio.checked = isCloudAPI;
-                if (voiceEngineVoicevoxRadio) {
-                    voiceEngineVoicevoxRadio.checked = isVoiceVOX;
-                }
-
-                if (cloudApiSettings) {
-                    cloudApiSettings.style.display = isCloudAPI ? 'block' : 'none';
-                }
-
-                // 話者選択の更新と音声エンジン接続状況の初期状態設定
-                this.updateVoiceControlsForEngine(isCloudAPI);
-                
-                // APIキーも読み込み（復号化は内部で処理）
-                if (cloudApiKeyInput && isCloudAPI) {
-                    try {
-                        // electronAPIを通してAPIキーを取得
-                        const apiKey = await window.electronAPI.getCloudApiKey?.();
-                        if (apiKey) {
-                            cloudApiKeyInput.value = apiKey;
-                        }
-                    } catch (error) {
-                        this.debugLog('APIキー読み込みエラー:', error);
-                    }
-                }
-            };
-            initVoiceEngine();
-
-            // ラジオボタン変更時の処理
-            const radioChangeHandler = async (e) => {
-                const selectedEngine = e.target.value; // 'local' / 'cloud' / 'voicevox'
-                const voiceEngine = selectedEngine === 'cloud' ? 'aivis-cloud' :
-                                   selectedEngine === 'voicevox' ? 'voicevox' : 'aivis-local';
-
-                this.debugLog('Voice engine radio changed:', {
-                    selectedValue: selectedEngine,
-                    voiceEngine,
-                    cloudApiSettingsExists: !!cloudApiSettings
-                });
-
-                // UIを即座に更新
-                if (cloudApiSettings) {
-                    cloudApiSettings.style.display = selectedEngine === 'cloud' ? 'block' : 'none';
-                }
-
-                // 話者選択の更新と音声エンジン接続状況の制御
-                // VoiceVOXはローカルエンジンと同じ挙動（接続確認、話者リスト取得）
-                const isCloudAPI = selectedEngine === 'cloud';
-                this.updateVoiceControlsForEngine(isCloudAPI);
-
-                // 設定の保存は非同期で実行（UIをブロックしない）
-                (async () => {
-                    // 新しいvoiceEngine設定を保存
-                    await unifiedConfig.set('voiceEngine', voiceEngine);
-
-                    // 後方互換性のためuseCloudAPIも保存
-                    await unifiedConfig.set('useCloudAPI', isCloudAPI);
-
-                    // 実際の設定ファイルにも保存
-                    try {
-                        await window.electronAPI.setVoiceEngine?.(voiceEngine);
-                        await window.electronAPI.setUseCloudApi?.(isCloudAPI);
-                        console.log('✅ 音声エンジン設定を保存:', voiceEngine);
-                    } catch (error) {
-                        console.error('❌ 音声エンジン設定の保存エラー:', error);
-                    }
-
-                    // AudioServiceの設定を更新
-                    if (this.app && this.app.audioService) {
-                        await this.app.audioService.updateApiSettings();
-                    }
-
-                    // 接続状態を再確認
-                    await this.app.checkVoiceConnection();
-
-                    this.debugLog('Voice engine changed:', voiceEngine);
-                })();
-            };
-
-            // 安全なイベントリスナー登録
-            this.safeAddEventListener(voiceEngineLocalRadio, 'change', radioChangeHandler, 'voice-engine-local');
-            this.safeAddEventListener(voiceEngineCloudRadio, 'change', radioChangeHandler, 'voice-engine-cloud');
-            this.safeAddEventListener(voiceEngineVoicevoxRadio, 'change', radioChangeHandler, 'voice-engine-voicevox');
-        }
-
-        // 接続テストボタン（安全な登録方式）
-        if (testCloudApiBtn) {
-            const testHandler = async () => {
-                // 排他制御で重複実行を防止
-                return await this.executeWithLock('test-cloud-api', async () => {
-                    if (!cloudApiKeyInput) return;
-                    
-                    let apiKey = cloudApiKeyInput.value.trim();
-                    
-                    // 表示用のマスクされたキーの場合は、既存のAPIキーを取得
-                    if (apiKey.startsWith('sk-') && apiKey.includes('*')) {
-                        try {
-                            const existingKey = await window.electronAPI.getCloudApiKey?.();
-                            if (existingKey) {
-                                apiKey = existingKey;
-                            } else {
-                                this.showNotification('APIキーを入力してください', 'error');
-                                return;
-                            }
-                        } catch (error) {
-                            this.showNotification('APIキーの取得に失敗しました', 'error');
-                            return;
-                        }
-                    }
-                    
-                    if (!apiKey) {
-                        this.showNotification('APIキーを入力してください', 'error');
-                        return;
-                    }
-                    
-                    testCloudApiBtn.disabled = true;
-                    testCloudApiBtn.textContent = 'テスト中...';
-                    
-                    try {
-                        this.debugLog('🧪 Cloud API test started');
-                        
-                        // electronAPIを通してAPIキーを保存
-                        await window.electronAPI.setCloudApiKey?.(apiKey);
-                        
-                        if (this.app && this.app.audioService) {
-                            await this.app.audioService.updateApiSettings();
-                            
-                            // 実際の音声合成テストを実行（1回のみ保証）
-                            const testMessage = 'これはクラウドAPIのテスト用メッセージです';
-                            this.debugLog('🎵 Synthesizing test audio...');
-                            
-                            const audioData = await this.app.audioService.synthesizeTextOnly(testMessage);
-                            if (audioData) {
-                                this.debugLog('✅ Audio synthesis successful, playing...');
-                                await this.app.audioService.playAppInternalAudio(audioData, testMessage);
-                            } else {
-                                this.showNotification('音声の生成に失敗しました', 'error');
-                            }
-                        } else {
-                            this.showNotification('音声システムの初期化に失敗しました。アプリを再起動してください', 'error');
-                        }
-                    } catch (error) {
-                        this.debugError('❌ Cloud API test error:', error);
-                        const userFriendlyMessage = this.convertToUserFriendlyError(error.message);
-                        this.showNotification(userFriendlyMessage, 'error');
-                    } finally {
-                        testCloudApiBtn.disabled = false;
-                        testCloudApiBtn.textContent = '接続テスト';
-                        this.debugLog('🏁 Cloud API test completed');
-                    }
-                });
-            };
-            
-            // 安全なイベントリスナー登録
-            this.safeAddEventListener(testCloudApiBtn, 'click', testHandler, 'test-cloud-api-btn');
-        }
-
-        // 保存ボタン（安全な登録方式）
-        if (saveCloudApiBtn) {
-            const saveHandler = async () => {
-                if (!cloudApiKeyInput) return;
-                
-                let apiKey = cloudApiKeyInput.value.trim();
-                
-                // 表示用のマスクされたキーの場合は保存をスキップ
-                if (apiKey.startsWith('sk-') && apiKey.includes('*')) {
-                    this.showCloudApiStatus('info', '既存のAPIキーが設定済みです');
-                    return;
-                }
-                
-                if (!apiKey) {
-                    this.showCloudApiStatus('error', 'APIキーを入力してください');
-                    return;
-                }
-                
-                try {
-                    // electronAPIを通してAPIキーを保存
-                    await window.electronAPI.setCloudApiKey?.(apiKey);
-                    this.showCloudApiStatus('success', '設定を保存しました');
-                    
-                    // AudioServiceの設定を更新
-                    if (this.app && this.app.audioService) {
-                        await this.app.audioService.updateApiSettings();
-                    }
-                } catch (error) {
-                    this.showCloudApiStatus('error', `保存エラー: ${error.message}`);
-                }
-            };
-            
-            // 安全なイベントリスナー登録
-            this.safeAddEventListener(saveCloudApiBtn, 'click', saveHandler, 'save-cloud-api-btn');
-        }
-        
-
-        // モデル追加ボタンのイベントリスナー
-        if (addModelBtn && modelUuidInput) {
-            const addModelHandler = async () => {
-                const uuidInput = modelUuidInput.value.trim();
-
-                if (!uuidInput) {
-                    this.showCustomModelStatus('error', 'モデルUUIDを入力してください');
-                    return;
-                }
-
-                // UUID形式の簡易チェック（36文字のハイフン区切り）
-                const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                if (!uuidPattern.test(uuidInput)) {
-                    this.showCustomModelStatus('error', '有効なUUID形式を入力してください');
-                    return;
-                }
-
-                try {
-                    // カスタムモデルリストに追加
-                    await this.addCustomModel(uuidInput);
-
-                    // 話者選択ドロップダウンを更新
-                    await this.refreshCloudApiSpeakers();
-
-                    // 入力フィールドをクリア
-                    modelUuidInput.value = '';
-
-                    this.showCustomModelStatus('success', 'モデルを追加しました');
-
-                } catch (error) {
-                    this.debugError('モデル追加エラー:', error);
-                    this.showCustomModelStatus('error', `モデル追加エラー: ${error.message}`);
-                }
-            };
-
-            this.safeAddEventListener(addModelBtn, 'click', addModelHandler, 'add-model-btn');
-        }
-    }
-
-    /**
-     * Cloud APIステータス表示
-     */
-    showCloudApiStatus(type, message) {
-        const cloudApiStatus = document.getElementById('cloud-api-status');
-        if (!cloudApiStatus) return;
-        
-        cloudApiStatus.style.display = 'block';
-        cloudApiStatus.textContent = message;
-        
-        // スタイルを設定
-        if (type === 'success') {
-            cloudApiStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
-            cloudApiStatus.style.color = 'var(--green-primary)';
-            cloudApiStatus.style.border = '1px solid var(--green-primary)';
-        } else if (type === 'error') {
-            cloudApiStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
-            cloudApiStatus.style.color = 'var(--theme-accent)';
-            cloudApiStatus.style.border = '1px solid var(--theme-accent)';
-        }
-        
-        // 5秒後に自動で非表示
-        setTimeout(() => {
-            cloudApiStatus.style.display = 'none';
-        }, 5000);
-    }
 
 
-    /**
-     * カスタムモデルステータス表示
-     */
-    showCustomModelStatus(type, message) {
-        const customModelStatus = document.getElementById('custom-model-status');
-        if (!customModelStatus) return;
 
-        customModelStatus.style.display = 'block';
-        customModelStatus.textContent = message;
 
-        // タイプに応じた色分け
-        if (type === 'success') {
-            customModelStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
-            customModelStatus.style.color = 'var(--green-primary)';
-            customModelStatus.style.border = '1px solid var(--green-primary)';
-        } else if (type === 'error') {
-            customModelStatus.style.backgroundColor = 'var(--theme-bg-secondary)';
-            customModelStatus.style.color = 'var(--theme-accent)';
-            customModelStatus.style.border = '1px solid var(--theme-accent)';
-        }
 
-        // 5秒後に自動非表示
-        setTimeout(() => {
-            customModelStatus.style.display = 'none';
-        }, 5000);
-    }
 
-    /**
-     * 音声エンジンに応じた音声コントロールの更新
-     */
-    async updateVoiceControlsForEngine(useCloudAPI) {
-        // 話者選択ドロップダウンを更新
-        await this.updateSpeakerSelectForEngine(useCloudAPI);
-        
-        // カスタムモデルセクションの表示制御（クラウドAPI時のみ表示）
-        const customModelSection = document.getElementById('custom-model-section');
-        if (customModelSection) {
-            customModelSection.style.display = useCloudAPI ? 'block' : 'none';
-        }
-        
-        // 音声エンジン接続状況グループを制御（ローカル時のみ有効）
-        const connectionStatusGroup = document.querySelector('.connection-status-group');
-        if (connectionStatusGroup) {
-            if (!useCloudAPI) {
-                connectionStatusGroup.style.opacity = '1';
-                connectionStatusGroup.style.pointerEvents = 'auto';
-            } else {
-                connectionStatusGroup.style.opacity = '0.5';
-                connectionStatusGroup.style.pointerEvents = 'none';
-            }
-        }
-        
-        // 再接続ボタンを制御（ローカル時のみ有効）
-        const refreshConnectionBtn = document.getElementById('refresh-connection-modal');
-        if (refreshConnectionBtn) {
-            refreshConnectionBtn.disabled = useCloudAPI;
-            if (!useCloudAPI) {
-                refreshConnectionBtn.style.opacity = '1';
-                refreshConnectionBtn.style.cursor = 'pointer';
-            } else {
-                refreshConnectionBtn.style.opacity = '0.5';
-                refreshConnectionBtn.style.cursor = 'not-allowed';
-            }
-        }
-        
-        // ローカルエンジン接続テストボタンを制御（ローカル時のみ有効）
-        const testLocalEngineBtn = document.getElementById('test-local-engine-btn');
-        if (testLocalEngineBtn) {
-            testLocalEngineBtn.disabled = useCloudAPI;
-            if (!useCloudAPI) {
-                testLocalEngineBtn.style.opacity = '1';
-                testLocalEngineBtn.style.cursor = 'pointer';
-            } else {
-                testLocalEngineBtn.style.opacity = '0.5';
-                testLocalEngineBtn.style.cursor = 'not-allowed';
-            }
-        }
-        
-        this.debugLog('Voice controls updated for engine:', { useCloudAPI });
-    }
-
-    /**
-     * 音声エンジンに応じた話者選択ドロップダウンの更新
-     */
-    async updateSpeakerSelectForEngine(useCloudAPI) {
-        const speakerSelect = document.getElementById('speaker-select-modal');
-        if (!speakerSelect) return;
-
-        try {
-            if (useCloudAPI) {
-                // クラウドAPI使用時：設定されているモデルのみを表示
-                await this.populateCloudApiSpeakers(speakerSelect);
-            } else {
-                // ローカルエンジン使用時：全話者を表示（従来通り）
-                if (this.app && this.app.audioService) {
-                    await this.app.audioService.updateSpeakerSelect();
-                }
-            }
-            
-            // 話者選択を有効化（両エンジンで使用可能）
-            speakerSelect.disabled = false;
-            speakerSelect.style.opacity = '1';
-            speakerSelect.style.cursor = 'pointer';
-            speakerSelect.style.pointerEvents = 'auto';
-            
-        } catch (error) {
-            this.debugError('話者選択更新エラー:', error);
-            
-            // エラー時は無効化
-            speakerSelect.disabled = true;
-            speakerSelect.style.opacity = '0.5';
-            speakerSelect.style.cursor = 'not-allowed';
-            speakerSelect.style.pointerEvents = 'none';
-        }
-    }
 
     /**
      * クラウドAPI用の話者選択を設定
@@ -1893,9 +1105,8 @@ class UIEventManager {
             speakerSelect.innerHTML = '';
             
             const unifiedConfig = getSafeUnifiedConfig();
-            this.debugLog('unifiedConfig取得完了');
             
-            // プレースホルダーオプションを追加
+            // プレースホルダーオプション
             const placeholderOption = document.createElement('option');
             placeholderOption.value = '';
             placeholderOption.textContent = '音声モデルを選択してください';
@@ -1905,60 +1116,30 @@ class UIEventManager {
             
             // カスタムモデルリストを取得
             const customModels = await unifiedConfig.get('cloudCustomModels', []);
-            this.debugLog('カスタムモデルリスト取得:', { count: customModels.length, models: customModels });
             
             // カスタムモデルをドロップダウンに追加
-            customModels.forEach((model, index) => {
+            customModels.forEach((model) => {
                 const option = document.createElement('option');
-                option.value = model.uuid;  // UUIDをvalueに設定
+                option.value = model.uuid;
                 option.textContent = model.name;
-                option.dataset.uuid = model.uuid;  // data属性としてもUUIDを保存
                 speakerSelect.appendChild(option);
             });
             
-            // 保存された選択値を復元（なければプレースホルダー）
-            let savedSelection = '';
-            try {
-                if (window.electronAPI && window.electronAPI.config) {
-                    savedSelection = await window.electronAPI.config.get('cloudSelectedModel') || '';
-                } else {
-                    savedSelection = await unifiedConfig.get('cloudSelectedModel', '');
-                }
-            } catch (error) {
-                this.debugError('保存された選択値取得エラー:', error);
-            }
-
-            // 選択値を設定（存在しない場合はプレースホルダーを表示）
-            const optionExists = Array.from(speakerSelect.options).some(option => option.value === savedSelection);
-            speakerSelect.value = optionExists ? savedSelection : '';
-            
-            this.debugLog('クラウドAPI話者選択を設定完了:', { 
-                customModelCount: customModels.length, 
-                optionCount: speakerSelect.options.length,
-                savedSelection,
-                finalValue: speakerSelect.value
-            });
+            // モデル追加オプション
+            const addOption = document.createElement('option');
+            addOption.value = 'add_new_model';
+            addOption.textContent = '➕ 新しいモデルを追加...';
+            addOption.style.color = 'var(--theme-primary)';
+            addOption.style.fontWeight = 'bold';
+            speakerSelect.appendChild(addOption);
             
         } catch (error) {
             this.debugError('クラウドAPI話者選択設定エラー:', error);
-            
-            // フォールバック：プレースホルダーのみ表示
-            speakerSelect.innerHTML = '';
-            const placeholderOption = document.createElement('option');
-            placeholderOption.value = '';
-            placeholderOption.textContent = '音声モデルが利用できません';
-            placeholderOption.disabled = true;
-            placeholderOption.selected = true;
-            speakerSelect.appendChild(placeholderOption);
+            speakerSelect.innerHTML = '<option>読み込みエラー</option>';
         }
     }
 
-    /**
-     * ローカル音声コントロールの有効化/無効化（互換性維持用）
-     */
-    toggleLocalVoiceControls(enabled) {
-        this.updateVoiceControlsForEngine(!enabled);
-    }
+
 
     /**
      * 音声エラーを表示
@@ -2095,7 +1276,7 @@ class UIEventManager {
                 this.app.claudeWorkingDir = result.path; // クラス変数を更新
                 if (claudeCwdDisplay) claudeCwdDisplay.textContent = this.app.claudeWorkingDir;
                 if (claudeCwdMessage) {
-                    claudeCwdMessage.textContent = `作業ディレクトリを\'${result.path}\'に設定しました。`;
+                    claudeCwdMessage.textContent = `生成先フォルダを\'${result.path}\'に設定しました。`;
                     claudeCwdMessage.style.color = 'green';
                 }
                 
@@ -2109,7 +1290,7 @@ class UIEventManager {
 
             } else if (result.success && !result.path) {
                 if (claudeCwdMessage) {
-                    claudeCwdMessage.textContent = '作業ディレクトリの選択がキャンセルされました。';
+                    claudeCwdMessage.textContent = 'フォルダの選択がキャンセルされました。';
                     claudeCwdMessage.style.color = 'orange';
                 }
             } else {
@@ -2121,7 +1302,7 @@ class UIEventManager {
         } catch (error) {
             console.error('Electron APIの呼び出し中にエラーが発生しました:', error);
             if (claudeCwdMessage) {
-                claudeCwdMessage.textContent = '作業ディレクトリの設定中にエラーが発生しました。';
+                claudeCwdMessage.textContent = '生成先フォルダの設定中にエラーが発生しました。';
                 claudeCwdMessage.style.color = 'red';
             }
         }
@@ -2263,9 +1444,12 @@ class UIEventManager {
                 encryptedApiKey = await unifiedConfig.get('aivisCloudApiKey', '');
             }
 
-            // ラジオボタンの状態を更新
+            // 状態の判定のみ維持
             const isCloudAPI = voiceEngine === 'aivis-cloud';
             const isVoiceVOX = voiceEngine === 'voicevox';
+
+            /*
+            // ラジオボタンの状態を更新
             const voiceEngineLocalRadio = document.getElementById('voice-engine-local');
             const voiceEngineCloudRadio = document.getElementById('voice-engine-cloud');
             const voiceEngineVoicevoxRadio = document.getElementById('voice-engine-voicevox');
@@ -2276,13 +1460,17 @@ class UIEventManager {
                     voiceEngineVoicevoxRadio.checked = isVoiceVOX;
                 }
             }
+            */
 
+            /*
             // API設定エリアの表示/非表示を更新
             const cloudApiSettings = document.getElementById('cloud-api-settings');
             if (cloudApiSettings) {
                 cloudApiSettings.style.display = isCloudAPI ? 'block' : 'none';
             }
+            */
             
+            /*
             // APIキー入力欄の更新
             const cloudApiKeyInput = document.getElementById('cloud-api-key-input');
             if (cloudApiKeyInput) {
@@ -2295,6 +1483,7 @@ class UIEventManager {
                     cloudApiKeyInput.dataset.hasKey = 'false';
                 }
             }
+            */
             
             console.log('🔄 音声エンジン設定を同期:', { voiceEngine, isCloudAPI, isVoiceVOX, hasApiKey: !!encryptedApiKey });
             
@@ -2584,118 +1773,8 @@ class UIEventManager {
     /**
      * CLI選択設定のイベントリスナー
      */
-    async setupCliSelectionEventListeners() {
-        const cliToggles = document.querySelectorAll('input[data-cli]');
-        const errorElement = document.getElementById('cli-selection-error');
-        
-        // 各CLI選択トグルにイベントリスナーを追加
-        cliToggles.forEach(toggle => {
-            this.safeAddEventListener(toggle, 'change', async () => {
-                await this.handleCliToggleChange();
-            }, `cli-toggle-${toggle.dataset.cli}`);
-        });
-        
-        // 初期設定を読み込み
-        await this.loadCliSelectionSettings();
-    }
 
-    /**
-     * VRM設定のイベントリスナーをセットアップ
-     */
-    async setupVRMSettingsEventListeners() {
-        const loadVrmFileBtn = document.getElementById('load-vrm-file-btn');
-        const loadDefaultVrmBtn = document.getElementById('load-default-vrm-btn');
-        const vrmFileInput = document.getElementById('vrm-file-input');
-        const currentVrmInfo = document.getElementById('current-vrm-info');
 
-        this.debugLog('VRM設定要素チェック:', {
-            loadVrmFileBtn: !!loadVrmFileBtn,
-            loadDefaultVrmBtn: !!loadDefaultVrmBtn,
-            vrmFileInput: !!vrmFileInput,
-            currentVrmInfo: !!currentVrmInfo
-        });
-
-        // VRMファイル読み込みボタン
-        if (loadVrmFileBtn && vrmFileInput) {
-            loadVrmFileBtn.addEventListener('click', () => {
-                vrmFileInput.click();
-            });
-        }
-
-        // ファイル選択時の処理
-        if (vrmFileInput) {
-            vrmFileInput.addEventListener('change', async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-
-                try {
-                    this.debugLog('VRMファイル選択:', file.name);
-
-                    // ファイルをArrayBufferとして読み込み
-                    const arrayBuffer = await file.arrayBuffer();
-
-                    // iframe経由でNext.jsにpostMessage送信
-                    const iframe = document.getElementById('vrm-iframe');
-                    if (iframe && iframe.contentWindow) {
-                        iframe.contentWindow.postMessage({
-                            type: 'loadVRM',
-                            fileData: arrayBuffer,
-                            fileName: file.name
-                        }, '*');
-
-                        // 現在のVRM情報を更新
-                        if (currentVrmInfo) {
-                            currentVrmInfo.textContent = `現在のVRM: ${file.name}`;
-                        }
-
-                        this.debugLog('VRMファイルをNext.jsに送信:', file.name);
-                    } else {
-                        this.debugError('VRM iframe が見つかりません');
-                    }
-
-                    // input要素をクリア（同じファイルを再選択可能にする）
-                    vrmFileInput.value = '';
-
-                } catch (error) {
-                    this.debugError('VRMファイル読み込みエラー:', error);
-                }
-            });
-        }
-
-        // デフォルトVRM読み込みボタン
-        if (loadDefaultVrmBtn) {
-            loadDefaultVrmBtn.addEventListener('click', () => {
-                try {
-                    // iframe経由でNext.jsにpostMessage送信
-                    const iframe = document.getElementById('vrm-iframe');
-                    if (iframe && iframe.contentWindow) {
-                        iframe.contentWindow.postMessage({
-                            type: 'loadDefaultVRM'
-                        }, '*');
-
-                        // 現在のVRM情報を更新
-                        if (currentVrmInfo) {
-                            currentVrmInfo.textContent = '現在のVRM: デフォルトキャラクター（モネ）';
-                        }
-
-                        this.debugLog('デフォルトVRM読み込みをNext.jsに送信');
-                    } else {
-                        this.debugError('VRM iframe が見つかりません');
-                    }
-                } catch (error) {
-                    this.debugError('デフォルトVRM読み込みエラー:', error);
-                }
-            });
-        }
-
-        // Next.jsからのVRM情報受信（将来の拡張用）
-        window.addEventListener('message', (event) => {
-            if (event.data?.type === 'vrmInfoUpdate' && currentVrmInfo) {
-                currentVrmInfo.textContent = `現在のVRM: ${event.data.info}`;
-                this.debugLog('VRM情報更新:', event.data.info);
-            }
-        });
-    }
 
     /**
      * 設定画面タブナビゲーションの初期化
@@ -2728,6 +1807,11 @@ class UIEventManager {
                     const targetElement = document.getElementById(`settings-section-${targetSection}`);
                     if (targetElement) {
                         targetElement.classList.add('active');
+                    }
+
+                    // キャラクター設定タブの場合、リストを再描画
+                    if (targetSection === 'character') {
+                        this.renderCharacterList();
                     }
 
                     this.debugLog(`設定セクション切り替え: ${targetSection}`);
@@ -2871,7 +1955,7 @@ class UIEventManager {
         this.debugLog('CLI選択更新:', enabledCLIs);
         
         // メイン画面のボタン表示を更新
-        await this.updateMainCliButtons();
+        // await this.updateMainCliButtons(); // Removed as per instruction
     }
 
     /**
@@ -2898,97 +1982,10 @@ class UIEventManager {
             this.debugLog('CLI設定読み込み:', enabledCLIs);
             
             // メイン画面のボタン表示を更新
-            await this.updateMainCliButtons();
+            // await this.updateMainCliButtons(); // Removed as per instruction
             
         } catch (error) {
             this.debugError('CLI設定読み込みエラー:', error);
-        }
-    }
-
-    /**
-     * メイン画面のCLIボタン表示を更新
-     */
-    async updateMainCliButtons() {
-        try {
-            const unifiedConfig = getSafeUnifiedConfig();
-            const enabledCLIs = await unifiedConfig.get('enabledCLIs', ['claude', 'claude-dangerous', 'gemini']);
-            
-            // 各CLIボタンの表示制御
-            const cliButtons = {
-                'claude': document.getElementById('start-claude'),
-                'claude-dangerous': document.getElementById('start-claude-dangerous'),
-                'gemini': document.getElementById('start-gemini'),
-                'codex': document.getElementById('start-codex')
-            };
-            
-            Object.entries(cliButtons).forEach(([cliType, button]) => {
-                if (button) {
-                    button.style.display = enabledCLIs.includes(cliType) ? 'block' : 'none';
-                }
-            });
-            
-            // スマート起動機能：1つのCLIのみ有効の場合は直接起動
-            const startBtn = document.getElementById('start-ai-selection');
-            if (startBtn) {
-                // 既存のイベントリスナーを完全に削除
-                this.removeEventListener(startBtn, 'start-ai-selection');
-                this.removeEventListener(startBtn, 'start-ai-selection-direct');
-                
-                // onclickも削除
-                startBtn.onclick = null;
-                
-                // registeredListenersからも強制削除
-                this.registeredListeners.delete('start-ai-selection_click');
-                this.registeredListeners.delete('start-ai-selection-direct_click');
-                
-                if (enabledCLIs.length === 1) {
-                    // 直接起動（onclickのみ使用）
-                    startBtn.onclick = () => {
-                        this.app.startTerminal(enabledCLIs[0]);
-                    };
-                    this.debugLog(`スマート起動有効: ${enabledCLIs[0]} を直接起動`);
-                } else if (enabledCLIs.length > 1) {
-                    // 選択画面表示（onclickのみ使用）
-                    startBtn.onclick = async () => {
-                        await this.updateAiSelectModalButtons();
-                        const aiSelectModal = document.getElementById('ai-select-modal');
-                        if (aiSelectModal) aiSelectModal.style.display = 'flex';
-                    };
-                    this.debugLog(`複数CLI選択: AI選択画面を表示 (${enabledCLIs.length}個のCLI)`);
-                }
-            }
-            
-        } catch (error) {
-            this.debugError('メインCLIボタン更新エラー:', error);
-        }
-    }
-
-    /**
-     * AI選択モーダルのボタン表示を更新
-     */
-    async updateAiSelectModalButtons() {
-        try {
-            const unifiedConfig = getSafeUnifiedConfig();
-            const enabledCLIs = await unifiedConfig.get('enabledCLIs', ['claude', 'claude-dangerous', 'gemini']);
-            
-            // 各CLIボタンの表示制御
-            const cliButtons = {
-                'claude': document.getElementById('start-claude'),
-                'claude-dangerous': document.getElementById('start-claude-dangerous'),
-                'gemini': document.getElementById('start-gemini'),
-                'codex': document.getElementById('start-codex')
-            };
-            
-            Object.entries(cliButtons).forEach(([cliType, button]) => {
-                if (button) {
-                    button.style.display = enabledCLIs.includes(cliType) ? 'inline-block' : 'none';
-                }
-            });
-            
-            this.debugLog('AI選択モーダルボタン更新:', enabledCLIs);
-            
-        } catch (error) {
-            this.debugError('AI選択モーダルボタン更新エラー:', error);
         }
     }
 
@@ -3064,6 +2061,451 @@ class UIEventManager {
                 autoUpdaterStatus.textContent = 'バックグラウンドで自動更新中...';
                 autoUpdaterStatus.style.color = 'var(--theme-text-primary)';
                 break;
+        }
+    }
+
+    /**
+     * キャラクター設定用の話者選択更新
+     */
+    async updateCharacterSpeakerSelect(engine, selectedSpeakerId = null) {
+        const speakerSelect = document.getElementById('char-speaker-select');
+        const speakerContainer = document.getElementById('char-speaker-select-container');
+        const cloudSettings = document.getElementById('char-cloud-settings');
+        
+        if (!speakerSelect || !speakerContainer || !cloudSettings) return;
+
+        if (engine === 'aivis-cloud') {
+            // クラウドAPIの場合: ドロップダウンを隠してAPIキー/UUID入力欄を表示
+            speakerContainer.style.display = 'none';
+            cloudSettings.style.display = 'block';
+            return;
+        } else {
+            // その他: 入力欄を隠してドロップダウンを表示
+            speakerContainer.style.display = 'block';
+            cloudSettings.style.display = 'none';
+        }
+
+        // ローディング表示
+        speakerSelect.innerHTML = '<option>読み込み中...</option>';
+        speakerSelect.disabled = true;
+
+        try {
+            // ローカルまたはVoiceVOX
+            // AudioServiceのloadSpeakersを使ってリストを取得
+            // ※ ここでAudioServiceが初期化されている前提
+            if (!this.app.audioService) {
+                throw new Error('AudioService not initialized');
+            }
+
+            const result = await this.app.audioService.loadSpeakers(engine);
+            if (result.success) {
+                this.updateSpeakerSelectOptions(speakerSelect, result.speakers, selectedSpeakerId);
+            } else {
+                speakerSelect.innerHTML = '<option value="0">読み込み失敗</option>';
+                this.debugError('Speaker load failed:', result.error);
+            }
+        } catch (error) {
+            this.debugError('Character speaker select update error:', error);
+            speakerSelect.innerHTML = '<option value="0">エラー発生</option>';
+        } finally {
+            speakerSelect.disabled = false;
+            // 選択値を復元（もしリスト内にあれば）
+            if (selectedSpeakerId !== null) {
+                // 数値型と文字列型両対応のためtoString()比較
+                const targetVal = selectedSpeakerId.toString();
+                // 選択肢の中に存在するか確認
+                const optionExists = Array.from(speakerSelect.options).some(opt => opt.value === targetVal);
+                
+                if (optionExists) {
+                    speakerSelect.value = targetVal;
+                } else if (speakerSelect.options.length > 0) {
+                    // 存在しない場合は先頭を選択（デフォルト）
+                    speakerSelect.selectedIndex = 0;
+                }
+            }
+        }
+    }
+
+    /**
+     * キャラクター設定関連のイベントリスナー設定
+     */
+    async setupCharacterSettingsEventListeners() {
+        this.debugLog('setupCharacterSettingsEventListeners: Started');
+        
+        const addCharacterBtn = document.getElementById('add-character-btn');
+        const saveCharacterBtn = document.getElementById('save-character-btn');
+        const deleteCharacterBtn = document.getElementById('delete-character-btn');
+        const testVoiceBtn = document.getElementById('char-test-voice-btn');
+        const vrmSelectBtn = document.getElementById('char-select-vrm-btn');
+        const iconInput = document.getElementById('char-icon-upload');
+        const iconPreview = document.querySelector('.char-icon-preview');
+        const engineSelect = document.getElementById('char-engine-select');
+
+        this.debugLog('Character settings elements check:', {
+            addCharacterBtn: !!addCharacterBtn,
+            saveCharacterBtn: !!saveCharacterBtn,
+            deleteCharacterBtn: !!deleteCharacterBtn,
+            testVoiceBtn: !!testVoiceBtn,
+            engineSelect: !!engineSelect
+        });
+
+        // エンジン選択変更
+        if (engineSelect) {
+            this.safeAddEventListener(engineSelect, 'change', async (e) => {
+                const engine = e.target.value;
+                await this.updateCharacterSpeakerSelect(engine);
+            }, 'char-engine-select');
+        }
+
+        // 話者選択変更（モデル追加への誘導）
+        const speakerSelect = document.getElementById('char-speaker-select');
+        if (speakerSelect) {
+            this.safeAddEventListener(speakerSelect, 'change', (e) => {
+                if (e.target.value === 'add_new_model') {
+                    // 音声設定タブへ切り替え
+                    const voiceNav = document.querySelector('.settings-nav-item[data-section="voice"]');
+                    if (voiceNav) voiceNav.click();
+                    
+                    // クラウドAPI設定を表示させる（必要なら）
+                    const cloudRadio = document.getElementById('voice-engine-cloud');
+                    if (cloudRadio) cloudRadio.click();
+                    
+                    // 選択をリセット
+                    e.target.value = '';
+                }
+            }, 'char-speaker-select');
+        }
+
+        // 新規作成ボタン
+        if (addCharacterBtn) {
+            this.safeAddEventListener(addCharacterBtn, 'click', async (e) => {
+                e.preventDefault(); // 念のため
+                this.debugLog('New Character Button Clicked');
+                await this.createNewCharacter();
+            }, 'add-character-btn');
+        } else {
+            this.debugError('Add character button not found');
+        }
+
+        // 保存ボタン
+        if (saveCharacterBtn) {
+            this.safeAddEventListener(saveCharacterBtn, 'click', async () => {
+                await this.saveCurrentCharacter();
+            }, 'save-character-btn');
+        }
+
+        // 削除ボタン
+        if (deleteCharacterBtn) {
+            this.safeAddEventListener(deleteCharacterBtn, 'click', async () => {
+                await this.deleteCurrentCharacter();
+            }, 'delete-character-btn');
+        }
+
+        // テスト発話ボタン
+        if (testVoiceBtn) {
+            this.safeAddEventListener(testVoiceBtn, 'click', async () => {
+                await this.testCharacterVoice();
+            }, 'char-test-voice-btn');
+        }
+
+        // VRMファイル選択ボタン
+        if (vrmSelectBtn) {
+            this.safeAddEventListener(vrmSelectBtn, 'click', async () => {
+                // input type="file" を使う
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.vrm';
+                fileInput.onchange = (e) => {
+                    if (e.target.files.length > 0) {
+                        const file = e.target.files[0];
+                        // file.path はElectron環境でのみ取得可能 (contextIsolation: false)
+                        document.getElementById('char-vrm-path-input').value = file.path;
+                    }
+                };
+                fileInput.click();
+            }, 'char-select-vrm-btn');
+        }
+
+        // アイコンアップロード
+        if (iconPreview && iconInput) {
+            this.safeAddEventListener(iconPreview, 'click', () => {
+                iconInput.click();
+            }, 'char-icon-preview');
+
+            this.safeAddEventListener(iconInput, 'change', (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = document.getElementById('char-icon-img');
+                        const placeholder = document.getElementById('char-icon-placeholder');
+                        img.src = e.target.result;
+                        img.style.display = 'block';
+                        placeholder.style.display = 'none';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }, 'char-icon-upload');
+        }
+        
+        // パラメータスライダーの数値表示更新
+        ['speed', 'pitch', 'volume', 'interval'].forEach(param => {
+            const slider = document.getElementById(`char-${param}-slider`);
+            const display = document.getElementById(`char-${param}-val`);
+            if (slider && display) {
+                this.safeAddEventListener(slider, 'input', (e) => {
+                    display.textContent = e.target.value;
+                }, `char-${param}-slider`);
+            }
+        });
+    }
+
+    // キャラクターリスト描画
+    async renderCharacterList() {
+        const listContainer = document.getElementById('character-list');
+        if (!listContainer) return;
+
+        const configManager = this.app.configManager;
+        const characters = configManager.getCharacters();
+        const currentId = this.editingCharacterId || configManager.currentCharacterId;
+
+        listContainer.innerHTML = '';
+
+        characters.forEach(char => {
+            const item = document.createElement('div');
+            item.className = 'character-list-item';
+            item.style.padding = '10px';
+            item.style.cursor = 'pointer';
+            item.style.borderBottom = '1px solid var(--theme-border)';
+            item.style.backgroundColor = char.id === currentId ? 'var(--theme-bg-tertiary)' : 'transparent';
+            if (char.id === currentId) item.classList.add('active');
+
+            const iconUrl = char.icon || '../assets/icons/new-app-icon.png';
+            item.innerHTML = `
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #ddd; overflow: hidden; flex-shrink: 0; border: 1px solid var(--theme-primary-alpha-20);">
+                        <img src="${iconUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <div style="flex: 1; overflow: hidden;">
+                        <div style="font-weight: bold; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--theme-text-primary);">${char.name}</div>
+                        <div style="font-size: 10px; color: var(--theme-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${char.description || '説明なし'}</div>
+                    </div>
+                </div>
+            `;
+
+            item.addEventListener('click', () => {
+                this.selectCharacter(char.id);
+            });
+
+            listContainer.appendChild(item);
+        });
+    }
+
+    // キャラクター選択
+    async selectCharacter(charId) {
+        const configManager = this.app.configManager;
+        const char = configManager.getCharacterById(charId);
+        if (!char) return;
+
+        // UI更新
+        document.getElementById('no-character-selected').style.display = 'none';
+        document.getElementById('character-detail-content').style.display = 'block';
+
+        // フォームに値をセット
+        document.getElementById('char-name-input').value = char.name || '';
+        document.getElementById('char-desc-input').value = char.description || '';
+        document.getElementById('char-vrm-path-input').value = char.model?.path || '';
+        
+        const engine = char.voice?.engine || 'aivis-local';
+        const engineSelect = document.getElementById('char-engine-select');
+        if(engineSelect) engineSelect.value = engine;
+        
+        // 話者リスト更新と選択
+        await this.updateCharacterSpeakerSelect(engine, char.voice?.speakerId || 0);
+        
+        // Cloud API用フィールドの設定
+        document.getElementById('char-cloud-api-key').value = char.voice?.cloudApiKey || '';
+        document.getElementById('char-cloud-model-uuid').value = char.voice?.modelUuid || '';
+        
+        document.getElementById('char-prompt-input').value = char.prompt || '';
+
+        // スライダー設定
+        const setSlider = (param, value) => {
+            const slider = document.getElementById(`char-${param}-slider`);
+            const display = document.getElementById(`char-${param}-val`);
+            if (slider && display) {
+                slider.value = value;
+                display.textContent = value;
+            }
+        };
+        setSlider('interval', char.voice?.interval ?? 1.0);
+        setSlider('volume', char.voice?.volume ?? 50);
+
+        // アイコン表示
+        const img = document.getElementById('char-icon-img');
+        const placeholder = document.getElementById('char-icon-placeholder');
+        if (char.icon) {
+            img.src = char.icon;
+            img.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
+        } else {
+            img.src = '';
+            img.style.display = 'none';
+            if (placeholder) placeholder.style.display = 'block';
+        }
+
+        // 選択状態の保存
+        this.editingCharacterId = charId;
+        
+        // 削除ボタンの制御（デフォルトキャラは削除不可にするなど）
+        const deleteBtn = document.getElementById('delete-character-btn');
+        if (deleteBtn) {
+            deleteBtn.disabled = char.isDefault;
+            deleteBtn.style.opacity = char.isDefault ? '0.5' : '1';
+        }
+        
+        // リストのハイライト更新
+        this.renderCharacterList();
+    }
+
+    // 新規キャラクター作成
+    async createNewCharacter() {
+        this.debugLog('Creating new character...');
+        try {
+            const configManager = this.app.configManager;
+            if (!configManager) {
+                this.debugError('ConfigManager not found');
+                return;
+            }
+
+            const newId = `char_${Date.now()}`;
+            const newChar = {
+                id: newId,
+                name: '新しいキャラクター',
+                description: '',
+                voice: { engine: 'aivis-local', speakerId: 0, interval: 1.0, volume: 50 },
+                prompt: '',
+                model: { type: 'vrm', path: '' },
+                isDefault: false
+            };
+            
+            const success = await configManager.addCharacter(newChar);
+            if (success) {
+                this.debugLog('New character added:', newId);
+                await this.selectCharacter(newId);
+                this.showNotification('新規キャラクターを作成しました', 'success');
+            } else {
+                this.debugError('Failed to add new character');
+                this.showNotification('キャラクターの作成に失敗しました', 'error');
+            }
+        } catch (error) {
+            this.debugError('Error in createNewCharacter:', error);
+        }
+    }
+
+    // キャラクター保存
+    async saveCurrentCharacter() {
+        if (!this.editingCharacterId) return;
+
+        const updates = {
+            name: document.getElementById('char-name-input').value,
+            description: document.getElementById('char-desc-input').value,
+            model: {
+                type: 'vrm',
+                path: document.getElementById('char-vrm-path-input').value
+            },
+            voice: {
+                engine: document.getElementById('char-engine-select').value,
+                speakerId: /^\d+$/.test(document.getElementById('char-speaker-select').value) 
+                    ? parseInt(document.getElementById('char-speaker-select').value) 
+                    : document.getElementById('char-speaker-select').value,
+                interval: parseFloat(document.getElementById('char-interval-slider').value),
+                volume: parseInt(document.getElementById('char-volume-slider').value),
+                // Cloud API用設定
+                cloudApiKey: document.getElementById('char-cloud-api-key').value,
+                modelUuid: document.getElementById('char-cloud-model-uuid').value
+            },
+            prompt: document.getElementById('char-prompt-input').value,
+            icon: document.getElementById('char-icon-img').src
+        };
+
+        this.debugLog('Saving character updates:', updates);
+
+        const configManager = this.app.configManager;
+        const success = await configManager.updateCharacter(this.editingCharacterId, updates);
+        
+        if (success) {
+            this.debugLog('Character saved successfully');
+        } else {
+            this.debugError('Failed to save character');
+        }
+        
+        // 保存完了表示
+        const status = document.getElementById('char-save-status');
+        if (status) {
+            status.style.display = 'block';
+            setTimeout(() => status.style.display = 'none', 2000);
+        }
+        
+        this.renderCharacterList();
+        
+        // 現在選択中のキャラを更新した場合は、アプリ全体に即時反映させる
+        if (this.editingCharacterId === configManager.currentCharacterId) {
+            await configManager.loadCharacterSettings();
+            this.showNotification('キャラクター設定を適用しました', 'success');
+        }
+    }
+
+    // キャラクター削除
+    async deleteCurrentCharacter() {
+        if (!this.editingCharacterId) return;
+        if (!confirm('このキャラクターを削除しますか？')) return;
+
+        const configManager = this.app.configManager;
+        const success = await configManager.deleteCharacter(this.editingCharacterId);
+        
+        if (success) {
+            this.editingCharacterId = null;
+            document.getElementById('character-detail-content').style.display = 'none';
+            document.getElementById('no-character-selected').style.display = 'flex';
+            this.renderCharacterList();
+            this.showNotification('キャラクターを削除しました', 'info');
+        } else {
+            this.showNotification('削除できませんでした', 'error');
+        }
+    }
+
+    // テスト発話
+    async testCharacterVoice() {
+        const text = "こんにちは、音声テストです。";
+        // const engine = document.getElementById('char-engine-select').value;
+        const speakerVal = document.getElementById('char-speaker-select').value;
+        const speakerId = /^\d+$/.test(speakerVal) ? parseInt(speakerVal) : speakerVal;
+        
+        // Cloud API用の設定を取得
+        const cloudApiKey = document.getElementById('char-cloud-api-key').value;
+        const modelUuid = document.getElementById('char-cloud-model-uuid').value;
+        
+        // エンジンを取得
+        const engine = document.getElementById('char-engine-select').value || 'aivis-local';
+        
+        if (this.app.audioService) {
+            // デフォルト値を使用: volume=100 (1.0), speed=1.2, pitch=0.0
+            const audioData = await this.app.audioService.synthesizeTextOnly(
+                text, 
+                speakerId, 
+                100, 
+                1.2, 
+                0.0,
+                cloudApiKey,
+                modelUuid,
+                engine
+            );
+            if (audioData) {
+                await this.app.audioService.playAppInternalAudio(audioData, text);
+            } else {
+                this.showNotification('音声生成に失敗しました', 'error');
+            }
         }
     }
 }

@@ -4,12 +4,15 @@
  */
 class TabManagerDependencies {
     constructor(terminalApp) {
+        // TerminalAppへの直接参照（通知などで使用）
+        this.terminalApp = terminalApp;
+        
         // 音声処理用のMessageAccumulator
         this.messageAccumulator = terminalApp.messageAccumulator;
         
         // メインターミナルとFitAddon
-        this.mainTerminal = terminalApp.terminal;
-        this.mainFitAddon = terminalApp.fitAddon;
+        this.mainTerminal = terminalApp.terminalService ? terminalApp.terminalService.terminal : null;
+        this.mainFitAddon = terminalApp.terminalService ? terminalApp.terminalService.fitAddon : null;
         
         // リサイズ処理
         this.handleResize = () => terminalApp.handleResize();
@@ -23,6 +26,9 @@ class TabManagerDependencies {
         // デバッグ用
         this.debugLog = terminalApp.debugLog || debugLog;
         this.debugError = terminalApp.debugError || debugError;
+        
+        // 通知機能
+        this.showNotification = (msg, type) => terminalApp.showNotification ? terminalApp.showNotification(msg, type) : null;
     }
     
     // 依存関係の健全性チェック

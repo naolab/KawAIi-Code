@@ -12,7 +12,7 @@ class AudioService {
         this.speakers = [];
         this.selectedSpeaker = 888753760; // デフォルト話者ID
         this.connectionStatus = 'disconnected';
-        this.voiceVolume = 25;
+        this.voiceVolume = 80; // デフォルト音量を少し上げる
         this.debugLog = debugLog;
         this.debugError = debugError;
         
@@ -20,16 +20,21 @@ class AudioService {
         this.baseUrl = 'http://localhost:10101';
         this.cloudApiUrl = 'https://api.aivis-project.com/v1';
         this.voicevoxUrl = 'http://127.0.0.1:50021';
-        this.voiceEngine = 'aivis-local'; // aivis-local / aivis-cloud / voicevox
+        this.voiceEngine = 'aivis-local'; // デフォルト。ConfigManagerから上書きされる
         this.useCloudAPI = false;
         this.cloudApiKey = '';
-
-        // 音声再生状態は統一管理システムを使用（app.js）
-        // 注意: updateApiSettings()はTerminalAppManager.jsで明示的に呼ばれる
+        this.lastSettingsUpdate = 0; // キャッシュ用
+        this.settingsCacheInterval = 5000; // 5秒間キャッシュ
     }
 
     // API設定を更新
-    async updateApiSettings() {
+    async updateApiSettings(force = false) {
+        // キャッシュチェック（forceがtrueの場合は強制更新）
+        const now = Date.now();
+        if (!force && (now - this.lastSettingsUpdate < this.settingsCacheInterval)) {
+            return;
+        }
+
         try {
             const unifiedConfig = getSafeUnifiedConfig();
 
@@ -42,11 +47,6 @@ class AudioService {
                 // APIキーは暗号化されているため、window.electronAPI経由で復号化されたキーを取得
                 if (window.electronAPI && window.electronAPI.getCloudApiKey) {
                     this.cloudApiKey = await window.electronAPI.getCloudApiKey();
-                    this.debugLog('APIキー取得:', {
-                        hasKey: !!this.cloudApiKey,
-                        keyLength: this.cloudApiKey ? this.cloudApiKey.length : 0,
-                        keyPrefix: this.cloudApiKey ? this.cloudApiKey.substring(0, 10) + '...' : 'なし'
-                    });
                 }
             }
 
@@ -54,15 +54,16 @@ class AudioService {
                 this.voicevoxUrl = await unifiedConfig.get('voicevoxEndpoint', 'http://127.0.0.1:50021');
             }
 
-            this.debugLog('API設定を更新:', { voiceEngine: this.voiceEngine, endpoint: this.getApiEndpoint() });
+            this.lastSettingsUpdate = now;
+            this.debugLog('API設定を更新（キャッシュ適用可能）:', { voiceEngine: this.voiceEngine, endpoint: this.getApiEndpoint() });
         } catch (error) {
             this.debugError('API設定の更新に失敗:', error);
         }
     }
 
     // 現在のAPIエンドポイントを取得
-    getApiEndpoint() {
-        switch (this.voiceEngine) {
+    getApiEndpoint(engine = this.voiceEngine) {
+        switch (engine) {
             case 'aivis-cloud':
                 return this.cloudApiUrl;
             case 'voicevox':
@@ -83,37 +84,104 @@ class AudioService {
     }
 
     // 話者リストを読み込み
-    async loadSpeakers() {
+    async loadSpeakers(engine = null) {
         try {
             // API設定を更新
             await this.updateApiSettings();
-            const endpoint = this.getApiEndpoint();
+            
+            const targetEngine = engine || this.voiceEngine;
+            
+            // Cloud APIの場合はリスト取得をスキップ（UUID指定のため）
+            if (targetEngine === 'aivis-cloud') {
+                this.debugLog('Cloud API: Speaker list loading skipped (UUID mode)');
+                return { success: true, speakers: [] };
+            }
+
+            const endpoint = this.getApiEndpoint(targetEngine);
             const headers = this.getRequestHeaders();
 
             const response = await fetch(`${endpoint}/speakers`, { headers });
             const speakersData = await response.json();
 
+            let speakersList = [];
+
             // VoiceVOXの場合は話者リストを変換（階層構造→フラット構造）
-            if (this.voiceEngine === 'voicevox') {
-                this.speakers = window.SpeakerConverter.convertVoiceVoxSpeakers(speakersData);
+            if (targetEngine === 'voicevox') {
+                speakersList = window.SpeakerConverter.convertVoiceVoxSpeakers(speakersData);
                 this.debugLog('VoiceVOX話者リスト変換完了:', {
                     original: speakersData.length,
-                    converted: this.speakers.length
+                    converted: speakersList.length
                 });
             } else {
-                this.speakers = speakersData;
+                speakersList = speakersData;
             }
 
-            this.debugLog('話者リスト読み込み成功:', this.speakers.length + '人');
-            return { success: true, speakers: this.speakers };
+            // グローバル設定の更新時のみインスタンス変数を更新
+            if (!engine || engine === this.voiceEngine) {
+                this.speakers = speakersList;
+            }
+
+            this.debugLog(`話者リスト読み込み成功 (${targetEngine}):`, speakersList.length + '人');
+            return { success: true, speakers: speakersList };
         } catch (error) {
             this.debugError('話者リスト読み込み失敗:', error);
             return { success: false, error: error.message };
         }
     }
 
+    /**
+     * キャラクターIDに基づいて音声合成。ConfigManagerから最新設定を引く。
+     */
+    async synthesizeTextByCharacter(text, characterId) {
+        console.log(`[AudioService] synthesizeTextByCharacter:`, { text: text.substring(0, 20), characterId });
+        if (!text) return null;
+
+        const configManager = this.terminalApp.configManager || window.terminalApp?.configManager;
+        if (!configManager) {
+            console.error('[AudioService] ConfigManager not found');
+            return null;
+        }
+
+        // IDがない場合はConfigManagerのデフォルト（現在の主役）を使用
+        const targetId = characterId || configManager.currentCharacterId || 'char_mona';
+        const char = configManager.getCharacterById(targetId);
+        
+        console.log(`[AudioService] Character lookup result:`, { 
+            requestedId: characterId, 
+            targetId: targetId, 
+            foundCharName: char?.name,
+            foundCharId: char?.id,
+            voice: char?.voice,
+            isDefaultFallback: char?.id !== targetId
+        });
+        
+        if (!char || !char.voice) {
+            console.error(`[AudioService] Character settings not found for ID: ${targetId}`);
+            return null;
+        }
+
+        const v = char.voice;
+        console.log(`[AudioService] Using voice settings:`, {
+            engine: v.engine,
+            speakerId: v.speakerId,
+            volume: v.volume,
+            speed: v.speed
+        });
+
+        return await this.synthesizeTextOnly(
+            text,
+            v.speakerId,
+            v.volume,
+            v.speed,
+            v.pitch,
+            v.cloudApiKey,
+            v.modelUuid,
+            v.engine
+        );
+    }
+
     // 音声合成のみ実行（再生は別途）
-    async synthesizeTextOnly(text) {
+    async synthesizeTextOnly(text, overrideSpeakerId = null, overrideVolume = null, overrideSpeed = null, overridePitch = null, overrideCloudApiKey = null, overrideModelUuid = null, overrideEngine = null) {
         if (!text || text.trim() === '') {
             this.debugLog('音声合成スキップ: 空のテキスト');
             return null;
@@ -121,39 +189,51 @@ class AudioService {
 
         try {
             const unifiedConfig = getSafeUnifiedConfig();
-            let speakerId = await unifiedConfig.get('defaultSpeakerId', this.selectedSpeaker);
-            const volume = await unifiedConfig.get('voiceVolume', this.voiceVolume);
-            const speed = 1.2; // 読み上げ速度
-
+            
             // API設定を更新
             await this.updateApiSettings();
 
-            // VoiceVOX使用時は専用の話者IDを使用
-            if (this.voiceEngine === 'voicevox') {
-                speakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
+            // エンジンの決定（オーバーライド優先）
+            const targetEngine = overrideEngine || this.voiceEngine;
+            const isCloudRequest = targetEngine === 'aivis-cloud';
+
+            // パラメータの決定（オーバーライド優先）
+            let speakerId = overrideSpeakerId;
+            if (speakerId === null) {
+                // VoiceVOX使用時は専用の話者IDを使用
+                if (targetEngine === 'voicevox') {
+                    speakerId = await unifiedConfig.get('voicevoxSpeakerId', 0);
+                } else {
+                    speakerId = await unifiedConfig.get('defaultSpeakerId', this.selectedSpeaker);
+                }
             }
+
+            let volume = overrideVolume;
+            if (volume === null) {
+                volume = await unifiedConfig.get('voiceVolume', this.voiceVolume);
+            }
+
+            const speed = overrideSpeed !== null ? overrideSpeed : 1.2; // デフォルト速度
+            const pitch = overridePitch !== null ? overridePitch : 0.0; // デフォルトピッチ
 
             this.debugLog('音声合成開始:', {
                 text: text.substring(0, 30) + '...',
                 speakerId,
                 volume,
                 speed,
-                voiceEngine: this.voiceEngine,
-                useCloudAPI: this.useCloudAPI
+                pitch,
+                voiceEngine: targetEngine,
+                useCloudAPI: isCloudRequest,
+                hasCloudApiKey: !!overrideCloudApiKey,
+                hasModelUuid: !!overrideModelUuid
             });
-            const endpoint = this.getApiEndpoint();
+            const endpoint = this.getApiEndpoint(targetEngine);
             const headers = {
                 ...this.getRequestHeaders(),
                 'Content-Type': 'application/json'
             };
             
-            this.debugLog('音声合成API詳細:', {
-                endpoint,
-                headers: this.useCloudAPI ? { 'Authorization': '[設定済み]', 'Content-Type': 'application/json' } : headers,
-                useCloudAPI: this.useCloudAPI
-            });
-            
-            if (this.useCloudAPI) {
+            if (isCloudRequest) {
                 // 感情分析実行
                 const emotion = this.terminalApp.emotionAnalyzer 
                     ? this.terminalApp.emotionAnalyzer.analyzeEmotion(text)
@@ -162,20 +242,26 @@ class AudioService {
                 // SSML強化テキスト処理
                 const enhancedText = this.enhanceTextWithSSML(text, emotion);
                 
-                // 話者選択を取得（クラウドAPI用）
-                let cloudSpeakerId = 'default';
-                try {
-                    const speakerSelect = document.getElementById('speaker-select-modal');
-                    if (speakerSelect && speakerSelect.value) {
-                        cloudSpeakerId = speakerSelect.value;
-                    }
-                } catch (error) {
-                    this.debugError('話者選択取得エラー:', error);
+                // クラウドAPIリクエストヘッダー構築
+                const reqHeaders = {
+                    'accept': 'audio/mp3',
+                    'Content-Type': 'application/json'
+                };
+                
+                // APIキー（オーバーライド優先）
+                const apiKey = overrideCloudApiKey || this.cloudApiKey;
+                if (apiKey) {
+                    reqHeaders['Authorization'] = `Bearer ${apiKey}`;
                 }
                 
+                // モデルUUID（オーバーライド優先、なければspeakerIdをフォールバックとして使用）
+                const targetModelUuid = overrideModelUuid || overrideSpeakerId || 'default';
+                
                 // 感情に応じたパラメータ構築（話者IDを含む）
-                const cloudPayload = await this.buildCloudApiParams(enhancedText.text, emotion, speed, volume, cloudSpeakerId);
+                const cloudPayload = await this.buildCloudApiParams(enhancedText.text, emotion, speed, volume, targetModelUuid);
                 cloudPayload.use_ssml = enhancedText.use_ssml;
+                // Cloud APIでのピッチ指定方法は要確認だが、一旦パラメータに追加しておく
+                if (pitch !== 0.0) cloudPayload.pitch = pitch;
                 
                 // 用途別プリセット適用
                 const preset = this.getAudioPreset('realtime');
@@ -185,7 +271,7 @@ class AudioService {
                 
                 const synthesisResponse = await fetch(`${endpoint}/tts/synthesize`, {
                     method: 'POST',
-                    headers,
+                    headers: reqHeaders,
                     body: JSON.stringify(cloudPayload)
                 });
 
@@ -208,7 +294,7 @@ class AudioService {
                         
                         const retryResponse = await fetch(`${endpoint}/tts/synthesize`, {
                             method: 'POST',
-                            headers,
+                            headers: reqHeaders,
                             body: JSON.stringify(fallbackPayload)
                         });
                         
@@ -235,8 +321,9 @@ class AudioService {
                     this.debugLog('ローカルエンジンにフォールバック中...');
                     const originalCloudSetting = this.useCloudAPI;
                     try {
-                        this.useCloudAPI = false;
-                        const fallbackAudioData = await this.synthesizeTextOnly(text, speakerId, volume, speed);
+                        this.useCloudAPI = false; // 一時的にフラグ変更（再帰呼び出し用）
+                        // ここでは引数でエンジンを指定して再帰呼び出し
+                        const fallbackAudioData = await this.synthesizeTextOnly(text, speakerId, volume, speed, pitch, null, null, 'aivis-local');
                         this.debugLog('ローカルエンジンフォールバック成功');
                         return fallbackAudioData;
                     } catch (fallbackError) {
@@ -260,21 +347,22 @@ class AudioService {
 
                 if (!queryResponse.ok) {
                     const errorText = await queryResponse.text();
-                    this.debugError('音声クエリ生成失敗:', {
+                    this.debugError('[AudioService] 音声クエリ生成失敗:', {
                         status: queryResponse.status,
                         statusText: queryResponse.statusText,
                         errorText,
-                        endpoint,
-                        useCloudAPI: this.useCloudAPI
+                        url: queryResponse.url
                     });
-                    throw new Error(`音声クエリ生成失敗: ${queryResponse.status} - ${errorText}`);
+                    throw new Error(`音声クエリ生成失敗: ${queryResponse.status}`);
                 }
+                this.debugLog('[AudioService] 音声クエリ生成成功');
 
                 const audioQuery = await queryResponse.json();
                 
                 // 音量と速度を設定
                 audioQuery.volumeScale = volume / 100;
                 audioQuery.speedScale = speed;
+                audioQuery.pitchScale = pitch;
 
                 // 音声を合成
                 const synthesisResponse = await fetch(`${endpoint}/synthesis?speaker=${speakerId}`, {
@@ -285,15 +373,15 @@ class AudioService {
 
                 if (!synthesisResponse.ok) {
                     const errorText = await synthesisResponse.text();
-                    this.debugError('音声合成失敗:', {
+                    this.debugError('[AudioService] 音声合成失敗:', {
                         status: synthesisResponse.status,
                         statusText: synthesisResponse.statusText,
                         errorText,
-                        endpoint,
-                        useCloudAPI: this.useCloudAPI
+                        url: synthesisResponse.url
                     });
-                    throw new Error(`音声合成失敗: ${synthesisResponse.status} - ${errorText}`);
+                    throw new Error(`音声合成失敗: ${synthesisResponse.status}`);
                 }
+                this.debugLog('[AudioService] 音声合成成功');
 
                 const audioData = await synthesisResponse.arrayBuffer();
                 this.debugLog('音声合成成功:', `${audioData.byteLength}バイト`);
@@ -476,7 +564,7 @@ class AudioService {
     }
 
     // アプリ内音声再生
-    async playAppInternalAudio(audioData, text) {
+    async playAppInternalAudio(audioData, text, characterId = null) {
         if (!audioData) {
             this.debugLog('音声再生スキップ: 音声データなし');
             return;
@@ -513,12 +601,10 @@ class AudioService {
 
             // VRMリップシンク用に音声データを送信
             if (this.terminalApp.vrmIntegrationService) {
-                // Cloud APIの場合は振幅増幅フラグを付けて送信
-                if (this.useCloudAPI) {
-                    this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData, { amplifyLipSync: true });
-                } else {
-                    this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData);
-                }
+                this.terminalApp.vrmIntegrationService.sendAudioToVRM(processedAudioData, { 
+                    amplifyLipSync: this.useCloudAPI,
+                    characterId: characterId
+                });
             }
 
             // 既存音声の安全なクリーンアップ
@@ -556,11 +642,20 @@ class AudioService {
             this.terminalApp.voicePlayingState.currentAudioUrl = audioUrl;
 
             // 音声を再生
-            await audio.play();
+            this.debugLog('[AudioService] audio.play() 実行直前');
+            await audio.play().catch(e => {
+                this.debugError('[AudioService] audio.play() 失敗:', e);
+                throw e;
+            });
             this.debugLog('アプリ内音声再生開始完了');
 
+            // VRMに再生開始を通知
+            if (this.terminalApp.vrmIntegrationService) {
+                this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('playing', characterId);
+            }
+
             // 再生完了を待機（改善版）
-            await this.waitForAudioCompletion(audio, audioUrl);
+            await this.waitForAudioCompletion(audio, audioUrl, characterId);
 
         } catch (error) {
             this.debugError('アプリ内音声再生エラー:', error);
@@ -772,32 +867,17 @@ class AudioService {
             // エンジンごとに接続テストエンドポイントを切り替え
             switch (this.voiceEngine) {
                 case 'aivis-cloud':
-                    // クラウドAPIの場合は/speakersエンドポイントで接続テスト
-                    try {
-                        const testEndpoint = `${endpoint}/speakers`;
-                        const response = await fetch(testEndpoint, { headers });
-
-                        if (response.ok) {
-                            this.connectionStatus = 'connected';
-                            this.terminalApp.connectionStatus = 'connected';
-                            this.debugLog('クラウドAPI接続成功');
-                            return { success: true };
-                        } else {
-                            const errorText = await response.text();
-                            this.connectionStatus = 'disconnected';
-                            this.terminalApp.connectionStatus = 'disconnected';
-                            this.debugLog('クラウドAPI接続失敗:', {
-                                status: response.status,
-                                statusText: response.statusText,
-                                errorText
-                            });
-                            return { success: false, error: `API接続失敗: ${response.status} - ${errorText}` };
-                        }
-                    } catch (error) {
-                        this.connectionStatus = 'error';
-                        this.terminalApp.connectionStatus = 'error';
-                        this.debugLog('クラウドAPI接続エラー:', error.message);
-                        return { success: false, error: error.message };
+                    // クラウドAPIの場合はAPIキーの有無のみ確認（エンドポイントが存在しないため）
+                    if (this.cloudApiKey) {
+                        this.connectionStatus = 'connected';
+                        this.terminalApp.connectionStatus = 'connected';
+                        this.debugLog('クラウドAPI接続状態: キー設定済み');
+                        return { success: true };
+                    } else {
+                        this.connectionStatus = 'disconnected';
+                        this.terminalApp.connectionStatus = 'disconnected';
+                        this.debugLog('クラウドAPI接続失敗: APIキー未設定');
+                        return { success: false, error: 'APIキーが設定されていません' };
                     }
 
                 case 'voicevox':
@@ -1044,7 +1124,7 @@ class AudioService {
     /**
      * 音声完了の確実な待機
      */
-    async waitForAudioCompletion(audio, audioUrl) {
+    async waitForAudioCompletion(audio, audioUrl, characterId = null) {
         return new Promise((resolve) => {
             let isResolved = false;
             
@@ -1078,7 +1158,7 @@ class AudioService {
                 
                 // 音声終了をVRMビューワーに通知
                 if (this.terminalApp.vrmIntegrationService) {
-                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('ended');
+                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('ended', characterId);
                 }
                 
                 cleanup();
@@ -1089,7 +1169,7 @@ class AudioService {
                 
                 // エラー時もVRMビューワーに通知
                 if (this.terminalApp.vrmIntegrationService) {
-                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('error');
+                    this.terminalApp.vrmIntegrationService.notifyAudioStateToVRM('error', characterId);
                 }
                 
                 cleanup();

@@ -60,7 +60,6 @@ class TerminalApp {
         // 音声再生状態の統一管理（全サービス共通）
         this.voicePlayingState = {
             isPlaying: false,           // アプリ内音声再生中フラグ
-            isPlayingHook: false,       // Hook音声再生中フラグ
             currentAudio: null,         // 現在再生中の音声オブジェクト
             currentAudioUrl: null,      // 現在のBlobURL（リソース管理用）
             currentEndedHandler: null,  // 現在のendedイベントハンドラー
@@ -68,7 +67,7 @@ class TerminalApp {
             queue: [],                  // 音声キュー
             // 統一状態チェック関数
             isAnyPlaying: function() {
-                return this.isPlaying || this.isPlayingHook;
+                return this.isPlaying;
             }
         };
         
@@ -175,17 +174,13 @@ class TerminalApp {
         debugLog('⏳ DOM要素の準備完了を待機中...');
         return new Promise(resolve => {
             const checkElements = () => {
-                const statusElement = document.getElementById('connection-status-modal');
                 const settingsModal = document.getElementById('settings-modal');
                 
-                if (statusElement && settingsModal) {
+                if (settingsModal) {
                     debugLog('✅ DOM要素の準備完了');
                     resolve();
                 } else {
-                    debugLog('🔄 DOM要素待機中...', { 
-                        statusElement: !!statusElement, 
-                        settingsModal: !!settingsModal 
-                    });
+                    debugLog('🔄 DOM要素待機中...');
                     setTimeout(checkElements, 100);
                 }
             };
@@ -213,12 +208,21 @@ class TerminalApp {
 
 
     // 統一感情処理メソッド（全音声で使用）
-    async processEmotionForVRM(text, audioData) {
+    async processEmotionForVRM(text, audioData, characterId = null) {
         try {
             // 音声無効時は感情処理もスキップ（パフォーマンス最適化）
             if (!this.voiceEnabled) {
                 debugLog('🎭 音声無効のため感情処理をスキップ:', text ? text.substring(0, 30) + '...' : '');
                 return null;
+            }
+
+            // 表示中のキャラと喋っているキャラが一致するかチェック（Singleモード時）
+            const cdm = window.characterDisplayManager;
+            if (cdm && cdm.currentSettings.mode === 'single' && characterId) {
+                if (characterId !== cdm.currentSettings.singleCharacter) {
+                    debugLog(`🎭 別のキャラ (${characterId}) が喋っているためVRM連動をスキップ (表示中: ${cdm.currentSettings.singleCharacter})`);
+                    return null;
+                }
             }
             
             debugLog('🎭 統一感情処理開始:', text ? text.substring(0, 30) + '...' : '');
@@ -231,7 +235,7 @@ class TerminalApp {
                 } else {
                     arrayBuffer = audioData;
                 }
-                this.vrmIntegrationService.sendAudioToVRM(arrayBuffer);
+                this.vrmIntegrationService.sendAudioToVRM(arrayBuffer, { characterId: characterId });
                 debugLog('🎭 VRMリップシンク用音声データ送信完了');
             }
             
@@ -240,8 +244,8 @@ class TerminalApp {
                 const emotionResult = await window.electronAPI.voice.getEmotion(text);
                 if (emotionResult.success && emotionResult.emotion) {
                     // 3. VRMに感情データを送信
-                    this.vrmIntegrationService.sendEmotionToVRM(emotionResult.emotion);
-                    debugLog('😊 統一感情処理完了:', emotionResult.emotion);
+                    this.vrmIntegrationService.sendEmotionToVRM(emotionResult.emotion, characterId);
+                    debugLog('😊 統一感情処理完了:', emotionResult.emotion, 'To:', characterId || 'All');
                     return emotionResult.emotion;
                 } else {
                     debugLog('⚠️ 感情分析結果が無効:', emotionResult);
@@ -254,7 +258,7 @@ class TerminalApp {
     }
 
     // アプリ内音声再生（VoiceQueue用）- AudioServiceに委譲
-    async playAppInternalAudio(audioData, text) {
+    async playAppInternalAudio(audioData, text, characterId = null) {
         // 音声無効時は全処理をスキップ（パフォーマンス最適化）
         if (!this.voiceEnabled) {
             debugLog('🎵 音声無効のためplayAppInternalAudioをスキップ:', text ? text.substring(0, 30) + '...' : '');
@@ -268,23 +272,27 @@ class TerminalApp {
         
         try {
             // 統一感情処理メソッドを使用
-            await this.processEmotionForVRM(text, audioData);
+            await this.processEmotionForVRM(text, audioData, characterId);
             
             // 音声再生開始をVRMビューワーに通知
-            this.vrmIntegrationService.notifyAudioStateToVRM('playing');
+            // characterIdを渡すことで、どのモデルを動かすか指定可能にする
+            this.vrmIntegrationService.notifyAudioStateToVRM('playing', characterId);
             
             // AudioServiceに音声再生を委譲
-            await this.audioService.playAppInternalAudio(audioData, text);
+            // AudioService内でも notifyAudioStateToVRM や sendAudioToVRM が呼ばれる可能性があるが、
+            // 二重送信になってもVRM側でタイムスタンプ等で制御されるため、一旦許容する。
+            // 本来は AudioService 側の呼び出しを整理すべきだが、他からの呼び出しも考慮して残す。
+            await this.audioService.playAppInternalAudio(audioData, text, characterId);
             
-            // 音声終了をVRMビューワーに通知（表情リセットのため）
-            this.vrmIntegrationService.notifyAudioStateToVRM('ended');
+            // 音声終了をVRMビューワーに通知
+            this.vrmIntegrationService.notifyAudioStateToVRM('ended', characterId);
             
             // 表情を中性に戻す（明示的リセット）
             setTimeout(() => {
                 this.vrmIntegrationService.sendEmotionToVRM({ 
                     emotion: 'neutral', 
                     weight: 0 
-                });
+                }, characterId);
                 debugLog('🎭 表情を中性にリセット完了');
             }, 100); // 100ms後にリセット
             
@@ -338,18 +346,14 @@ class TerminalApp {
     }
     
     // ターミナル制御メソッドの委譲
-    async startTerminal(aiType) {
-        return await this.terminalService.startTerminal(aiType);
+    async startShell() {
+        return await this.terminalService.startShell();
     }
     
     async stopTerminal() {
         return await this.terminalService.stopTerminal();
     }
     
-    // 音声モード切り替えの委譲
-    switchVoiceMode(useHooks) {
-        return this.terminalService.switchVoiceMode(useHooks);
-    }
 
     // UIEventManager初期化 - TerminalAppManagerに移動
     initializeUIEventManager() {
@@ -383,19 +387,15 @@ class TerminalApp {
         return await this.terminalService.processTerminalData(data);
     }
 
-    // 音声再生完了を待機する関数 - HookServiceに委譲
+    // 音声再生完了を待機する関数
     async waitForAudioComplete() {
-        if (this.hookService) {
-            return await this.hookService.waitForAudioComplete();
-        }
+         return; // Hookサービス削除済みのため即時復帰
     }
 
 
-    // Hook経由の会話表示 - HookServiceに委譲
+    // Hook経由の会話表示（廃止）
     displayHookConversation(data) {
-        if (this.hookService) {
-            this.hookService.displayHookConversation(data);
-        }
+        // 廃止済み
     }
 
     // sendChatMessage は削除済み（チャット入力エリア削除に伴い）
@@ -538,8 +538,6 @@ class TerminalApp {
                 statusElementModal.className = `status-${status}`;
                 debugLog('✅ ローカル/VoiceVOX使用時: UI更新成功:', { text, status, voiceEngine });
             }
-        } else {
-            debugError('❌ UI要素が見つかりません: connection-status-modal');
         }
     }
 
@@ -710,12 +708,37 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingScreen.show();
     
     // アプリ初期化処理
-    setTimeout(() => {
+    setTimeout(async () => {
         try {
             const app = new TerminalApp();
             // グローバル参照を保存（ConsentServiceから参照するため）
             window.terminalApp = app;
             
+            // アプリの初期化（サービスの初期化など）を待機
+            // app.init() はコンストラクタで呼ばれているが、その完了を待つ仕組みが必要
+            // 既存の app.init() は Promise を返さないかもしれないので、
+            // app オブジェクトに ready プロミスを持たせるか、明示的に待つ
+            
+            // キャラクター表示マネージャーを初期化 (app の準備ができてから)
+            // 一旦 TerminalAppManager.js 内で初期化するように変更するのが筋が良いが、
+            // app.js で制御している現状に合わせて Promise で待機するように誘導
+            
+            // 後続の処理のために app オブジェクトを準備
+            if (app.appManager) {
+                // 初期化完了を待つ (TerminalAppManager 内で initialized フラグが立つまで)
+                const waitForInit = () => new Promise(resolve => {
+                    const check = () => {
+                        if (app.appManager.initialized) resolve();
+                        else setTimeout(check, 100);
+                    };
+                    check();
+                });
+                await waitForInit();
+            }
+
+            const characterDisplayManager = new CharacterDisplayManager();
+            window.characterDisplayManager = characterDisplayManager;
+
             // デバッグ統計ボタンのイベントリスナーを追加
             const debugStatsBtn = document.getElementById('debug-stats-btn');
             if (debugStatsBtn) {
@@ -776,10 +799,7 @@ async function forcedConnectionCheck() {
     debugLog('🔧 強制接続チェック実行');
     
     const statusElement = document.getElementById('connection-status-modal');
-    if (!statusElement) {
-        debugError('❌ connection-status-modal要素が見つかりません');
-        return;
-    }
+    if (!statusElement) return;
     
     if (statusElement.textContent === '接続確認中...') {
         debugLog('🔄 接続確認中状態を検出、手動チェック実行');
@@ -829,10 +849,7 @@ function startContinuousConnectionMonitoring() {
 // 継続的な接続チェック（軽量版）
 async function continuousConnectionCheck() {
     const statusElement = document.getElementById('connection-status-modal');
-    if (!statusElement) {
-        debugLog('❌ connection-status-modal要素が見つかりません（継続チェック）');
-        return;
-    }
+    if (!statusElement) return;
     
     // クラウドAPI使用時はスキップ（updateConnectionStatus()に任せる）
     const unifiedConfig = getSafeUnifiedConfig();

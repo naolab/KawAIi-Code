@@ -75,7 +75,8 @@ class VoiceQueue {
     }
     
     // キューに音声テキストを追加
-    async addToQueue(text) {
+    async addToQueue(text, characterId = null) {
+        this.debugLog(`[VoiceQueue] addToQueue:`, { text: text.substring(0, 20), characterId });
         // 重複チェック（最優先で実行）
         if (this.duplicateChecker && this.duplicateChecker.isDuplicate(text)) {
             this.debugLog('🚫 重複テキストのため音声キューをスキップ:', { 
@@ -85,11 +86,7 @@ class VoiceQueue {
             return;
         }
         
-        // 親タブ判定（非親タブの場合は音声処理をスキップ）
-        if (!this.isCurrentTabParent()) {
-            this.debugLog('🎵 非親タブのため音声キューをスキップ:', { text: text.substring(0, 30) + '...' });
-            return;
-        }
+        // 親タブ判定は廃止（キャラクター設定がある場合のみ呼ばれるため）
         
         // キューサイズ制限チェック（メモリリーク対策強化版）
         const MAX_QUEUE_SIZE = 10;
@@ -109,8 +106,9 @@ class VoiceQueue {
             removedItems.length = 0;
         }
         
-        this.queue.push(text);
-        this.debugLog('🎵 音声キューに追加:', { text: text.substring(0, 30) + '...', queueLength: this.queue.length });
+        // オブジェクトとして保存
+        this.queue.push({ text, characterId });
+        this.debugLog('🎵 音声キューに追加:', { text: text.substring(0, 30) + '...', characterId, queueLength: this.queue.length });
         
         // 重複チェッカーに読み上げ予定としてマーク
         if (this.duplicateChecker) {
@@ -137,8 +135,12 @@ class VoiceQueue {
                 break;
             }
             
-            const text = this.queue.shift();
-            await this.speakTextSequentially(text);
+            const item = this.queue.shift();
+            // 後方互換性（文字列の場合）とオブジェクトの場合を考慮
+            const text = typeof item === 'string' ? item : item.text;
+            const characterId = typeof item === 'object' ? item.characterId : null;
+            
+            await this.speakTextSequentially(text, characterId);
         }
         
         this.isProcessing = false;
@@ -146,7 +148,7 @@ class VoiceQueue {
     }
     
     // 順次音声再生
-    async speakTextSequentially(text) {
+    async speakTextSequentially(text, characterId = null) {
         try {
             // 音声無効時は全処理をスキップ（パフォーマンス最適化）
             if (!this.terminalApp.voiceEnabled) {
@@ -154,27 +156,55 @@ class VoiceQueue {
                 return;
             }
             
-            this.debugLog('🎵 順次音声再生開始:', text.substring(0, 30) + '...');
+            this.debugLog('🎵 順次音声再生開始:', { text: text.substring(0, 30) + '...', characterId });
             
             // 音声読み上げ実行（ハイブリッドシステム）
             if (this.terminalApp.voiceEnabled) {
                 // 音声再生状態を設定
                 this.terminalApp.voicePlayingState.isPlaying = true;
                 
-                // 音声合成のみ（再生なし）
-                const audioData = await this.terminalApp.synthesizeTextOnly(text);
+                this.debugLog(`[VoiceQueue] Processing sequence for characterId: ${characterId}`);
+                // IDベースで音声合成を依頼（最新設定をAudioService内で解決）
+                // characterId が無い場合は AudioService 側でデフォルトキャラが選ばれる
+                const audioData = await this.terminalApp.audioService.synthesizeTextByCharacter(text, characterId);
                 
+                this.debugLog(`[VoiceQueue] Synthesis result:`, audioData ? `Success (${audioData.byteLength} bytes)` : 'Failed (null)');
+                
+                // 再生間隔（インターバル）のみこちらで制御
+                let intervalSeconds = 0.5;
+                const char = this.terminalApp.configManager?.getCharacterById(characterId);
+                if (char && char.voice && char.voice.interval !== undefined) {
+                    intervalSeconds = char.voice.interval;
+                    this.debugLog(`[VoiceQueue] Character interval from settings: ${intervalSeconds}s for ${char.name}`);
+                } else if (!characterId) {
+
+                    intervalSeconds = 0.5; // デフォルト
+                }
+
                 if (audioData) {
+                    // 喋っている状態をセット
+                    // デフォルトキャラの場合のハイライト対象は CDM 側で解決するのが理想だが、
+                    // 現状の CDM は ID 指定が必要なため、ここで確定させる
+                    let highlightId = characterId || (window.characterDisplayManager?.currentSettings?.singleCharacter);
+
+                    if (highlightId && window.characterDisplayManager) {
+                        window.characterDisplayManager.setSpeakingState(highlightId, true);
+                    }
+                    
                     // 合成した音声をplayAppInternalAudioで再生
-                    await this.terminalApp.playAppInternalAudio(audioData, text);
+                    // characterId を渡すことで、VRMの口パク対象を限定できるようにする
+                    await this.terminalApp.playAppInternalAudio(audioData, text, characterId);
                     
                     // 音声再生完了まで待機
                     await this.waitForVoiceComplete();
+
+                    // 喋っている状態を解除
+                    if (highlightId && window.characterDisplayManager) {
+                        window.characterDisplayManager.setSpeakingState(highlightId, false);
+                    }
                     
                     // 読み上げ間隔制御
-                    const intervalSeconds = await getSafeUnifiedConfig().get('voiceIntervalSeconds', 0.5);
                     const intervalMs = intervalSeconds * 1000;
-                    
                     if (intervalMs > 0) {
                         this.debugLog(`⏱️ 読み上げ間隔待機: ${intervalSeconds}秒`);
                         await new Promise(resolve => setTimeout(resolve, intervalMs));
@@ -212,16 +242,10 @@ class VoiceQueue {
         });
     }
     
-    // キューをクリア（メモリリーク対策強化版）
+    // キューをクリア
     clear() {
-        // 既存のキューアイテムを明示的にnullにしてメモリリークを防止
-        this.queue.forEach((item, index) => {
-            this.queue[index] = null;
-        });
         this.queue.length = 0;
-        this.queue = [];
-        this.isProcessing = false;
-        this.debugLog('🎵 音声キューを完全クリア（メモリリーク対策済み）');
+        this.debugLog('🎵 音声キューをクリアしました');
     }
     
     // キューの状態を取得

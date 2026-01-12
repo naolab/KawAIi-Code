@@ -37,11 +37,11 @@ class TerminalAppManager {
             // 4. ターミナル関連サービスの初期化
             await this.initializeTerminalServices();
             
-            // 5. UI関連サービスの初期化
-            await this.initializeUIServices();
-            
-            // 6. モジュールの初期化
+            // 5. モジュールの初期化（UIの前に初期化して設定を読み込んでおく）
             await this.initializeModules();
+            
+            // 6. UI関連サービスの初期化
+            await this.initializeUIServices();
             
             // 7. サービス間の連携設定
             await this.setupServiceIntegration();
@@ -76,9 +76,7 @@ class TerminalAppManager {
         });
         this.services.processingCache = this.terminalApp.processingCache;
         
-        // 読み上げ履歴管理（削除済み - VoiceQueueの重複チェッカーに統合）
-        // this.terminalApp.speechHistory = new SpeechHistoryManager(200);
-        // this.services.speechHistory = this.terminalApp.speechHistory;
+        // 読み上げ履歴管理（VoiceQueueの重複チェッカーに統合済み）
         
         debugLog('✅ 基础サービス初期化完了');
     }
@@ -117,9 +115,7 @@ class TerminalAppManager {
         this.terminalApp.vrmIntegrationService = new VRMIntegrationService(this.terminalApp);
         this.services.vrmIntegrationService = this.terminalApp.vrmIntegrationService;
         
-        // HookService（VRMIntegrationServiceを渡す）
-        this.terminalApp.hookService = new HookService(this.terminalApp, this.terminalApp.vrmIntegrationService);
-        this.services.hookService = this.terminalApp.hookService;
+        // HookServiceは削除されたため、ここでの初期化は不要
         
         // VRMIntegrationServiceをグローバルに設定
         window.vrmIntegrationService = this.terminalApp.vrmIntegrationService;
@@ -141,7 +137,7 @@ class TerminalAppManager {
         this.terminalApp.terminalService.setupTerminal();
         
         // TabManager初期化
-        this.initializeTabManager();
+        await this.initializeTabManager();
         
         debugLog('✅ ターミナル関連サービス初期化完了');
     }
@@ -188,8 +184,10 @@ class TerminalAppManager {
         debugLog('🔗 サービス間連携設定開始');
         
         // MessageAccumulatorのコールバック設定
-        this.terminalApp.messageAccumulator.setProcessCallback(async (data) => {
-            await this.terminalApp.terminalService.processTerminalData(data);
+        // options に interrupt: true などが含まれる
+        this.terminalApp.messageAccumulator.setProcessCallback(async (data, characterId = null, options = {}) => {
+            console.log('[TerminalAppManager] MessageAccumulator callback:', { characterId, options });
+            await this.terminalApp.terminalService.processTerminalData(data, characterId, options);
         });
         
         // 壁紙システムの初期化
@@ -204,7 +202,7 @@ class TerminalAppManager {
     /**
      * TabManager初期化
      */
-    initializeTabManager() {
+    async initializeTabManager() {
         // 依存関係オブジェクトを作成
         this.terminalApp.tabManagerDependencies = new TabManagerDependencies(this.terminalApp);
         
@@ -216,7 +214,7 @@ class TerminalAppManager {
         
         this.terminalApp.tabManager = new TabManager(this.terminalApp.tabManagerDependencies);
         this.services.tabManager = this.terminalApp.tabManager;
-        this.terminalApp.tabManager.initialize();
+        await this.terminalApp.tabManager.initialize();
         
         // MessageAccumulatorにTabManagerの参照を設定
         if (this.terminalApp.messageAccumulator && this.terminalApp.tabManager) {
@@ -300,7 +298,7 @@ class TerminalAppManager {
                 name: 'TerminalAppMemoryMonitor',
                 warningThreshold: 0.75,  // 75%で警告
                 criticalThreshold: 0.85, // 85%で緊急対応
-                monitoringInterval: 30000 // 30秒間隔
+                monitoringInterval: 60000 // 60秒間隔
             });
             this.terminalApp.memoryMonitor.startMonitoring();
             debugLog('🧠 メモリモニター開始完了');
@@ -313,11 +311,13 @@ class TerminalAppManager {
             this.terminalApp.processingCache.cleanupExpiredEntries();
         }, 120000); // 2分間隔
         
-        // Hook監視サービスを開始
-        this.terminalApp.hookService.startHookWatcher();
+        // Hook監視サービスは廃止
         
         // リアルタイム音声接続監視を開始
         this.startRealtimeConnectionMonitoring();
+        
+        // グローバルメッセージ監視（中央管理）
+        this.setupGlobalMessageListener();
         
         debugLog('✅ 定期処理開始完了');
     }
@@ -380,8 +380,6 @@ class TerminalAppManager {
             }
         }
         
-        this.terminalApp.updateVoiceControls();
-        
         // 手動チェックフラグをリセット
         if (isManualCheck) {
             this.isManualConnectionCheck = false;
@@ -400,6 +398,11 @@ class TerminalAppManager {
         
         // 3秒間隔で接続状態をチェック
         this.connectionMonitoringInterval = this.terminalApp.resourceManager.setInterval(async () => {
+            // 音声が無効な場合は監視スキップ（パフォーマンス最適化）
+            if (!this.terminalApp.voiceEnabled) {
+                return;
+            }
+
             // 手動チェック中は実行しない（競合回避）
             if (this.isManualConnectionCheck) {
                 debugLog('🔄 手動チェック中のため監視スキップ');
@@ -422,6 +425,36 @@ class TerminalAppManager {
             this.connectionMonitoringInterval = null;
             debugLog('🛑 リアルタイム音声接続監視停止');
         }
+    }
+
+    /**
+     * グローバルなメッセージリスナーのセットアップ（中央管理）
+     * 各サービスの子iframeからのメッセージを受け取り、適切なサービスに振り分ける
+     */
+    setupGlobalMessageListener() {
+        if (this.globalMessageListener) {
+            window.removeEventListener('message', this.globalMessageListener);
+        }
+
+        this.globalMessageListener = (event) => {
+            const data = event.data;
+            if (!data || typeof data !== 'object') return;
+
+            // 1. VRMViewer ready通知 (CDM優先)
+            if (data.type === 'vrm-viewer-ready') {
+                if (this.terminalApp.characterDisplayManager) {
+                    this.terminalApp.characterDisplayManager.handleViewerReady(data);
+                }
+            }
+            
+            // 2. VRM関連のメッセージ (IntegrationServiceで処理)
+            if (this.terminalApp.vrmIntegrationService) {
+                this.terminalApp.vrmIntegrationService.handleVRMMessage(event);
+            }
+        };
+
+        window.addEventListener('message', this.globalMessageListener);
+        debugLog('📩 グローバルメッセージリスナー（中央管理）をセットアップしました');
     }
 
 

@@ -210,7 +210,13 @@ class WallpaperSystem {
         if (this.currentWallpaperOption === 'default') {
             // テーマに応じた壁紙を使用
             const currentTheme = window.themeManager ? window.themeManager.getCurrentTheme() : 'orange';
-            newWallpaperPath = `assets/wallpapers/default/${currentTheme}.png`;
+            
+            // VS Darkテーマの場合は、壁紙画像ではなく単色背景（CSS変数）を使用
+            if (currentTheme === 'vscode-dark') {
+                newWallpaperPath = 'none'; // 特別な値として扱う
+            } else {
+                newWallpaperPath = `assets/wallpapers/default/${currentTheme}.png`;
+            }
         } else if (this.currentWallpaperOption === 'uploaded') {
             // ユーザー壁紙の場合は、最新のアップロードされた壁紙のパスを取得する
             const response = await window.electronAPI.wallpaper.getWallpaperList();
@@ -226,9 +232,14 @@ class WallpaperSystem {
                 await unifiedConfig.set('wallpaperOption', 'default');
                 document.getElementById('wallpaper-default-radio').checked = true;
                 this.addVoiceMessage('モネ', 'アップロードされた壁紙がないため、デフォルト壁紙に戻したよ！');
+                
                 // ここでnewWallpaperPathを更新し、下の比較ロジックで再適用されるようにする
                 const currentTheme = window.themeManager ? window.themeManager.getCurrentTheme() : 'orange';
-                newWallpaperPath = `assets/wallpapers/default/${currentTheme}.png`;
+                if (currentTheme === 'vscode-dark') {
+                    newWallpaperPath = 'none';
+                } else {
+                    newWallpaperPath = `assets/wallpapers/default/${currentTheme}.png`;
+                }
             }
         }
 
@@ -275,9 +286,14 @@ class WallpaperSystem {
                 WallpaperSystem_debugLog(`動画壁紙を適用: ${newWallpaperPath}`);
             } else {
                 // 静止画壁紙を適用
-                body.style.background = `url('${newWallpaperPath}') center/cover fixed`; // newWallpaperPathを使用
-                body.style.backgroundAttachment = 'fixed';
-                WallpaperSystem_debugLog(`静止画壁紙を適用: ${newWallpaperPath}`);
+                if (newWallpaperPath === 'none') {
+                    body.style.background = 'var(--theme-bg-primary)';
+                    WallpaperSystem_debugLog(`単色背景を適用: ${newWallpaperPath}`);
+                } else {
+                    body.style.background = `url('${newWallpaperPath}') center/cover fixed`; // newWallpaperPathを使用
+                    body.style.backgroundAttachment = 'fixed';
+                    WallpaperSystem_debugLog(`静止画壁紙を適用: ${newWallpaperPath}`);
+                }
             }
             this.startWallpaperTimer(); // デフォルト壁紙なのでタイマーを開始
         } else if (this.currentWallpaperOption === 'uploaded') {

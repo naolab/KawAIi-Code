@@ -84,28 +84,31 @@ export default function VRMViewer({ className }: VRMViewerProps) {
     setVrmInfo
   })
 
-  // アプリ起動時にデフォルトVRMを自動読み込み
+  // 自動読み込みは無効化 - CharacterDisplayManagerが全VRM読み込みを管理
+  // アプリ起動時にCharacterDisplayManagerからloadVRMFileまたはloadDefaultVRMが呼ばれる
   useEffect(() => {
-    let mounted = true
+    // URLからcharIdを取得（マルチ表示用）
+    const params = new URLSearchParams(window.location.search)
+    const charId = params.get('charId')
     
-    // シーンが初期化された後にデフォルトVRMを読み込む
-    const autoLoadDefaultVRM = async () => {
-      // シーンの初期化を待つ
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // マウント済み & デフォルトVRMが未ロードの場合のみ読み込み
-      if (mounted && !vrmRef.current && !loading) {
-        console.log('🤖 [VRMViewer useEffect] アプリ起動時にデフォルトVRMを自動読み込み開始')
-        await loadDefaultVRM()
+    // 初期化時のログのみ
+    console.log(`🤖 [VRMViewer] Ready to receive VRM from CharacterDisplayManager (ID: ${charId || 'main'})`)
+    
+    // 親アプリに準備完了を通知
+    window.parent.postMessage({ type: 'vrm-viewer-ready', charId }, '*')
+
+    // マネージャーからの確認リクエストに応答する仕組みを追加
+    const handleCheckReady = (event: MessageEvent) => {
+      if (event.data?.type === 'checkReady') {
+        window.parent.postMessage({ type: 'vrm-viewer-ready', charId }, '*')
       }
     }
-
-    autoLoadDefaultVRM()
+    window.addEventListener('message', handleCheckReady)
     
     return () => {
-      mounted = false
+      window.removeEventListener('message', handleCheckReady)
     }
-  }, []) // 初回マウント時のみ実行するように修正
+  }, []) // 初回マウント時のみ
 
   return (
     <div 

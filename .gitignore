@@ -59,6 +59,7 @@ next-env.d.ts
 
 # Documentation
 docs/
+!docs/タグ運用ガイド.md
 
 # Build cache files
 .cache/

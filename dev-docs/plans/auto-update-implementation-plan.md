@@ -110,6 +110,18 @@ jobs:
 2. 自動ビルド・配信
 3. latest.yml生成（electron-updater用）
 
+#### 3.3 Windowsビルドジョブ
+- **ランナー**: `windows-latest`
+- **手順**:
+  1. `npm install` → `npm run rebuild`（`node-pty` を Windows 向けに再ビルド）
+  2. `npx electron-builder --win --x64` または `npm run build:electron -- --win` で NSIS `.exe` + `latest.yml` を生成
+  3. GitHub Releases に `.exe` と `latest.yml` をアップロードして `electron-updater` に配信
+- **検証ポイント**:
+  - `latest.yml` に `.exe` のチェックサムとバージョンが含まれていること
+  - Windows版インストーラがダウンロード・起動されることを確認（SmartScreen対応、署名済みならなお良し）
+  - mac 版と同一リリースで最新バージョンを共有するため、リリースタグごとに両 OS の成果物を添付する
+
+
 ---
 
 ## 🔧 詳細実装仕様

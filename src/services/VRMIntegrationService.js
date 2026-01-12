@@ -35,23 +35,34 @@ class VRMIntegrationService {
 
     // VRMビューワーの準備状態をチェック
     checkVRMViewerReady() {
-        const iframe = document.getElementById('vrm-iframe');
-        if (iframe && iframe.contentWindow) {
-            // 既に準備完了している場合は重複ログを避ける
-            if (!this.vrmViewerReady) {
-                this.vrmIframeElement = iframe;
+        if (window.characterDisplayManager) {
+            const mode = window.characterDisplayManager.currentSettings?.mode;
+            if (mode === 'single') {
+                const charId = window.characterDisplayManager.currentSettings.singleCharacter;
+                const iframe = document.getElementById(`vrm-iframe-${charId}`);
+                if (iframe && iframe.contentWindow) {
+                    if (!this.vrmViewerReady) {
+                        this.vrmIframeElement = iframe;
+                        this.vrmViewerReady = true;
+                        this.debugLog(`🎭 VRMビューワー (${charId}) 準備完了`);
+                    }
+                    return;
+                }
+            } else if (mode === 'multi' || mode === 'icon') {
+                // マルチ/アイコンモードはCDMが管理するので、ここでは準備完了扱いとしておく（個別の配信はCDMが行う）
                 this.vrmViewerReady = true;
-                this.debugLog('🎭 VRMビューワー準備完了');
+                this.vrmIframeElement = null; // CDM経由で送るため不要
+                return;
             }
-        } else {
-            this.vrmViewerReady = false;
-            this.vrmIframeElement = null;
-            // 再チェック回数を制限
-            if (!this.retryCount) this.retryCount = 0;
-            if (this.retryCount < 5) {
-                this.retryCount++;
-                setTimeout(() => this.checkVRMViewerReady(), 1000);
-            }
+        }
+
+        // フォールバック or 待機
+        this.vrmViewerReady = false;
+        this.vrmIframeElement = null;
+        if (!this.retryCount) this.retryCount = 0;
+        if (this.retryCount < 10) { // 少し回数を増やす
+            this.retryCount++;
+            setTimeout(() => this.checkVRMViewerReady(), 1000);
         }
     }
 
@@ -90,11 +101,8 @@ class VRMIntegrationService {
 
     // VRMビューワーに音声データを送信
     sendAudioToVRM(audioData, options = {}) {
-        if (!this.vrmViewerReady || !this.vrmIframeElement) {
-            this.debugLog('🎭 VRMビューワー未準備 - 音声データ送信スキップ');
-            return false;
-        }
-
+        const charId = options.characterId || null;
+        
         try {
             // ArrayBufferをArray形式に変換（既存の実装と互換性を保つため）
             const audioArray = Array.from(new Uint8Array(audioData));
@@ -108,15 +116,33 @@ class VRMIntegrationService {
                 amplifyLipSync: options.amplifyLipSync || false
             };
 
-            // postMessageでVRMビューワーに送信
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
-            
-            this.debugLog('🎭 VRM音声データ送信完了:', {
-                dataSize: audioData.byteLength,
-                timestamp: message.timestamp
-            });
-            
-            return true;
+            // CharacterDisplayManager経由で送信（ID指定があればルーティング）
+            if (window.characterDisplayManager) {
+                if (charId) {
+                    const sent = window.characterDisplayManager.postToViewerById(charId, message);
+                    if (sent) {
+                        this.debugLog(`🎭 VRM音声データ送信完了 (ID: ${charId})`);
+                        return true;
+                    } else {
+                        // 表示キャラが見つからない場合は、バックグラウンド再生に切り替え
+                        this.debugLog(`🎭 キャラクター ${charId} が非表示のため、バックグラウンド再生を実行します`);
+                        return this.playBackgroundAudio(audioData);
+                    }
+                }
+                
+                // 特定のID宛でない場合は全ビューワーに送信（従来の互換性）
+                window.characterDisplayManager.postToAllViewers(message);
+                this.debugLog('🎭 VRM音声データ送信完了 (All Viewers)');
+                return true;
+            }
+
+            // フォールバック（CDMがない場合、従来通りメインのみ or バックグラウンド再生）
+            if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+                return true;
+            } else {
+                return this.playBackgroundAudio(audioData);
+            }
             
         } catch (error) {
             this.debugError('🎭 VRM音声データ送信エラー:', error);
@@ -125,12 +151,7 @@ class VRMIntegrationService {
     }
 
     // 感情データをVRMビューワーに送信
-    sendEmotionToVRM(emotion) {
-        if (!this.vrmViewerReady || !this.vrmIframeElement) {
-            this.debugLog('🎭 VRMビューワー未準備 - 感情データ送信スキップ');
-            return false;
-        }
-
+    sendEmotionToVRM(emotion, charId = null) {
         try {
             const message = {
                 type: 'emotion',
@@ -138,15 +159,26 @@ class VRMIntegrationService {
                 timestamp: Date.now()
             };
 
-            // postMessageでVRMビューワーに送信
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            if (window.characterDisplayManager) {
+                if (charId) {
+                    const sent = window.characterDisplayManager.postToViewerById(charId, message);
+                    if (sent) return true;
+                    
+                    // ID不一致時は感情を送らない（非表示キャラの感情は不要）
+                    this.debugLog(`🎭 キャラクター ${charId} が非表示のため、感情送信をスキップしました`);
+                    return false;
+                } else {
+                    window.characterDisplayManager.postToAllViewers(message);
+                }
+                return true;
+            }
+
+            if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+                return true;
+            }
             
-            this.debugLog('🎭 VRM感情データ送信完了:', {
-                emotion: emotion,
-                timestamp: message.timestamp
-            });
-            
-            return true;
+            return false;
             
         } catch (error) {
             this.debugError('🎭 VRM感情データ送信エラー:', error);
@@ -155,12 +187,7 @@ class VRMIntegrationService {
     }
 
     // 音声状態をVRMビューワーに通知
-    notifyAudioStateToVRM(state) {
-        if (!this.vrmViewerReady || !this.vrmIframeElement) {
-            this.debugLog('🎭 VRMビューワー未準備 - 音声状態通知スキップ');
-            return false;
-        }
-
+    notifyAudioStateToVRM(state, charId = null) {
         try {
             const message = {
                 type: 'audioState',
@@ -168,18 +195,57 @@ class VRMIntegrationService {
                 timestamp: Date.now()
             };
 
-            // postMessageでVRMビューワーに送信
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            if (window.characterDisplayManager) {
+                if (charId) {
+                    const sent = window.characterDisplayManager.postToViewerById(charId, message);
+                    if (sent) return true;
+                    
+                    // ID不一致時はスキップ
+                    return false;
+                } else {
+                    window.characterDisplayManager.postToAllViewers(message);
+                }
+                return true;
+            }
+
+            if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+                return true;
+            }
             
-            this.debugLog('🎭 VRM音声状態通知完了:', {
-                state: state,
-                timestamp: message.timestamp
-            });
-            
-            return true;
+            return false;
             
         } catch (error) {
             this.debugError('🎭 VRM音声状態通知エラー:', error);
+            return false;
+        }
+    }
+
+    // バックグラウンドで音声を再生（表示キャラがいない場合用）
+    playBackgroundAudio(audioData) {
+        try {
+            const blob = new Blob([audioData], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            
+            audio.onended = () => {
+                URL.revokeObjectURL(url);
+                this.debugLog('🎭 バックグラウンド音声再生終了');
+            };
+            
+            audio.onerror = (e) => {
+                this.debugError('🎭 バックグラウンド音声再生エラー:', e);
+                URL.revokeObjectURL(url);
+            };
+            
+            audio.play().catch(err => {
+                this.debugError('🎭 バックグラウンド音声再生開始エラー:', err);
+                URL.revokeObjectURL(url);
+            });
+            
+            return true;
+        } catch (error) {
+            this.debugError('🎭 バックグラウンド音声再生処理エラー:', error);
             return false;
         }
     }
@@ -247,14 +313,13 @@ class VRMIntegrationService {
                 timestamp: Date.now()
             };
 
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            if (window.characterDisplayManager) {
+                window.characterDisplayManager.postToAllViewers(message);
+            } else if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            }
             
-            this.debugLog('🎭 VRM一括データ送信完了:', {
-                hasAudio: !!audioData,
-                hasEmotion: !!emotion,
-                audioState: audioState,
-                timestamp: message.timestamp
-            });
+            this.debugLog('🎭 VRM一括データ送信完了');
             
             return true;
             
@@ -277,7 +342,11 @@ class VRMIntegrationService {
                 timestamp: Date.now()
             };
 
-            this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            if (window.characterDisplayManager) {
+                window.characterDisplayManager.postToAllViewers(message);
+            } else if (this.vrmIframeElement && this.vrmIframeElement.contentWindow) {
+                this.vrmIframeElement.contentWindow.postMessage(message, '*');
+            }
             
             this.debugLog('🎭 VRMビューワーリセット完了');
             return true;
@@ -309,12 +378,7 @@ class VRMIntegrationService {
 if (typeof window !== 'undefined') {
     window.VRMIntegrationService = VRMIntegrationService;
     
-    // グローバルメッセージハンドラーを設定
-    window.addEventListener('message', (event) => {
-        if (window.vrmIntegrationService) {
-            window.vrmIntegrationService.handleVRMMessage(event);
-        }
-    });
+    // グローバルなメッセージリスナーはTerminalAppManagerで中央管理されるように移行済み
 }
 
 // Node.js環境での利用

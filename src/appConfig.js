@@ -63,7 +63,6 @@ class AppConfig {
             selectedSpeaker: 0,
             voiceVolume: 50,
             voiceIntervalSeconds: 1,
-            useHooks: false, // 配布版では常時無効
             currentCharacter: 'shy', // 照れ屋キャラクターに固定
             // Aivis Cloud API設定
             useCloudAPI: false, // デフォルトはローカルエンジン使用
@@ -77,7 +76,12 @@ class AppConfig {
     }
 
     getClaudeWorkingDir() {
-        return this.config.claudeWorkingDir || os.homedir();
+        const dir = this.config.claudeWorkingDir;
+        // パスが空、または文字列でない場合はホームディレクトリを返す
+        if (!dir || typeof dir !== 'string') {
+            return os.homedir();
+        }
+        return dir;
     }
 
     setClaudeWorkingDir(dir) {

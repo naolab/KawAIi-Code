@@ -19,6 +19,31 @@ class ThemeManager {
                     bgTertiary: '#F0EAD6',
                     textPrimary: '#4A3728',
                     textSecondary: '#2D1F17'
+                },
+                terminal: {
+                    background: '#F0EAD6',
+                    foreground: '#4A3728',
+                    cursor: '#D2691E',
+                    cursorAccent: '#FFFEF7',
+                    selectionBackground: 'rgba(210, 105, 30, 0.2)',
+                    selectionForeground: '#5D4E3A',
+                    black: '#3C2E1F',
+                    red: '#A0522D',
+                    green: '#8B7355',
+                    yellow: '#B8860B',
+                    blue: '#708090',
+                    magenta: '#CD853F',
+                    cyan: '#5F9EA0',
+                    white: '#8B7D6B',
+                    brightBlack: '#696969',
+                    brightRed: '#CD853F',
+                    brightGreen: '#8B7355',
+                    brightYellow: '#B8860B',
+                    brightBlue: '#4682B4',
+                    brightMagenta: '#A0522D',
+                    brightCyan: '#2F4F4F',
+                    brightWhite: '#5D4E3A',
+                    containerBg: 'rgba(255, 255, 255, 0.7)'
                 }
             },
             pink: {
@@ -79,6 +104,46 @@ class ThemeManager {
                     bgTertiary: '#F9E8FF',
                     textPrimary: '#3A254A',
                     textSecondary: '#25152D'
+                }
+            },
+            'vscode-dark': {
+                name: 'VS Dark',
+                colors: {
+                    primary: '#007ACC',
+                    primaryLight: '#3399FF',
+                    primaryDark: '#005FA3',
+                    primaryDarker: '#004475',
+                    accent: '#0E639C',
+                    bgPrimary: '#1E1E1E',
+                    bgSecondary: '#252526',
+                    bgTertiary: '#333333',
+                    textPrimary: '#D4D4D4',
+                    textSecondary: '#CCCCCC'
+                },
+                terminal: {
+                    background: '#1E1E1E',
+                    foreground: '#D4D4D4',
+                    cursor: '#007ACC',
+                    cursorAccent: '#FFFFFF',
+                    selectionBackground: 'rgba(0, 122, 204, 0.4)',
+                    selectionForeground: '#FFFFFF',
+                    black: '#000000',
+                    red: '#CD3131',
+                    green: '#0DBC79',
+                    yellow: '#E5E510',
+                    blue: '#2472C8',
+                    magenta: '#BC3FBC',
+                    cyan: '#11A8CD',
+                    white: '#E5E5E5',
+                    brightBlack: '#666666',
+                    brightRed: '#F14C4C',
+                    brightGreen: '#23D18B',
+                    brightYellow: '#F5F543',
+                    brightBlue: '#3B8EEA',
+                    brightMagenta: '#D670D6',
+                    brightCyan: '#29B8DB',
+                    brightWhite: '#E5E5E5',
+                    containerBg: 'rgba(30, 30, 30, 0.95)'
                 }
             }
         };
@@ -219,6 +284,28 @@ class ThemeManager {
 
         // Next.js iframe側にテーマ変更を通知
         this.notifyIframeThemeChange(theme.colors);
+
+        // ターミナルのコンテナ背景色を設定（デフォルト値あり）
+        if (theme.terminal && theme.terminal.containerBg) {
+            root.style.setProperty('--terminal-container-bg', theme.terminal.containerBg);
+        } else {
+            root.style.setProperty('--terminal-container-bg', 'rgba(255, 255, 255, 0.7)');
+        }
+
+        // ターミナルの背景色を設定（xtermの隙間埋め用）
+        if (theme.terminal && theme.terminal.background) {
+            root.style.setProperty('--terminal-bg', theme.terminal.background);
+        } else {
+            root.style.setProperty('--terminal-bg', '#F0EAD6');
+        }
+
+        // イベント発行
+        window.dispatchEvent(new CustomEvent('theme-changed', { 
+            detail: { 
+                themeId: themeId,
+                theme: theme
+            } 
+        }));
     }
 
     /**
