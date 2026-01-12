@@ -63,7 +63,6 @@ class AppConfig {
             selectedSpeaker: 0,
             voiceVolume: 50,
             voiceIntervalSeconds: 1,
-            useHooks: false, // 配布版では常時無効
             currentCharacter: 'shy', // 照れ屋キャラクターに固定
             // Aivis Cloud API設定
             useCloudAPI: false, // デフォルトはローカルエンジン使用

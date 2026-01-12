@@ -115,9 +115,7 @@ class TerminalAppManager {
         this.terminalApp.vrmIntegrationService = new VRMIntegrationService(this.terminalApp);
         this.services.vrmIntegrationService = this.terminalApp.vrmIntegrationService;
         
-        // HookService（VRMIntegrationServiceを渡す）
-        this.terminalApp.hookService = new HookService(this.terminalApp, this.terminalApp.vrmIntegrationService);
-        this.services.hookService = this.terminalApp.hookService;
+        // HookServiceは削除されたため、ここでの初期化は不要
         
         // VRMIntegrationServiceをグローバルに設定
         window.vrmIntegrationService = this.terminalApp.vrmIntegrationService;
@@ -313,8 +311,7 @@ class TerminalAppManager {
             this.terminalApp.processingCache.cleanupExpiredEntries();
         }, 120000); // 2分間隔
         
-        // Hook監視サービスを開始
-        this.terminalApp.hookService.startHookWatcher();
+        // Hook監視サービスは廃止
         
         // リアルタイム音声接続監視を開始
         this.startRealtimeConnectionMonitoring();

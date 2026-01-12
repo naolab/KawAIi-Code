@@ -60,7 +60,6 @@ class TerminalApp {
         // 音声再生状態の統一管理（全サービス共通）
         this.voicePlayingState = {
             isPlaying: false,           // アプリ内音声再生中フラグ
-            isPlayingHook: false,       // Hook音声再生中フラグ
             currentAudio: null,         // 現在再生中の音声オブジェクト
             currentAudioUrl: null,      // 現在のBlobURL（リソース管理用）
             currentEndedHandler: null,  // 現在のendedイベントハンドラー
@@ -68,7 +67,7 @@ class TerminalApp {
             queue: [],                  // 音声キュー
             // 統一状態チェック関数
             isAnyPlaying: function() {
-                return this.isPlaying || this.isPlayingHook;
+                return this.isPlaying;
             }
         };
         
@@ -355,10 +354,6 @@ class TerminalApp {
         return await this.terminalService.stopTerminal();
     }
     
-    // 音声モード切り替えの委譲
-    switchVoiceMode(useHooks) {
-        return this.terminalService.switchVoiceMode(useHooks);
-    }
 
     // UIEventManager初期化 - TerminalAppManagerに移動
     initializeUIEventManager() {
@@ -392,19 +387,15 @@ class TerminalApp {
         return await this.terminalService.processTerminalData(data);
     }
 
-    // 音声再生完了を待機する関数 - HookServiceに委譲
+    // 音声再生完了を待機する関数
     async waitForAudioComplete() {
-        if (this.hookService) {
-            return await this.hookService.waitForAudioComplete();
-        }
+         return; // Hookサービス削除済みのため即時復帰
     }
 
 
-    // Hook経由の会話表示 - HookServiceに委譲
+    // Hook経由の会話表示（廃止）
     displayHookConversation(data) {
-        if (this.hookService) {
-            this.hookService.displayHookConversation(data);
-        }
+        // 廃止済み
     }
 
     // sendChatMessage は削除済み（チャット入力エリア削除に伴い）

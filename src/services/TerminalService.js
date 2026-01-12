@@ -333,19 +333,8 @@ class TerminalService {
             return;
         }
         
-        const unifiedConfig = getSafeUnifiedConfig();
-        const useHooks = await unifiedConfig.get('useHooks', false);
-        
-        if (useHooks) {
-            // Hookモード
-            if (!this.hookService.isAppTerminalData(data)) {
-                await this.hookService.processHookOnlyData(data, characterId);
-            }
-        } else {
-            // アプリ内監視モード
-            // MessageAccumulatorから渡された最終テキストを処理
-            await this.processAppInternalMode(data, characterId, options);
-        }
+        // 常にアプリ内監視モード（最新優先・バッファ監視）で動作
+        await this.processAppInternalMode(data, characterId, options);
     }
 
     // アプリ内監視モード処理

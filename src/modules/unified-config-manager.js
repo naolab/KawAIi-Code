@@ -235,7 +235,6 @@ class UnifiedConfigManager {
             defaultSpeakerId: null,
             voiceCooldownSeconds: 1,
             voiceIntervalSeconds: 0.5,
-            useHooks: false, // デフォルトはアプリ内監視モード
             
             // UI設定
             voiceEnabled: true,
