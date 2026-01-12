@@ -51,7 +51,16 @@ class TerminalService {
 
 
     setupTerminal() {
-        this.terminal = new Terminal(TerminalFactory.createConfig());
+        const config = TerminalFactory.createConfig();
+        // 現在のテーマ設定を反映
+        if (window.themeManager) {
+            const currentTheme = window.themeManager.getCurrentTheme();
+            const themeDef = window.themeManager.themes[currentTheme];
+            if (themeDef && themeDef.terminal) {
+                config.theme = themeDef.terminal;
+            }
+        }
+        this.terminal = new Terminal(config);
         
         this.fitAddon = new FitAddon.FitAddon();
         this.terminal.loadAddon(this.fitAddon);

@@ -69,9 +69,55 @@ class TabManager {
             });
         }
 
+        // テーマ変更イベントのリスナー
+        window.addEventListener('theme-changed', (e) => {
+            if (e.detail && e.detail.theme) {
+                this.handleThemeChange(e.detail.theme);
+            }
+        });
+
         // 初期化完了フラグを設定
         this.isEventListenersInitialized = true;
         debugLog('🛡️ TabManager イベントリスナー初期化完了（重複防止済み）');
+    }
+
+    /**
+     * テーマ設定に基づいたターミナル設定を生成
+     */
+    _createTerminalConfig() {
+        const config = TerminalFactory.createConfig();
+        if (window.themeManager) {
+            const currentTheme = window.themeManager.getCurrentTheme();
+            const themeDef = window.themeManager.themes[currentTheme];
+            if (themeDef && themeDef.terminal) {
+                config.theme = themeDef.terminal;
+            }
+        }
+        return config;
+    }
+
+    /**
+     * テーマ変更時の処理
+     */
+    handleThemeChange(theme) {
+        if (!theme || !theme.terminal) return;
+        
+        console.log('[TabManager] Applying new terminal theme:', theme.terminal);
+        
+        // 全てのタブとペインに新しいテーマを適用
+        Object.values(this.tabs).forEach(tab => {
+            if (tab.panes) {
+                tab.panes.forEach(pane => {
+                    if (pane.terminal) {
+                        try {
+                            pane.terminal.options.theme = theme.terminal;
+                        } catch (err) {
+                            console.error(`Failed to update theme for pane ${pane.id}:`, err);
+                        }
+                    }
+                });
+            }
+        });
     }
     
     handleTabData(paneId, data) {
@@ -370,7 +416,7 @@ class TabManager {
         wrapper.appendChild(paneElement);
         
         // 新しいTerminalインスタンスを作成
-        const terminal = new Terminal(TerminalFactory.createConfig());
+        const terminal = new Terminal(this._createTerminalConfig());
         const fitAddon = new FitAddon.FitAddon();
         terminal.loadAddon(fitAddon);
         terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
@@ -460,7 +506,7 @@ class TabManager {
 
         // 新しいペインを作成
         const newPaneId = `pane-${this.nextPaneNumber++}`;
-        const newTerminal = new Terminal(TerminalFactory.createConfig());
+        const newTerminal = new Terminal(this._createTerminalConfig());
         const newFitAddon = new FitAddon.FitAddon();
         newTerminal.loadAddon(newFitAddon);
         newTerminal.loadAddon(new WebLinksAddon.WebLinksAddon());
