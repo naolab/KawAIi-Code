@@ -217,6 +217,11 @@ body.loaded {
     border-radius: 15px 15px 0 0;
     position: relative;
     z-index: 100;
+    -webkit-app-region: drag;
+}
+
+.header button {
+    -webkit-app-region: no-drag;
 }
 
 .header-left {
