@@ -327,65 +327,51 @@ class TerminalService {
         this.resourceManager.registerCleanup(() => observer.disconnect());
     }
 
-    async processTerminalData(data, characterId = null) {
-        // リサイズ中は音声処理をスキップ（但し、新しいコンテンツは処理）
-        if (this.isResizing) {
-            debugLog('🔄 リサイズ中のため音声処理をスキップ:', {
-                dataLength: data.length,
-                dataPreview: data.substring(0, 50)
-            });
+    async processTerminalData(data, characterId = null, options = {}) {
+        // リサイズ中は基本的にスキップするが、強制割り込み(interrupt)がある場合は処理を継続
+        if (this.isResizing && !options.interrupt) {
             return;
         }
         
         const unifiedConfig = getSafeUnifiedConfig();
         const useHooks = await unifiedConfig.get('useHooks', false);
         
-        debugLog('🔄 processTerminalData呼び出し:', {
-            useHooks,
-            dataLength: data.length,
-            dataPreview: data.substring(0, 100),
-            isResizing: this.isResizing,
-            characterId: characterId
-        });
-        
         if (useHooks) {
-            // Hookモード: 外部ターミナルのみ処理、アプリ内ターミナルは音声処理なし
+            // Hookモード
             if (!this.hookService.isAppTerminalData(data)) {
-                debugLog('📡 外部ターミナル（Hookモード）: Hook専用処理');
                 await this.hookService.processHookOnlyData(data, characterId);
-            } else {
-                debugLog('📱 アプリ内ターミナル（Hookモード）: 音声処理スキップ');
-                // アプリ内ターミナルでは音声処理を行わない
             }
         } else {
-            // フックモードOFF: 全てのターミナルをアプリ内で処理
-            debugLog('📱 アプリ内監視モード: processAppInternalMode呼び出し');
-            await this.processAppInternalMode(data, characterId);
+            // アプリ内監視モード
+            // MessageAccumulatorから渡された最終テキストを処理
+            await this.processAppInternalMode(data, characterId, options);
         }
     }
 
     // アプリ内監視モード処理
-    async processAppInternalMode(data, characterId = null) {
+    async processAppInternalMode(data, characterId = null, options = {}) {
         try {
-            debugLog(`[TerminalService] processAppInternalMode called:`, { dataLength: data.length, characterId });
-            
-            // ProcessingCacheによる最適化されたテキストクリーニング
-            const cleanData = this.processingCache.optimizedTextCleaning(data);
-            
-            // 直接◆◇テキストを抽出（キャッシュ化された正規表現処理）
-            const quotedTextMatches = this.processingCache.cachedRegexProcess(
-                cleanData, 
-                /◆([^◇]+)◇/gs
-            );
-            
-            debugLog(`[TerminalService] Regex match result:`, { 
-                matchCount: quotedTextMatches ? quotedTextMatches.length : 0,
-                matches: quotedTextMatches ? quotedTextMatches.slice(0, 3) : []
-            });
-            
-            if (quotedTextMatches && quotedTextMatches.length > 0) {
-                // ◆◇内のテキストを一個ずつ処理
-                await this.processQuotedTexts(quotedTextMatches, characterId);
+            // data には既に抽出された ◆...◇ テキストが含まれている（MessageAccumulator経由）
+            if (options.interrupt) {
+                debugLog('🔊 強制割り込み再生を検出');
+                // 音声再生を即座に停止
+                if (this.audioService && this.audioService.stopVoice) {
+                    await this.audioService.stopVoice();
+                }
+                // キューもクリア
+                if (this.voiceQueue) {
+                    this.voiceQueue.clear();
+                }
+            }
+
+            // ◆◇を除去してクリーニング
+            let cleanSpeech = data.replace(/[◆◇]/g, '').trim();
+            // 改行と余分な空白を除去
+            cleanSpeech = cleanSpeech.replace(/\r?\n\s*/g, '').replace(/\s+/g, ' ').trim();
+
+            if (cleanSpeech.length > 0) {
+                // 音声キューに追加
+                await this.voiceQueue.addToQueue(cleanSpeech, characterId);
             }
             
         } catch (error) {
@@ -393,7 +379,7 @@ class TerminalService {
                 severity: ErrorHandler.SEVERITY.LOW,
                 category: ErrorHandler.CATEGORY.PROCESS,
                 operation: 'process-terminal-data',
-                userMessage: 'ターミナルデータの処理中にエラーが発生しました'
+                userMessage: '音声処理中にエラーが発生しました'
             });
         }
     }

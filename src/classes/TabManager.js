@@ -125,15 +125,12 @@ class TabManager {
         
         // effectiveCharId が null の場合は読み上げスキップ
         if (effectiveCharId && this.deps.messageAccumulator) {
-            debugLog(`[TabManager] Passing data to TerminalService:`, { paneId, effectiveCharId });
-            // メッセージ蓄積（ログ用など）- キャラクターIDも渡す
-            this.deps.messageAccumulator.addChunk(data, effectiveCharId);
+            debugLog(`[TabManager] Passing data to MessageAccumulator:`, { paneId, effectiveCharId });
+            // メッセージ蓄積とバッファ型スキャンのトリガー
+            // data, terminal, characterId を渡す
+            this.deps.messageAccumulator.addChunk(data, pane.terminal, effectiveCharId);
             
-            // 音声処理パイプラインへ
-            if (this.deps.terminalService && this.deps.terminalService.processTerminalData) {
-                // 第2引数としてeffectiveCharIdを渡す
-                this.deps.terminalService.processTerminalData(data, effectiveCharId);
-            }
+            // TerminalService.processTerminalData への直接呼び出しは削除（MessageAccumulator経由に一本化）
         }
     }
     

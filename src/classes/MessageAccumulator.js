@@ -37,16 +37,18 @@ class MessageAccumulator {
     
     /**
      * 重複防止システムの設定
-     * @param {boolean} enabled - デバッグログを有効にするかどうか
      */
     initDuplicatePrevention(enabled = true) {
         this.duplicateChecker.setDebugLogging(enabled);
         this.debugLogSafe('🛡️ シンプル重複防止システム初期化完了');
+        
+        // 最新のセリフの状態管理
+        this.lastProcessedSpeech = null;
+        this.speechCount = 0; // セッション開始からの通し番号
     }
 
     /**
      * TabManagerの参照を設定
-     * @param {TabManager} tabManager - TabManagerのインスタンス
      */
     setTabManager(tabManager) {
         this.tabManager = tabManager;
@@ -55,59 +57,89 @@ class MessageAccumulator {
 
     /**
      * 現在のタブが親タブかどうかを判定
-     * @returns {boolean} 親タブの場合true
      */
     isCurrentTabParent() {
-        if (!this.tabManager) {
-            this.debugLogSafe('🗂️ TabManager未設定 - 音声処理をスキップ（安全側）');
-            return false; // 安全優先: 不明な場合は音声処理をスキップ
-        }
+        if (!this.tabManager) return false;
+        if (!this.tabManager.parentTabId) return false;
         
-        if (!this.tabManager.parentTabId) {
-            this.debugLogSafe('🗂️ 親タブID未設定 - 音声処理をスキップ（安全側）');
-            return false; // 安全優先: 不明な場合は音声処理をスキップ
-        }
-        
-        const parentTab = this.tabManager.tabs[this.tabManager.parentTabId];
-        const isParent = parentTab && parentTab.isParent;
-        
-        this.debugLogSafe(`🗂️ 親タブ判定: ${isParent ? '親タブ' : '非親タブ'} (ID: ${this.tabManager.parentTabId})`);
-        return isParent;
+        const parentTab = this.tabManager.tabs ? this.tabManager.tabs[this.tabManager.parentTabId] : null;
+        const activeTab = this.tabManager.tabs[this.tabManager.activeTabId];
+        return activeTab && activeTab.isParent;
     }
 
     setProcessCallback(callback) {
-        debugLog(`🔧 setProcessCallback呼び出し - コールバックタイプ:`, typeof callback);
-        debugLog(`🔧 コールバック関数:`, callback);
         this.processCallback = callback;
-        debugLog(`🔧 コールバック設定完了 - 現在のコールバック:`, this.processCallback);
     }
     
-    addChunk(data, characterId = null) {
-        const hasQuotes = data.includes('◆') && data.includes('◇');
-        
-        this.debugLogSafe(`${this.logPrefix} 🔍 チャンク受信: 括弧=${hasQuotes}, 長さ=${data.length}, characterId=${characterId}, プレビュー="${data.substring(0, 30)}..."`);
-        
-        if (hasQuotes) {
-            // ◆◇テキストを検出 - 直接処理
-            this.debugLogSafe(`${this.logPrefix} 🔍 音声テキスト抽出完了: "${data.match(/◆([^◇]+)◇/g)?.[0]?.substring(0, 20)}..."`);
-            this.processImmediately(data, characterId);
-            
-        } else {
-            this.debugLogSafe(`${this.logPrefix} ⏭️ チャンクをスキップ - ◆◇なし`);
+    /**
+     * ターミナルデータを受信した際の処理（バッファ監視方式）
+     * @param {string} data - 受信した生データ
+     * @param {object} terminal - xterm.jsのインスタンス
+     * @param {string|null} characterId - キャラクターID
+     */
+    addChunk(data, terminal, characterId = null) {
+        // 音声処理は親タブ（またはアクティブタブ）のみ実行
+        if (!this.isCurrentTabActive()) {
+            return;
         }
+
+        // 1. まずはデータの蓄積（フォールバック用）
+        this.pendingMessage += data;
+        
+        // 2. xterm.jsのバッファから最新の状態を取得
+        // 生データを解析するより、xterm.jsが整形した後のバッファを見るほうが「二重読み上げ」に強い
+        this.scanBuffer(terminal, characterId);
     }
 
     /**
-     * ◆◇テキストを含むデータを即座に処理
-     * @param {string} data - 処理対象データ
-     * @param {string|null} characterId - キャラクターID
+     * アクティブなタブかどうかを判定（TabManager経由）
      */
-    processImmediately(data, characterId = null) {
-        if (this.processCallback) {
-            this.debugLogSafe(`${this.logPrefix} 🚀 ◆◇テキスト即座処理実行 (characterId: ${characterId})`);
-            this.processCallback(data, characterId);
-        } else {
-            this.debugLogSafe(`${this.logPrefix} ❌ processCallback未設定`);
+    isCurrentTabActive() {
+        // 単純化：常に処理するか、TabManagerに聞く
+        return true; 
+    }
+
+    /**
+     * ターミナルバッファをスキャンして最新のセリフを抽出
+     */
+    scanBuffer(terminal, characterId) {
+        if (!terminal || !terminal.buffer) return;
+
+        try {
+            // 直近100行程度を取得して結合（リサイズによるリフロー考慮）
+            const buffer = terminal.buffer.active;
+            let text = '';
+            const startLine = Math.max(0, buffer.baseY + buffer.viewportY - 100);
+            const endLine = buffer.baseY + buffer.viewportY + buffer.cursorY;
+            
+            for (let i = startLine; i <= endLine; i++) {
+                const line = buffer.getLine(i);
+                if (line) {
+                    text += line.translateToString(true);
+                }
+            }
+
+            // ◆...◇ 抽出（最後に見つかった完全なペアを採用）
+            const matches = text.match(/◆([^◇]+)◇/g);
+            if (!matches || matches.length === 0) return;
+
+            const latestMatch = matches[matches.length - 1];
+            const cleanSpeech = latestMatch.replace(/[◆◇]/g, '').trim();
+
+            // 3. 重複判定と「最新優先」処理
+            if (cleanSpeech && cleanSpeech !== this.lastProcessedSpeech) {
+                this.debugLogSafe(`${this.logPrefix} 🔊 新しいセリフを検出: "${cleanSpeech.substring(0, 30)}..."`);
+                
+                // 前回のセリフと異なる＝新しいセリフまたは更新
+                this.lastProcessedSpeech = cleanSpeech;
+                
+                // コールバック実行（割り込みフラグ付き）
+                if (this.processCallback) {
+                    this.processCallback(latestMatch, characterId, { interrupt: true });
+                }
+            }
+        } catch (error) {
+            console.error(`${this.logPrefix} バッファスキャンエラー:`, error);
         }
     }
 

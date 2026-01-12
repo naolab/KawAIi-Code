@@ -242,16 +242,10 @@ class VoiceQueue {
         });
     }
     
-    // キューをクリア（メモリリーク対策強化版）
+    // キューをクリア
     clear() {
-        // 既存のキューアイテムを明示的にnullにしてメモリリークを防止
-        this.queue.forEach((item, index) => {
-            this.queue[index] = null;
-        });
         this.queue.length = 0;
-        this.queue = [];
-        this.isProcessing = false;
-        this.debugLog('🎵 音声キューを完全クリア（メモリリーク対策済み）');
+        this.debugLog('🎵 音声キューをクリアしました');
     }
     
     // キューの状態を取得

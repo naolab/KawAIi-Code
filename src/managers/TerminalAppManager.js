@@ -186,10 +186,10 @@ class TerminalAppManager {
         debugLog('🔗 サービス間連携設定開始');
         
         // MessageAccumulatorのコールバック設定
-        // characterIdはMessageAccumulator.addChunkから渡される
-        this.terminalApp.messageAccumulator.setProcessCallback(async (data, characterId = null) => {
-            console.log('[TerminalAppManager] MessageAccumulator callback, characterId:', characterId);
-            await this.terminalApp.terminalService.processTerminalData(data, characterId);
+        // options に interrupt: true などが含まれる
+        this.terminalApp.messageAccumulator.setProcessCallback(async (data, characterId = null, options = {}) => {
+            console.log('[TerminalAppManager] MessageAccumulator callback:', { characterId, options });
+            await this.terminalApp.terminalService.processTerminalData(data, characterId, options);
         });
         
         // 壁紙システムの初期化
