@@ -158,7 +158,7 @@
 body {
     font-family:
         -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
-    background: url("assets/wallpapers/default/default.png") center/cover fixed;
+    background: url("../assets/wallpapers/default/default.png") center/cover fixed;
     background-size: cover;
     background-position: center;
     background-attachment: fixed;

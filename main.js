@@ -38,7 +38,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       preload: path.join(__dirname, 'src', 'preload.js'),
-      webSecurity: false,
+      webSecurity: true,
       devTools: true
     },
     titleBarStyle: 'hiddenInset',
