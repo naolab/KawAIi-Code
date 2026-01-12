@@ -230,29 +230,38 @@ class TerminalService {
 
 
     handleResize() {
-        // 既存のリサイズタイマーをクリア
+        // リサイズ中フラグを設定（音声処理の一時停止用）
+        this.isResizing = true;
+
+        // 1. 即座に画面上のターミナルをフィットさせる（視覚的なレスポンス向上のため）
+        // ただし、大量に呼び出されるのを防ぐため、requestAnimationFrameを使用
+        if (this.resizeRAF) {
+            cancelAnimationFrame(this.resizeRAF);
+        }
+        
+        this.resizeRAF = requestAnimationFrame(() => {
+            this.performVisualFit();
+            this.resizeRAF = null;
+        });
+
+        // 2. PTYのリサイズはデバウンスして、リサイズが完全に止まったところで1回だけ送る
+        // これにより、バックエンドのバッファが混乱するのを防ぐ
         if (this.resizeTimer) {
             clearTimeout(this.resizeTimer);
         }
         
-        // リサイズ中フラグを設定
-        this.isResizing = true;
-        
-        // 新しいタイマーを設定（最後のリサイズから100ms後に実行）
         this.resizeTimer = setTimeout(() => {
-            this.performResize();
+            this.syncPtySize();
             this.isResizing = false;
             this.resizeTimer = null;
-            debugLog('🔄 ターミナルリサイズ実行完了');
-        }, 100);
+            debugLog('🔄 ターミナルとPTYの同期完了');
+        }, 100); // 100msに調整して安定性とレスポンスを両立
     }
 
     /**
-     * 実際のリサイズ処理を実行
+     * 画面上のxterm.jsインスタンスを現在のコンテナサイズに合わせる（即時実行用）
      */
-    performResize() {
-        debugLog('🔄 リサイズ実行開始');
-        
+    performVisualFit() {
         const tabManager = this.terminalApp.tabManager;
         if (tabManager && tabManager.activeTabId) {
             const activeTab = tabManager.tabs[tabManager.activeTabId];
@@ -261,28 +270,44 @@ class TerminalService {
                     if (pane.fitAddon && pane.terminal) {
                         try {
                             pane.fitAddon.fit();
-                            if (pane.isRunning) {
-                                window.electronAPI.tab.resize(pane.id, pane.terminal.cols, pane.terminal.rows);
-                            }
                         } catch (e) {
-                            debugError(`Error resizing pane ${pane.id}:`, e);
+                            // まれにDOMが見つからないなどのエラーが出ることがあるが無視
                         }
                     }
                 });
             }
         } else if (this.fitAddon && this.terminal) {
-            // シングルターミナルモード（後方互換性）
             try {
                 this.fitAddon.fit();
-                if (this.isTerminalRunning) {
-                    window.electronAPI.terminal.resize(
-                        this.terminal.cols,
-                        this.terminal.rows
-                    );
-                }
-            } catch (e) {
-                debugError('Error resizing main terminal:', e);
+            } catch (e) {}
+        }
+    }
+
+    /**
+     * PTYの実サイズをxterm.jsに同期させる
+     */
+    syncPtySize() {
+        debugLog('🔄 PTYサイズ同期開始');
+        
+        const tabManager = this.terminalApp.tabManager;
+        if (tabManager && tabManager.activeTabId) {
+            const activeTab = tabManager.tabs[tabManager.activeTabId];
+            if (activeTab && activeTab.panes) {
+                activeTab.panes.forEach(pane => {
+                    if (pane.fitAddon && pane.terminal && pane.isRunning) {
+                        // fitを再度実行して最新の列数・行数を確定させる
+                        pane.fitAddon.fit();
+                        window.electronAPI.tab.resize(pane.id, pane.terminal.cols, pane.terminal.rows);
+                        debugLog(`Synced pane ${pane.id}: ${pane.terminal.cols}x${pane.terminal.rows}`);
+                    }
+                });
             }
+        } else if (this.fitAddon && this.terminal && this.isTerminalRunning) {
+            this.fitAddon.fit();
+            window.electronAPI.terminal.resize(
+                this.terminal.cols,
+                this.terminal.rows
+            );
         }
     }
 
@@ -299,7 +324,7 @@ class TerminalService {
         observer.observe(terminalElement);
         
         // クリーンアップをリソースマネージャーに登録
-        this.resourceManager.addCleanup(() => observer.disconnect());
+        this.resourceManager.registerCleanup(() => observer.disconnect());
     }
 
     async processTerminalData(data, characterId = null) {

@@ -1875,22 +1875,6 @@ class TabManager {
 
             if (beforeElement) beforeElement.style.flex = newBeforeSize.toString();
             if (afterElement) afterElement.style.flex = newAfterSize.toString();
-
-            // ターミナルのリサイズ
-            if (beforeNode.type === 'terminal' && beforeNode.fitAddon) {
-                setTimeout(() => beforeNode.fitAddon.fit(), 0);
-            }
-            if (afterNode.type === 'terminal' && afterNode.fitAddon) {
-                setTimeout(() => afterNode.fitAddon.fit(), 0);
-            }
-
-            // コンテナの場合は子孫のターミナルすべてをリサイズ
-            this.forEachTerminalNode(beforeNode, (node) => {
-                if (node.fitAddon) setTimeout(() => node.fitAddon.fit(), 0);
-            });
-            this.forEachTerminalNode(afterNode, (node) => {
-                if (node.fitAddon) setTimeout(() => node.fitAddon.fit(), 0);
-            });
         };
 
         const handleMouseUp = () => {
@@ -1900,18 +1884,6 @@ class TabManager {
             resizer.classList.remove('dragging');
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
-
-            // PTYのリサイズ通知
-            this.forEachTerminalNode(beforeNode, (node) => {
-                if (node.isRunning && node.terminal) {
-                    window.electronAPI.tab.resize(node.id, node.terminal.cols, node.terminal.rows);
-                }
-            });
-            this.forEachTerminalNode(afterNode, (node) => {
-                if (node.isRunning && node.terminal) {
-                    window.electronAPI.tab.resize(node.id, node.terminal.cols, node.terminal.rows);
-                }
-            });
         };
 
         resizer.addEventListener('mousedown', handleMouseDown);
