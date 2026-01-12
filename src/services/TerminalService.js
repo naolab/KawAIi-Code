@@ -66,34 +66,14 @@ class TerminalService {
             debugLog('🛡️ シンプル重複防止システム初期化完了');
         }
 
-        // Handle window resize (ResourceManager経由)
+        // ResizeObserverのセットアップ（フォールバック用）
+        if (this.terminal && document.getElementById('terminal')) {
+            this.setupFallbackResizeObserver();
+        }
+
+        // Handle window resize (ResourceManager経由 - 従来のブラウザ互換性のため保持するが、実行はhandleResizeに集約)
         this.resourceManager.addEventListener(window, 'resize', () => {
-            // デバウンス処理付きリサイズ制御
             this.handleResize();
-            
-            // タブシステムが有効な場合、アクティブなタブの全ペインをリサイズ
-            if (this.terminalApp.tabManager && this.terminalApp.tabManager.activeTabId) {
-                const activeTab = this.terminalApp.tabManager.tabs[this.terminalApp.tabManager.activeTabId];
-                if (activeTab) {
-                    activeTab.panes.forEach(pane => {
-                        if (pane.fitAddon) {
-                            pane.fitAddon.fit();
-                            if (pane.isRunning && pane.terminal) {
-                                window.electronAPI.tab.resize(pane.id, pane.terminal.cols, pane.terminal.rows);
-                            }
-                        }
-                    });
-                }
-            } else if (this.fitAddon) {
-                // シングルターミナルモード（後方互換性）
-                this.fitAddon.fit();
-                if (this.isTerminalRunning) {
-                    window.electronAPI.terminal.resize(
-                        this.terminal.cols,
-                        this.terminal.rows
-                    );
-                }
-            }
         });
 
         // イベントリスナー初期化（重複防止付き）
@@ -257,21 +237,69 @@ class TerminalService {
         
         // リサイズ中フラグを設定
         this.isResizing = true;
-        debugLog('🔄 リサイズ開始 - 音声処理を一時停止');
         
-        // 位置トラッカーの状態をログ出力
-        if (this.positionTracker) {
-            this.positionTracker.logCurrentState();
-        }
-        
-        // 新しいタイマーを設定（最後のリサイズから200ms後に解除）
+        // 新しいタイマーを設定（最後のリサイズから100ms後に実行）
         this.resizeTimer = setTimeout(() => {
+            this.performResize();
             this.isResizing = false;
             this.resizeTimer = null;
-            debugLog('🔄 リサイズ完了 - 音声処理を再開');
-            
-            debugLog('🔄 リサイズ完了 - 音声処理を再開');
-        }, 200);
+            debugLog('🔄 ターミナルリサイズ実行完了');
+        }, 100);
+    }
+
+    /**
+     * 実際のリサイズ処理を実行
+     */
+    performResize() {
+        debugLog('🔄 リサイズ実行開始');
+        
+        const tabManager = this.terminalApp.tabManager;
+        if (tabManager && tabManager.activeTabId) {
+            const activeTab = tabManager.tabs[tabManager.activeTabId];
+            if (activeTab && activeTab.panes) {
+                activeTab.panes.forEach(pane => {
+                    if (pane.fitAddon && pane.terminal) {
+                        try {
+                            pane.fitAddon.fit();
+                            if (pane.isRunning) {
+                                window.electronAPI.tab.resize(pane.id, pane.terminal.cols, pane.terminal.rows);
+                            }
+                        } catch (e) {
+                            debugError(`Error resizing pane ${pane.id}:`, e);
+                        }
+                    }
+                });
+            }
+        } else if (this.fitAddon && this.terminal) {
+            // シングルターミナルモード（後方互換性）
+            try {
+                this.fitAddon.fit();
+                if (this.isTerminalRunning) {
+                    window.electronAPI.terminal.resize(
+                        this.terminal.cols,
+                        this.terminal.rows
+                    );
+                }
+            } catch (e) {
+                debugError('Error resizing main terminal:', e);
+            }
+        }
+    }
+
+    /**
+     * フォールバック用のResizeObserverセットアップ
+     */
+    setupFallbackResizeObserver() {
+        const terminalElement = document.getElementById('terminal');
+        if (!terminalElement) return;
+
+        const observer = new ResizeObserver(() => {
+            this.handleResize();
+        });
+        observer.observe(terminalElement);
+        
+        // クリーンアップをリソースマネージャーに登録
+        this.resourceManager.addCleanup(() => observer.disconnect());
     }
 
     async processTerminalData(data, characterId = null) {

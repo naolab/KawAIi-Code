@@ -21,6 +21,17 @@ class TabManager {
         
         // イベントリスナー重複防止フラグ
         this.isEventListenersInitialized = false;
+
+        // ResizeObserverの初期化（全タブ・全ペイン共通で使用可能）
+        this.resizeObserver = new ResizeObserver((entries) => {
+            for (let entry of entries) {
+                // 変更があった要素がアクティブなタブのものであればリサイズを実行
+                // デバウンス処理はTerminalService側に任せる
+                if (this.deps && this.deps.terminalService && typeof this.deps.terminalService.handleResize === 'function') {
+                    this.deps.terminalService.handleResize();
+                }
+            }
+        });
     }
 
     async initialize() {
@@ -285,6 +296,11 @@ class TabManager {
         pane.addEventListener('mousedown', () => {
             this.focusPane(paneId);
         });
+
+        // ResizeObserverに登録
+        if (this.resizeObserver) {
+            this.resizeObserver.observe(pane);
+        }
         
         return pane;
     }
@@ -696,6 +712,10 @@ class TabManager {
             if (pane.terminal) {
                 pane.terminal.dispose();
             }
+            // ResizeObserverの解除
+            if (pane.element && this.resizeObserver) {
+                this.resizeObserver.unobserve(pane.element);
+            }
         }
         
         // ラッパーDOMの削除
@@ -764,6 +784,11 @@ class TabManager {
 
         if (paneNode.terminal) {
             paneNode.terminal.dispose();
+        }
+
+        // ResizeObserverの解除
+        if (paneNode.element && this.resizeObserver) {
+            this.resizeObserver.unobserve(paneNode.element);
         }
 
         // フラットなリストからも削除
